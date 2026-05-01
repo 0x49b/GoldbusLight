@@ -132,6 +132,17 @@ func (g *GreetService) RefreshDevice(deviceID string) (ControllerSnapshot, error
 	return controller.Snapshot(), nil
 }
 
+func (g *GreetService) GetDeviceDetail(deviceID string) (WLEDDeviceDetail, error) {
+	controller, err := g.requireController()
+	if err != nil {
+		return WLEDDeviceDetail{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	return controller.GetDeviceDetail(ctx, deviceID), nil
+}
+
 func (g *GreetService) RemoveDevice(deviceID string) (ControllerSnapshot, error) {
 	controller, err := g.requireController()
 	if err != nil {

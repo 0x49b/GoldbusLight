@@ -49,6 +49,10 @@ export function RefreshDevice(deviceID: string): $CancellablePromise<any> {
     return $Call.ByName("main.GreetService.RefreshDevice", deviceID);
 }
 
+export function GetDeviceDetail(deviceID: string): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.GetDeviceDetail", deviceID);
+}
+
 export function RemoveDevice(deviceID: string): $CancellablePromise<any> {
     return $Call.ByName("main.GreetService.RemoveDevice", deviceID);
 }
