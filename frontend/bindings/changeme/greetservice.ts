@@ -8,3 +8,47 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 export function Greet(name: string): $CancellablePromise<string> {
     return $Call.ByID(1411160069, name);
 }
+
+export function GetControllerSnapshot(): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.GetControllerSnapshot");
+}
+
+export function DefaultControllerSettings(): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.DefaultControllerSettings");
+}
+
+export function SaveControllerSettings(settings: any): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.SaveControllerSettings", settings);
+}
+
+export function ApplyNetworkSettings(): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.ApplyNetworkSettings");
+}
+
+export function ScanNetworks(): $CancellablePromise<any[]> {
+    return $Call.ByName("main.GreetService.ScanNetworks");
+}
+
+export function DiscoverDevicesNow(): $CancellablePromise<any[]> {
+    return $Call.ByName("main.GreetService.DiscoverDevicesNow");
+}
+
+export function SetDeviceState(deviceID: string, state: any): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.SetDeviceState", deviceID, state);
+}
+
+export function SetGlobalState(state: any): $CancellablePromise<Record<string, string>> {
+    return $Call.ByName("main.GreetService.SetGlobalState", state);
+}
+
+export function ProvisionDevice(deviceID: string): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.ProvisionDevice", deviceID);
+}
+
+export function RefreshDevice(deviceID: string): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.RefreshDevice", deviceID);
+}
+
+export function RemoveDevice(deviceID: string): $CancellablePromise<any> {
+    return $Call.ByName("main.GreetService.RemoveDevice", deviceID);
+}

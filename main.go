@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	_ "embed"
 	"log"
@@ -22,12 +23,21 @@ func init() {
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.
 	application.RegisterEvent[string]("time")
+	application.RegisterEvent[ControllerSnapshot]("controller:snapshot")
+	application.RegisterEvent[string]("controller:error")
 }
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
+	controller := NewWLEDController(log.Default())
+	if err := controller.Start(context.Background()); err != nil {
+		log.Printf("controller startup failed: %v", err)
+	}
+	defer controller.Stop()
+
+	greetService := NewGreetService(controller)
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -38,7 +48,7 @@ func main() {
 		Name:        "GoldbusLight",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
+			application.NewService(greetService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -70,6 +80,7 @@ func main() {
 		for {
 			now := time.Now().Format(time.RFC1123)
 			app.Event.Emit("time", now)
+			app.Event.Emit("controller:snapshot", controller.Snapshot())
 			time.Sleep(time.Second)
 		}
 	}()
