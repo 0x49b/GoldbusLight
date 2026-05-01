@@ -1,0 +1,1101 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/hashicorp/mdns"
+)
+
+const (
+	defaultStateFileName = "state.json"
+)
+
+type AccessPointSettings struct {
+	Enabled       bool   `json:"enabled"`
+	Connection    string `json:"connection"`
+	InterfaceName string `json:"interfaceName"`
+	SSID          string `json:"ssid"`
+	Password      string `json:"password"`
+	Channel       int    `json:"channel"`
+}
+
+type UpstreamSettings struct {
+	AutoConnect   bool   `json:"autoConnect"`
+	InterfaceName string `json:"interfaceName"`
+	SSID          string `json:"ssid"`
+	Password      string `json:"password"`
+}
+
+type BridgeSettings struct {
+	Enabled           bool   `json:"enabled"`
+	APInterface       string `json:"apInterface"`
+	UpstreamInterface string `json:"upstreamInterface"`
+}
+
+type DiscoverySettings struct {
+	Enabled         bool     `json:"enabled"`
+	ServiceTypes    []string `json:"serviceTypes"`
+	IntervalSeconds int      `json:"intervalSeconds"`
+	QueryTimeoutMS  int      `json:"queryTimeoutMs"`
+}
+
+type ProvisioningSettings struct {
+	AutoProvision       bool           `json:"autoProvision"`
+	DefaultStatePayload map[string]any `json:"defaultStatePayload"`
+	DefaultConfigPatch  map[string]any `json:"defaultConfigPatch"`
+}
+
+type ControllerSettings struct {
+	AccessPoint  AccessPointSettings  `json:"accessPoint"`
+	Upstream     UpstreamSettings     `json:"upstream"`
+	Bridge       BridgeSettings       `json:"bridge"`
+	Discovery    DiscoverySettings    `json:"discovery"`
+	Provisioning ProvisioningSettings `json:"provisioning"`
+}
+
+type WLEDDevice struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Host        string         `json:"host"`
+	Address     string         `json:"address"`
+	Port        int            `json:"port"`
+	LastSeen    time.Time      `json:"lastSeen"`
+	Online      bool           `json:"online"`
+	Provisioned bool           `json:"provisioned"`
+	Info        map[string]any `json:"info,omitempty"`
+}
+
+type persistentState struct {
+	Version  int                   `json:"version"`
+	SavedAt  time.Time             `json:"savedAt"`
+	Settings ControllerSettings    `json:"settings"`
+	Devices  map[string]WLEDDevice `json:"devices"`
+}
+
+type ControllerSnapshot struct {
+	Settings        ControllerSettings     `json:"settings"`
+	Devices         []WLEDDevice           `json:"devices"`
+	PersistencePath string                 `json:"persistencePath"`
+	UpdatedAt       time.Time              `json:"updatedAt"`
+	Capabilities    ControllerCapabilities `json:"capabilities"`
+}
+
+type ControllerCapabilities struct {
+	NmcliAvailable bool `json:"nmcliAvailable"`
+}
+
+type WiFiNetwork struct {
+	SSID     string `json:"ssid"`
+	Signal   int    `json:"signal"`
+	Security string `json:"security"`
+}
+
+type NetworkCommandResult struct {
+	Command string `json:"command"`
+	Output  string `json:"output"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+type NetworkApplyResult struct {
+	DryRun   bool                   `json:"dryRun"`
+	Warnings []string               `json:"warnings,omitempty"`
+	Steps    []NetworkCommandResult `json:"steps"`
+}
+
+type discoveredDevice struct {
+	Name    string
+	Host    string
+	Address string
+	Port    int
+}
+
+type StatePersistenceManager struct {
+	path string
+	mu   sync.Mutex
+}
+
+func NewStatePersistenceManager() *StatePersistenceManager {
+	cfgDir, err := os.UserConfigDir()
+	if err != nil || cfgDir == "" {
+		return &StatePersistenceManager{path: filepath.Join(".", defaultStateFileName)}
+	}
+
+	return &StatePersistenceManager{
+		path: filepath.Join(cfgDir, "wled-controller", defaultStateFileName),
+	}
+}
+
+func (s *StatePersistenceManager) Path() string {
+	return s.path
+}
+
+func (s *StatePersistenceManager) Load() (persistentState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	defaultState := persistentState{
+		Version:  1,
+		SavedAt:  time.Now(),
+		Settings: DefaultControllerSettings(),
+		Devices:  map[string]WLEDDevice{},
+	}
+
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return defaultState, nil
+		}
+		return defaultState, err
+	}
+
+	var state persistentState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return defaultState, err
+	}
+	if state.Settings.AccessPoint.SSID == "" {
+		state.Settings = mergeWithDefaults(state.Settings)
+	}
+	if state.Devices == nil {
+		state.Devices = map[string]WLEDDevice{}
+	}
+	return state, nil
+}
+
+func (s *StatePersistenceManager) Save(state persistentState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+		return err
+	}
+
+	state.SavedAt = time.Now()
+	payload, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, payload, 0o600)
+}
+
+type NetworkManager struct {
+	logger *log.Logger
+}
+
+func NewNetworkManager(logger *log.Logger) *NetworkManager {
+	return &NetworkManager{logger: logger}
+}
+
+func (n *NetworkManager) NmcliAvailable() bool {
+	_, err := exec.LookPath("nmcli")
+	return err == nil
+}
+
+func (n *NetworkManager) Apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
+	result := NetworkApplyResult{
+		DryRun: !n.NmcliAvailable(),
+		Steps:  make([]NetworkCommandResult, 0, 8),
+	}
+	if result.DryRun {
+		result.Warnings = append(result.Warnings, "nmcli is not available, returning dry-run output")
+		return result
+	}
+
+	ap := settings.AccessPoint
+	if ap.Enabled {
+		connectionName := ap.Connection
+		if connectionName == "" {
+			connectionName = "wled-controller-ap"
+		}
+		iface := defaultString(ap.InterfaceName, "wlan0")
+		ssid := defaultString(ap.SSID, "WLED-Controller-Net")
+		channel := ap.Channel
+		if channel <= 0 {
+			channel = 6
+		}
+
+		if !n.connectionExists(ctx, connectionName) {
+			result.Steps = append(result.Steps, n.runCommand(ctx, "nmcli", "connection", "add", "type", "wifi", "ifname", iface, "con-name", connectionName, "autoconnect", "yes", "ssid", ssid))
+		}
+
+		result.Steps = append(result.Steps,
+			n.runCommand(ctx, "nmcli", "connection", "modify", connectionName,
+				"802-11-wireless.mode", "ap",
+				"802-11-wireless.band", "bg",
+				"802-11-wireless.channel", fmt.Sprintf("%d", channel),
+				"802-11-wireless.ssid", ssid,
+				"wifi-sec.key-mgmt", "wpa-psk",
+				"wifi-sec.psk", ap.Password,
+				"ipv4.method", "shared"),
+		)
+		result.Steps = append(result.Steps, n.runCommand(ctx, "nmcli", "connection", "up", connectionName))
+	}
+
+	if settings.Upstream.AutoConnect && settings.Upstream.SSID != "" {
+		iface := defaultString(settings.Upstream.InterfaceName, "wlan1")
+		result.Steps = append(result.Steps, n.runCommand(ctx, "nmcli", "device", "wifi", "connect", settings.Upstream.SSID, "password", settings.Upstream.Password, "ifname", iface))
+	}
+
+	if settings.Bridge.Enabled {
+		result.Steps = append(result.Steps, n.runCommand(ctx, "sysctl", "-w", "net.ipv4.ip_forward=1"))
+
+		upstream := defaultString(settings.Bridge.UpstreamInterface, settings.Upstream.InterfaceName)
+		if upstream == "" {
+			upstream = "wlan1"
+		}
+		result.Steps = append(result.Steps, n.runCommand(ctx, "iptables", "-t", "nat", "-C", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
+		lastStep := result.Steps[len(result.Steps)-1]
+		if !lastStep.Success {
+			result.Steps = append(result.Steps, n.runCommand(ctx, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
+		}
+	}
+
+	for _, step := range result.Steps {
+		if !step.Success {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("command failed: %s", step.Command))
+		}
+	}
+	return result
+}
+
+func (n *NetworkManager) connectionExists(ctx context.Context, connectionName string) bool {
+	cmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "NAME", "connection", "show")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.TrimSpace(line) == connectionName {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *NetworkManager) ScanUpstreamNetworks(ctx context.Context, iface string) ([]WiFiNetwork, error) {
+	if !n.NmcliAvailable() {
+		return nil, errors.New("nmcli is not available")
+	}
+
+	if iface == "" {
+		iface = "wlan1"
+	}
+	cmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "device", "wifi", "list", "ifname", iface)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("nmcli scan failed: %w", err)
+	}
+
+	seen := make(map[string]WiFiNetwork)
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		parts := strings.Split(line, ":")
+		if len(parts) < 3 {
+			continue
+		}
+		ssid := strings.TrimSpace(parts[0])
+		if ssid == "" {
+			continue
+		}
+		network := WiFiNetwork{
+			SSID:     ssid,
+			Signal:   parseSignal(parts[1]),
+			Security: strings.TrimSpace(parts[2]),
+		}
+		if existing, ok := seen[ssid]; !ok || network.Signal > existing.Signal {
+			seen[ssid] = network
+		}
+	}
+
+	networks := make([]WiFiNetwork, 0, len(seen))
+	for _, network := range seen {
+		networks = append(networks, network)
+	}
+	slices.SortFunc(networks, func(a, b WiFiNetwork) int {
+		if a.Signal == b.Signal {
+			return strings.Compare(a.SSID, b.SSID)
+		}
+		return b.Signal - a.Signal
+	})
+	return networks, nil
+}
+
+func (n *NetworkManager) runCommand(ctx context.Context, name string, args ...string) NetworkCommandResult {
+	full := strings.Join(append([]string{name}, args...), " ")
+	cmd := exec.CommandContext(ctx, name, args...)
+	output, err := cmd.CombinedOutput()
+	result := NetworkCommandResult{
+		Command: full,
+		Output:  strings.TrimSpace(string(output)),
+		Success: err == nil,
+	}
+	if err != nil {
+		result.Error = err.Error()
+	}
+	return result
+}
+
+type DiscoveryEngine struct {
+	logger *log.Logger
+}
+
+func NewDiscoveryEngine(logger *log.Logger) *DiscoveryEngine {
+	return &DiscoveryEngine{logger: logger}
+}
+
+func (d *DiscoveryEngine) DiscoverOnce(ctx context.Context, settings DiscoverySettings) ([]discoveredDevice, error) {
+	serviceTypes := settings.ServiceTypes
+	if len(serviceTypes) == 0 {
+		serviceTypes = []string{"_wled._tcp", "_http._tcp"}
+	}
+
+	timeout := time.Duration(settings.QueryTimeoutMS) * time.Millisecond
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+
+	known := map[string]discoveredDevice{}
+	for _, serviceType := range serviceTypes {
+		serviceType := serviceType
+		entries := make(chan *mdns.ServiceEntry, 64)
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for entry := range entries {
+				candidate := toDiscoveredDevice(entry)
+				if !isWLEDCandidate(serviceType, candidate) {
+					continue
+				}
+				key := fmt.Sprintf("%s:%d", candidate.Address, candidate.Port)
+				mu.Lock()
+				known[key] = candidate
+				mu.Unlock()
+			}
+		}()
+
+		queryCtx, cancel := context.WithTimeout(ctx, timeout+500*time.Millisecond)
+		err := mdns.QueryContext(queryCtx, &mdns.QueryParam{
+			Service: serviceType,
+			Domain:  "local",
+			Timeout: timeout,
+			Entries: entries,
+		})
+		cancel()
+		close(entries)
+		wg.Wait()
+		if err != nil {
+			d.logger.Printf("mdns query failed for %s: %v", serviceType, err)
+		}
+	}
+
+	found := make([]discoveredDevice, 0, len(known))
+	for _, device := range known {
+		found = append(found, device)
+	}
+	slices.SortFunc(found, func(a, b discoveredDevice) int {
+		return strings.Compare(a.Address, b.Address)
+	})
+	return found, nil
+}
+
+type WLEDEngine struct {
+	client *http.Client
+}
+
+func NewWLEDEngine() *WLEDEngine {
+	return &WLEDEngine{
+		client: &http.Client{Timeout: 4 * time.Second},
+	}
+}
+
+func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice) (WLEDDevice, error) {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	var payload struct {
+		Info struct {
+			Name string `json:"name"`
+			Mac  string `json:"mac"`
+			Ver  string `json:"ver"`
+		} `json:"info"`
+		State map[string]any `json:"state"`
+	}
+	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
+		return WLEDDevice{}, err
+	}
+
+	id := strings.TrimSpace(payload.Info.Mac)
+	if id == "" {
+		id = fmt.Sprintf("%s:%d", device.Address, device.Port)
+	}
+	name := strings.TrimSpace(payload.Info.Name)
+	if name == "" {
+		name = strings.TrimSuffix(device.Host, ".")
+	}
+	if name == "" {
+		name = device.Address
+	}
+
+	info := map[string]any{
+		"version": payload.Info.Ver,
+	}
+	for k, v := range payload.State {
+		if k == "bri" || k == "on" {
+			info[k] = v
+		}
+	}
+
+	return WLEDDevice{
+		ID:          id,
+		Name:        name,
+		Host:        device.Host,
+		Address:     device.Address,
+		Port:        device.Port,
+		LastSeen:    time.Now(),
+		Online:      true,
+		Provisioned: false,
+		Info:        info,
+	}, nil
+}
+
+func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	var payload map[string]any
+	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/state", nil, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	// Reachability check via cfg endpoint (documented at kno.wled.ge).
+	var cfg map[string]any
+	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &cfg); err != nil {
+		return err
+	}
+	if len(cfgPatch) > 0 {
+		if err := w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", cfgPatch, nil); err != nil {
+			return err
+		}
+	}
+	if len(initialState) > 0 {
+		if err := w.requestJSON(ctx, http.MethodPost, base+"/json/state", initialState, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	return w.requestJSON(ctx, http.MethodPost, base+"/json/state", state, nil)
+}
+
+func (w *WLEDEngine) ApplyStateToAll(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
+	results := make(map[string]string, len(devices))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, device := range devices {
+		device := device
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := w.ApplyState(ctx, device, state)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				results[device.ID] = err.Error()
+				return
+			}
+			results[device.ID] = "ok"
+		}()
+	}
+	wg.Wait()
+	return results
+}
+
+func (w *WLEDEngine) requestJSON(ctx context.Context, method, endpoint string, payload any, out any) error {
+	var body *bytes.Reader
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		body = bytes.NewReader(encoded)
+	} else {
+		body = bytes.NewReader(nil)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, endpoint)
+	}
+	if out == nil {
+		return nil
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+type WLEDController struct {
+	logger      *log.Logger
+	persistence *StatePersistenceManager
+	network     *NetworkManager
+	discovery   *DiscoveryEngine
+	wled        *WLEDEngine
+
+	mu       sync.RWMutex
+	settings ControllerSettings
+	devices  map[string]WLEDDevice
+	updated  time.Time
+
+	cancel context.CancelFunc
+}
+
+func NewWLEDController(logger *log.Logger) *WLEDController {
+	if logger == nil {
+		logger = log.Default()
+	}
+	return &WLEDController{
+		logger:      logger,
+		persistence: NewStatePersistenceManager(),
+		network:     NewNetworkManager(logger),
+		discovery:   NewDiscoveryEngine(logger),
+		wled:        NewWLEDEngine(),
+		settings:    DefaultControllerSettings(),
+		devices:     map[string]WLEDDevice{},
+		updated:     time.Now(),
+	}
+}
+
+func (c *WLEDController) Start(ctx context.Context) error {
+	loaded, err := c.persistence.Load()
+	if err != nil {
+		c.logger.Printf("state load failed, using defaults: %v", err)
+		loaded = persistentState{
+			Version:  1,
+			SavedAt:  time.Now(),
+			Settings: DefaultControllerSettings(),
+			Devices:  map[string]WLEDDevice{},
+		}
+	}
+
+	c.mu.Lock()
+	c.settings = mergeWithDefaults(loaded.Settings)
+	c.devices = loaded.Devices
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	runCtx, cancel := context.WithCancel(ctx)
+	c.cancel = cancel
+
+	go c.discoveryLoop(runCtx)
+	go c.persistenceLoop(runCtx)
+	go c.healthLoop(runCtx)
+
+	return nil
+}
+
+func (c *WLEDController) Stop() {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	if err := c.persist(); err != nil {
+		c.logger.Printf("persist during shutdown failed: %v", err)
+	}
+}
+
+func (c *WLEDController) Snapshot() ControllerSnapshot {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	devices := make([]WLEDDevice, 0, len(c.devices))
+	for _, device := range c.devices {
+		devices = append(devices, device)
+	}
+	slices.SortFunc(devices, func(a, b WLEDDevice) int {
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+
+	return ControllerSnapshot{
+		Settings:        c.settings,
+		Devices:         devices,
+		PersistencePath: c.persistence.Path(),
+		UpdatedAt:       c.updated,
+		Capabilities: ControllerCapabilities{
+			NmcliAvailable: c.network.NmcliAvailable(),
+		},
+	}
+}
+
+func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
+	c.mu.Lock()
+	c.settings = mergeWithDefaults(settings)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persist()
+}
+
+func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
+	c.mu.RLock()
+	settings := c.settings
+	c.mu.RUnlock()
+
+	result := c.network.Apply(ctx, settings)
+	c.touch()
+	return result
+}
+
+func (c *WLEDController) ScanUpstreamNetworks(ctx context.Context) ([]WiFiNetwork, error) {
+	c.mu.RLock()
+	iface := c.settings.Upstream.InterfaceName
+	c.mu.RUnlock()
+	return c.network.ScanUpstreamNetworks(ctx, iface)
+}
+
+func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) {
+	c.mu.RLock()
+	settings := c.settings.Discovery
+	c.mu.RUnlock()
+
+	found, err := c.discovery.DiscoverOnce(ctx, settings)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, candidate := range found {
+		c.processDiscoveredCandidate(ctx, candidate)
+	}
+	return c.Snapshot().Devices, c.persist()
+}
+
+func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, state map[string]any) error {
+	c.mu.RLock()
+	device, ok := c.devices[deviceID]
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+
+	if err := c.wled.ApplyState(ctx, device, state); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	device.LastSeen = time.Now()
+	device.Online = true
+	if device.Info == nil {
+		device.Info = map[string]any{}
+	}
+	for k, v := range state {
+		if k == "on" || k == "bri" || k == "ps" {
+			device.Info[k] = v
+		}
+	}
+	c.devices[deviceID] = device
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	return c.persist()
+}
+
+func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]any) map[string]string {
+	c.mu.RLock()
+	devices := make([]WLEDDevice, 0, len(c.devices))
+	for _, d := range c.devices {
+		if d.Online {
+			devices = append(devices, d)
+		}
+	}
+	c.mu.RUnlock()
+
+	results := c.wled.ApplyStateToAll(ctx, devices, state)
+	c.touch()
+	return results
+}
+
+func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) error {
+	c.mu.RLock()
+	device, ok := c.devices[deviceID]
+	settings := c.settings.Provisioning
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+
+	if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	device.Provisioned = true
+	device.Online = true
+	device.LastSeen = time.Now()
+	c.devices[deviceID] = device
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	return c.persist()
+}
+
+func (c *WLEDController) RefreshDevice(ctx context.Context, deviceID string) error {
+	c.mu.RLock()
+	device, ok := c.devices[deviceID]
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+
+	state, err := c.wled.GetState(ctx, device)
+	if err != nil {
+		c.mu.Lock()
+		device.Online = false
+		c.devices[deviceID] = device
+		c.updated = time.Now()
+		c.mu.Unlock()
+		return err
+	}
+
+	c.mu.Lock()
+	device.Online = true
+	device.LastSeen = time.Now()
+	if device.Info == nil {
+		device.Info = map[string]any{}
+	}
+	if v, ok := state["on"]; ok {
+		device.Info["on"] = v
+	}
+	if v, ok := state["bri"]; ok {
+		device.Info["bri"] = v
+	}
+	c.devices[deviceID] = device
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	return c.persist()
+}
+
+func (c *WLEDController) RemoveDevice(deviceID string) error {
+	c.mu.Lock()
+	delete(c.devices, deviceID)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persist()
+}
+
+func (c *WLEDController) discoveryLoop(ctx context.Context) {
+	c.discoverAndProvision(ctx)
+	ticker := time.NewTicker(c.discoveryInterval())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.discoverAndProvision(ctx)
+		}
+	}
+}
+
+func (c *WLEDController) discoverAndProvision(ctx context.Context) {
+	c.mu.RLock()
+	discoverySettings := c.settings.Discovery
+	c.mu.RUnlock()
+	if !discoverySettings.Enabled {
+		return
+	}
+
+	devices, err := c.discovery.DiscoverOnce(ctx, discoverySettings)
+	if err != nil {
+		c.logger.Printf("discovery failed: %v", err)
+		return
+	}
+	for _, candidate := range devices {
+		c.processDiscoveredCandidate(ctx, candidate)
+	}
+	if err := c.persist(); err != nil {
+		c.logger.Printf("persist after discovery failed: %v", err)
+	}
+}
+
+func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candidate discoveredDevice) {
+	device, err := c.wled.InspectDevice(ctx, candidate)
+	if err != nil {
+		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
+		return
+	}
+
+	c.mu.Lock()
+	existing, hasExisting := c.devices[device.ID]
+	if hasExisting {
+		if existing.Provisioned {
+			device.Provisioned = true
+		}
+	}
+	c.devices[device.ID] = device
+	settings := c.settings.Provisioning
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	if settings.AutoProvision && !device.Provisioned {
+		if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err == nil {
+			c.mu.Lock()
+			device.Provisioned = true
+			c.devices[device.ID] = device
+			c.updated = time.Now()
+			c.mu.Unlock()
+		}
+	}
+}
+
+func (c *WLEDController) persistenceLoop(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := c.persist(); err != nil {
+				c.logger.Printf("periodic persist failed: %v", err)
+			}
+		}
+	}
+}
+
+func (c *WLEDController) healthLoop(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.checkKnownDevices(ctx)
+		}
+	}
+}
+
+func (c *WLEDController) checkKnownDevices(ctx context.Context) {
+	c.mu.RLock()
+	devices := make([]WLEDDevice, 0, len(c.devices))
+	for _, device := range c.devices {
+		devices = append(devices, device)
+	}
+	c.mu.RUnlock()
+
+	for _, device := range devices {
+		state, err := c.wled.GetState(ctx, device)
+		c.mu.Lock()
+		latest := c.devices[device.ID]
+		if err != nil {
+			latest.Online = false
+			c.devices[device.ID] = latest
+			c.mu.Unlock()
+			continue
+		}
+
+		latest.Online = true
+		latest.LastSeen = time.Now()
+		if latest.Info == nil {
+			latest.Info = map[string]any{}
+		}
+		if on, ok := state["on"]; ok {
+			latest.Info["on"] = on
+		}
+		if bri, ok := state["bri"]; ok {
+			latest.Info["bri"] = bri
+		}
+		c.devices[device.ID] = latest
+		c.updated = time.Now()
+		c.mu.Unlock()
+	}
+}
+
+func (c *WLEDController) discoveryInterval() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	seconds := c.settings.Discovery.IntervalSeconds
+	if seconds <= 0 {
+		seconds = 15
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func (c *WLEDController) touch() {
+	c.mu.Lock()
+	c.updated = time.Now()
+	c.mu.Unlock()
+}
+
+func (c *WLEDController) persist() error {
+	c.mu.RLock()
+	state := persistentState{
+		Version:  1,
+		SavedAt:  time.Now(),
+		Settings: c.settings,
+		Devices:  cloneDeviceMap(c.devices),
+	}
+	c.mu.RUnlock()
+	return c.persistence.Save(state)
+}
+
+func cloneDeviceMap(in map[string]WLEDDevice) map[string]WLEDDevice {
+	out := make(map[string]WLEDDevice, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func DefaultControllerSettings() ControllerSettings {
+	return ControllerSettings{
+		AccessPoint: AccessPointSettings{
+			Enabled:       true,
+			Connection:    "wled-controller-ap",
+			InterfaceName: "wlan0",
+			SSID:          "WLED-Controller-Net",
+			Password:      "wled-control",
+			Channel:       6,
+		},
+		Upstream: UpstreamSettings{
+			AutoConnect:   false,
+			InterfaceName: "wlan1",
+		},
+		Bridge: BridgeSettings{
+			Enabled:           true,
+			APInterface:       "wlan0",
+			UpstreamInterface: "wlan1",
+		},
+		Discovery: DiscoverySettings{
+			Enabled:         true,
+			ServiceTypes:    []string{"_wled._tcp", "_http._tcp"},
+			IntervalSeconds: 15,
+			QueryTimeoutMS:  2000,
+		},
+		Provisioning: ProvisioningSettings{
+			AutoProvision:       false,
+			DefaultStatePayload: map[string]any{"on": true, "bri": 180},
+			DefaultConfigPatch:  map[string]any{},
+		},
+	}
+}
+
+func mergeWithDefaults(in ControllerSettings) ControllerSettings {
+	defaults := DefaultControllerSettings()
+	out := in
+
+	if out.AccessPoint.Connection == "" {
+		out.AccessPoint.Connection = defaults.AccessPoint.Connection
+	}
+	if out.AccessPoint.InterfaceName == "" {
+		out.AccessPoint.InterfaceName = defaults.AccessPoint.InterfaceName
+	}
+	if out.AccessPoint.SSID == "" {
+		out.AccessPoint.SSID = defaults.AccessPoint.SSID
+	}
+	if out.AccessPoint.Password == "" {
+		out.AccessPoint.Password = defaults.AccessPoint.Password
+	}
+	if out.AccessPoint.Channel <= 0 {
+		out.AccessPoint.Channel = defaults.AccessPoint.Channel
+	}
+	if out.Upstream.InterfaceName == "" {
+		out.Upstream.InterfaceName = defaults.Upstream.InterfaceName
+	}
+	if out.Bridge.APInterface == "" {
+		out.Bridge.APInterface = defaults.Bridge.APInterface
+	}
+	if out.Bridge.UpstreamInterface == "" {
+		out.Bridge.UpstreamInterface = defaults.Bridge.UpstreamInterface
+	}
+	if len(out.Discovery.ServiceTypes) == 0 {
+		out.Discovery.ServiceTypes = defaults.Discovery.ServiceTypes
+	}
+	if out.Discovery.IntervalSeconds <= 0 {
+		out.Discovery.IntervalSeconds = defaults.Discovery.IntervalSeconds
+	}
+	if out.Discovery.QueryTimeoutMS <= 0 {
+		out.Discovery.QueryTimeoutMS = defaults.Discovery.QueryTimeoutMS
+	}
+	if out.Provisioning.DefaultStatePayload == nil {
+		out.Provisioning.DefaultStatePayload = defaults.Provisioning.DefaultStatePayload
+	}
+	if out.Provisioning.DefaultConfigPatch == nil {
+		out.Provisioning.DefaultConfigPatch = defaults.Provisioning.DefaultConfigPatch
+	}
+	return out
+}
+
+func toDiscoveredDevice(entry *mdns.ServiceEntry) discoveredDevice {
+	host := strings.TrimSuffix(entry.Host, ".")
+	address := host
+	if entry.AddrV4 != nil {
+		address = entry.AddrV4.String()
+	}
+	name := strings.TrimSuffix(entry.Name, ".")
+	if name == "" {
+		name = host
+	}
+	port := entry.Port
+	if port == 0 {
+		port = 80
+	}
+	return discoveredDevice{
+		Name:    name,
+		Host:    host,
+		Address: address,
+		Port:    port,
+	}
+}
+
+func isWLEDCandidate(serviceType string, device discoveredDevice) bool {
+	if serviceType == "_wled._tcp" {
+		return true
+	}
+	haystack := strings.ToLower(device.Name + " " + device.Host + " " + device.Address)
+	return strings.Contains(haystack, "wled")
+}
+
+func parseSignal(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	var value int
+	if _, err := fmt.Sscanf(raw, "%d", &value); err != nil {
+		return 0
+	}
+	return value
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(value)
+}

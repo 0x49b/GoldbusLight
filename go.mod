@@ -4,6 +4,8 @@ go 1.25
 
 require github.com/wailsapp/wails/v3 v3.0.0-alpha.81
 
+require github.com/hashicorp/mdns v1.0.6
+
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
