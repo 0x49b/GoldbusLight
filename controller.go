@@ -655,6 +655,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.discoveryLoop(runCtx)
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
+	go c.restoreLastStatesOnBoot(runCtx)
 
 	return nil
 }
@@ -1031,6 +1032,57 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 				c.logger.Printf("periodic persist failed: %v", err)
 			}
 		}
+	}
+}
+
+func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
+	select {
+	case <-time.After(2 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+
+	c.mu.RLock()
+	list := make([]WLEDDevice, 0, len(c.devices))
+	for _, d := range c.devices {
+		if len(d.LastState) == 0 {
+			continue
+		}
+		list = append(list, d)
+	}
+	c.mu.RUnlock()
+
+	restoreCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	for _, device := range list {
+		state := cloneJSONMap(device.LastState)
+		if len(state) == 0 {
+			continue
+		}
+		if err := c.wled.ApplyState(restoreCtx, device, state); err != nil {
+			c.logger.Printf("boot restore for %s failed: %v", device.ID, err)
+			continue
+		}
+		c.mu.Lock()
+		latest := c.devices[device.ID]
+		latest.Online = true
+		latest.LastSeen = time.Now()
+		if latest.Info == nil {
+			latest.Info = map[string]any{}
+		}
+		if v, ok := state["on"]; ok {
+			latest.Info["on"] = v
+		}
+		if v, ok := state["bri"]; ok {
+			latest.Info["bri"] = v
+		}
+		c.devices[device.ID] = latest
+		c.updated = time.Now()
+		c.mu.Unlock()
+	}
+	if err := c.persist(); err != nil {
+		c.logger.Printf("persist after boot restore failed: %v", err)
 	}
 }
 
