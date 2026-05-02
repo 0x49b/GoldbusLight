@@ -37,13 +37,19 @@ func (w *windowsBackend) available() bool {
 	return true
 }
 
+func (w *windowsBackend) primaryCLI() string { return "netsh" }
+
+func (w *windowsBackend) unavailableHint() string {
+	return "`netsh` was not found in PATH, or `netsh wlan show interfaces` failed (Wi-Fi adapter disabled or missing). Enable Wi‑Fi and ensure `netsh.exe` is available for scan and apply."
+}
+
 func (w *windowsBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
 	result := NetworkApplyResult{
 		DryRun: !w.available(),
 		Steps:  make([]NetworkCommandResult, 0, 8),
 	}
 	if result.DryRun {
-		result.Warnings = append(result.Warnings, "netsh wlan is not available or Wi-Fi is disabled")
+		result.Warnings = append(result.Warnings, w.unavailableHint())
 		return result
 	}
 
@@ -194,7 +200,7 @@ func (w *windowsBackend) defaultInterfaceName(iface string) string {
 
 func (w *windowsBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error) {
 	if !w.available() {
-		return nil, errors.New("netsh wlan is not available")
+		return nil, errors.New(w.unavailableHint())
 	}
 	_ = iface
 	cmd := exec.CommandContext(ctx, "netsh", "wlan", "show", "networks", "mode=Bssid")

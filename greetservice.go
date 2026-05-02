@@ -155,6 +155,25 @@ func (g *GreetService) RemoveDevice(deviceID string) (ControllerSnapshot, error)
 	return controller.Snapshot(), nil
 }
 
+func (g *GreetService) GetIgnoredDevices() ([]WLEDDevice, error) {
+	controller, err := g.requireController()
+	if err != nil {
+		return nil, err
+	}
+	return controller.IgnoredDevices(), nil
+}
+
+func (g *GreetService) SetDeviceIgnored(deviceID string, ignored bool) (ControllerSnapshot, error) {
+	controller, err := g.requireController()
+	if err != nil {
+		return ControllerSnapshot{}, err
+	}
+	if err := controller.SetDeviceIgnored(deviceID, ignored); err != nil {
+		return ControllerSnapshot{}, err
+	}
+	return controller.Snapshot(), nil
+}
+
 func (g *GreetService) ControllerSummary() (string, error) {
 	controller, err := g.requireController()
 	if err != nil {
