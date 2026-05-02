@@ -5,3 +5,19 @@ import * as GreetService from "./greetservice.js";
 export {
     GreetService
 };
+
+export {
+    AccessPointSettings,
+    BridgeSettings,
+    ControllerCapabilities,
+    ControllerSettings,
+    ControllerSnapshot,
+    DiscoverySettings,
+    NetworkApplyResult,
+    NetworkCommandResult,
+    ProvisioningSettings,
+    UpstreamSettings,
+    WLEDDevice,
+    WLEDDeviceDetail,
+    WiFiNetwork
+} from "./models.js";

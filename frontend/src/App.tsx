@@ -118,18 +118,9 @@ function parseJSONMap(raw: string): JSONMap {
   return parsed as JSONMap;
 }
 
-function readBool(input: unknown): boolean {
-  return input === true || input === "true" || input === "on" || input === "1";
-}
-
 function readNumber(input: unknown, fallback: number): number {
   const value = Number(input);
   return Number.isFinite(value) ? value : fallback;
-}
-
-function readDeviceBri(device: WLEDDevice): number {
-  const bri = device.info?.bri;
-  return readNumber(bri, 128);
 }
 
 /** WLED warm white example: POST /json/state with seg col [[255,160,0]] */
@@ -1068,7 +1059,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
-      <header className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0">
+      <header className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0"
+      style={{paddingLeft: "100px"}}>
         <div>
           <h1 className="text-lg font-bold leading-tight">WLED Central Controller</h1>
           <p className="text-xs opacity-70">Master presets, per-device control, and settings</p>

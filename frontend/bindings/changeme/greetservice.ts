@@ -5,54 +5,97 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+export function ApplyNetworkSettings(): $CancellablePromise<$models.NetworkApplyResult> {
+    return $Call.ByID(855260483).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+export function ControllerSummary(): $CancellablePromise<string> {
+    return $Call.ByID(1404617268);
+}
+
+export function DefaultControllerSettings(): $CancellablePromise<$models.ControllerSettings> {
+    return $Call.ByID(2596256088).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+export function DiscoverDevicesNow(): $CancellablePromise<$models.WLEDDevice[]> {
+    return $Call.ByID(128760150).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+export function GetControllerSnapshot(): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(1444012244).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+export function GetDeviceDetail(deviceID: string): $CancellablePromise<$models.WLEDDeviceDetail> {
+    return $Call.ByID(1987521971, deviceID).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
 export function Greet(name: string): $CancellablePromise<string> {
     return $Call.ByID(1411160069, name);
 }
 
-export function GetControllerSnapshot(): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.GetControllerSnapshot");
+export function ProvisionDevice(deviceID: string): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(4104550985, deviceID).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
-export function DefaultControllerSettings(): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.DefaultControllerSettings");
+export function RefreshDevice(deviceID: string): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(3974727437, deviceID).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
-export function SaveControllerSettings(settings: any): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.SaveControllerSettings", settings);
+export function RemoveDevice(deviceID: string): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(2895799462, deviceID).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
-export function ApplyNetworkSettings(): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.ApplyNetworkSettings");
+export function SaveControllerSettings(settings: $models.ControllerSettings): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(3713861232, settings).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
-export function ScanNetworks(): $CancellablePromise<any[]> {
-    return $Call.ByName("main.GreetService.ScanNetworks");
+export function ScanNetworks(): $CancellablePromise<$models.WiFiNetwork[]> {
+    return $Call.ByID(3040513354).then(($result: any) => {
+        return $$createType7($result);
+    });
 }
 
-export function DiscoverDevicesNow(): $CancellablePromise<any[]> {
-    return $Call.ByName("main.GreetService.DiscoverDevicesNow");
+export function SetDeviceState(deviceID: string, state: { [_ in string]?: any }): $CancellablePromise<$models.ControllerSnapshot> {
+    return $Call.ByID(1191487715, deviceID, state).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
-export function SetDeviceState(deviceID: string, state: any): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.SetDeviceState", deviceID, state);
+export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
+    return $Call.ByID(646867996, state).then(($result: any) => {
+        return $$createType8($result);
+    });
 }
 
-export function SetGlobalState(state: any): $CancellablePromise<Record<string, string>> {
-    return $Call.ByName("main.GreetService.SetGlobalState", state);
-}
-
-export function ProvisionDevice(deviceID: string): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.ProvisionDevice", deviceID);
-}
-
-export function RefreshDevice(deviceID: string): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.RefreshDevice", deviceID);
-}
-
-export function GetDeviceDetail(deviceID: string): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.GetDeviceDetail", deviceID);
-}
-
-export function RemoveDevice(deviceID: string): $CancellablePromise<any> {
-    return $Call.ByName("main.GreetService.RemoveDevice", deviceID);
-}
+// Private type creation functions
+const $$createType0 = $models.NetworkApplyResult.createFrom;
+const $$createType1 = $models.ControllerSettings.createFrom;
+const $$createType2 = $models.WLEDDevice.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $models.ControllerSnapshot.createFrom;
+const $$createType5 = $models.WLEDDeviceDetail.createFrom;
+const $$createType6 = $models.WiFiNetwork.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = $Create.Map($Create.Any, $Create.Any);
