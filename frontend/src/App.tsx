@@ -65,6 +65,9 @@ type ControllerSnapshot = {
   persistencePath: string;
   updatedAt: string;
   capabilities: {
+    networkBackendId: string;
+    networkBackendLabel: string;
+    networkControlAvailable: boolean;
     nmcliAvailable: boolean;
   };
 };
@@ -776,7 +779,11 @@ function App() {
               {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
               {applyResult && (
                 <div className="space-y-2">
-                  <p className="text-sm">{applyResult.dryRun ? "Dry-run (nmcli unavailable)" : "Applied"}</p>
+                  <p className="text-sm">
+                    {applyResult.dryRun
+                      ? "Dry-run (network CLI unavailable or unsupported)"
+                      : "Applied"}
+                  </p>
                   {(applyResult.warnings ?? []).map((warning) => (
                     <div key={warning} className="alert alert-warning py-1 text-xs">
                       {warning}
@@ -812,7 +819,10 @@ function App() {
 
         {snapshot && (
           <p className="text-xs opacity-60">
-            Persistence: <code>{snapshot.persistencePath}</code> • nmcli: {String(snapshot.capabilities.nmcliAvailable)}
+            Persistence: <code>{snapshot.persistencePath}</code> • network:{" "}
+            {snapshot.capabilities.networkBackendLabel}{" "}
+            ({snapshot.capabilities.networkBackendId}
+            {snapshot.capabilities.networkControlAvailable ? "" : ", unavailable"})
           </p>
         )}
       </div>
