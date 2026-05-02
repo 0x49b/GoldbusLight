@@ -76,6 +76,8 @@ type WLEDDevice struct {
 	Online      bool           `json:"online"`
 	Provisioned bool           `json:"provisioned"`
 	Info        map[string]any `json:"info,omitempty"`
+	// LastState holds the last known WLED JSON state payload applied to the device (merged over time) for restore on reconnect.
+	LastState map[string]any `json:"lastState,omitempty"`
 }
 
 type persistentState struct {
@@ -413,6 +415,19 @@ func (d *DiscoveryEngine) DiscoverOnce(ctx context.Context, settings DiscoverySe
 	return found, nil
 }
 
+type WLEDDeviceDetail struct {
+	Online    bool           `json:"online"`
+	Error     string         `json:"error,omitempty"`
+	State     map[string]any `json:"state,omitempty"`
+	Info      map[string]any `json:"info,omitempty"`
+	Effects   []string       `json:"effects,omitempty"`
+	Palettes  []string       `json:"palettes,omitempty"`
+	Config    map[string]any `json:"config,omitempty"`
+	LastState map[string]any `json:"lastState,omitempty"`
+	Address   string         `json:"address"`
+	Port      int            `json:"port"`
+}
+
 type WLEDEngine struct {
 	client *http.Client
 }
@@ -458,6 +473,11 @@ func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice)
 		}
 	}
 
+	lastState := make(map[string]any, len(payload.State))
+	for k, v := range payload.State {
+		lastState[k] = v
+	}
+
 	return WLEDDevice{
 		ID:          id,
 		Name:        name,
@@ -468,6 +488,7 @@ func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice)
 		Online:      true,
 		Provisioned: false,
 		Info:        info,
+		LastState:   lastState,
 	}, nil
 }
 
@@ -503,6 +524,24 @@ func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfg
 func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
 	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
 	return w.requestJSON(ctx, http.MethodPost, base+"/json/state", state, nil)
+}
+
+func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	var payload map[string]any
+	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	var payload map[string]any
+	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
 }
 
 func (w *WLEDEngine) ApplyStateToAll(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
@@ -616,6 +655,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.discoveryLoop(runCtx)
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
+	go c.restoreLastStatesOnBoot(runCtx)
 
 	return nil
 }
@@ -716,6 +756,7 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 			device.Info[k] = v
 		}
 	}
+	device.LastState = mergeStateIntoLastState(device.LastState, state)
 	c.devices[deviceID] = device
 	c.updated = time.Now()
 	c.mu.Unlock()
@@ -734,7 +775,31 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 	c.mu.RUnlock()
 
 	results := c.wled.ApplyStateToAll(ctx, devices, state)
-	c.touch()
+
+	c.mu.Lock()
+	for id, d := range c.devices {
+		latest := d
+		if results[id] == "ok" {
+			latest.LastSeen = time.Now()
+			latest.Online = true
+			if latest.Info == nil {
+				latest.Info = map[string]any{}
+			}
+			for k, v := range state {
+				if k == "on" || k == "bri" || k == "ps" {
+					latest.Info[k] = v
+				}
+			}
+		}
+		latest.LastState = mergeStateIntoLastState(latest.LastState, state)
+		c.devices[id] = latest
+	}
+	c.updated = time.Now()
+	c.mu.Unlock()
+
+	if err := c.persist(); err != nil {
+		c.logger.Printf("persist after global state failed: %v", err)
+	}
 	return results
 }
 
@@ -755,6 +820,7 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 	device.Provisioned = true
 	device.Online = true
 	device.LastSeen = time.Now()
+	device.LastState = mergeStateIntoLastState(device.LastState, settings.DefaultStatePayload)
 	c.devices[deviceID] = device
 	c.updated = time.Now()
 	c.mu.Unlock()
@@ -792,11 +858,61 @@ func (c *WLEDController) RefreshDevice(ctx context.Context, deviceID string) err
 	if v, ok := state["bri"]; ok {
 		device.Info["bri"] = v
 	}
+	device.LastState = mergeStateIntoLastState(device.LastState, state)
 	c.devices[deviceID] = device
 	c.updated = time.Now()
 	c.mu.Unlock()
 
 	return c.persist()
+}
+
+func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) WLEDDeviceDetail {
+	c.mu.RLock()
+	device, ok := c.devices[deviceID]
+	lastCopy := cloneJSONMap(device.LastState)
+	addr := device.Address
+	port := device.Port
+	online := device.Online
+	c.mu.RUnlock()
+
+	detail := WLEDDeviceDetail{
+		Online:    online,
+		Address:   addr,
+		Port:      port,
+		LastState: lastCopy,
+	}
+	if !ok {
+		detail.Error = fmt.Sprintf("unknown device: %s", deviceID)
+		detail.Online = false
+		return detail
+	}
+
+	full, err := c.wled.GetFullJSON(ctx, device)
+	if err != nil {
+		detail.Online = false
+		detail.Error = err.Error()
+		return detail
+	}
+	detail.Online = true
+	detail.Error = ""
+	if s, ok := full["state"].(map[string]any); ok {
+		detail.State = s
+	}
+	if inf, ok := full["info"].(map[string]any); ok {
+		detail.Info = inf
+	}
+	if eff, ok := full["effects"].([]any); ok {
+		detail.Effects = stringifyAnySlice(eff)
+	}
+	if pal, ok := full["palettes"].([]any); ok {
+		detail.Palettes = stringifyAnySlice(pal)
+	}
+	if cfg, err := c.wled.GetConfig(ctx, device); err != nil {
+		c.logger.Printf("cfg fetch for %s: %v", deviceID, err)
+	} else {
+		detail.Config = cfg
+	}
+	return detail
 }
 
 func (c *WLEDController) RemoveDevice(deviceID string) error {
@@ -851,15 +967,47 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 
 	c.mu.Lock()
 	existing, hasExisting := c.devices[device.ID]
+	restoreState := cloneJSONMap(nil)
 	if hasExisting {
 		if existing.Provisioned {
 			device.Provisioned = true
+		}
+		if len(existing.LastState) > 0 {
+			device.LastState = cloneJSONMap(existing.LastState)
+			restoreState = cloneJSONMap(existing.LastState)
 		}
 	}
 	c.devices[device.ID] = device
 	settings := c.settings.Provisioning
 	c.updated = time.Now()
 	c.mu.Unlock()
+
+	if len(restoreState) > 0 {
+		if err := c.wled.ApplyState(ctx, device, restoreState); err != nil {
+			c.logger.Printf("restore last state to %s failed: %v", device.ID, err)
+		} else {
+			c.mu.Lock()
+			if latest, ok := c.devices[device.ID]; ok {
+				latest.Online = true
+				latest.LastSeen = time.Now()
+				if latest.Info == nil {
+					latest.Info = map[string]any{}
+				}
+				if v, ok := restoreState["on"]; ok {
+					latest.Info["on"] = v
+				}
+				if v, ok := restoreState["bri"]; ok {
+					latest.Info["bri"] = v
+				}
+				c.devices[device.ID] = latest
+				c.updated = time.Now()
+			}
+			c.mu.Unlock()
+			if err := c.persist(); err != nil {
+				c.logger.Printf("persist after reconnect restore failed: %v", err)
+			}
+		}
+	}
 
 	if settings.AutoProvision && !device.Provisioned {
 		if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err == nil {
@@ -884,6 +1032,57 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 				c.logger.Printf("periodic persist failed: %v", err)
 			}
 		}
+	}
+}
+
+func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
+	select {
+	case <-time.After(2 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+
+	c.mu.RLock()
+	list := make([]WLEDDevice, 0, len(c.devices))
+	for _, d := range c.devices {
+		if len(d.LastState) == 0 {
+			continue
+		}
+		list = append(list, d)
+	}
+	c.mu.RUnlock()
+
+	restoreCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	for _, device := range list {
+		state := cloneJSONMap(device.LastState)
+		if len(state) == 0 {
+			continue
+		}
+		if err := c.wled.ApplyState(restoreCtx, device, state); err != nil {
+			c.logger.Printf("boot restore for %s failed: %v", device.ID, err)
+			continue
+		}
+		c.mu.Lock()
+		latest := c.devices[device.ID]
+		latest.Online = true
+		latest.LastSeen = time.Now()
+		if latest.Info == nil {
+			latest.Info = map[string]any{}
+		}
+		if v, ok := state["on"]; ok {
+			latest.Info["on"] = v
+		}
+		if v, ok := state["bri"]; ok {
+			latest.Info["bri"] = v
+		}
+		c.devices[device.ID] = latest
+		c.updated = time.Now()
+		c.mu.Unlock()
+	}
+	if err := c.persist(); err != nil {
+		c.logger.Printf("persist after boot restore failed: %v", err)
 	}
 }
 
@@ -930,6 +1129,7 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 		if bri, ok := state["bri"]; ok {
 			latest.Info["bri"] = bri
 		}
+		latest.LastState = mergeStateIntoLastState(latest.LastState, state)
 		c.devices[device.ID] = latest
 		c.updated = time.Now()
 		c.mu.Unlock()
@@ -1098,4 +1298,82 @@ func defaultString(value, fallback string) string {
 		return fallback
 	}
 	return strings.TrimSpace(value)
+}
+
+func cloneJSONMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(encoded, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func mergeStateIntoLastState(last map[string]any, patch map[string]any) map[string]any {
+	if patch == nil {
+		return cloneJSONMap(last)
+	}
+	base := cloneJSONMap(last)
+	if base == nil {
+		base = map[string]any{}
+	}
+	for k, v := range patch {
+		if k == "on" && v == "t" {
+			continue
+		}
+		if k == "seg" {
+			base["seg"] = mergeSegJSON(base["seg"], v)
+			continue
+		}
+		base[k] = v
+	}
+	return base
+}
+
+func mergeSegJSON(existing any, patch any) any {
+	patchArr, ok := patch.([]any)
+	if !ok || len(patchArr) == 0 {
+		return patch
+	}
+	patchSeg, ok := patchArr[0].(map[string]any)
+	if !ok {
+		return patch
+	}
+	existArr, ok := existing.([]any)
+	if !ok || len(existArr) == 0 {
+		return patch
+	}
+	first, ok := existArr[0].(map[string]any)
+	if !ok {
+		return patch
+	}
+	merged := cloneJSONMap(first)
+	for k, v := range patchSeg {
+		merged[k] = v
+	}
+	out := make([]any, len(existArr))
+	out[0] = merged
+	for i := 1; i < len(existArr); i++ {
+		out[i] = existArr[i]
+	}
+	return out
+}
+
+func stringifyAnySlice(items []any) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		switch v := item.(type) {
+		case string:
+			out = append(out, v)
+		default:
+			out = append(out, fmt.Sprint(v))
+		}
+	}
+	return out
 }
