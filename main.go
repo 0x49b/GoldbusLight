@@ -5,6 +5,7 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"os"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -63,8 +64,13 @@ func main() {
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
+	startState := application.WindowStateNormal
+	if os.Getenv("GOLDBUS_FULLSCREEN") == "1" {
+		startState = application.WindowStateFullscreen
+	}
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
+		Title:            "Window 1",
+		StartState:       startState,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
