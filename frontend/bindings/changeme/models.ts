@@ -80,10 +80,27 @@ export class BridgeSettings {
 }
 
 export class ControllerCapabilities {
+    "networkBackendId": string;
+    "networkBackendLabel": string;
+    "networkControlAvailable": boolean;
+    "networkCliName": string;
+    "networkCliUnavailableReason"?: string;
     "nmcliAvailable": boolean;
 
     /** Creates a new ControllerCapabilities instance. */
     constructor($$source: Partial<ControllerCapabilities> = {}) {
+        if (!("networkBackendId" in $$source)) {
+            this["networkBackendId"] = "";
+        }
+        if (!("networkBackendLabel" in $$source)) {
+            this["networkBackendLabel"] = "";
+        }
+        if (!("networkControlAvailable" in $$source)) {
+            this["networkControlAvailable"] = false;
+        }
+        if (!("networkCliName" in $$source)) {
+            this["networkCliName"] = "";
+        }
         if (!("nmcliAvailable" in $$source)) {
             this["nmcliAvailable"] = false;
         }
@@ -386,6 +403,7 @@ export class WLEDDevice {
     "lastSeen": time$0.Time;
     "online": boolean;
     "provisioned": boolean;
+    "ignored": boolean;
     "info"?: { [_ in string]?: any };
 
     /**
@@ -418,6 +436,9 @@ export class WLEDDevice {
         }
         if (!("provisioned" in $$source)) {
             this["provisioned"] = false;
+        }
+        if (!("ignored" in $$source)) {
+            this["ignored"] = false;
         }
 
         Object.assign(this, $$source);

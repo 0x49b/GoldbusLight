@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as GreetService from "../bindings/changeme/greetservice";
 
 type JSONMap = Record<string, unknown>;
@@ -55,6 +55,7 @@ type WLEDDevice = {
   lastSeen: string;
   online: boolean;
   provisioned: boolean;
+  ignored?: boolean;
   info?: JSONMap;
   lastState?: JSONMap;
 };
@@ -68,6 +69,8 @@ type ControllerSnapshot = {
     networkBackendId: string;
     networkBackendLabel: string;
     networkControlAvailable: boolean;
+    networkCliName: string;
+    networkCliUnavailableReason?: string;
     nmcliAvailable: boolean;
   };
 };
@@ -152,11 +155,10 @@ function mainSegIndex(state: JSONMap | undefined): number {
   return 0;
 }
 
-function firstSegment(state: JSONMap | undefined): JSONMap | undefined {
+function segmentAt(state: JSONMap | undefined, index: number): JSONMap | undefined {
   const segs = state?.seg;
-  if (!Array.isArray(segs) || segs.length === 0) return undefined;
-  const idx = mainSegIndex(state);
-  const seg = segs[idx];
+  if (!Array.isArray(segs) || index < 0 || index >= segs.length) return undefined;
+  const seg = segs[index];
   return seg && typeof seg === "object" && !Array.isArray(seg) ? (seg as JSONMap) : undefined;
 }
 
@@ -186,6 +188,22 @@ function rgbFromSegment(seg: JSONMap | undefined): [number, number, number] {
   return [...WARM_WHITE_RGB];
 }
 
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace(/^#/, "");
+  if (h.length !== 6) return [255, 0, 0];
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return [Number.isFinite(r) ? r : 0, Number.isFinite(g) ? g : 0, Number.isFinite(b) ? b : 0];
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<ControllerSnapshot | null>(null);
   const [settings, setSettings] = useState<ControllerSettings | null>(null);
@@ -206,6 +224,11 @@ function App() {
   const [deviceFormIx, setDeviceFormIx] = useState(128);
   const [deviceFormRgb, setDeviceFormRgb] = useState<[number, number, number]>([255, 0, 0]);
   const [deviceFormBri, setDeviceFormBri] = useState(180);
+  const [deviceFormTransition, setDeviceFormTransition] = useState(7);
+  const [selectedSegIdx, setSelectedSegIdx] = useState(0);
+  const [ignoredDevices, setIgnoredDevices] = useState<WLEDDevice[]>([]);
+
+  const detailDeviceIdRef = useRef<string>("");
 
   const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
 
@@ -222,6 +245,12 @@ function App() {
     setConfigPatchText(prettyJSON(next.settings.provisioning.defaultConfigPatch ?? {}));
     setStatus(`Updated ${new Date(next.updatedAt).toLocaleTimeString()}`);
     setError("");
+    try {
+      const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+      setIgnoredDevices(ign);
+    } catch {
+      setIgnoredDevices([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -241,13 +270,10 @@ function App() {
       const d = (await GreetService.GetDeviceDetail(deviceId)) as WLEDDeviceDetail;
       setDeviceDetail(d);
       if (d.state) {
-        const seg = firstSegment(d.state);
-        setDeviceFormFx(segmentFx(seg));
-        setDeviceFormPal(segmentPal(seg));
-        setDeviceFormSx(segmentSx(seg));
-        setDeviceFormIx(segmentIx(seg));
-        setDeviceFormRgb(rgbFromSegment(seg));
-        setDeviceFormBri(readNumber(d.state.bri, 180));
+        if (detailDeviceIdRef.current !== deviceId) {
+          detailDeviceIdRef.current = deviceId;
+          setSelectedSegIdx(mainSegIndex(d.state as JSONMap));
+        }
       }
     } catch (e) {
       setDeviceDetail({
@@ -260,8 +286,40 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!deviceDetail?.state) {
+      return;
+    }
+    const st = deviceDetail.state as JSONMap;
+    const segs = st.seg;
+    const n = Array.isArray(segs) ? segs.length : 0;
+    if (n === 0) {
+      return;
+    }
+    setSelectedSegIdx((prev) => (prev >= 0 && prev < n ? prev : mainSegIndex(st)));
+  }, [deviceDetail?.state]);
+
+  useEffect(() => {
+    if (!deviceDetail?.state) {
+      return;
+    }
+    const st = deviceDetail.state as JSONMap;
+    const seg = segmentAt(st, selectedSegIdx);
+    if (!seg) {
+      return;
+    }
+    setDeviceFormFx(segmentFx(seg));
+    setDeviceFormPal(segmentPal(seg));
+    setDeviceFormSx(segmentSx(seg));
+    setDeviceFormIx(segmentIx(seg));
+    setDeviceFormRgb(rgbFromSegment(seg));
+    setDeviceFormBri(readNumber(st.bri, 180));
+    setDeviceFormTransition(readNumber(st.transition, 7));
+  }, [deviceDetail, selectedSegIdx]);
+
+  useEffect(() => {
     if (route.kind !== "device") {
       setDeviceDetail(null);
+      detailDeviceIdRef.current = "";
       return;
     }
     void loadDeviceDetail(route.id);
@@ -380,6 +438,43 @@ function App() {
         setSettings(updated.settings);
         setStatus(`Device removed`);
         setRoute({ kind: "presets" });
+      });
+    },
+    [withBusy],
+  );
+
+  const onIgnoreDevice = useCallback(
+    (deviceID: string) => {
+      void withBusy(async () => {
+        const updated = (await GreetService.SetDeviceIgnored(deviceID, true)) as ControllerSnapshot;
+        setSnapshot(updated);
+        setSettings(updated.settings);
+        try {
+          const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+          setIgnoredDevices(ign);
+        } catch {
+          /* ignore */
+        }
+        setStatus("Device ignored");
+        setRoute((r) => (r.kind === "device" && r.id === deviceID ? { kind: "presets" } : r));
+      });
+    },
+    [withBusy],
+  );
+
+  const onUnignoreDevice = useCallback(
+    (deviceID: string) => {
+      void withBusy(async () => {
+        const updated = (await GreetService.SetDeviceIgnored(deviceID, false)) as ControllerSnapshot;
+        setSnapshot(updated);
+        setSettings(updated.settings);
+        try {
+          const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+          setIgnoredDevices(ign);
+        } catch {
+          /* ignore */
+        }
+        setStatus("Device restored from ignored list");
       });
     },
     [withBusy],
@@ -772,6 +867,38 @@ function App() {
           </div>
         </section>
 
+        <section className="card bg-base-200 shadow-sm max-w-5xl">
+          <div className="card-body space-y-3">
+            <h3 className="card-title text-base">Ignored devices</h3>
+            <p className="text-sm opacity-70">
+              Ignored devices stay out of the sidebar and presets but remain in <code className="text-xs">state.json</code>. Use this to hide
+              unrelated mDNS hosts.
+            </p>
+            {ignoredDevices.length === 0 ? (
+              <p className="text-sm opacity-60">No ignored devices.</p>
+            ) : (
+              <ul className="space-y-2">
+                {ignoredDevices.map((dev) => (
+                  <li
+                    key={dev.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-base-300 bg-base-100 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{dev.name}</div>
+                      <div className="text-xs opacity-60 font-mono truncate">
+                        {dev.address}:{dev.port} • {dev.id}
+                      </div>
+                    </div>
+                    <button type="button" className="btn btn-sm btn-outline btn-success shrink-0" onClick={() => onUnignoreDevice(dev.id)} disabled={busy}>
+                      Un-ignore
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body">
@@ -819,10 +946,17 @@ function App() {
 
         {snapshot && (
           <p className="text-xs opacity-60">
-            Persistence: <code>{snapshot.persistencePath}</code> • network:{" "}
-            {snapshot.capabilities.networkBackendLabel}{" "}
-            ({snapshot.capabilities.networkBackendId}
-            {snapshot.capabilities.networkControlAvailable ? "" : ", unavailable"})
+            Persistence: <code>{snapshot.persistencePath}</code> • backend: {snapshot.capabilities.networkBackendLabel} (
+            {snapshot.capabilities.networkBackendId}) • host CLI:{" "}
+            <code>{snapshot.capabilities.networkCliName || "—"}</code>
+            {snapshot.capabilities.networkControlAvailable
+              ? ""
+              : snapshot.capabilities.networkCliUnavailableReason && (
+                  <>
+                    {" "}
+                    — <span className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span>
+                  </>
+                )}
           </p>
         )}
       </div>
@@ -837,7 +971,10 @@ function App() {
     const d = selectedDevice;
     const detail = deviceDetail;
     const liveOnline = detail?.online ?? d.online;
-    const segIdx = mainSegIndex(detail?.state as JSONMap | undefined);
+    const stateObj = detail?.state as JSONMap | undefined;
+    const segList =
+      stateObj && Array.isArray(stateObj.seg) ? (stateObj.seg as unknown[]) : [];
+    const segCount = segList.length;
 
     return (
       <div className="space-y-6 max-w-4xl pb-8">
@@ -863,6 +1000,9 @@ function App() {
             <button className="btn btn-sm btn-secondary" onClick={() => onProvisionDevice(d.id)} disabled={busy}>
               Provision
             </button>
+            <button className="btn btn-sm btn-warning btn-outline" onClick={() => onIgnoreDevice(d.id)} disabled={busy}>
+              Ignore device
+            </button>
             <button className="btn btn-sm btn-error btn-outline" onClick={() => onRemoveDevice(d.id)} disabled={busy}>
               Forget
             </button>
@@ -871,17 +1011,44 @@ function App() {
 
         {!detail?.state && liveOnline && <p className="text-sm opacity-70">Loading device state…</p>}
 
+        {segCount > 1 && (
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body gap-2 py-4">
+              <label className="form-control w-full max-w-md">
+                <span className="label-text text-xs">Segment</span>
+                <select
+                  className="select select-bordered select-sm"
+                  value={selectedSegIdx}
+                  onChange={(e) => setSelectedSegIdx(readNumber(e.target.value, 0))}
+                  disabled={!liveOnline}
+                >
+                  {segList.map((raw, i) => {
+                    const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
+                    const sid = readNumber(s.id, i);
+                    const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
+                    return (
+                      <option key={i} value={i}>
+                        {nm} (id {sid})
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="card bg-base-200 shadow-sm">
           <div className="card-body gap-3">
             <h3 className="font-medium">Power</h3>
             <div className="flex flex-wrap gap-2">
-              <button className="btn btn-sm btn-success" onClick={() => onSetDeviceState(d.id, { on: true })} disabled={busy}>
+              <button className="btn btn-sm btn-success" onClick={() => onSetDeviceState(d.id, { on: true })} disabled={busy || !liveOnline}>
                 On
               </button>
-              <button className="btn btn-sm btn-warning" onClick={() => onSetDeviceState(d.id, { on: false })} disabled={busy}>
+              <button className="btn btn-sm btn-warning" onClick={() => onSetDeviceState(d.id, { on: false })} disabled={busy || !liveOnline}>
                 Off
               </button>
-              <button className="btn btn-sm btn-accent" onClick={() => onSetDeviceState(d.id, { on: "t" })} disabled={busy}>
+              <button className="btn btn-sm btn-accent" onClick={() => onSetDeviceState(d.id, { on: "t" })} disabled={busy || !liveOnline}>
                 Toggle
               </button>
             </div>
@@ -892,36 +1059,60 @@ function App() {
           <div className="card-body gap-4">
             <h3 className="font-medium">Color & brightness</h3>
             <p className="text-xs opacity-60">
-              Uses segment index {segIdx} (from <code>mainseg</code>). POST fields: <code>on</code>, <code>bri</code>,{" "}
-              <code>seg</code> with <code>col</code> RGB triplets per WLED JSON API.
+              Same controls as the WLED web UI: primary color for segment {selectedSegIdx}, global brightness and transition time (
+              <a className="link" href="https://kno.wled.ge/interfaces/json-api" target="_blank" rel="noreferrer">
+                JSON API
+              </a>
+              ).
             </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <input
-                type="number"
-                min={0}
-                max={255}
-                className="input input-bordered input-sm w-20"
-                value={deviceFormRgb[0]}
-                onChange={(e) => setDeviceFormRgb([readNumber(e.target.value, 0), deviceFormRgb[1], deviceFormRgb[2]])}
-              />
-              <input
-                type="number"
-                min={0}
-                max={255}
-                className="input input-bordered input-sm w-20"
-                value={deviceFormRgb[1]}
-                onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], readNumber(e.target.value, 0), deviceFormRgb[2]])}
-              />
-              <input
-                type="number"
-                min={0}
-                max={255}
-                className="input input-bordered input-sm w-20"
-                value={deviceFormRgb[2]}
-                onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], deviceFormRgb[1], readNumber(e.target.value, 0)])}
-              />
-              <label className="form-control flex-1 min-w-[180px]">
-                <span className="label-text text-xs">Brightness</span>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs opacity-70">Color wheel</span>
+                <input
+                  type="color"
+                  className="h-12 w-24 cursor-pointer rounded border border-base-300 bg-base-100"
+                  value={rgbToHex(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2])}
+                  onChange={(e) => setDeviceFormRgb(hexToRgb(e.target.value))}
+                  disabled={busy || !liveOnline}
+                />
+              </label>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="form-control">
+                  <span className="label-text text-xs">R</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    className="input input-bordered input-sm w-20"
+                    value={deviceFormRgb[0]}
+                    onChange={(e) => setDeviceFormRgb([readNumber(e.target.value, 0), deviceFormRgb[1], deviceFormRgb[2]])}
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">G</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    className="input input-bordered input-sm w-20"
+                    value={deviceFormRgb[1]}
+                    onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], readNumber(e.target.value, 0), deviceFormRgb[2]])}
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">B</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    className="input input-bordered input-sm w-20"
+                    value={deviceFormRgb[2]}
+                    onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], deviceFormRgb[1], readNumber(e.target.value, 0)])}
+                  />
+                </label>
+              </div>
+              <label className="form-control flex-1 min-w-[200px]">
+                <span className="label-text text-xs">Brightness (bri)</span>
                 <input
                   type="range"
                   min={1}
@@ -932,18 +1123,32 @@ function App() {
                   disabled={busy || !liveOnline}
                 />
               </label>
+              <span className="badge badge-neutral shrink-0">{deviceFormBri}</span>
+              <label className="form-control min-w-[140px]">
+                <span className="label-text text-xs">Transition (×100 ms)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={255}
+                  className="input input-bordered input-sm"
+                  value={deviceFormTransition}
+                  onChange={(e) => setDeviceFormTransition(readNumber(e.target.value, 7))}
+                  disabled={busy || !liveOnline}
+                />
+              </label>
               <button
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm shrink-0"
                 onClick={() =>
                   onSetDeviceState(d.id, {
                     on: true,
                     bri: deviceFormBri,
-                    seg: [{ id: segIdx, col: [deviceFormRgb] }],
+                    transition: deviceFormTransition,
+                    seg: [{ id: selectedSegIdx, col: [deviceFormRgb] }],
                   })
                 }
                 disabled={busy || !liveOnline}
               >
-                Apply color
+                Apply
               </button>
             </div>
           </div>
@@ -953,45 +1158,69 @@ function App() {
           <div className="card-body gap-4">
             <h3 className="font-medium">Effect & palette</h3>
             <p className="text-xs opacity-60">
-              Effect index <code>fx</code>, palette <code>pal</code>, speed <code>sx</code>, intensity <code>ix</code> on the selected segment (
-              <a className="link" href="https://github.com/wled/WLED/wiki/JSON-API" target="_blank" rel="noreferrer">
-                WLED JSON API
+              Pick by name like the built-in UI, or adjust speed and intensity. See{" "}
+              <a className="link" href="https://kno.wled.ge/interfaces/json-api" target="_blank" rel="noreferrer">
+                kno.wled.ge — JSON API
               </a>
-              ).
+              .
             </p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="form-control">
-                <span className="label-text text-xs">Effect # (fx)</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm"
-                  value={deviceFormFx}
-                  onChange={(e) => setDeviceFormFx(readNumber(e.target.value, 0))}
-                  disabled={!liveOnline}
-                />
-                {detail?.effects && detail.effects[deviceFormFx] && (
-                  <span className="label-text-alt opacity-70 truncate">{detail.effects[deviceFormFx]}</span>
+                <span className="label-text text-xs">Effect</span>
+                {detail?.effects && detail.effects.length > 0 ? (
+                  <select
+                    className="select select-bordered select-sm"
+                    value={deviceFormFx}
+                    onChange={(e) => setDeviceFormFx(readNumber(e.target.value, 0))}
+                    disabled={!liveOnline}
+                  >
+                    {detail.effects.map((name, idx) => (
+                      <option key={idx} value={idx}>
+                        {idx}: {name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered input-sm"
+                    value={deviceFormFx}
+                    onChange={(e) => setDeviceFormFx(readNumber(e.target.value, 0))}
+                    disabled={!liveOnline}
+                  />
                 )}
               </label>
               <label className="form-control">
-                <span className="label-text text-xs">Palette # (pal)</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input input-bordered input-sm"
-                  value={deviceFormPal}
-                  onChange={(e) => setDeviceFormPal(readNumber(e.target.value, 0))}
-                  disabled={!liveOnline}
-                />
-                {detail?.palettes && detail.palettes[deviceFormPal] && (
-                  <span className="label-text-alt opacity-70 truncate">{detail.palettes[deviceFormPal]}</span>
+                <span className="label-text text-xs">Palette</span>
+                {detail?.palettes && detail.palettes.length > 0 ? (
+                  <select
+                    className="select select-bordered select-sm"
+                    value={deviceFormPal}
+                    onChange={(e) => setDeviceFormPal(readNumber(e.target.value, 0))}
+                    disabled={!liveOnline}
+                  >
+                    {detail.palettes.map((name, idx) => (
+                      <option key={idx} value={idx}>
+                        {idx}: {name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered input-sm"
+                    value={deviceFormPal}
+                    onChange={(e) => setDeviceFormPal(readNumber(e.target.value, 0))}
+                    disabled={!liveOnline}
+                  />
                 )}
               </label>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="form-control">
-                <span className="label-text text-xs">Speed (sx)</span>
+                <span className="label-text text-xs">Speed (sx) — {deviceFormSx}</span>
                 <input
                   type="range"
                   min={0}
@@ -1003,7 +1232,7 @@ function App() {
                 />
               </label>
               <label className="form-control">
-                <span className="label-text text-xs">Intensity (ix)</span>
+                <span className="label-text text-xs">Intensity (ix) — {deviceFormIx}</span>
                 <input
                   type="range"
                   min={0}
@@ -1019,7 +1248,7 @@ function App() {
               className="btn btn-sm btn-primary w-fit"
               onClick={() =>
                 onSetDeviceState(d.id, {
-                  seg: [{ id: segIdx, fx: deviceFormFx, pal: deviceFormPal, sx: deviceFormSx, ix: deviceFormIx }],
+                  seg: [{ id: selectedSegIdx, fx: deviceFormFx, pal: deviceFormPal, sx: deviceFormSx, ix: deviceFormIx }],
                 })
               }
               disabled={busy || !liveOnline}

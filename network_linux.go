@@ -28,13 +28,19 @@ func (n *linuxBackend) available() bool {
 	return err == nil
 }
 
+func (n *linuxBackend) primaryCLI() string { return "nmcli" }
+
+func (n *linuxBackend) unavailableHint() string {
+	return "`nmcli` (NetworkManager CLI) was not found in PATH. Install NetworkManager and ensure the `nmcli` binary is available for Wi-Fi scan and apply."
+}
+
 func (n *linuxBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
 	result := NetworkApplyResult{
 		DryRun: !n.available(),
 		Steps:  make([]NetworkCommandResult, 0, 8),
 	}
 	if result.DryRun {
-		result.Warnings = append(result.Warnings, "nmcli is not available, returning dry-run output")
+		result.Warnings = append(result.Warnings, n.unavailableHint()+" Returning dry-run output.")
 		return result
 	}
 
@@ -111,7 +117,7 @@ func (n *linuxBackend) connectionExists(ctx context.Context, connectionName stri
 
 func (n *linuxBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error) {
 	if !n.available() {
-		return nil, errors.New("nmcli is not available")
+		return nil, errors.New(n.unavailableHint())
 	}
 
 	if iface == "" {

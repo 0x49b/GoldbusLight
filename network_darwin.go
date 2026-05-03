@@ -36,13 +36,21 @@ func (d *darwinBackend) available() bool {
 	return err == nil
 }
 
+func (d *darwinBackend) primaryCLI() string {
+	return "networksetup + airport"
+}
+
+func (d *darwinBackend) unavailableHint() string {
+	return "`networksetup` was not found in PATH, or Apple's private `airport` tool is missing. Install a full macOS system; Wi-Fi scan needs `airport` at " + appleAirportBinary + " and `networksetup` for connect/apply."
+}
+
 func (d *darwinBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
 	result := NetworkApplyResult{
 		DryRun: !d.available(),
 		Steps:  make([]NetworkCommandResult, 0, 8),
 	}
 	if result.DryRun {
-		result.Warnings = append(result.Warnings, "macOS network tools not found (networksetup / airport)")
+		result.Warnings = append(result.Warnings, d.unavailableHint())
 		return result
 	}
 
@@ -135,7 +143,7 @@ func (d *darwinBackend) defaultWiFiDevice() string {
 
 func (d *darwinBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error) {
 	if !d.available() {
-		return nil, errors.New("Wi-Fi scan tools not available on this Mac")
+		return nil, errors.New(d.unavailableHint())
 	}
 	// airport -s scans visible networks on the default Wi-Fi interface.
 	cmd := exec.CommandContext(ctx, appleAirportBinary, "-s")

@@ -74,6 +74,7 @@ type WLEDDevice struct {
 	LastSeen    time.Time      `json:"lastSeen"`
 	Online      bool           `json:"online"`
 	Provisioned bool           `json:"provisioned"`
+	Ignored     bool           `json:"ignored"`
 	Info        map[string]any `json:"info,omitempty"`
 	// LastState holds the last known WLED JSON state payload applied to the device (merged over time) for restore on reconnect.
 	LastState map[string]any `json:"lastState,omitempty"`
@@ -101,6 +102,10 @@ type ControllerCapabilities struct {
 	NetworkBackendLabel string `json:"networkBackendLabel"`
 	// NetworkControlAvailable is true when this OS exposes working CLI tools for scan/connect (partial features may still be unavailable).
 	NetworkControlAvailable bool `json:"networkControlAvailable"`
+	// NetworkCliName is the primary host CLI for Wi-Fi on this platform (e.g. nmcli, netsh, networksetup).
+	NetworkCliName string `json:"networkCliName"`
+	// NetworkCliUnavailableReason is non-empty when NetworkControlAvailable is false; explains which binary or requirement is missing.
+	NetworkCliUnavailableReason string `json:"networkCliUnavailableReason,omitempty"`
 	// NmcliAvailable is true only when Linux nmcli (NetworkManager) is present and used.
 	NmcliAvailable bool `json:"nmcliAvailable"`
 }
@@ -214,11 +219,17 @@ func NewNetworkManager(logger *log.Logger) *NetworkManager {
 func (n *NetworkManager) controllerCapabilities() ControllerCapabilities {
 	b := n.backend
 	nmcli := b.id() == "nmcli" && b.available()
+	reason := ""
+	if !b.available() {
+		reason = b.unavailableHint()
+	}
 	return ControllerCapabilities{
-		NetworkBackendID:        b.id(),
-		NetworkBackendLabel:     b.label(),
-		NetworkControlAvailable: b.available(),
-		NmcliAvailable:          nmcli,
+		NetworkBackendID:            b.id(),
+		NetworkBackendLabel:         b.label(),
+		NetworkControlAvailable:     b.available(),
+		NetworkCliName:              b.primaryCLI(),
+		NetworkCliUnavailableReason: reason,
+		NmcliAvailable:              nmcli,
 	}
 }
 
@@ -556,6 +567,9 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 
 	devices := make([]WLEDDevice, 0, len(c.devices))
 	for _, device := range c.devices {
+		if device.Ignored {
+			continue
+		}
 		devices = append(devices, device)
 	}
 	slices.SortFunc(devices, func(a, b WLEDDevice) int {
@@ -619,6 +633,9 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 	if !ok {
 		return fmt.Errorf("unknown device: %s", deviceID)
 	}
+	if device.Ignored {
+		return fmt.Errorf("device is ignored: %s", deviceID)
+	}
 
 	if err := c.wled.ApplyState(ctx, device, state); err != nil {
 		return err
@@ -647,6 +664,9 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 	c.mu.RLock()
 	devices := make([]WLEDDevice, 0, len(c.devices))
 	for _, d := range c.devices {
+		if d.Ignored {
+			continue
+		}
 		if d.Online {
 			devices = append(devices, d)
 		}
@@ -657,6 +677,9 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 
 	c.mu.Lock()
 	for id, d := range c.devices {
+		if d.Ignored {
+			continue
+		}
 		latest := d
 		if results[id] == "ok" {
 			latest.LastSeen = time.Now()
@@ -690,6 +713,9 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 	if !ok {
 		return fmt.Errorf("unknown device: %s", deviceID)
 	}
+	if device.Ignored {
+		return fmt.Errorf("device is ignored: %s", deviceID)
+	}
 
 	if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err != nil {
 		return err
@@ -713,6 +739,9 @@ func (c *WLEDController) RefreshDevice(ctx context.Context, deviceID string) err
 	c.mu.RUnlock()
 	if !ok {
 		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+	if device.Ignored {
+		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
 
 	state, err := c.wled.GetState(ctx, device)
@@ -752,6 +781,7 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 	addr := device.Address
 	port := device.Port
 	online := device.Online
+	ignored := device.Ignored
 	c.mu.RUnlock()
 
 	detail := WLEDDeviceDetail{
@@ -763,6 +793,11 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 	if !ok {
 		detail.Error = fmt.Sprintf("unknown device: %s", deviceID)
 		detail.Online = false
+		return detail
+	}
+	if ignored {
+		detail.Online = false
+		detail.Error = "device is ignored; use Settings → Ignored devices to restore"
 		return detail
 	}
 
@@ -797,6 +832,35 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 func (c *WLEDController) RemoveDevice(deviceID string) error {
 	c.mu.Lock()
 	delete(c.devices, deviceID)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persist()
+}
+
+func (c *WLEDController) IgnoredDevices() []WLEDDevice {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make([]WLEDDevice, 0)
+	for _, d := range c.devices {
+		if d.Ignored {
+			out = append(out, d)
+		}
+	}
+	slices.SortFunc(out, func(a, b WLEDDevice) int {
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+	return out
+}
+
+func (c *WLEDController) SetDeviceIgnored(deviceID string, ignored bool) error {
+	c.mu.Lock()
+	device, ok := c.devices[deviceID]
+	if !ok {
+		c.mu.Unlock()
+		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+	device.Ignored = ignored
+	c.devices[deviceID] = device
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
@@ -843,6 +907,13 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
 		return
 	}
+
+	c.mu.RLock()
+	if existing, ok := c.devices[device.ID]; ok && existing.Ignored {
+		c.mu.RUnlock()
+		return
+	}
+	c.mu.RUnlock()
 
 	c.mu.Lock()
 	existing, hasExisting := c.devices[device.ID]
@@ -924,7 +995,7 @@ func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
 	c.mu.RLock()
 	list := make([]WLEDDevice, 0, len(c.devices))
 	for _, d := range c.devices {
-		if len(d.LastState) == 0 {
+		if d.Ignored || len(d.LastState) == 0 {
 			continue
 		}
 		list = append(list, d)
@@ -990,6 +1061,10 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 		state, err := c.wled.GetState(ctx, device)
 		c.mu.Lock()
 		latest := c.devices[device.ID]
+		if latest.Ignored {
+			c.mu.Unlock()
+			continue
+		}
 		if err != nil {
 			latest.Online = false
 			c.devices[device.ID] = latest

@@ -23,6 +23,12 @@ func (s *stubBackend) available() bool {
 	return false
 }
 
+func (s *stubBackend) primaryCLI() string { return "—" }
+
+func (s *stubBackend) unavailableHint() string {
+	return "No OS Wi-Fi integration is built for this platform (expected Linux `nmcli`, macOS `networksetup`/`airport`, or Windows `netsh`)."
+}
+
 func (s *stubBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
 	_ = settings
 	return NetworkApplyResult{
