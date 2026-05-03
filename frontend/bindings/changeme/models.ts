@@ -80,11 +80,34 @@ export class BridgeSettings {
 }
 
 export class ControllerCapabilities {
+    /**
+     * NetworkBackendID identifies which integration is active (e.g. "nmcli", "darwin", "netsh", "stub").
+     */
     "networkBackendId": string;
+
+    /**
+     * NetworkBackendLabel is a human-readable description for the UI.
+     */
     "networkBackendLabel": string;
+
+    /**
+     * NetworkControlAvailable is true when this OS exposes working CLI tools for scan/connect (partial features may still be unavailable).
+     */
     "networkControlAvailable": boolean;
+
+    /**
+     * NetworkCliName is the primary host CLI for Wi-Fi on this platform (e.g. nmcli, netsh, networksetup).
+     */
     "networkCliName": string;
+
+    /**
+     * NetworkCliUnavailableReason is non-empty when NetworkControlAvailable is false; explains which binary or requirement is missing.
+     */
     "networkCliUnavailableReason"?: string;
+
+    /**
+     * NmcliAvailable is true only when Linux nmcli (NetworkManager) is present and used.
+     */
     "nmcliAvailable": boolean;
 
     /** Creates a new ControllerCapabilities instance. */
@@ -123,6 +146,7 @@ export class ControllerSettings {
     "bridge": BridgeSettings;
     "discovery": DiscoverySettings;
     "provisioning": ProvisioningSettings;
+    "testing": TestingSettings;
 
     /** Creates a new ControllerSettings instance. */
     constructor($$source: Partial<ControllerSettings> = {}) {
@@ -141,6 +165,9 @@ export class ControllerSettings {
         if (!("provisioning" in $$source)) {
             this["provisioning"] = (new ProvisioningSettings());
         }
+        if (!("testing" in $$source)) {
+            this["testing"] = (new TestingSettings());
+        }
 
         Object.assign(this, $$source);
     }
@@ -154,6 +181,7 @@ export class ControllerSettings {
         const $$createField2_0 = $$createType2;
         const $$createField3_0 = $$createType3;
         const $$createField4_0 = $$createType4;
+        const $$createField5_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("accessPoint" in $$parsedSource) {
             $$parsedSource["accessPoint"] = $$createField0_0($$parsedSource["accessPoint"]);
@@ -169,6 +197,9 @@ export class ControllerSettings {
         }
         if ("provisioning" in $$parsedSource) {
             $$parsedSource["provisioning"] = $$createField4_0($$parsedSource["provisioning"]);
+        }
+        if ("testing" in $$parsedSource) {
+            $$parsedSource["testing"] = $$createField5_0($$parsedSource["testing"]);
         }
         return new ControllerSettings($$parsedSource as Partial<ControllerSettings>);
     }
@@ -206,9 +237,9 @@ export class ControllerSnapshot {
      * Creates a new ControllerSnapshot instance from a string or object.
      */
     static createFrom($$source: any = {}): ControllerSnapshot {
-        const $$createField0_0 = $$createType5;
-        const $$createField1_0 = $$createType7;
-        const $$createField4_0 = $$createType8;
+        const $$createField0_0 = $$createType6;
+        const $$createField1_0 = $$createType8;
+        const $$createField4_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("settings" in $$parsedSource) {
             $$parsedSource["settings"] = $$createField0_0($$parsedSource["settings"]);
@@ -251,7 +282,7 @@ export class DiscoverySettings {
      * Creates a new DiscoverySettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType9;
+        const $$createField1_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serviceTypes" in $$parsedSource) {
             $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
@@ -281,8 +312,8 @@ export class NetworkApplyResult {
      * Creates a new NetworkApplyResult instance from a string or object.
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
-        const $$createField1_0 = $$createType9;
-        const $$createField2_0 = $$createType11;
+        const $$createField1_0 = $$createType10;
+        const $$createField2_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -348,8 +379,8 @@ export class ProvisioningSettings {
      * Creates a new ProvisioningSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): ProvisioningSettings {
-        const $$createField1_0 = $$createType12;
-        const $$createField2_0 = $$createType12;
+        const $$createField1_0 = $$createType13;
+        const $$createField2_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("defaultStatePayload" in $$parsedSource) {
             $$parsedSource["defaultStatePayload"] = $$createField1_0($$parsedSource["defaultStatePayload"]);
@@ -358,6 +389,27 @@ export class ProvisioningSettings {
             $$parsedSource["defaultConfigPatch"] = $$createField2_0($$parsedSource["defaultConfigPatch"]);
         }
         return new ProvisioningSettings($$parsedSource as Partial<ProvisioningSettings>);
+    }
+}
+
+export class TestingSettings {
+    "simulateWled": boolean;
+
+    /** Creates a new TestingSettings instance. */
+    constructor($$source: Partial<TestingSettings> = {}) {
+        if (!("simulateWled" in $$source)) {
+            this["simulateWled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TestingSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TestingSettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TestingSettings($$parsedSource as Partial<TestingSettings>);
     }
 }
 
@@ -448,14 +500,14 @@ export class WLEDDevice {
      * Creates a new WLEDDevice instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDevice {
-        const $$createField8_0 = $$createType12;
-        const $$createField9_0 = $$createType12;
+        const $$createField9_0 = $$createType13;
+        const $$createField10_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("info" in $$parsedSource) {
-            $$parsedSource["info"] = $$createField8_0($$parsedSource["info"]);
+            $$parsedSource["info"] = $$createField9_0($$parsedSource["info"]);
         }
         if ("lastState" in $$parsedSource) {
-            $$parsedSource["lastState"] = $$createField9_0($$parsedSource["lastState"]);
+            $$parsedSource["lastState"] = $$createField10_0($$parsedSource["lastState"]);
         }
         return new WLEDDevice($$parsedSource as Partial<WLEDDevice>);
     }
@@ -492,12 +544,12 @@ export class WLEDDeviceDetail {
      * Creates a new WLEDDeviceDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDeviceDetail {
-        const $$createField2_0 = $$createType12;
-        const $$createField3_0 = $$createType12;
-        const $$createField4_0 = $$createType9;
-        const $$createField5_0 = $$createType9;
-        const $$createField6_0 = $$createType12;
-        const $$createField7_0 = $$createType12;
+        const $$createField2_0 = $$createType13;
+        const $$createField3_0 = $$createType13;
+        const $$createField4_0 = $$createType10;
+        const $$createField5_0 = $$createType10;
+        const $$createField6_0 = $$createType13;
+        const $$createField7_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -556,11 +608,12 @@ const $$createType1 = UpstreamSettings.createFrom;
 const $$createType2 = BridgeSettings.createFrom;
 const $$createType3 = DiscoverySettings.createFrom;
 const $$createType4 = ProvisioningSettings.createFrom;
-const $$createType5 = ControllerSettings.createFrom;
-const $$createType6 = WLEDDevice.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = ControllerCapabilities.createFrom;
-const $$createType9 = $Create.Array($Create.Any);
-const $$createType10 = NetworkCommandResult.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = $Create.Map($Create.Any, $Create.Any);
+const $$createType5 = TestingSettings.createFrom;
+const $$createType6 = ControllerSettings.createFrom;
+const $$createType7 = WLEDDevice.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = ControllerCapabilities.createFrom;
+const $$createType10 = $Create.Array($Create.Any);
+const $$createType11 = NetworkCommandResult.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = $Create.Map($Create.Any, $Create.Any);

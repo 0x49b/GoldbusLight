@@ -275,3 +275,7 @@ func parseNetshWLANNetworks(output string) []WiFiNetwork {
 	})
 	return out
 }
+
+func selectNetworkBackend(logger *log.Logger) networkBackend {
+	return newWindowsBackend(logger)
+}

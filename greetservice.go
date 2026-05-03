@@ -174,6 +174,19 @@ func (g *GreetService) SetDeviceIgnored(deviceID string, ignored bool) (Controll
 	return controller.Snapshot(), nil
 }
 
+func (g *GreetService) RenameDevice(deviceID string, name string) (ControllerSnapshot, error) {
+	controller, err := g.requireController()
+	if err != nil {
+		return ControllerSnapshot{}, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	if err := controller.RenameDevice(ctx, deviceID, name); err != nil {
+		return ControllerSnapshot{}, err
+	}
+	return controller.Snapshot(), nil
+}
+
 func (g *GreetService) ControllerSummary() (string, error) {
 	controller, err := g.requireController()
 	if err != nil {

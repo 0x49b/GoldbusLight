@@ -224,3 +224,7 @@ func rssiToPercent(rssi int) int {
 	}
 	return 2 * (rssi + 100)
 }
+
+func selectNetworkBackend(logger *log.Logger) networkBackend {
+	return newDarwinBackend(logger)
+}

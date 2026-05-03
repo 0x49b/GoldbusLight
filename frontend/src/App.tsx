@@ -38,12 +38,17 @@ type ProvisioningSettings = {
   defaultConfigPatch: JSONMap;
 };
 
+type TestingSettings = {
+  simulateWled: boolean;
+};
+
 type ControllerSettings = {
   accessPoint: AccessPointSettings;
   upstream: UpstreamSettings;
   bridge: BridgeSettings;
   discovery: DiscoverySettings;
   provisioning: ProvisioningSettings;
+  testing: TestingSettings;
 };
 
 type WLEDDevice = {
@@ -227,6 +232,8 @@ function App() {
   const [deviceFormTransition, setDeviceFormTransition] = useState(7);
   const [selectedSegIdx, setSelectedSegIdx] = useState(0);
   const [ignoredDevices, setIgnoredDevices] = useState<WLEDDevice[]>([]);
+  const [deviceNameDraft, setDeviceNameDraft] = useState("");
+  const [editingDeviceName, setEditingDeviceName] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
 
@@ -236,6 +243,22 @@ function App() {
     if (route.kind !== "device") return undefined;
     return devices.find((d) => d.id === route.id);
   }, [devices, route]);
+
+  useEffect(() => {
+    if (route.kind !== "device" || !selectedDevice) {
+      setEditingDeviceName(false);
+      return;
+    }
+    setDeviceNameDraft(selectedDevice.name);
+    setEditingDeviceName(false);
+  }, [route.kind, selectedDevice?.id]);
+
+  useEffect(() => {
+    if (!selectedDevice || editingDeviceName) {
+      return;
+    }
+    setDeviceNameDraft(selectedDevice.name);
+  }, [selectedDevice?.name, editingDeviceName, selectedDevice]);
 
   const pullSnapshot = useCallback(async () => {
     const next = (await GreetService.GetControllerSnapshot()) as ControllerSnapshot;
@@ -492,6 +515,23 @@ function App() {
       });
     },
     [loadDeviceDetail, pullSnapshot, route, withBusy],
+  );
+
+  const onRenameDevice = useCallback(
+    (deviceID: string, name: string) => {
+      void withBusy(async () => {
+        const updated = (await GreetService.RenameDevice(deviceID, name)) as ControllerSnapshot;
+        setSnapshot(updated);
+        setSettings(updated.settings);
+        setEditingDeviceName(false);
+        setStatus("Device name updated");
+        setError("");
+        if (route.kind === "device" && route.id === deviceID) {
+          await loadDeviceDetail(deviceID);
+        }
+      });
+    },
+    [loadDeviceDetail, route, withBusy],
   );
 
   const onToggleOneDevice = useCallback(
@@ -783,6 +823,25 @@ function App() {
                 <span className="label-text">Enable mDNS discovery loop</span>
               </label>
 
+              <label className="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  className="toggle toggle-ghost"
+                  checked={settings.testing.simulateWled}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      testing: { ...settings.testing, simulateWled: e.target.checked },
+                    })
+                  }
+                />
+                <span className="label-text">Simulate WLED device (testing)</span>
+              </label>
+              <p className="text-xs opacity-60">
+                Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>) with no network traffic.
+                Enable this option, save settings, then pick the device from the list (Discover or wait for the next snapshot refresh).
+              </p>
+
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <input
                   className="input input-bordered input-sm"
@@ -979,8 +1038,62 @@ function App() {
     return (
       <div className="space-y-6 max-w-4xl pb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold">{d.name}</h2>
+          <div className="space-y-3 min-w-0 flex-1">
+            {editingDeviceName ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="form-control flex-1 min-w-[14rem] max-w-md">
+                  <span className="label-text text-xs">Device name</span>
+                  <input
+                    className="input input-bordered input-sm w-full"
+                    value={deviceNameDraft}
+                    onChange={(e) => setDeviceNameDraft(e.target.value)}
+                    disabled={busy}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setEditingDeviceName(false);
+                        setDeviceNameDraft(d.name);
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary shrink-0"
+                  disabled={busy || !deviceNameDraft.trim() || deviceNameDraft.trim() === d.name}
+                  onClick={() => onRenameDevice(d.id, deviceNameDraft.trim())}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost shrink-0"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditingDeviceName(false);
+                    setDeviceNameDraft(d.name);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-semibold truncate min-w-0">{d.name}</h2>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline shrink-0"
+                  disabled={busy}
+                  onClick={() => {
+                    setDeviceNameDraft(d.name);
+                    setEditingDeviceName(true);
+                  }}
+                >
+                  Edit name
+                </button>
+              </div>
+            )}
             <p className="text-sm opacity-70 font-mono">
               {d.address}:{d.port} • {d.id}
             </p>
@@ -1300,9 +1413,11 @@ function App() {
     <div className="min-h-screen bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
       <header className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0"
       style={{paddingLeft: "100px"}}>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-lg font-bold leading-tight">WLED Central Controller</h1>
-          <p className="text-xs opacity-70">Master presets, per-device control, and settings</p>
+          <p className="text-xs opacity-70 mt-0.5 truncate" title={status}>
+            {status}
+          </p>
         </div>
         <div className="flex gap-2">
           <button className="btn btn-primary btn-sm" onClick={onDiscoverNow} disabled={busy}>
@@ -1329,13 +1444,19 @@ function App() {
               <button
                 key={dev.id}
                 type="button"
-                className={`btn btn-sm w-full justify-start font-normal h-auto min-h-10 py-2 flex-col items-stretch ${
+                className={`btn btn-sm w-full justify-start font-normal min-h-10 py-2 ${
                   route.kind === "device" && route.id === dev.id ? "btn-primary" : "btn-ghost"
                 }`}
+                aria-label={`${dev.name} (${dev.online ? "Online" : "Offline"})`}
                 onClick={() => setRoute({ kind: "device", id: dev.id })}
               >
-                <span className="truncate text-left w-full">{dev.name}</span>
-                <span className="text-[10px] opacity-70 font-normal">{dev.online ? "Online" : "Offline"}</span>
+                <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <span
+                    className={`status status-sm ${dev.online ? "status-success" : "status-neutral"}`}
+                    aria-hidden
+                  />
+                  <span className="truncate">{dev.name}</span>
+                </span>
               </button>
             ))}
           </nav>
@@ -1351,7 +1472,6 @@ function App() {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="alert alert-info text-sm py-2 mb-4">{status}</div>
           {error && (
             <div className="alert alert-error text-sm py-2 mb-4" role="alert">
               {error}

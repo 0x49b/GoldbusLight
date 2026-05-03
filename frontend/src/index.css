@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* daisyUI v5-style Status (not in daisyUI v4); see https://daisyui.com/components/status/ */
+@layer components {
+  .status {
+    @apply inline-block shrink-0 rounded-full align-middle;
+  }
+  .status-xs {
+    @apply h-1.5 w-1.5;
+  }
+  .status-sm {
+    @apply h-2 w-2;
+  }
+  .status-success {
+    @apply bg-success;
+  }
+  .status-neutral {
+    @apply bg-base-content/35;
+  }
+}

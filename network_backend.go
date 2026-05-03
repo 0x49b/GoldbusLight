@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
 	"os/exec"
-	"runtime"
 	"strings"
 )
 
@@ -20,19 +18,6 @@ type networkBackend interface {
 	unavailableHint() string
 	apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult
 	scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error)
-}
-
-func selectNetworkBackend(logger *log.Logger) networkBackend {
-	switch runtime.GOOS {
-	case "linux":
-		return newLinuxBackend(logger)
-	case "darwin":
-		return newDarwinBackend(logger)
-	case "windows":
-		return newWindowsBackend(logger)
-	default:
-		return newStubBackend(logger)
-	}
 }
 
 func runShellCommand(ctx context.Context, name string, args ...string) NetworkCommandResult {

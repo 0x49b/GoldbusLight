@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	defaultStateFileName = "state.json"
+	defaultStateFileName    = "state.json"
+	simulatedWLEDDeviceID   = "sim:wled"
 )
 
 type AccessPointSettings struct {
@@ -57,12 +58,17 @@ type ProvisioningSettings struct {
 	DefaultConfigPatch  map[string]any `json:"defaultConfigPatch"`
 }
 
+type TestingSettings struct {
+	SimulateWLED bool `json:"simulateWled"`
+}
+
 type ControllerSettings struct {
 	AccessPoint  AccessPointSettings  `json:"accessPoint"`
 	Upstream     UpstreamSettings     `json:"upstream"`
 	Bridge       BridgeSettings       `json:"bridge"`
 	Discovery    DiscoverySettings    `json:"discovery"`
 	Provisioning ProvisioningSettings `json:"provisioning"`
+	Testing      TestingSettings      `json:"testing"`
 }
 
 type WLEDDevice struct {
@@ -78,6 +84,35 @@ type WLEDDevice struct {
 	Info        map[string]any `json:"info,omitempty"`
 	// LastState holds the last known WLED JSON state payload applied to the device (merged over time) for restore on reconnect.
 	LastState map[string]any `json:"lastState,omitempty"`
+}
+
+func isSimulatedWLED(device WLEDDevice, settings ControllerSettings) bool {
+	return settings.Testing.SimulateWLED && device.ID == simulatedWLEDDeviceID
+}
+
+func newSimulatedWLEDDevice() WLEDDevice {
+	now := time.Now()
+	st := map[string]any{
+		"on":         true,
+		"bri":        180,
+		"transition": 7,
+		"seg": []any{map[string]any{
+			"id": 0, "start": 0, "stop": 149, "len": 150,
+			"col": []any{[]any{255, 160, 0}},
+		}},
+	}
+	return WLEDDevice{
+		ID:          simulatedWLEDDeviceID,
+		Name:        "Simulated WLED",
+		Host:        "simulated.local",
+		Address:     "127.0.0.1",
+		Port:        80,
+		LastSeen:    now,
+		Online:      true,
+		Provisioned: false,
+		Info:        map[string]any{"on": true, "bri": 180},
+		LastState:   st,
+	}
 }
 
 type persistentState struct {
@@ -436,6 +471,12 @@ func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[stri
 	return payload, nil
 }
 
+// ApplyCfgPatch POSTs a partial cfg object (see WLED JSON API /json/cfg).
+func (w *WLEDEngine) ApplyCfgPatch(ctx context.Context, device WLEDDevice, patch map[string]any) error {
+	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	return w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", patch, nil)
+}
+
 func (w *WLEDEngine) ApplyStateToAll(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
 	results := make(map[string]string, len(devices))
 	var mu sync.Mutex
@@ -523,6 +564,108 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 	}
 }
 
+func (c *WLEDController) syncSimulatedDeviceLocked() {
+	if c.settings.Testing.SimulateWLED {
+		base := newSimulatedWLEDDevice()
+		if existing, ok := c.devices[simulatedWLEDDeviceID]; ok {
+			if strings.TrimSpace(existing.Name) != "" {
+				base.Name = existing.Name
+			}
+			if len(existing.LastState) > 0 {
+				base.LastState = cloneJSONMap(existing.LastState)
+			}
+			base.Provisioned = existing.Provisioned
+			base.Ignored = existing.Ignored
+			if existing.Info != nil {
+				base.Info = cloneJSONMap(existing.Info)
+			}
+			base.LastSeen = time.Now()
+		}
+		c.devices[simulatedWLEDDeviceID] = base
+		return
+	}
+	delete(c.devices, simulatedWLEDDeviceID)
+}
+
+func (c *WLEDController) applyWLEDState(ctx context.Context, device WLEDDevice, state map[string]any) error {
+	c.mu.RLock()
+	settings := c.settings
+	c.mu.RUnlock()
+	if isSimulatedWLED(device, settings) {
+		return nil
+	}
+	return c.wled.ApplyState(ctx, device, state)
+}
+
+func (c *WLEDController) applyStateToAllDevices(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
+	results := make(map[string]string, len(devices))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, device := range devices {
+		device := device
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := c.applyWLEDState(ctx, device, state)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				results[device.ID] = err.Error()
+				return
+			}
+			results[device.ID] = "ok"
+		}()
+	}
+	wg.Wait()
+	return results
+}
+
+func (c *WLEDController) getWLEDState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	c.mu.RLock()
+	settings := c.settings
+	latest, ok := c.devices[device.ID]
+	c.mu.RUnlock()
+	if isSimulatedWLED(device, settings) && ok {
+		out := cloneJSONMap(latest.LastState)
+		if len(out) == 0 {
+			out = defaultSimulatedState()
+		}
+		return out, nil
+	}
+	return c.wled.GetState(ctx, device)
+}
+
+func (c *WLEDController) getWLEDFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	c.mu.RLock()
+	settings := c.settings
+	latest, ok := c.devices[device.ID]
+	c.mu.RUnlock()
+	if isSimulatedWLED(device, settings) && ok {
+		return buildSimulatedFullJSON(latest), nil
+	}
+	return c.wled.GetFullJSON(ctx, device)
+}
+
+func (c *WLEDController) getWLEDConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
+	c.mu.RLock()
+	settings := c.settings
+	c.mu.RUnlock()
+	if isSimulatedWLED(device, settings) {
+		return map[string]any{}, nil
+	}
+	return c.wled.GetConfig(ctx, device)
+}
+
+func (c *WLEDController) provisionWLED(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
+	c.mu.RLock()
+	settings := c.settings
+	c.mu.RUnlock()
+	if isSimulatedWLED(device, settings) {
+		return nil
+	}
+	return c.wled.ProvisionDevice(ctx, device, cfgPatch, initialState)
+}
+
 func (c *WLEDController) Start(ctx context.Context) error {
 	loaded, err := c.persistence.Load()
 	if err != nil {
@@ -538,6 +681,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	c.mu.Lock()
 	c.settings = mergeWithDefaults(loaded.Settings)
 	c.devices = loaded.Devices
+	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 
@@ -588,6 +732,7 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 	c.mu.Lock()
 	c.settings = mergeWithDefaults(settings)
+	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
@@ -637,7 +782,7 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
 
-	if err := c.wled.ApplyState(ctx, device, state); err != nil {
+	if err := c.applyWLEDState(ctx, device, state); err != nil {
 		return err
 	}
 
@@ -673,7 +818,7 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 	}
 	c.mu.RUnlock()
 
-	results := c.wled.ApplyStateToAll(ctx, devices, state)
+	results := c.applyStateToAllDevices(ctx, devices, state)
 
 	c.mu.Lock()
 	for id, d := range c.devices {
@@ -717,7 +862,7 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
 
-	if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err != nil {
+	if err := c.provisionWLED(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err != nil {
 		return err
 	}
 
@@ -744,7 +889,7 @@ func (c *WLEDController) RefreshDevice(ctx context.Context, deviceID string) err
 		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
 
-	state, err := c.wled.GetState(ctx, device)
+	state, err := c.getWLEDState(ctx, device)
 	if err != nil {
 		c.mu.Lock()
 		device.Online = false
@@ -801,7 +946,7 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 		return detail
 	}
 
-	full, err := c.wled.GetFullJSON(ctx, device)
+	full, err := c.getWLEDFullJSON(ctx, device)
 	if err != nil {
 		detail.Online = false
 		detail.Error = err.Error()
@@ -821,7 +966,7 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 	if pal, ok := full["palettes"].([]any); ok {
 		detail.Palettes = stringifyAnySlice(pal)
 	}
-	if cfg, err := c.wled.GetConfig(ctx, device); err != nil {
+	if cfg, err := c.getWLEDConfig(ctx, device); err != nil {
 		c.logger.Printf("cfg fetch for %s: %v", deviceID, err)
 	} else {
 		detail.Config = cfg
@@ -832,6 +977,7 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 func (c *WLEDController) RemoveDevice(deviceID string) error {
 	c.mu.Lock()
 	delete(c.devices, deviceID)
+	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
@@ -861,6 +1007,49 @@ func (c *WLEDController) SetDeviceIgnored(deviceID string, ignored bool) error {
 	}
 	device.Ignored = ignored
 	c.devices[deviceID] = device
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persist()
+}
+
+func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	c.mu.RLock()
+	device, ok := c.devices[deviceID]
+	settings := c.settings
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("unknown device: %s", deviceID)
+	}
+	if device.Ignored {
+		return fmt.Errorf("device is ignored: %s", deviceID)
+	}
+
+	if isSimulatedWLED(device, settings) {
+		c.mu.Lock()
+		d := c.devices[deviceID]
+		d.Name = name
+		c.devices[deviceID] = d
+		c.updated = time.Now()
+		c.mu.Unlock()
+		return c.persist()
+	}
+
+	patch := map[string]any{"id": map[string]any{"name": name}}
+	if err := c.wled.ApplyCfgPatch(ctx, device, patch); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	d := c.devices[deviceID]
+	d.Name = name
+	if d.Info == nil {
+		d.Info = map[string]any{}
+	}
+	d.Info["name"] = name
+	c.devices[deviceID] = d
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
@@ -933,7 +1122,7 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 	c.mu.Unlock()
 
 	if len(restoreState) > 0 {
-		if err := c.wled.ApplyState(ctx, device, restoreState); err != nil {
+		if err := c.applyWLEDState(ctx, device, restoreState); err != nil {
 			c.logger.Printf("restore last state to %s failed: %v", device.ID, err)
 		} else {
 			c.mu.Lock()
@@ -960,7 +1149,7 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 	}
 
 	if settings.AutoProvision && !device.Provisioned {
-		if err := c.wled.ProvisionDevice(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err == nil {
+		if err := c.provisionWLED(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err == nil {
 			c.mu.Lock()
 			device.Provisioned = true
 			c.devices[device.ID] = device
@@ -1010,7 +1199,7 @@ func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
 		if len(state) == 0 {
 			continue
 		}
-		if err := c.wled.ApplyState(restoreCtx, device, state); err != nil {
+		if err := c.applyWLEDState(restoreCtx, device, state); err != nil {
 			c.logger.Printf("boot restore for %s failed: %v", device.ID, err)
 			continue
 		}
@@ -1058,7 +1247,7 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 	c.mu.RUnlock()
 
 	for _, device := range devices {
-		state, err := c.wled.GetState(ctx, device)
+		state, err := c.getWLEDState(ctx, device)
 		c.mu.Lock()
 		latest := c.devices[device.ID]
 		if latest.Ignored {
@@ -1330,4 +1519,31 @@ func stringifyAnySlice(items []any) []string {
 		}
 	}
 	return out
+}
+
+func defaultSimulatedState() map[string]any {
+	return cloneJSONMap(newSimulatedWLEDDevice().LastState)
+}
+
+func buildSimulatedFullJSON(device WLEDDevice) map[string]any {
+	state := cloneJSONMap(device.LastState)
+	if len(state) == 0 {
+		state = defaultSimulatedState()
+	}
+	if _, ok := state["seg"]; !ok {
+		state["seg"] = []any{map[string]any{
+			"id": 0, "start": 0, "stop": 149, "len": 150,
+			"col": []any{[]any{255, 160, 0}},
+		}}
+	}
+	return map[string]any{
+		"state": state,
+		"info": map[string]any{
+			"name": device.Name,
+			"ver":  "0.14.0-sim",
+			"mac":  simulatedWLEDDeviceID,
+		},
+		"effects":  []any{"Solid", "Blink", "Breathe"},
+		"palettes": []any{"Default"},
+	}
 }

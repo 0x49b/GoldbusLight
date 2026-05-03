@@ -16,6 +16,7 @@ export {
     NetworkApplyResult,
     NetworkCommandResult,
     ProvisioningSettings,
+    TestingSettings,
     UpstreamSettings,
     WLEDDevice,
     WLEDDeviceDetail,

@@ -161,3 +161,7 @@ func (n *linuxBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwor
 	})
 	return networks, nil
 }
+
+func selectNetworkBackend(logger *log.Logger) networkBackend {
+	return newLinuxBackend(logger)
+}

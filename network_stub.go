@@ -45,3 +45,7 @@ func (s *stubBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork
 	_ = iface
 	return nil, errors.New("Wi-Fi scan is not available on this platform")
 }
+
+func selectNetworkBackend(logger *log.Logger) networkBackend {
+	return newStubBackend(logger)
+}
