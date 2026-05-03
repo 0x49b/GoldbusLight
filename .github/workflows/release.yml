@@ -1,0 +1,211 @@
+# Production binaries + GitHub Release.
+# - linux-amd64: native build on Ubuntu (CGO + GTK/WebKit).
+# - linux-arm64: Docker wails-cross (Raspberry Pi **64-bit** OS only; see Dockerfile.cross — no linux/armv7).
+# - windows-amd64, darwin-amd64, darwin-arm64: OS runners.
+# Binaries are unsigned (no macOS notarization / Windows Authenticode in CI).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (must exist on the remote), e.g. v1.0.0"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.25.x"
+  NODE_VERSION: "20"
+  WAILS_VERSION: "v3.0.0-alpha.81"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Build wails-cross Docker image
+        run: task setup:docker
+
+      - name: Build linux amd64
+        run: task linux:build DEV=false
+
+      - name: Stage linux amd64 artifact
+        run: |
+          cp bin/GoldbusLight GoldbusLight-linux-amd64
+          chmod +x GoldbusLight-linux-amd64
+
+      - name: Build linux arm64 (Docker / Raspberry Pi 64-bit)
+        run: task linux:build ARCH=arm64 DEV=false
+
+      - name: Stage linux arm64 artifact
+        run: |
+          cp bin/GoldbusLight GoldbusLight-linux-arm64
+          chmod +x GoldbusLight-linux-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-linux
+          path: |
+            GoldbusLight-linux-amd64
+            GoldbusLight-linux-arm64
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Build windows amd64
+        run: task windows:build DEV=false
+
+      - name: Stage windows artifact
+        run: cp bin/GoldbusLight.exe GoldbusLight-windows-amd64.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-windows
+          path: GoldbusLight-windows-amd64.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Build darwin amd64
+        run: task darwin:build ARCH=amd64 DEV=false OUTPUT=bin/GoldbusLight-darwin-amd64
+
+      - name: Build darwin arm64
+        run: task darwin:build ARCH=arm64 DEV=false OUTPUT=bin/GoldbusLight-darwin-arm64
+
+      - name: Stage macOS artifacts
+        run: |
+          cp bin/GoldbusLight-darwin-amd64 GoldbusLight-darwin-amd64
+          cp bin/GoldbusLight-darwin-arm64 GoldbusLight-darwin-arm64
+          chmod +x GoldbusLight-darwin-amd64 GoldbusLight-darwin-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-macos
+          path: |
+            GoldbusLight-darwin-amd64
+            GoldbusLight-darwin-arm64
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: goldbus-*
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            **Downloads:** choose the binary for your OS and CPU architecture.
+
+            | Asset | Platform |
+            |-------|----------|
+            | `GoldbusLight-windows-amd64.exe` | Windows x64 |
+            | `GoldbusLight-darwin-amd64` | macOS Intel |
+            | `GoldbusLight-darwin-arm64` | macOS Apple silicon |
+            | `GoldbusLight-linux-amd64` | Linux x64 |
+            | `GoldbusLight-linux-arm64` | Linux arm64 (**Raspberry Pi OS 64-bit**, Pi 4 / Pi 5) |
+
+            **Raspberry Pi:** CI builds **arm64** only (matches [Dockerfile.cross](build/docker/Dockerfile.cross)). **32-bit** (`linux/arm`, armv7) is not produced here.
+
+            **Signing:** these binaries are **unsigned** (no Windows Authenticode / Apple notarization in CI).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
