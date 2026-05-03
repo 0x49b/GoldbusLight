@@ -1,6 +1,6 @@
 # Production binaries + GitHub Release.
-# - linux-amd64: native build on Ubuntu (CGO + GTK/WebKit).
-# - linux-arm64: Docker wails-cross (Raspberry Pi **64-bit** OS only; see Dockerfile.cross — no linux/armv7).
+# - linux-amd64: native build on ubuntu-latest (CGO + GTK/WebKit from apt).
+# - linux-arm64: native build on ubuntu-24.04-arm (Raspberry Pi OS 64-bit / arm64 Linux).
 # - windows-amd64, darwin-amd64, darwin-arm64: OS runners.
 # Binaries are unsigned (no macOS notarization / Windows Authenticode in CI).
 
@@ -30,13 +30,20 @@ env:
   WAILS_VERSION: "v3.0.0-alpha.81"
 
 jobs:
-  build-linux:
+  build-linux-amd64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      - name: Install Linux GUI build dependencies (Wails CGO / wails3 CLI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - uses: actions/setup-go@v5
         with:
@@ -59,9 +66,6 @@ jobs:
       - name: Install wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
 
-      - name: Build wails-cross Docker image
-        run: task setup:docker
-
       - name: Build linux amd64
         run: task linux:build DEV=false
 
@@ -70,7 +74,48 @@ jobs:
           cp bin/GoldbusLight GoldbusLight-linux-amd64
           chmod +x GoldbusLight-linux-amd64
 
-      - name: Build linux arm64 (Docker / Raspberry Pi 64-bit)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-linux-amd64
+          path: GoldbusLight-linux-amd64
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      - name: Install Linux GUI build dependencies (Wails CGO / wails3 CLI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Build linux arm64 (Raspberry Pi OS 64-bit)
         run: task linux:build ARCH=arm64 DEV=false
 
       - name: Stage linux arm64 artifact
@@ -80,10 +125,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: goldbus-linux
-          path: |
-            GoldbusLight-linux-amd64
-            GoldbusLight-linux-arm64
+          name: goldbus-linux-arm64
+          path: GoldbusLight-linux-arm64
 
   build-windows:
     runs-on: windows-latest
@@ -177,7 +220,7 @@ jobs:
             GoldbusLight-darwin-arm64
 
   release:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux-amd64, build-linux-arm64, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -202,9 +245,9 @@ jobs:
             | `GoldbusLight-darwin-amd64` | macOS Intel |
             | `GoldbusLight-darwin-arm64` | macOS Apple silicon |
             | `GoldbusLight-linux-amd64` | Linux x64 |
-            | `GoldbusLight-linux-arm64` | Linux arm64 (**Raspberry Pi OS 64-bit**, Pi 4 / Pi 5) |
+            | `GoldbusLight-linux-arm64` | Linux arm64 (**Raspberry Pi OS 64-bit**, Pi 4 / Pi 5); built on a native arm64 GitHub runner |
 
-            **Raspberry Pi:** CI builds **arm64** only (matches [Dockerfile.cross](build/docker/Dockerfile.cross)). **32-bit** (`linux/arm`, armv7) is not produced here.
+            **Raspberry Pi:** use **64-bit** Raspberry Pi OS for `linux-arm64`. **32-bit** (`armv7` / `linux/arm`) is not built in CI.
 
             **Signing:** these binaries are **unsigned** (no Windows Authenticode / Apple notarization in CI).
         env:
