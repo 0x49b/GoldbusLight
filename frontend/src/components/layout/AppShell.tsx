@@ -1,5 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { DetailRoute, WLEDDevice } from "../../types/controller";
+import { PiBinoculars, PiArrowsClockwise } from "react-icons/pi";
 
 export type AppShellProps = {
   status: string;
@@ -31,17 +32,16 @@ export function AppShell({
         style={{ paddingLeft: "100px" }}
       >
         <div className="min-w-0">
-          <h1 className="text-lg font-bold leading-tight">WLED Central Controller</h1>
+          <h1 className="text-lg font-bold leading-tight">Goldbus Licht Controller</h1>
           <p className="text-xs opacity-70 mt-0.5 truncate" title={status}>
             {status}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button className="btn btn-primary btn-sm" onClick={onDiscoverNow} disabled={busy}>
-            Discover now
-          </button>
+        <div className="flex gap-3">
+          <button className="btn btn-sm" onClick={onDiscoverNow} disabled={busy}>
+          <PiBinoculars /></button>
           <button className="btn btn-sm" onClick={() => void onRefreshSnapshot()} disabled={busy}>
-            Refresh
+          <PiArrowsClockwise />
           </button>
         </div>
       </header>

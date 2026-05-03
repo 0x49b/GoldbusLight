@@ -51,6 +51,8 @@ export function useControllerApp() {
   const [editingDeviceName, setEditingDeviceName] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
+  const presetColorAutoApplySkipRef = useRef(false);
+  const presetColorAutoApplyIsInitialRef = useRef(true);
 
   const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
 
@@ -356,15 +358,27 @@ export function useControllerApp() {
     [onSetDeviceState],
   );
 
-  const applyPresetColor = useCallback(() => {
-    const [r, g, b] = presetRgb;
-    onSetGlobalState(rgbState(r, g, b, presetBri, true), "All devices color");
-  }, [onSetGlobalState, presetBri, presetRgb]);
-
   const applyWarmWhitePreset = useCallback(() => {
+    presetColorAutoApplySkipRef.current = true;
     setPresetRgb([...WARM_WHITE_RGB]);
     onSetGlobalState(warmWhiteState(presetBri), "Warm white (all)");
   }, [onSetGlobalState, presetBri]);
+
+  useEffect(() => {
+    if (presetColorAutoApplyIsInitialRef.current) {
+      presetColorAutoApplyIsInitialRef.current = false;
+      return;
+    }
+    if (presetColorAutoApplySkipRef.current) {
+      presetColorAutoApplySkipRef.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const [r, g, b] = presetRgb;
+      onSetGlobalState(rgbState(r, g, b, presetBri, true), "All devices color");
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [onSetGlobalState, presetBri, presetRgb]);
 
   return {
     snapshot,
@@ -423,7 +437,6 @@ export function useControllerApp() {
     onSetDeviceState,
     onRenameDevice,
     onToggleOneDevice,
-    applyPresetColor,
     applyWarmWhitePreset,
   };
 }

@@ -20,7 +20,6 @@ function App() {
         setPresetRgb={app.setPresetRgb}
         onSetGlobalState={app.onSetGlobalState}
         onToggleOneDevice={app.onToggleOneDevice}
-        applyPresetColor={app.applyPresetColor}
         applyWarmWhitePreset={app.applyWarmWhitePreset}
       />
     );
