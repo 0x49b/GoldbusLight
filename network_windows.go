@@ -178,7 +178,7 @@ func sanitizeProfileName(s string) string {
 
 func (w *windowsBackend) defaultInterfaceName(iface string) string {
 	iface = strings.TrimSpace(iface)
-	if iface != "" && !strings.HasPrefix(strings.ToLower(iface), "wlan")) {
+	if iface != "" && !strings.HasPrefix(strings.ToLower(iface), "wlan") {
 		return iface
 	}
 	cmd := exec.Command("netsh", "wlan", "show", "interfaces")
