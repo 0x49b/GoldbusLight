@@ -1,8 +1,10 @@
-import type {Dispatch, SetStateAction} from "react";
+import {type Dispatch, type SetStateAction, useState} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
 import {hexToRgb, rgbToHex} from "../../lib/wled";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
 import {PiPower} from "react-icons/pi";
+import {EffectPickerModal} from "./EffectPickerModal";
+import {PalettePickerModal} from "./PalettePickerModal";
 
 export type DeviceDetailViewProps = {
     device: WLEDDevice | undefined;
@@ -67,6 +69,9 @@ export function DeviceDetailView({
                                      onSetDeviceState,
                                      onRenameDevice,
                                  }: DeviceDetailViewProps) {
+    const [effectModalOpen, setEffectModalOpen] = useState(false);
+    const [paletteModalOpen, setPaletteModalOpen] = useState(false);
+
     if (!d) {
         return <p className="opacity-70">Device not found.</p>;
     }
@@ -204,7 +209,7 @@ export function DeviceDetailView({
                 </div>
             )}
 
-            <div className="card bg-base-200 shadow-sm">
+            <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-3">
                     <h3 className="font-medium">Power</h3>
                     <div className="flex flex-wrap gap-2 items-center">
@@ -227,12 +232,12 @@ export function DeviceDetailView({
                 </div>
             </div>
 
-            <div className="card bg-base-200 shadow-sm">
+            <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
                     <h3 className="font-medium">Color & brightness</h3>
                     <p className="text-xs opacity-60">
-                        Same controls as the WLED web UI: primary color for segment {selectedSegIdx},
-                        global brightness and transition time (
+                        Changes apply automatically (debounced). Same fields as the WLED web UI:
+                        primary color for segment {selectedSegIdx}, global brightness and transition (
                         <a className="link" href="https://kno.wled.ge/interfaces/json-api"
                            target="_blank" rel="noreferrer">
                             JSON API
@@ -260,6 +265,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[0]}
                                     onChange={(e) => setDeviceFormRgb([readNumber(e.target.value, 0), deviceFormRgb[1], deviceFormRgb[2]])}
+                                    disabled={busy || !liveOnline}
                                 />
                             </label>
                             <label className="form-control">
@@ -271,6 +277,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[1]}
                                     onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], readNumber(e.target.value, 0), deviceFormRgb[2]])}
+                                    disabled={busy || !liveOnline}
                                 />
                             </label>
                             <label className="form-control">
@@ -282,6 +289,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[2]}
                                     onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], deviceFormRgb[1], readNumber(e.target.value, 0)])}
+                                    disabled={busy || !liveOnline}
                                 />
                             </label>
                         </div>
@@ -310,29 +318,15 @@ export function DeviceDetailView({
                                 disabled={busy || !liveOnline}
                             />
                         </label>
-                        <button
-                            className="btn btn-primary btn-sm shrink-0"
-                            onClick={() =>
-                                onSetDeviceState(d.id, {
-                                    on: true,
-                                    bri: deviceFormBri,
-                                    transition: deviceFormTransition,
-                                    seg: [{id: selectedSegIdx, col: [deviceFormRgb]}],
-                                })
-                            }
-                            disabled={busy || !liveOnline}
-                        >
-                            Apply
-                        </button>
                     </div>
                 </div>
             </div>
 
-            <div className="card bg-base-200 shadow-sm">
+            <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
                     <h3 className="font-medium">Effect & palette</h3>
                     <p className="text-xs opacity-60">
-                        Pick by name like the built-in UI, or adjust speed and intensity. See{" "}
+                        Tap to choose from the list; speed and intensity apply automatically. See{" "}
                         <a className="link" href="https://kno.wled.ge/interfaces/json-api"
                            target="_blank" rel="noreferrer">
                             kno.wled.ge — JSON API
@@ -342,57 +336,81 @@ export function DeviceDetailView({
                     <div className="grid gap-3 md:grid-cols-2">
                         <label className="form-control">
                             <span className="label-text text-xs">Effect</span>
-                            {detail?.effects && detail.effects.length > 0 ? (
-                                <select
-                                    className="select select-bordered select-sm"
-                                    value={deviceFormFx}
-                                    onChange={(e) => setDeviceFormFx(readNumber(e.target.value, 0))}
-                                    disabled={!liveOnline}
-                                >
-                                    {detail.effects.map((name, idx) => (
-                                        <option key={idx} value={idx}>
-                                            {idx}: {name}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    type="number"
-                                    min={0}
-                                    className="input input-bordered input-sm"
-                                    value={deviceFormFx}
-                                    onChange={(e) => setDeviceFormFx(readNumber(e.target.value, 0))}
-                                    disabled={!liveOnline}
-                                />
-                            )}
+                            <button
+                                type="button"
+                                className="select select-bordered select-sm h-auto min-h-10 w-full cursor-pointer text-left font-normal"
+                                disabled={busy || !liveOnline}
+                                onClick={() => setEffectModalOpen(true)}
+                            >
+                                <span className="block truncate">
+                                    {deviceFormFx}
+                                    {detail?.effects?.[deviceFormFx] != null
+                                        ? `: ${detail.effects[deviceFormFx]}`
+                                        : ""}
+                                </span>
+                            </button>
                         </label>
                         <label className="form-control">
                             <span className="label-text text-xs">Palette</span>
-                            {detail?.palettes && detail.palettes.length > 0 ? (
-                                <select
-                                    className="select select-bordered select-sm"
-                                    value={deviceFormPal}
-                                    onChange={(e) => setDeviceFormPal(readNumber(e.target.value, 0))}
-                                    disabled={!liveOnline}
-                                >
-                                    {detail.palettes.map((name, idx) => (
-                                        <option key={idx} value={idx}>
-                                            {idx}: {name}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    type="number"
-                                    min={0}
-                                    className="input input-bordered input-sm"
-                                    value={deviceFormPal}
-                                    onChange={(e) => setDeviceFormPal(readNumber(e.target.value, 0))}
-                                    disabled={!liveOnline}
-                                />
-                            )}
+                            <button
+                                type="button"
+                                className="select select-bordered select-sm h-auto min-h-10 w-full cursor-pointer text-left font-normal"
+                                disabled={busy || !liveOnline}
+                                onClick={() => setPaletteModalOpen(true)}
+                            >
+                                <span className="block truncate">
+                                    {deviceFormPal}
+                                    {detail?.palettes?.[deviceFormPal] != null
+                                        ? `: ${detail.palettes[deviceFormPal]}`
+                                        : ""}
+                                </span>
+                            </button>
                         </label>
                     </div>
+                    <EffectPickerModal
+                        open={effectModalOpen}
+                        onClose={() => setEffectModalOpen(false)}
+                        effectNames={detail?.effects}
+                        selectedIndex={deviceFormFx}
+                        disabled={busy || !liveOnline}
+                        onPick={(idx) => {
+                            setDeviceFormFx(idx);
+                            onSetDeviceState(d.id, {
+                                seg: [
+                                    {
+                                        id: selectedSegIdx,
+                                        fx: idx,
+                                        pal: deviceFormPal,
+                                        sx: deviceFormSx,
+                                        ix: deviceFormIx,
+                                        col: [deviceFormRgb],
+                                    },
+                                ],
+                            });
+                        }}
+                    />
+                    <PalettePickerModal
+                        open={paletteModalOpen}
+                        onClose={() => setPaletteModalOpen(false)}
+                        paletteNames={detail?.palettes}
+                        selectedIndex={deviceFormPal}
+                        disabled={busy || !liveOnline}
+                        onPick={(idx) => {
+                            setDeviceFormPal(idx);
+                            onSetDeviceState(d.id, {
+                                seg: [
+                                    {
+                                        id: selectedSegIdx,
+                                        fx: deviceFormFx,
+                                        pal: idx,
+                                        sx: deviceFormSx,
+                                        ix: deviceFormIx,
+                                        col: [deviceFormRgb],
+                                    },
+                                ],
+                            });
+                        }}
+                    />
                     <div className="grid gap-3 md:grid-cols-2">
                         <label className="form-control">
                             <span className="label-text text-xs">Speed (sx) — {deviceFormSx}</span>
@@ -403,7 +421,7 @@ export function DeviceDetailView({
                                 className="range range-sm"
                                 value={deviceFormSx}
                                 onChange={(e) => setDeviceFormSx(readNumber(e.target.value, 128))}
-                                disabled={!liveOnline}
+                                disabled={busy || !liveOnline}
                             />
                         </label>
                         <label className="form-control">
@@ -416,27 +434,10 @@ export function DeviceDetailView({
                                 className="range range-sm"
                                 value={deviceFormIx}
                                 onChange={(e) => setDeviceFormIx(readNumber(e.target.value, 128))}
-                                disabled={!liveOnline}
+                                disabled={busy || !liveOnline}
                             />
                         </label>
                     </div>
-                    <button
-                        className="btn btn-sm btn-primary w-fit"
-                        onClick={() =>
-                            onSetDeviceState(d.id, {
-                                seg: [{
-                                    id: selectedSegIdx,
-                                    fx: deviceFormFx,
-                                    pal: deviceFormPal,
-                                    sx: deviceFormSx,
-                                    ix: deviceFormIx
-                                }],
-                            })
-                        }
-                        disabled={busy || !liveOnline}
-                    >
-                        Apply effect
-                    </button>
                 </div>
             </div>
 

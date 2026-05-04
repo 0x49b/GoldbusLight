@@ -80,7 +80,7 @@ export function AppShell({
           <div className="p-2 border-t border-base-300 shrink-0">
             <button
               type="button"
-              className={`btn btn-sm w-full ${route.kind === "settings" ? "btn-secondary" : "btn-outline"}`}
+              className={`btn btn-sm w-full ${route.kind === "settings" ? "btn-primary" : "btn-outline"}`}
               onClick={() => setRoute({ kind: "settings" })}
             >
               Settings

@@ -51,7 +51,8 @@ export function useControllerApp() {
   const [editingDeviceName, setEditingDeviceName] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
-  const deviceStateAutoApplySkipRef = useRef(false);
+  /** After hydrating the form from GET state, skip the next N auto-apply runs (server push + follow-up form render). */
+  const deviceStateAutoApplyHydrationSuppressRef = useRef(0);
   const presetColorAutoApplySkipRef = useRef(false);
   const presetColorAutoApplyIsInitialRef = useRef(true);
 
@@ -85,6 +86,20 @@ export function useControllerApp() {
     setStatePayloadText(prettyJSON(next.settings.provisioning.defaultStatePayload ?? {}));
     setConfigPatchText(prettyJSON(next.settings.provisioning.defaultConfigPatch ?? {}));
     setStatus(`Updated ${new Date(next.updatedAt).toLocaleTimeString()}`);
+    // #region agent log
+    fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+      body: JSON.stringify({
+        sessionId: "533703",
+        location: "useControllerApp.ts:pullSnapshot",
+        message: "pullSnapshot updated status",
+        data: {},
+        timestamp: Date.now(),
+        hypothesisId: "H4",
+      }),
+    }).catch(() => {});
+    // #endregion
     setError("");
     try {
       const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
@@ -147,7 +162,24 @@ export function useControllerApp() {
     if (!seg) {
       return;
     }
-    deviceStateAutoApplySkipRef.current = true;
+    deviceStateAutoApplyHydrationSuppressRef.current += 1;
+    // #region agent log
+    fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+      body: JSON.stringify({
+        sessionId: "533703",
+        location: "useControllerApp.ts:sync-form-from-detail",
+        message: "hydrate form from deviceDetail (hydrationSuppress++)",
+        data: {
+          selectedSegIdx,
+          suppressAfter: deviceStateAutoApplyHydrationSuppressRef.current,
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H3",
+      }),
+    }).catch(() => {});
+    // #endregion
     setDeviceFormFx(segmentFx(seg));
     setDeviceFormPal(segmentPal(seg));
     setDeviceFormSx(segmentSx(seg));
@@ -171,12 +203,40 @@ export function useControllerApp() {
   }, [route, loadDeviceDetail]);
 
   const withBusy = useCallback(async (work: () => Promise<void>) => {
+    // #region agent log
+    fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+      body: JSON.stringify({
+        sessionId: "533703",
+        location: "useControllerApp.ts:withBusy",
+        message: "withBusy enter (setBusy true)",
+        data: {},
+        timestamp: Date.now(),
+        hypothesisId: "H1",
+      }),
+    }).catch(() => {});
+    // #endregion
     setBusy(true);
     try {
       await work();
     } catch (err) {
       setError(String(err));
     } finally {
+      // #region agent log
+      fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+        body: JSON.stringify({
+          sessionId: "533703",
+          location: "useControllerApp.ts:withBusy",
+          message: "withBusy exit (setBusy false)",
+          data: {},
+          timestamp: Date.now(),
+          hypothesisId: "H1",
+        }),
+      }).catch(() => {});
+      // #endregion
       setBusy(false);
     }
   }, []);
@@ -336,6 +396,25 @@ export function useControllerApp() {
   );
 
   useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+      body: JSON.stringify({
+        sessionId: "533703",
+        location: "useControllerApp.ts:auto-apply",
+        message: "auto-apply effect run",
+        data: {
+          routeKind: route.kind,
+          hydrationSuppress: deviceStateAutoApplyHydrationSuppressRef.current,
+          hasDetailState: !!deviceDetail?.state,
+          detailIdOk: detailDeviceIdRef.current === (route.kind === "device" ? route.id : ""),
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H2",
+      }),
+    }).catch(() => {});
+    // #endregion
     if (route.kind !== "device" || !selectedDevice) {
       return;
     }
@@ -345,14 +424,45 @@ export function useControllerApp() {
     if (detailDeviceIdRef.current !== route.id) {
       return;
     }
-    if (deviceStateAutoApplySkipRef.current) {
-      deviceStateAutoApplySkipRef.current = false;
+    if (deviceStateAutoApplyHydrationSuppressRef.current > 0) {
+      // #region agent log
+      fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+        body: JSON.stringify({
+          sessionId: "533703",
+          location: "useControllerApp.ts:auto-apply",
+          message: "early return: hydration suppress (no schedule)",
+          data: {
+            suppressBefore: deviceStateAutoApplyHydrationSuppressRef.current,
+            runId: "post-fix",
+          },
+          timestamp: Date.now(),
+          hypothesisId: "H3",
+        }),
+      }).catch(() => {});
+      // #endregion
+      deviceStateAutoApplyHydrationSuppressRef.current -= 1;
       return;
     }
     const deviceID = selectedDevice.id;
     const t = window.setTimeout(() => {
+      // #region agent log
+      fetch("http://127.0.0.1:7779/ingest/c5a789d3-e033-4a6b-bfa5-cb0a12761d0b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "533703" },
+        body: JSON.stringify({
+          sessionId: "533703",
+          location: "useControllerApp.ts:auto-apply",
+          message: "debounced timer fired -> onSetDeviceState",
+          data: { deviceID, runId: "post-fix" },
+          timestamp: Date.now(),
+          hypothesisId: "H2",
+        }),
+      }).catch(() => {});
+      // #endregion
+      // Do not send `on` here — omitting it preserves power; `on: true` was forcing lights back on after the user turned them off.
       onSetDeviceState(deviceID, {
-        on: true,
         bri: deviceFormBri,
         transition: deviceFormTransition,
         seg: [
@@ -367,7 +477,6 @@ export function useControllerApp() {
     }, 200);
     return () => window.clearTimeout(t);
   }, [
-    deviceDetail,
     deviceFormBri,
     deviceFormIx,
     deviceFormRgb,
