@@ -48,7 +48,7 @@ export function ControllerSettingsView({
   }
 
   return (
-    <div className="space-y-5 max-w-5xl pb-8">
+    <div className="space-y-5 w-full max-w-none pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Controller settings</h2>
         <div className="flex gap-2">
@@ -318,7 +318,7 @@ export function ControllerSettingsView({
         </div>
       </section>
 
-      <section className="card bg-base-200 shadow-sm max-w-5xl">
+      <section className="card bg-base-200 shadow-sm w-full max-w-none">
         <div className="card-body space-y-3">
           <h3 className="card-title text-base">Ignored devices</h3>
           <p className="text-sm opacity-70">

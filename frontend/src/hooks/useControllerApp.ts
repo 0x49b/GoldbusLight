@@ -51,6 +51,7 @@ export function useControllerApp() {
   const [editingDeviceName, setEditingDeviceName] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
+  const deviceStateAutoApplySkipRef = useRef(false);
   const presetColorAutoApplySkipRef = useRef(false);
   const presetColorAutoApplyIsInitialRef = useRef(true);
 
@@ -107,13 +108,12 @@ export function useControllerApp() {
 
   const loadDeviceDetail = useCallback(async (deviceId: string) => {
     try {
+      const prevDetailId = detailDeviceIdRef.current;
       const d = (await GreetService.GetDeviceDetail(deviceId)) as WLEDDeviceDetail;
       setDeviceDetail(d);
-      if (d.state) {
-        if (detailDeviceIdRef.current !== deviceId) {
-          detailDeviceIdRef.current = deviceId;
-          setSelectedSegIdx(mainSegIndex(d.state as JSONMap));
-        }
+      detailDeviceIdRef.current = deviceId;
+      if (d.state && prevDetailId !== deviceId) {
+        setSelectedSegIdx(mainSegIndex(d.state as JSONMap));
       }
     } catch (e) {
       setDeviceDetail({
@@ -147,6 +147,7 @@ export function useControllerApp() {
     if (!seg) {
       return;
     }
+    deviceStateAutoApplySkipRef.current = true;
     setDeviceFormFx(segmentFx(seg));
     setDeviceFormPal(segmentPal(seg));
     setDeviceFormSx(segmentSx(seg));
@@ -333,6 +334,50 @@ export function useControllerApp() {
     },
     [loadDeviceDetail, pullSnapshot, route, withBusy],
   );
+
+  useEffect(() => {
+    if (route.kind !== "device" || !selectedDevice) {
+      return;
+    }
+    if (!deviceDetail?.state) {
+      return;
+    }
+    if (detailDeviceIdRef.current !== route.id) {
+      return;
+    }
+    if (deviceStateAutoApplySkipRef.current) {
+      deviceStateAutoApplySkipRef.current = false;
+      return;
+    }
+    const deviceID = selectedDevice.id;
+    const t = window.setTimeout(() => {
+      onSetDeviceState(deviceID, {
+        on: true,
+        bri: deviceFormBri,
+        transition: deviceFormTransition,
+        seg: [
+          {
+            id: selectedSegIdx,
+            col: [deviceFormRgb],
+            sx: deviceFormSx,
+            ix: deviceFormIx,
+          },
+        ],
+      });
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [
+    deviceDetail?.state,
+    deviceFormBri,
+    deviceFormIx,
+    deviceFormRgb,
+    deviceFormSx,
+    deviceFormTransition,
+    onSetDeviceState,
+    route,
+    selectedDevice,
+    selectedSegIdx,
+  ]);
 
   const onRenameDevice = useCallback(
     (deviceID: string, name: string) => {

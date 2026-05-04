@@ -26,7 +26,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
+    <div className="min-h-screen w-full min-w-0 bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
       <header
         className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0"
         style={{ paddingLeft: "100px" }}

@@ -84,7 +84,7 @@ export function DeviceDetailView({
                 : undefined;
 
     return (
-        <div className="space-y-6 max-w-4xl pb-8">
+        <div className="space-y-6 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-3 min-w-0 flex-1">
                     {editingDeviceName ? (

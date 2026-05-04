@@ -39,7 +39,7 @@ export function PresetsPanel({
     }, [activeDevices]);
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 w-full max-w-none">
             <div>
                 <h2 className="text-xl font-semibold">Presets</h2>
             </div>
