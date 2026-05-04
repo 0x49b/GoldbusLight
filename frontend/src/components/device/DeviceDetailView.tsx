@@ -2,7 +2,15 @@ import {type Dispatch, type SetStateAction, useState} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
 import {hexToRgb, rgbToHex} from "../../lib/wled";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
-import {PiArrowClockwise, PiPaperPlaneTilt, PiPower, PiTrash, PiX} from "react-icons/pi";
+import {
+    PiArrowClockwise,
+    PiPen,
+    PiPaperPlaneTilt,
+    PiPower,
+    PiTrash,
+    PiX,
+    PiPencil
+} from "react-icons/pi";
 import {EffectPickerModal} from "./EffectPickerModal";
 import {PalettePickerModal} from "./PalettePickerModal";
 
@@ -71,6 +79,7 @@ export function DeviceDetailView({
                                  }: DeviceDetailViewProps) {
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
 
     if (!d) {
         return <p className="opacity-70">Device not found.</p>;
@@ -97,7 +106,7 @@ export function DeviceDetailView({
                     {editingDeviceName ? (
                         <div className="flex flex-wrap items-end gap-2">
                             <label className="form-control flex-1 min-w-[14rem] max-w-md">
-                                <span className="label-text text-xs">Device name</span>
+                                
                                 <input
                                     className="input input-bordered input-sm w-full"
                                     value={deviceNameDraft}
@@ -145,7 +154,7 @@ export function DeviceDetailView({
                                     setEditingDeviceName(true);
                                 }}
                             >
-                                Edit name
+                                <PiPencil/>
                             </button>
                         </div>
                     )}
@@ -192,18 +201,69 @@ export function DeviceDetailView({
                     </div>
                     <div className="tooltip tooltip-bottom" data-tip="ignore">
                         <button className="btn btn-sm btn-error btn-outline"
-                                onClick={() => onIgnoreDevice(d.id)} disabled={busy}>
+                                onClick={() => setConfirmAction("ignore")} disabled={busy}>
                             <PiX/>
                         </button>
                     </div>
                     <div className="tooltip tooltip-bottom" data-tip="forget">
                         <button className="btn btn-sm btn-error btn-outline"
-                                onClick={() => onRemoveDevice(d.id)} disabled={busy}>
+                                onClick={() => setConfirmAction("remove")} disabled={busy}>
                             <PiTrash/>
                         </button>
                     </div>
                 </div>
             </div>
+            {confirmAction && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">
+                            {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
+                        </h3>
+                        <p className="py-3 text-sm opacity-80">
+                            {confirmAction === "ignore"
+                                ? `Are you sure you want to ignore "${d.name}"?`
+                                : `Are you sure you want to forget "${d.name}"?`}
+                        </p>
+                        <p className="text-xs opacity-70">
+                            {confirmAction === "ignore"
+                                ? "This device will be ignored and hidden from active management."
+                                : "This device will be removed from the controller list."}
+                        </p>
+                        <div className="modal-action">
+                            <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setConfirmAction(null)}
+                                disabled={busy}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-error btn-sm"
+                                onClick={() => {
+                                    if (confirmAction === "ignore") {
+                                        onIgnoreDevice(d.id);
+                                    } else {
+                                        onRemoveDevice(d.id);
+                                    }
+                                    setConfirmAction(null);
+                                }}
+                                disabled={busy}
+                            >
+                                {confirmAction === "ignore" ? "Ignore device" : "Forget device"}
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="modal-backdrop"
+                        onClick={() => setConfirmAction(null)}
+                        disabled={busy}
+                        aria-label="Close confirmation dialog"
+                    />
+                </div>
+            )}
 
             {!detail?.state && liveOnline &&
                 <p className="text-sm opacity-70">Loading device state…</p>}
