@@ -2,7 +2,7 @@ import {type Dispatch, type SetStateAction, useState} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
 import {hexToRgb, rgbToHex} from "../../lib/wled";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
-import {PiPower} from "react-icons/pi";
+import {PiArrowClockwise, PiPaperPlaneTilt, PiPower, PiTrash, PiX} from "react-icons/pi";
 import {EffectPickerModal} from "./EffectPickerModal";
 import {PalettePickerModal} from "./PalettePickerModal";
 
@@ -162,22 +162,30 @@ export function DeviceDetailView({
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <button className="btn btn-sm" onClick={() => onRefreshDevice(d.id)}
-                            disabled={busy}>
-                        Refresh
-                    </button>
-                    <button className="btn btn-sm btn-secondary"
-                            onClick={() => onProvisionDevice(d.id)} disabled={busy}>
-                        Provision
-                    </button>
-                    <button className="btn btn-sm btn-warning btn-outline"
-                            onClick={() => onIgnoreDevice(d.id)} disabled={busy}>
-                        Ignore device
-                    </button>
-                    <button className="btn btn-sm btn-error btn-outline"
-                            onClick={() => onRemoveDevice(d.id)} disabled={busy}>
-                        Forget
-                    </button>
+                    <div className="tooltip tooltip-bottom" data-tip="reload">
+                        <button className="btn btn-sm" onClick={() => onRefreshDevice(d.id)}
+                                disabled={busy}>
+                            <PiArrowClockwise/>
+                        </button>
+                    </div>
+                    <div className="tooltip tooltip-bottom" data-tip="send defaults">
+                        <button className="btn btn-sm"
+                                onClick={() => onProvisionDevice(d.id)} disabled={busy}>
+                            <PiPaperPlaneTilt/>
+                        </button>
+                    </div>
+                    <div className="tooltip tooltip-bottom" data-tip="ignore">
+                        <button className="btn btn-sm"
+                                onClick={() => onIgnoreDevice(d.id)} disabled={busy}>
+                            <PiX/>
+                        </button>
+                    </div>
+                    <div className="tooltip tooltip-bottom" data-tip="forget">
+                        <button className="btn btn-sm btn-error btn-outline"
+                                onClick={() => onRemoveDevice(d.id)} disabled={busy}>
+                            <PiTrash/>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -221,13 +229,13 @@ export function DeviceDetailView({
                                 powerOn === true
                                     ? "btn-success"
                                     : powerOn === false
-                                      ? "btn-error"
-                                      : "btn-ghost"
+                                        ? "btn-error"
+                                        : "btn-ghost"
                             }`}
                             onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
                             disabled={busy || !liveOnline || powerOn === undefined}
                         >
-                            <PiPower className="text-lg shrink-0" aria-hidden />
+                            <PiPower className="text-lg shrink-0" aria-hidden/>
                             {powerOn === true ? "On" : powerOn === false ? "Off" : "…"}
                         </button>
                     </div>
@@ -239,7 +247,8 @@ export function DeviceDetailView({
                     <h3 className="font-medium">Color & brightness</h3>
                     <p className="text-xs opacity-60">
                         Changes apply automatically (debounced). Same fields as the WLED web UI:
-                        primary color for segment {selectedSegIdx}, global brightness and transition.
+                        primary color for segment {selectedSegIdx}, global brightness and
+                        transition.
                     </p>
                     <div className="flex flex-wrap items-center gap-4">
                         <label className="flex flex-col gap-1">
@@ -434,53 +443,56 @@ export function DeviceDetailView({
             </div>
 
             <div className="collapse bg-base-100 border border-gray-500">
-  <input type="checkbox" />
-  <div className="collapse-title font-semibold">State & Config</div>
-  <div className="collapse-content text-sm grid gap-5">
-   
+                <input type="checkbox"/>
+                <div className="collapse-title font-semibold">State & Config</div>
+                <div className="collapse-content text-sm grid gap-5">
 
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <div className="card bg-base-200 shadow-sm">
-                    <div className="card-body">
-                        <h3 className="font-medium text-sm mb-2">Device info (GET /json)</h3>
-                        <pre
-                            className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="card bg-base-200 shadow-sm">
+                            <div className="card-body">
+                                <h3 className="font-medium text-sm mb-2">Device info (GET
+                                    /json)</h3>
+                                <pre
+                                    className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
               {detail?.info ? prettyJSON(detail.info) : "—"}
             </pre>
-                    </div>
-                </div>
-                <div className="card bg-base-200 shadow-sm">
-                    <div className="card-body">
-                        <h3 className="font-medium text-sm mb-2">Config (GET /json/cfg)</h3>
-                        <pre
-                            className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                            </div>
+                        </div>
+                        <div className="card bg-base-200 shadow-sm">
+                            <div className="card-body">
+                                <h3 className="font-medium text-sm mb-2">Config (GET /json/cfg)</h3>
+                                <pre
+                                    className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
               {detail?.config ? prettyJSON(detail.config) : "—"}
             </pre>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div className="card bg-base-200 shadow-sm">
-                <div className="card-body">
-                    <h3 className="font-medium text-sm mb-2">Current state (GET /json → state)</h3>
-                    <pre
-                        className="text-xs overflow-auto max-h-72 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                    <div className="card bg-base-200 shadow-sm">
+                        <div className="card-body">
+                            <h3 className="font-medium text-sm mb-2">Current state (GET /json →
+                                state)</h3>
+                            <pre
+                                className="text-xs overflow-auto max-h-72 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
             {detail?.state ? prettyJSON(detail.state) : "—"}
           </pre>
+                        </div>
+                    </div>
+
+                    {d.lastState && Object.keys(d.lastState).length > 0 && (
+                        <div className="text-xs opacity-60">
+                            <span
+                                className="font-medium opacity-80">Persisted last state</span> (restored
+                            on reconnect):{" "}
+                            <code
+                                className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
+                        </div>
+                    )}
+
                 </div>
             </div>
-
-            {d.lastState && Object.keys(d.lastState).length > 0 && (
-                <div className="text-xs opacity-60">
-                    <span className="font-medium opacity-80">Persisted last state</span> (restored
-                    on reconnect):{" "}
-                    <code className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
-                </div>
-            )}
-
-</div>
-</div>
         </div>
     );
 }
