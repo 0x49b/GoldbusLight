@@ -138,7 +138,7 @@ export function ControllerSettingsView({
             <label className="label cursor-pointer justify-start gap-3">
               <input
                 type="checkbox"
-                className="toggle toggle-secondary"
+                className="toggle toggle-primary"
                 checked={settings.upstream.autoConnect}
                 onChange={(e) =>
                   setSettings({ ...settings, upstream: { ...settings.upstream, autoConnect: e.target.checked } })
@@ -176,7 +176,7 @@ export function ControllerSettingsView({
             <label className="label cursor-pointer justify-start gap-3">
               <input
                 type="checkbox"
-                className="toggle toggle-accent"
+                className="toggle toggle-primary"
                 checked={settings.bridge.enabled}
                 onChange={(e) => setSettings({ ...settings, bridge: { ...settings.bridge, enabled: e.target.checked } })}
               />
@@ -210,7 +210,7 @@ export function ControllerSettingsView({
             <label className="label cursor-pointer justify-start gap-3">
               <input
                 type="checkbox"
-                className="toggle"
+                className="toggle toggle-primary"
                 checked={settings.discovery.enabled}
                 onChange={(e) =>
                   setSettings({ ...settings, discovery: { ...settings.discovery, enabled: e.target.checked } })
@@ -222,7 +222,7 @@ export function ControllerSettingsView({
             <label className="label cursor-pointer justify-start gap-3">
               <input
                 type="checkbox"
-                className="toggle toggle-ghost"
+                className="toggle toggle-error"
                 checked={settings.testing.simulateWled}
                 onChange={(e) =>
                   setSettings({
