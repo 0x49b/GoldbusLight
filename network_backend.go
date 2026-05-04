@@ -7,7 +7,7 @@ import (
 )
 
 // networkBackend implements OS-specific Wi-Fi / network control (nmcli on Linux,
-// airport/networksetup on macOS, netsh on Windows).
+// macwifi/networksetup on macOS, netsh on Windows).
 type networkBackend interface {
 	id() string
 	label() string

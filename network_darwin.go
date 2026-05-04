@@ -7,15 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"regexp"
+	"runtime"
 	"slices"
-	"strconv"
 	"strings"
-)
 
-const appleAirportBinary = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
+	"github.com/jaisonerick/macwifi"
+)
 
 type darwinBackend struct {
 	logger *log.Logger
@@ -26,22 +24,19 @@ func newDarwinBackend(logger *log.Logger) networkBackend {
 }
 
 func (d *darwinBackend) id() string    { return "darwin" }
-func (d *darwinBackend) label() string { return "macOS (networksetup / airport)" }
+func (d *darwinBackend) label() string { return "macOS (networksetup / macwifi)" }
 
 func (d *darwinBackend) available() bool {
-	if _, err := exec.LookPath("networksetup"); err != nil {
-		return false
-	}
-	_, err := os.Stat(appleAirportBinary)
+	_, err := exec.LookPath("networksetup")
 	return err == nil
 }
 
 func (d *darwinBackend) primaryCLI() string {
-	return "networksetup + airport"
+	return "networksetup + macwifi"
 }
 
 func (d *darwinBackend) unavailableHint() string {
-	return "`networksetup` was not found in PATH, or Apple's private `airport` tool is missing. Install a full macOS system; Wi-Fi scan needs `airport` at " + appleAirportBinary + " and `networksetup` for connect/apply."
+	return "`networksetup` was not found in PATH (needed for Wi‑Fi join / hardware ports). Install full macOS command-line tools."
 }
 
 func (d *darwinBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
@@ -142,65 +137,42 @@ func (d *darwinBackend) defaultWiFiDevice() string {
 }
 
 func (d *darwinBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error) {
+	_ = iface
+	if runtime.GOARCH != "arm64" {
+		return nil, errors.New("Wi‑Fi scan on macOS requires Apple Silicon (arm64); use an Apple Silicon Mac or run the controller on Linux with nmcli")
+	}
 	if !d.available() {
 		return nil, errors.New(d.unavailableHint())
 	}
-	// airport -s scans visible networks on the default Wi-Fi interface.
-	cmd := exec.CommandContext(ctx, appleAirportBinary, "-s")
-	_ = iface
-	output, err := cmd.CombinedOutput()
+
+	nets, err := macwifi.Scan(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("airport scan failed: %w", err)
+		return nil, fmt.Errorf("macwifi scan: %w", err)
 	}
 
-	networks := parseAirportScan(string(output))
-	if len(networks) == 0 && strings.TrimSpace(string(output)) != "" {
-		d.logger.Printf("airport scan produced no networks; raw length=%d", len(output))
+	out := networksFromMacwifi(nets)
+	if len(out) == 0 && len(nets) > 0 {
+		d.logger.Printf("macwifi returned %d networks but none had usable SSIDs", len(nets))
 	}
-	return networks, nil
+	return out, nil
 }
 
-var macAddrPattern = regexp.MustCompile(`([0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5})`)
-
-func parseAirportScan(output string) []WiFiNetwork {
+func networksFromMacwifi(nets []macwifi.Network) []WiFiNetwork {
 	seen := make(map[string]WiFiNetwork)
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimRight(line, "\r")
-		if line == "" || strings.Contains(line, "SSID") && strings.Contains(line, "BSSID") {
+	for _, n := range nets {
+		if strings.TrimSpace(n.SSID) == "" {
 			continue
 		}
-		idx := macAddrPattern.FindStringIndex(line)
-		if idx == nil {
-			continue
-		}
-		ssid := strings.TrimSpace(line[:idx[0]])
-		if ssid == "" {
-			continue
-		}
-		rest := strings.TrimSpace(line[idx[1]:])
-		fields := strings.Fields(rest)
-		rssi := 0
-		if len(fields) > 0 {
-			if v, err := strconv.Atoi(fields[0]); err == nil {
-				rssi = v
-			}
-		}
-		security := "unknown"
-		if len(fields) > 1 {
-			security = strings.Join(fields[1:], " ")
-		}
-
-		signal := rssiToPercent(rssi)
-		net := WiFiNetwork{
-			SSID:     ssid,
+		signal := rssiToPercent(n.RSSI)
+		w := WiFiNetwork{
+			SSID:     n.SSID,
 			Signal:   signal,
-			Security: security,
+			Security: n.Security.String(),
 		}
-		if existing, ok := seen[ssid]; !ok || net.Signal > existing.Signal {
-			seen[ssid] = net
+		if existing, ok := seen[n.SSID]; !ok || w.Signal > existing.Signal {
+			seen[n.SSID] = w
 		}
 	}
-
 	out := make([]WiFiNetwork, 0, len(seen))
 	for _, n := range seen {
 		out = append(out, n)

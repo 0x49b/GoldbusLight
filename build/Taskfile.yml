@@ -2,9 +2,10 @@ version: '3'
 
 tasks:
   go:mod:tidy:
-    summary: Runs `go mod tidy`
+    summary: Runs `go mod download` + `go mod tidy` so go.sum matches go.mod (avoids missing-sum errors on fresh clones).
     internal: true
     cmds:
+      - go mod download
       - go mod tidy
 
   install:frontend:deps:

@@ -1,10 +1,13 @@
 module changeme
 
-go 1.25
+go 1.26.1
 
 require github.com/wailsapp/wails/v3 v3.0.0-alpha.81
 
-require github.com/hashicorp/mdns v1.0.6
+require (
+	github.com/hashicorp/mdns v1.0.6
+	github.com/jaisonerick/macwifi v1.0.0
+)
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

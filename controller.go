@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	defaultStateFileName    = "state.json"
-	simulatedWLEDDeviceID   = "sim:wled"
+	defaultStateFileName  = "state.json"
+	simulatedWLEDDeviceID = "sim:wled"
 )
 
 type AccessPointSettings struct {
@@ -725,7 +725,7 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 		Devices:         devices,
 		PersistencePath: c.persistence.Path(),
 		UpdatedAt:       c.updated,
-		Capabilities: c.network.controllerCapabilities(),
+		Capabilities:    c.network.controllerCapabilities(),
 	}
 }
 
@@ -1543,7 +1543,18 @@ func buildSimulatedFullJSON(device WLEDDevice) map[string]any {
 			"ver":  "0.14.0-sim",
 			"mac":  simulatedWLEDDeviceID,
 		},
-		"effects":  []any{"Solid", "Blink", "Breathe"},
-		"palettes": []any{"Default"},
+		"effects": []any{"Solid", "Blink", "Breathe", "Wipe", "Wipe Random", "Random Colors", "Sweep", "Dynamic", "Colorloop", "Rainbow",
+			"Scan", "Dual Scan", "Fade", "Chase", "Chase Rainbow", "Running", "Saw", "Twinkle", "Dissolve", "Dissolve Rnd",
+			"Sparkle", "Dark Sparkle", "Sparkle+", "Strobe", "Strobe Rainbow", "Mega Strobe", "Blink Rainbow", "Android", "Chase", "Chase Random",
+			"Chase Rainbow", "Chase Flash", "Chase Flash Rnd", "Rainbow Runner", "Colorful", "Traffic Light", "Sweep Random", "Running 2", "Red & Blue", "Stream",
+			"Scanner", "Lighthouse", "Fireworks", "Rain", "Merry Christmas", "Fire Flicker", "Gradient", "Loading", "In Out", "In In",
+			"Out Out", "Out In", "Circus", "Halloween", "Tri Chase", "Tri Wipe", "Tri Fade", "Lightning", "ICU", "Multi Comet",
+			"Dual Scanner", "Stream 2", "Oscillate", "Pride 2015", "Juggle", "Palette", "Fire 2012", "Colorwaves", "BPM", "Fill Noise", "Noise 1",
+			"Noise 2", "Noise 3", "Noise 4", "Colortwinkle", "Lake", "Meteor", "Smooth Meteor", "Railway", "Ripple"},
+		"palettes": []any{"Default", "Random Cycle", "Primary Color", "Based on Primary", "Set Colors", "Based on Set", "Party", "Cloud", "Lava", "Ocean",
+			"Forest", "Rainbow", "Rainbow Bands", "Sunset", "Rivendell", "Breeze", "Red & Blue", "Yellowout", "Analogous", "Splash",
+			"Pastel", "Sunset 2", "Beech", "Vintage", "Departure", "Landscape", "Beach", "Sherbet", "Hult", "Hult 64",
+			"Drywet", "Jul", "Grintage", "Rewhi", "Tertiary", "Fire", "Icefire", "Cyane", "Light Pink", "Autumn",
+			"Magenta", "Magred", "Yelmag", "Yelblu", "Orange & Teal", "Tiamat", "April Night"},
 	}
 }

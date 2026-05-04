@@ -39,6 +39,7 @@ tasks:
             ref: .DEV
       - task: common:generate:icons
     cmds:
+      - go mod tidy
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
