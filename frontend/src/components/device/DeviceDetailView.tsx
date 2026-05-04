@@ -4,7 +4,6 @@ import {hexToRgb, rgbToHex} from "../../lib/wled";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
 import {
     PiArrowClockwise,
-    PiPen,
     PiPaperPlaneTilt,
     PiPower,
     PiTrash,
@@ -106,7 +105,7 @@ export function DeviceDetailView({
                     {editingDeviceName ? (
                         <div className="flex flex-wrap items-end gap-2">
                             <label className="form-control flex-1 min-w-[14rem] max-w-md">
-                                
+
                                 <input
                                     className="input input-bordered input-sm w-full"
                                     value={deviceNameDraft}
