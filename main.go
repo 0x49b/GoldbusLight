@@ -46,8 +46,8 @@ func main() {
 	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
-		Name:        "GoldbusLight",
-		Description: "A demo of using raw HTML & CSS",
+		Name:        "Goldbus Light Controller",
+		Description: "Application to control 'smart' Lights in the Goldbus",
 		Services: []application.Service{
 			application.NewService(greetService),
 		},
@@ -69,14 +69,14 @@ func main() {
 		startState = application.WindowStateFullscreen
 	}
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Window 1",
-		StartState:       startState,
+		Title:      "GoldbusLightControllerMainWindow",
+		StartState: startState,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		BackgroundColour: application.NewRGB(27, 38, 54),
+		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})
 

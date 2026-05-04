@@ -88,6 +88,8 @@ export function DeviceDetailView({
                 ? last.on
                 : undefined;
 
+    const lightControlsLocked = busy || !liveOnline || powerOn === false;
+
     return (
         <div className="space-y-6 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -237,12 +239,7 @@ export function DeviceDetailView({
                     <h3 className="font-medium">Color & brightness</h3>
                     <p className="text-xs opacity-60">
                         Changes apply automatically (debounced). Same fields as the WLED web UI:
-                        primary color for segment {selectedSegIdx}, global brightness and transition (
-                        <a className="link" href="https://kno.wled.ge/interfaces/json-api"
-                           target="_blank" rel="noreferrer">
-                            JSON API
-                        </a>
-                        ).
+                        primary color for segment {selectedSegIdx}, global brightness and transition.
                     </p>
                     <div className="flex flex-wrap items-center gap-4">
                         <label className="flex flex-col gap-1">
@@ -252,7 +249,7 @@ export function DeviceDetailView({
                                 className="h-12 w-24 cursor-pointer rounded border border-base-300 bg-base-100"
                                 value={rgbToHex(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2])}
                                 onChange={(e) => setDeviceFormRgb(hexToRgb(e.target.value))}
-                                disabled={busy || !liveOnline}
+                                disabled={lightControlsLocked}
                             />
                         </label>
                         <div className="flex flex-wrap items-end gap-2">
@@ -265,7 +262,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[0]}
                                     onChange={(e) => setDeviceFormRgb([readNumber(e.target.value, 0), deviceFormRgb[1], deviceFormRgb[2]])}
-                                    disabled={busy || !liveOnline}
+                                    disabled={lightControlsLocked}
                                 />
                             </label>
                             <label className="form-control">
@@ -277,7 +274,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[1]}
                                     onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], readNumber(e.target.value, 0), deviceFormRgb[2]])}
-                                    disabled={busy || !liveOnline}
+                                    disabled={lightControlsLocked}
                                 />
                             </label>
                             <label className="form-control">
@@ -289,7 +286,7 @@ export function DeviceDetailView({
                                     className="input input-bordered input-sm w-20"
                                     value={deviceFormRgb[2]}
                                     onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], deviceFormRgb[1], readNumber(e.target.value, 0)])}
-                                    disabled={busy || !liveOnline}
+                                    disabled={lightControlsLocked}
                                 />
                             </label>
                         </div>
@@ -302,7 +299,7 @@ export function DeviceDetailView({
                                 className="range range-primary range-sm"
                                 value={deviceFormBri}
                                 onChange={(e) => setDeviceFormBri(readNumber(e.target.value, 180))}
-                                disabled={busy || !liveOnline}
+                                disabled={lightControlsLocked}
                             />
                         </label>
                         <span className="badge badge-neutral shrink-0">{deviceFormBri}</span>
@@ -315,7 +312,7 @@ export function DeviceDetailView({
                                 className="input input-bordered input-sm"
                                 value={deviceFormTransition}
                                 onChange={(e) => setDeviceFormTransition(readNumber(e.target.value, 7))}
-                                disabled={busy || !liveOnline}
+                                disabled={lightControlsLocked}
                             />
                         </label>
                     </div>
@@ -326,20 +323,15 @@ export function DeviceDetailView({
                 <div className="card-body gap-4">
                     <h3 className="font-medium">Effect & palette</h3>
                     <p className="text-xs opacity-60">
-                        Tap to choose from the list; speed and intensity apply automatically. See{" "}
-                        <a className="link" href="https://kno.wled.ge/interfaces/json-api"
-                           target="_blank" rel="noreferrer">
-                            kno.wled.ge — JSON API
-                        </a>
-                        .
+                        Tap to choose from the list; speed and intensity apply automatically.
                     </p>
                     <div className="grid gap-3 md:grid-cols-2">
                         <label className="form-control">
                             <span className="label-text text-xs">Effect</span>
                             <button
                                 type="button"
-                                className="select select-bordered select-sm h-auto min-h-10 w-full cursor-pointer text-left font-normal"
-                                disabled={busy || !liveOnline}
+                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                disabled={lightControlsLocked}
                                 onClick={() => setEffectModalOpen(true)}
                             >
                                 <span className="block truncate">
@@ -354,8 +346,8 @@ export function DeviceDetailView({
                             <span className="label-text text-xs">Palette</span>
                             <button
                                 type="button"
-                                className="select select-bordered select-sm h-auto min-h-10 w-full cursor-pointer text-left font-normal"
-                                disabled={busy || !liveOnline}
+                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                disabled={lightControlsLocked}
                                 onClick={() => setPaletteModalOpen(true)}
                             >
                                 <span className="block truncate">
@@ -372,7 +364,7 @@ export function DeviceDetailView({
                         onClose={() => setEffectModalOpen(false)}
                         effectNames={detail?.effects}
                         selectedIndex={deviceFormFx}
-                        disabled={busy || !liveOnline}
+                        disabled={lightControlsLocked}
                         onPick={(idx) => {
                             setDeviceFormFx(idx);
                             onSetDeviceState(d.id, {
@@ -394,7 +386,7 @@ export function DeviceDetailView({
                         onClose={() => setPaletteModalOpen(false)}
                         paletteNames={detail?.palettes}
                         selectedIndex={deviceFormPal}
-                        disabled={busy || !liveOnline}
+                        disabled={lightControlsLocked}
                         onPick={(idx) => {
                             setDeviceFormPal(idx);
                             onSetDeviceState(d.id, {
@@ -421,7 +413,7 @@ export function DeviceDetailView({
                                 className="range range-sm"
                                 value={deviceFormSx}
                                 onChange={(e) => setDeviceFormSx(readNumber(e.target.value, 128))}
-                                disabled={busy || !liveOnline}
+                                disabled={lightControlsLocked}
                             />
                         </label>
                         <label className="form-control">
@@ -434,7 +426,7 @@ export function DeviceDetailView({
                                 className="range range-sm"
                                 value={deviceFormIx}
                                 onChange={(e) => setDeviceFormIx(readNumber(e.target.value, 128))}
-                                disabled={busy || !liveOnline}
+                                disabled={lightControlsLocked}
                             />
                         </label>
                     </div>

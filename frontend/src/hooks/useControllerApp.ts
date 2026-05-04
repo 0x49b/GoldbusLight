@@ -10,7 +10,9 @@ import {
   segmentIx,
   segmentPal,
   segmentSx,
+  COLD_WHITE_RGB,
   WARM_WHITE_RGB,
+  coldWhiteState,
   warmWhiteState,
 } from "../lib/wled";
 import type {
@@ -435,6 +437,21 @@ export function useControllerApp() {
     onSetGlobalState(warmWhiteState(presetBri), "Warm white (all)");
   }, [onSetGlobalState, presetBri]);
 
+  const applyColdWhitePreset = useCallback(() => {
+    presetColorAutoApplySkipRef.current = true;
+    setPresetRgb([...COLD_WHITE_RGB]);
+    onSetGlobalState(coldWhiteState(presetBri), "Cold white (all)");
+  }, [onSetGlobalState, presetBri]);
+
+  const applyNamedColorPreset = useCallback(
+    (label: string, rgb: [number, number, number]) => {
+      presetColorAutoApplySkipRef.current = true;
+      setPresetRgb([...rgb]);
+      onSetGlobalState(rgbState(rgb[0], rgb[1], rgb[2], presetBri, true), `${label} (all)`);
+    },
+    [onSetGlobalState, presetBri],
+  );
+
   useEffect(() => {
     if (presetColorAutoApplyIsInitialRef.current) {
       presetColorAutoApplyIsInitialRef.current = false;
@@ -509,5 +526,7 @@ export function useControllerApp() {
     onRenameDevice,
     onToggleOneDevice,
     applyWarmWhitePreset,
+    applyColdWhitePreset,
+    applyNamedColorPreset,
   };
 }

@@ -4,11 +4,22 @@ import { readNumber } from "./json";
 /** WLED warm white example: POST /json/state with seg col [[255,160,0]] */
 export const WARM_WHITE_RGB: [number, number, number] = [255, 160, 0];
 
+/** Cool / daylight white for preset strips */
+export const COLD_WHITE_RGB: [number, number, number] = [220, 235, 255];
+
 export function warmWhiteState(bri: number): JSONMap {
   return {
     on: true,
     bri,
     seg: [{ col: [WARM_WHITE_RGB] }],
+  };
+}
+
+export function coldWhiteState(bri: number): JSONMap {
+  return {
+    on: true,
+    bri,
+    seg: [{ col: [COLD_WHITE_RGB] }],
   };
 }
 

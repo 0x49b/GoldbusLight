@@ -1,103 +1,104 @@
-import { useEffect, useState } from "react";
-import { readNumber } from "../../lib/json";
+import {useEffect, useState} from "react";
+import {readNumber} from "../../lib/json";
 
 export type PalettePickerModalProps = {
-  open: boolean;
-  onClose: () => void;
-  paletteNames: string[] | undefined;
-  selectedIndex: number;
-  onPick: (index: number) => void;
-  disabled?: boolean;
+    open: boolean;
+    onClose: () => void;
+    paletteNames: string[] | undefined;
+    selectedIndex: number;
+    onPick: (index: number) => void;
+    disabled?: boolean;
 };
 
 export function PalettePickerModal({
-  open,
-  onClose,
-  paletteNames,
-  selectedIndex,
-  onPick,
-  disabled,
-}: PalettePickerModalProps) {
-  const [manualIdx, setManualIdx] = useState(String(selectedIndex));
+                                       open,
+                                       onClose,
+                                       paletteNames,
+                                       selectedIndex,
+                                       onPick,
+                                       disabled,
+                                   }: PalettePickerModalProps) {
+    const [manualIdx, setManualIdx] = useState(String(selectedIndex));
 
-  useEffect(() => {
-    if (open) {
-      setManualIdx(String(selectedIndex));
-    }
-  }, [open, selectedIndex]);
-
-  const hasList = paletteNames && paletteNames.length > 0;
-
-  return (
-    <dialog
-      className="modal"
-      open={open}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
+    useEffect(() => {
+        if (open) {
+            setManualIdx(String(selectedIndex));
         }
-      }}
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-    >
-      <div
-        className="modal-box flex max-h-[85vh] max-w-lg flex-col gap-3 p-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold">Palette</h3>
-        {hasList ? (
-          <ul className="menu menu-sm max-h-[60vh] min-h-0 flex-1 overflow-y-auto rounded-lg border border-base-300 bg-base-100 p-1">
-            {paletteNames!.map((name, idx) => (
-              <li key={idx}>
-                <button
-                  type="button"
-                  className={`gap-2 ${idx === selectedIndex ? "active" : ""}`}
-                  disabled={disabled}
-                  onClick={() => {
-                    onPick(idx);
+    }, [open, selectedIndex]);
+
+    const hasList = paletteNames && paletteNames.length > 0;
+
+    return (
+        <dialog
+            className="modal"
+            open={open}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
                     onClose();
-                  }}
-                >
-                  <span className="shrink-0 font-mono text-xs opacity-60">{idx}</span>
-                  <span className="truncate">{name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="form-control">
-              <span className="label-text text-xs">Palette index</span>
-              <input
-                type="number"
-                min={0}
-                className="input input-bordered input-sm w-32"
-                value={manualIdx}
-                onChange={(e) => setManualIdx(e.target.value)}
-                disabled={disabled}
-              />
-            </label>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={disabled}
-              onClick={() => {
-                onPick(readNumber(manualIdx, 0));
+                }
+            }}
+            onCancel={(e) => {
+                e.preventDefault();
                 onClose();
-              }}
+            }}
+        >
+            <div
+                className="modal-box flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-none flex-col gap-3 p-4"
+                onClick={(e) => e.stopPropagation()}
             >
-              Use index
-            </button>
-          </div>
-        )}
-        <div className="modal-action mt-0">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </dialog>
-  );
+                <h3 className="text-lg font-semibold">Palette</h3>
+                {hasList ? (
+                    <ul className="menu menu-sm max-h-[60vh] min-h-0 flex-1 overflow-y-auto rounded-lg border border-gray-500 bg-base-100 p-1">
+                        {paletteNames!.map((name, idx) => (
+                            <li key={idx}>
+                                <button
+                                    type="button"
+                                    className={`gap-2 ${idx === selectedIndex ? "active w-full" : "w-full"}`}
+                                    disabled={disabled}
+                                    onClick={() => {
+                                        onPick(idx);
+                                        onClose();
+                                    }}
+                                >
+                                    <span
+                                        className="shrink-0 font-mono text-xs opacity-60">{idx}</span>
+                                    <span className="truncate">{name}</span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <div className="flex flex-wrap items-end gap-2">
+                        <label className="form-control">
+                            <span className="label-text text-xs">Palette index</span>
+                            <input
+                                type="number"
+                                min={0}
+                                className="input input-bordered input-sm w-32"
+                                value={manualIdx}
+                                onChange={(e) => setManualIdx(e.target.value)}
+                                disabled={disabled}
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={disabled}
+                            onClick={() => {
+                                onPick(readNumber(manualIdx, 0));
+                                onClose();
+                            }}
+                        >
+                            Use index
+                        </button>
+                    </div>
+                )}
+                <div className="modal-action mt-0">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </dialog>
+    );
 }

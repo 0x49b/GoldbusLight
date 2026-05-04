@@ -21,6 +21,8 @@ function App() {
         onSetGlobalState={app.onSetGlobalState}
         onToggleOneDevice={app.onToggleOneDevice}
         applyWarmWhitePreset={app.applyWarmWhitePreset}
+        applyColdWhitePreset={app.applyColdWhitePreset}
+        applyNamedColorPreset={app.applyNamedColorPreset}
       />
     );
   } else if (app.route.kind === "settings") {
