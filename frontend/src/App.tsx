@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { DeviceDetailView } from "./components/device/DeviceDetailView";
-import { PresetsPanel } from "./components/presets/PresetsPanel";
+import { GeneralPanel } from "./components/presets/GeneralPanel";
 import { ControllerSettingsView } from "./components/settings/ControllerSettingsView";
 import { useControllerApp } from "./hooks/useControllerApp";
 
@@ -11,7 +11,7 @@ function App() {
   let main: ReactNode = null;
   if (app.route.kind === "presets") {
     main = (
-      <PresetsPanel
+      <GeneralPanel
         devices={app.devices}
         busy={app.busy}
         presetBri={app.presetBri}

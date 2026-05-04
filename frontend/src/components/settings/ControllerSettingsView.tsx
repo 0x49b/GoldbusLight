@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { prettyJSON, readNumber } from "../../lib/json";
+import { PiWifiHigh, PiTarget, PiFloppyDisk } from "react-icons/pi";
 import type {
   ControllerSettings,
   ControllerSnapshot,
@@ -52,17 +53,24 @@ export function ControllerSettingsView({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Controller settings</h2>
         <div className="flex gap-2">
+
+          <div className="tooltip tooltip-bottom" data-tip="Scan Wi-Fi">
           <button className="btn btn-sm" onClick={onScanNetworks} disabled={busy}>
-            Scan Wi-Fi
+            <PiTarget/>
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={onApplyNetwork} disabled={busy}>
-            Apply network
+          </div>
+          <div className="tooltip tooltip-bottom" data-tip="Apply Network">
+          <button className="btn btn-sm btn-success" onClick={onApplyNetwork} disabled={busy}>
+            <PiWifiHigh/>
           </button>
+          </div>
+
+
         </div>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-200 shadow-sm">
+        <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body space-y-3">
             <h3 className="card-title text-base">Access point / upstream</h3>
 
@@ -196,7 +204,7 @@ export function ControllerSettingsView({
           </div>
         </div>
 
-        <div className="card bg-base-200 shadow-sm">
+        <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body space-y-3">
             <h3 className="card-title text-base">Discovery / provisioning</h3>
             <label className="label cursor-pointer justify-start gap-3">
@@ -312,13 +320,13 @@ export function ControllerSettingsView({
             </div>
 
             <button className="btn btn-primary btn-sm" onClick={onSaveSettings} disabled={busy}>
-              Save settings
+              <PiFloppyDisk/>
             </button>
           </div>
         </div>
       </section>
 
-      <section className="card bg-base-200 shadow-sm w-full max-w-none">
+      <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
         <div className="card-body space-y-3">
           <h3 className="card-title text-base">Ignored devices</h3>
           <p className="text-sm opacity-70">
@@ -356,7 +364,7 @@ export function ControllerSettingsView({
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-200 shadow-sm">
+        <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body">
             <h3 className="card-title text-base">Network apply result</h3>
             {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
@@ -378,7 +386,7 @@ export function ControllerSettingsView({
           </div>
         </div>
 
-        <div className="card bg-base-200 shadow-sm">
+        <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body">
             <h3 className="card-title text-base">Scanned upstream Wi-Fi</h3>
             {networks.length === 0 && <p className="text-sm opacity-70">Run Scan Wi-Fi.</p>}

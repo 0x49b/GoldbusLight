@@ -44,7 +44,7 @@ export type PresetsPanelProps = {
     applyNamedColorPreset: (label: string, rgb: [number, number, number]) => void;
 };
 
-export function PresetsPanel({
+export function GeneralPanel({
                                  devices,
                                  busy,
                                  presetBri,
@@ -71,9 +71,9 @@ export function PresetsPanel({
     return (
         <div className="space-y-6 w-full max-w-none">
             <div>
-                <h2 className="text-xl font-semibold">Presets</h2>
+                <h2 className="text-xl font-semibold">General</h2>
             </div>
-            <div className="card bg-base-100">
+            <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
                     <p className="text-sm opacity-70 mt-1">
                         Control all WLED devices together. Default scene is warm white.

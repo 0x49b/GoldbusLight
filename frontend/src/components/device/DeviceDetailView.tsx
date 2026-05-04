@@ -175,7 +175,7 @@ export function DeviceDetailView({
                         </button>
                     </div>
                     <div className="tooltip tooltip-bottom" data-tip="ignore">
-                        <button className="btn btn-sm"
+                        <button className="btn btn-sm btn-error btn-outline"
                                 onClick={() => onIgnoreDevice(d.id)} disabled={busy}>
                             <PiX/>
                         </button>

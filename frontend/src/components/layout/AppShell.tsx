@@ -55,7 +55,7 @@ export function AppShell({
               className={`btn btn-sm w-full justify-start font-normal ${route.kind === "presets" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setRoute({ kind: "presets" })}
             >
-              Presets
+              General
             </button>
             {devices.map((dev) => (
               <button
