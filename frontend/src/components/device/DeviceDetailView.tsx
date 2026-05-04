@@ -441,6 +441,13 @@ export function DeviceDetailView({
                 </div>
             </div>
 
+            <div className="collapse bg-base-100 border border-gray-500">
+  <input type="checkbox" />
+  <div className="collapse-title font-semibold">State & Config</div>
+  <div className="collapse-content text-sm grid gap-5">
+   
+
+
             <div className="grid gap-4 lg:grid-cols-2">
                 <div className="card bg-base-200 shadow-sm">
                     <div className="card-body">
@@ -479,6 +486,9 @@ export function DeviceDetailView({
                     <code className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
                 </div>
             )}
+
+</div>
+</div>
         </div>
     );
 }
