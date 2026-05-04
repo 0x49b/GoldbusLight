@@ -367,7 +367,7 @@ export function useControllerApp() {
     }, 200);
     return () => window.clearTimeout(t);
   }, [
-    deviceDetail?.state,
+    deviceDetail,
     deviceFormBri,
     deviceFormIx,
     deviceFormRgb,
