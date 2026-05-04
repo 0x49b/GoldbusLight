@@ -162,6 +162,22 @@ export function DeviceDetailView({
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
+
+                    <button
+                        type="button"
+                        className={`btn btn-sm whitespace-nowrap inline-flex items-center justify-center gap-2 shrink-0 ${
+                            powerOn === true
+                                ? "btn-success"
+                                : powerOn === false
+                                    ? "btn-error"
+                                    : "btn-ghost"
+                        }`}
+                        onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
+                        disabled={busy || !liveOnline || powerOn === undefined}
+                    >
+                        <PiPower className="text-lg shrink-0" aria-hidden/>
+                    </button>
+
                     <div className="tooltip tooltip-bottom" data-tip="reload">
                         <button className="btn btn-sm" onClick={() => onRefreshDevice(d.id)}
                                 disabled={busy}>
@@ -219,7 +235,7 @@ export function DeviceDetailView({
                 </div>
             )}
 
-            <div className="card bg-base-100 card-bordered border-gray-500">
+            {/*<div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-3">
                     <h3 className="font-medium">Power</h3>
                     <div className="flex flex-wrap gap-2 items-center">
@@ -240,7 +256,7 @@ export function DeviceDetailView({
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>*/}
 
             <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
