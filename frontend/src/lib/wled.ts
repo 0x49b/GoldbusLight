@@ -1,11 +1,18 @@
 import type { JSONMap } from "../types/controller";
 import { readNumber } from "./json";
 
-/** WLED warm white example: POST /json/state with seg col [[255,160,0]] */
-export const WARM_WHITE_RGB: [number, number, number] = [255, 160, 0];
+export const CANDLE_LIGHT_RGB: [number, number, number] = [255,93,0];
+export const SUPER_WARM_RGB: [number, number, number] = [255,147,44];
+export const WARM_WHITE_RGB: [number, number, number] = [255,169,87];
+export const DAYLIGHT_WHITE_RGB: [number, number, number] = [255,215,177];
+export const WHITE_RGB: [number, number, number] = [255,233,217];
+export const FROSTY_WHITE_RGB: [number, number, number] = [245,243,255];
+export const COLD_WHITE_RGB: [number, number, number] = [220,230,255];
+export const BLACK_LIGHT_FLUORESCENT_RGB: [number, number, number] = [167,0,255];
+export const CLEAR_BLUE_SKY_RGB: [number, number, number] = [64,156,255];
+export const DIRECT_SUNLIGHT_RGB: [number, number, number] = [255,255,255];
 
-/** Cool / daylight white for preset strips */
-export const COLD_WHITE_RGB: [number, number, number] = [220, 235, 255];
+
 
 export function warmWhiteState(bri: number): JSONMap {
   return {

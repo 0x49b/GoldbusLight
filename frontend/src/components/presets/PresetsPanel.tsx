@@ -1,29 +1,33 @@
-import {useMemo, useRef, type Dispatch, type SetStateAction} from "react";
+import {type Dispatch, type SetStateAction, useMemo, useRef} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
 import {readNumber} from "../../lib/json";
-import {hexToRgb, rgbToHex} from "../../lib/wled";
+import {
+    BLACK_LIGHT_FLUORESCENT_RGB,
+    CANDLE_LIGHT_RGB,
+    CLEAR_BLUE_SKY_RGB,
+    COLD_WHITE_RGB,
+    DAYLIGHT_WHITE_RGB,
+    DIRECT_SUNLIGHT_RGB,
+    FROSTY_WHITE_RGB,
+    hexToRgb,
+    rgbToHex,
+    SUPER_WARM_RGB,
+    WARM_WHITE_RGB,
+    WHITE_RGB
+} from "../../lib/wled";
 import type {JSONMap, WLEDDevice} from "../../types/controller";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
-    {name: "Candle", rgb: [255, 147, 41]},
-    {name: "40W Tungsten", rgb: [255, 197, 143]},
-    {name: "100W Tungsten", rgb: [255, 214, 170]},
-    {name: "Halogen", rgb: [255, 241, 224]},
-    {name: "Carbon Arc", rgb: [255, 250, 244]},
-    {name: "High Noon Sun", rgb: [255, 255, 251]},
-    {name: "Direct Sunlight", rgb: [255, 255, 255]},
-    {name: "Overcast Sky", rgb: [201, 226, 255]},
-    {name: "Clear Blue Sky", rgb: [64, 156, 255]},
-    {name: "Warm Fluorescent", rgb: [255, 244, 229]},
-    {name: "Standard Fluorescent", rgb: [244, 255, 250]},
-    {name: "Cool White Fluorescent", rgb: [212, 235, 255]},
-    {name: "Full Spectrum Fluorescent", rgb: [255, 244, 242]},
-    {name: "Grow Light Fluorescent", rgb: [255, 239, 247]},
-    {name: "Black Light Fluorescent", rgb: [167, 0, 255]},
-    {name: "Mercury Vapor", rgb: [216, 247, 255]},
-    {name: "Sodium Vapor", rgb: [255, 209, 178]},
-    {name: "Metal Halide", rgb: [242, 252, 255]},
-    {name: "High Pressure Sodium", rgb: [255, 183, 76]},
+    {name: "1300K Candle Light ", rgb: CANDLE_LIGHT_RGB},
+    {name: "2200K Super Warm ", rgb: SUPER_WARM_RGB},
+    {name: "2700K Warm White ", rgb: WARM_WHITE_RGB},
+    {name: "4300K Daylight White ", rgb: DAYLIGHT_WHITE_RGB},
+    {name: "5300K White ", rgb: WHITE_RGB},
+    {name: "7000K Frosty White ", rgb: FROSTY_WHITE_RGB},
+    {name: "Cold White ", rgb: COLD_WHITE_RGB},
+    {name: "Black Light Fluorescent ", rgb: BLACK_LIGHT_FLUORESCENT_RGB},
+    {name: "Clear Blue Sky ", rgb: CLEAR_BLUE_SKY_RGB},
+    {name: "Direct Sunlight ", rgb: DIRECT_SUNLIGHT_RGB},
 ];
 
 export type PresetsPanelProps = {
