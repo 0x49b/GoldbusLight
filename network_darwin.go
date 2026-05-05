@@ -147,6 +147,9 @@ func (d *darwinBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwo
 
 	nets, err := macwifi.Scan(ctx)
 	if err != nil {
+		if d.logger != nil {
+			d.logger.Printf("macwifi scan failed: %v", err)
+		}
 		return nil, fmt.Errorf("macwifi scan: %w", err)
 	}
 

@@ -126,6 +126,9 @@ func (n *linuxBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwor
 	cmd := exec.CommandContext(ctx, "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "device", "wifi", "list", "ifname", iface)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if n.logger != nil {
+			n.logger.Printf("nmcli wifi scan failed ifname=%s: %v; output=%q", iface, err, strings.TrimSpace(string(output)))
+		}
 		return nil, fmt.Errorf("nmcli scan failed: %w", err)
 	}
 

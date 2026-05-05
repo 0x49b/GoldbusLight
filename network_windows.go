@@ -206,6 +206,9 @@ func (w *windowsBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetw
 	cmd := exec.CommandContext(ctx, "netsh", "wlan", "show", "networks", "mode=Bssid")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if w.logger != nil {
+			w.logger.Printf("netsh wlan scan failed: %v; output=%q", err, strings.TrimSpace(string(output)))
+		}
 		return nil, fmt.Errorf("netsh wlan scan failed: %w", err)
 	}
 	return parseNetshWLANNetworks(string(output)), nil
