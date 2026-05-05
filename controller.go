@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/mdns"
+
+	"changeme/internal/wledhttp"
 )
 
 const (
@@ -366,7 +368,7 @@ func NewWLEDEngine() *WLEDEngine {
 }
 
 func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice) (WLEDDevice, error) {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	var payload struct {
 		Info struct {
 			Name string `json:"name"`
@@ -420,7 +422,7 @@ func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice)
 }
 
 func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/state", nil, &payload); err != nil {
 		return nil, err
@@ -429,7 +431,7 @@ func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[strin
 }
 
 func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	// Reachability check via cfg endpoint (documented at kno.wled.ge).
 	var cfg map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &cfg); err != nil {
@@ -449,12 +451,12 @@ func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfg
 }
 
 func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	return w.requestJSON(ctx, http.MethodPost, base+"/json/state", state, nil)
 }
 
 func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
 		return nil, err
@@ -463,7 +465,7 @@ func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[st
 }
 
 func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &payload); err != nil {
 		return nil, err
@@ -473,7 +475,7 @@ func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[stri
 
 // ApplyCfgPatch POSTs a partial cfg object (see WLED JSON API /json/cfg).
 func (w *WLEDEngine) ApplyCfgPatch(ctx context.Context, device WLEDDevice, patch map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", device.Address, device.Port)
+	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
 	return w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", patch, nil)
 }
 
@@ -929,9 +931,11 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 	ignored := device.Ignored
 	c.mu.RUnlock()
 
+	effectiveAddr := wledhttp.HostForHTTP(device.Host, addr)
+
 	detail := WLEDDeviceDetail{
 		Online:    online,
-		Address:   addr,
+		Address:   effectiveAddr,
 		Port:      port,
 		LastState: lastCopy,
 	}
