@@ -90,7 +90,7 @@ jobs:
           name: goldbus-linux-amd64
           path: GoldbusLight-linux-amd64
 
-  build-linux-arm64:
+  build-raspberrypi-arm64:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -131,13 +131,13 @@ jobs:
 
       - name: Stage linux arm64 artifact
         run: |
-          cp bin/GoldbusLight GoldbusLight-linux-arm64
-          chmod +x GoldbusLight-linux-arm64
+          cp bin/GoldbusLight GoldbusLight-raspberrypi-arm64
+          chmod +x GoldbusLight-raspberrypi-arm64
 
       - uses: actions/upload-artifact@v4
         with:
-          name: goldbus-linux-arm64
-          path: GoldbusLight-linux-arm64
+          name: goldbus-raspberrypi-arm64
+          path: GoldbusLight-raspberrypi-arm64
 
   build-windows:
     runs-on: windows-latest
