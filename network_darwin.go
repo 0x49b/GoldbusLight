@@ -67,7 +67,7 @@ func (d *darwinBackend) apply(ctx context.Context, settings ControllerSettings) 
 		if settings.Upstream.Password != "" {
 			args = append(args, settings.Upstream.Password)
 		}
-		result.Steps = append(result.Steps, runShellCommand(ctx, "networksetup", args...))
+		result.Steps = append(result.Steps, runShellCommand(ctx, d.logger, "networksetup", args...))
 	}
 
 	if settings.Bridge.Enabled {
@@ -82,6 +82,9 @@ func (d *darwinBackend) apply(ctx context.Context, settings ControllerSettings) 
 		}
 		if err != nil {
 			step.Error = err.Error()
+			if d.logger != nil {
+				d.logger.Printf("network apply command failed: %s; err=%v; output=%q", step.Command, err, step.Output)
+			}
 		}
 		result.Steps = append(result.Steps, step)
 	}
@@ -147,6 +150,9 @@ func (d *darwinBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwo
 
 	nets, err := macwifi.Scan(ctx)
 	if err != nil {
+		if d.logger != nil {
+			d.logger.Printf("macwifi scan failed: %v", err)
+		}
 		return nil, fmt.Errorf("macwifi scan: %w", err)
 	}
 

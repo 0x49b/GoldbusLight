@@ -32,6 +32,8 @@ func init() {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
+	defer initFileLogger()()
+
 	controller := NewWLEDController(log.Default())
 	if err := controller.Start(context.Background()); err != nil {
 		log.Printf("controller startup failed: %v", err)
