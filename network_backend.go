@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -20,7 +21,7 @@ type networkBackend interface {
 	scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error)
 }
 
-func runShellCommand(ctx context.Context, name string, args ...string) NetworkCommandResult {
+func runShellCommand(ctx context.Context, logger *log.Logger, name string, args ...string) NetworkCommandResult {
 	full := strings.Join(append([]string{name}, args...), " ")
 	cmd := exec.CommandContext(ctx, name, args...)
 	output, err := cmd.CombinedOutput()
@@ -31,6 +32,9 @@ func runShellCommand(ctx context.Context, name string, args ...string) NetworkCo
 	}
 	if err != nil {
 		result.Error = err.Error()
+		if logger != nil {
+			logger.Printf("network apply command failed: %s; err=%v; output=%q", full, err, result.Output)
+		}
 	}
 	return result
 }

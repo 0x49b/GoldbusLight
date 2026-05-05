@@ -58,11 +58,11 @@ func (n *linuxBackend) apply(ctx context.Context, settings ControllerSettings) N
 		}
 
 		if !n.connectionExists(ctx, connectionName) {
-			result.Steps = append(result.Steps, runShellCommand(ctx, "nmcli", "connection", "add", "type", "wifi", "ifname", iface, "con-name", connectionName, "autoconnect", "yes", "ssid", ssid))
+			result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "nmcli", "connection", "add", "type", "wifi", "ifname", iface, "con-name", connectionName, "autoconnect", "yes", "ssid", ssid))
 		}
 
 		result.Steps = append(result.Steps,
-			runShellCommand(ctx, "nmcli", "connection", "modify", connectionName,
+			runShellCommand(ctx, n.logger, "nmcli", "connection", "modify", connectionName,
 				"802-11-wireless.mode", "ap",
 				"802-11-wireless.band", "bg",
 				"802-11-wireless.channel", fmt.Sprintf("%d", channel),
@@ -71,25 +71,25 @@ func (n *linuxBackend) apply(ctx context.Context, settings ControllerSettings) N
 				"wifi-sec.psk", ap.Password,
 				"ipv4.method", "shared"),
 		)
-		result.Steps = append(result.Steps, runShellCommand(ctx, "nmcli", "connection", "up", connectionName))
+		result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "nmcli", "connection", "up", connectionName))
 	}
 
 	if settings.Upstream.AutoConnect && settings.Upstream.SSID != "" {
 		iface := defaultString(settings.Upstream.InterfaceName, "wlan1")
-		result.Steps = append(result.Steps, runShellCommand(ctx, "nmcli", "device", "wifi", "connect", settings.Upstream.SSID, "password", settings.Upstream.Password, "ifname", iface))
+		result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "nmcli", "device", "wifi", "connect", settings.Upstream.SSID, "password", settings.Upstream.Password, "ifname", iface))
 	}
 
 	if settings.Bridge.Enabled {
-		result.Steps = append(result.Steps, runShellCommand(ctx, "sysctl", "-w", "net.ipv4.ip_forward=1"))
+		result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "sysctl", "-w", "net.ipv4.ip_forward=1"))
 
 		upstream := defaultString(settings.Bridge.UpstreamInterface, settings.Upstream.InterfaceName)
 		if upstream == "" {
 			upstream = "wlan1"
 		}
-		result.Steps = append(result.Steps, runShellCommand(ctx, "iptables", "-t", "nat", "-C", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
+		result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "iptables", "-t", "nat", "-C", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
 		lastStep := result.Steps[len(result.Steps)-1]
 		if !lastStep.Success {
-			result.Steps = append(result.Steps, runShellCommand(ctx, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
+			result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", upstream, "-j", "MASQUERADE"))
 		}
 	}
 

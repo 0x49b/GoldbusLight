@@ -70,9 +70,9 @@ func (w *windowsBackend) apply(ctx context.Context, settings ControllerSettings)
 		if settings.Upstream.Password != "" {
 			profileName := "WLED-" + sanitizeProfileName(settings.Upstream.SSID)
 			result.Steps = append(result.Steps, w.addWlanProfile(ctx, profileName, settings.Upstream.SSID, settings.Upstream.Password))
-			result.Steps = append(result.Steps, runShellCommand(ctx, "netsh", "wlan", "connect", fmt.Sprintf("name=%s", profileName), fmt.Sprintf("interface=%s", ifName)))
+			result.Steps = append(result.Steps, runShellCommand(ctx, w.logger, "netsh", "wlan", "connect", fmt.Sprintf("name=%s", profileName), fmt.Sprintf("interface=%s", ifName)))
 		} else {
-			result.Steps = append(result.Steps, runShellCommand(ctx, "netsh", "wlan", "connect", fmt.Sprintf("name=%s", settings.Upstream.SSID), fmt.Sprintf("interface=%s", ifName)))
+			result.Steps = append(result.Steps, runShellCommand(ctx, w.logger, "netsh", "wlan", "connect", fmt.Sprintf("name=%s", settings.Upstream.SSID), fmt.Sprintf("interface=%s", ifName)))
 		}
 	}
 
@@ -87,6 +87,9 @@ func (w *windowsBackend) apply(ctx context.Context, settings ControllerSettings)
 		}
 		if err != nil {
 			step.Error = err.Error()
+			if w.logger != nil {
+				w.logger.Printf("network apply command failed: %s; err=%v; output=%q", step.Command, err, step.Output)
+			}
 		}
 		result.Steps = append(result.Steps, step)
 	}
@@ -124,6 +127,9 @@ func (w *windowsBackend) addWlanProfile(ctx context.Context, profileName, ssid, 
 	}
 	if err != nil {
 		result.Error = err.Error()
+		if w.logger != nil {
+			w.logger.Printf("network apply command failed: %s; err=%v; output=%q", result.Command, err, result.Output)
+		}
 	}
 	return result
 }
