@@ -1,19 +1,17 @@
 import type { Dispatch, SetStateAction } from "react";
 import { prettyJSON, readNumber } from "../../lib/json";
-import { PiWifiHigh, PiTarget, PiFloppyDisk } from "react-icons/pi";
+import { PiWifiHigh, PiFloppyDisk } from "react-icons/pi";
 import type {
   ControllerSettings,
   ControllerSnapshot,
   NetworkApplyResult,
   WLEDDevice,
-  WiFiNetwork,
 } from "../../types/controller";
 
 export type ControllerSettingsViewProps = {
   settings: ControllerSettings | null;
   setSettings: Dispatch<SetStateAction<ControllerSettings | null>>;
   snapshot: ControllerSnapshot | null;
-  networks: WiFiNetwork[];
   applyResult: NetworkApplyResult | null;
   statePayloadText: string;
   setStatePayloadText: Dispatch<SetStateAction<string>>;
@@ -22,7 +20,6 @@ export type ControllerSettingsViewProps = {
   ignoredDevices: WLEDDevice[];
   busy: boolean;
   onSaveSettings: () => void;
-  onScanNetworks: () => void;
   onApplyNetwork: () => void;
   onUnignoreDevice: (deviceId: string) => void;
 };
@@ -31,7 +28,6 @@ export function ControllerSettingsView({
   settings,
   setSettings,
   snapshot,
-  networks,
   applyResult,
   statePayloadText,
   setStatePayloadText,
@@ -40,7 +36,6 @@ export function ControllerSettingsView({
   ignoredDevices,
   busy,
   onSaveSettings,
-  onScanNetworks,
   onApplyNetwork,
   onUnignoreDevice,
 }: ControllerSettingsViewProps) {
@@ -53,13 +48,7 @@ export function ControllerSettingsView({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Controller settings</h2>
         <div className="flex gap-2">
-
-          <div className="tooltip tooltip-bottom" data-tip="Scan Wi-Fi">
-          <button className="btn btn-sm" onClick={onScanNetworks} disabled={busy}>
-            <PiTarget/>
-          </button>
-          </div>
-          <div className="tooltip tooltip-bottom" data-tip="Apply Network">
+          <div className="tooltip tooltip-bottom" data-tip="Apply network (access point)">
           <button className="btn btn-sm btn-success" onClick={onApplyNetwork} disabled={busy}>
             <PiWifiHigh/>
           </button>
@@ -72,7 +61,7 @@ export function ControllerSettingsView({
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body space-y-3">
-            <h3 className="card-title text-base">Access point / upstream</h3>
+            <h3 className="card-title text-base">Access point</h3>
 
             <label className="label cursor-pointer justify-start gap-3">
               <input
@@ -131,73 +120,6 @@ export function ControllerSettingsView({
                     ...settings,
                     accessPoint: { ...settings.accessPoint, channel: readNumber(e.target.value, 6) },
                   })
-                }
-              />
-            </div>
-
-            <label className="label cursor-pointer justify-start gap-3">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={settings.upstream.autoConnect}
-                onChange={(e) =>
-                  setSettings({ ...settings, upstream: { ...settings.upstream, autoConnect: e.target.checked } })
-                }
-              />
-              <span className="label-text">Auto-connect upstream Wi-Fi</span>
-            </label>
-
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <input
-                className="input input-bordered input-sm"
-                placeholder="Upstream interface"
-                value={settings.upstream.interfaceName}
-                onChange={(e) =>
-                  setSettings({ ...settings, upstream: { ...settings.upstream, interfaceName: e.target.value } })
-                }
-              />
-              <input
-                className="input input-bordered input-sm"
-                placeholder="Upstream SSID"
-                value={settings.upstream.ssid}
-                onChange={(e) => setSettings({ ...settings, upstream: { ...settings.upstream, ssid: e.target.value } })}
-              />
-              <input
-                className="input input-bordered input-sm"
-                placeholder="Upstream password"
-                value={settings.upstream.password}
-                onChange={(e) =>
-                  setSettings({ ...settings, upstream: { ...settings.upstream, password: e.target.value } })
-                }
-              />
-            </div>
-
-            <div className="divider my-1 text-xs">Bridge / NAT</div>
-            <label className="label cursor-pointer justify-start gap-3">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={settings.bridge.enabled}
-                onChange={(e) => setSettings({ ...settings, bridge: { ...settings.bridge, enabled: e.target.checked } })}
-              />
-              <span className="label-text">Enable AP to upstream NAT</span>
-            </label>
-
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <input
-                className="input input-bordered input-sm"
-                placeholder="Bridge AP interface"
-                value={settings.bridge.apInterface}
-                onChange={(e) =>
-                  setSettings({ ...settings, bridge: { ...settings.bridge, apInterface: e.target.value } })
-                }
-              />
-              <input
-                className="input input-bordered input-sm"
-                placeholder="Bridge upstream interface"
-                value={settings.bridge.upstreamInterface}
-                onChange={(e) =>
-                  setSettings({ ...settings, bridge: { ...settings.bridge, upstreamInterface: e.target.value } })
                 }
               />
             </div>
@@ -363,46 +285,25 @@ export function ControllerSettingsView({
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-100 card-bordered border-gray-500">
-          <div className="card-body">
-            <h3 className="card-title text-base">Network apply result</h3>
-            {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
-            {applyResult && (
-              <div className="space-y-2">
-                <p className="text-sm">
-                  {applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}
-                </p>
-                {(applyResult.warnings ?? []).map((warning) => (
-                  <div key={warning} className="alert alert-warning py-1 text-xs">
-                    {warning}
-                  </div>
-                ))}
-                <div className="max-h-48 overflow-auto rounded border border-base-300 p-2 bg-base-100">
-                  <pre className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
+      <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
+        <div className="card-body">
+          <h3 className="card-title text-base">Network apply result</h3>
+          {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
+          {applyResult && (
+            <div className="space-y-2">
+              <p className="text-sm">
+                {applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}
+              </p>
+              {(applyResult.warnings ?? []).map((warning) => (
+                <div key={warning} className="alert alert-warning py-1 text-xs">
+                  {warning}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="card bg-base-100 card-bordered border-gray-500">
-          <div className="card-body">
-            <h3 className="card-title text-base">Scanned upstream Wi-Fi</h3>
-            {networks.length === 0 && <p className="text-sm opacity-70">Run Scan Wi-Fi.</p>}
-            <ul className="menu bg-base-100 rounded-box border border-base-300 max-h-48 overflow-auto p-0">
-              {networks.map((network) => (
-                <li key={`${network.ssid}-${network.signal}`}>
-                  <span className="flex justify-between text-sm">
-                    <span>{network.ssid}</span>
-                    <span className="text-xs opacity-70">
-                      {network.signal}% • {network.security}
-                    </span>
-                  </span>
-                </li>
               ))}
-            </ul>
-          </div>
+              <div className="max-h-48 overflow-auto rounded border border-base-300 p-2 bg-base-100">
+                <pre className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

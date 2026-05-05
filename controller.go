@@ -34,19 +34,6 @@ type AccessPointSettings struct {
 	Channel       int    `json:"channel"`
 }
 
-type UpstreamSettings struct {
-	AutoConnect   bool   `json:"autoConnect"`
-	InterfaceName string `json:"interfaceName"`
-	SSID          string `json:"ssid"`
-	Password      string `json:"password"`
-}
-
-type BridgeSettings struct {
-	Enabled           bool   `json:"enabled"`
-	APInterface       string `json:"apInterface"`
-	UpstreamInterface string `json:"upstreamInterface"`
-}
-
 type DiscoverySettings struct {
 	Enabled         bool     `json:"enabled"`
 	ServiceTypes    []string `json:"serviceTypes"`
@@ -66,8 +53,6 @@ type TestingSettings struct {
 
 type ControllerSettings struct {
 	AccessPoint  AccessPointSettings  `json:"accessPoint"`
-	Upstream     UpstreamSettings     `json:"upstream"`
-	Bridge       BridgeSettings       `json:"bridge"`
 	Discovery    DiscoverySettings    `json:"discovery"`
 	Provisioning ProvisioningSettings `json:"provisioning"`
 	Testing      TestingSettings      `json:"testing"`
@@ -137,7 +122,7 @@ type ControllerCapabilities struct {
 	NetworkBackendID string `json:"networkBackendId"`
 	// NetworkBackendLabel is a human-readable description for the UI.
 	NetworkBackendLabel string `json:"networkBackendLabel"`
-	// NetworkControlAvailable is true when this OS exposes working CLI tools for scan/connect (partial features may still be unavailable).
+	// NetworkControlAvailable is true when this OS exposes working CLI tools for applying network settings (partial features may still be unavailable).
 	NetworkControlAvailable bool `json:"networkControlAvailable"`
 	// NetworkCliName is the primary host CLI for Wi-Fi on this platform (e.g. nmcli, netsh, networksetup).
 	NetworkCliName string `json:"networkCliName"`
@@ -145,12 +130,6 @@ type ControllerCapabilities struct {
 	NetworkCliUnavailableReason string `json:"networkCliUnavailableReason,omitempty"`
 	// NmcliAvailable is true only when Linux nmcli (NetworkManager) is present and used.
 	NmcliAvailable bool `json:"nmcliAvailable"`
-}
-
-type WiFiNetwork struct {
-	SSID     string `json:"ssid"`
-	Signal   int    `json:"signal"`
-	Security string `json:"security"`
 }
 
 type NetworkCommandResult struct {
@@ -272,10 +251,6 @@ func (n *NetworkManager) controllerCapabilities() ControllerCapabilities {
 
 func (n *NetworkManager) Apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
 	return n.backend.apply(ctx, settings)
-}
-
-func (n *NetworkManager) ScanUpstreamNetworks(ctx context.Context, iface string) ([]WiFiNetwork, error) {
-	return n.backend.scanWiFi(ctx, iface)
 }
 
 type DiscoveryEngine struct {
@@ -748,13 +723,6 @@ func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
 	result := c.network.Apply(ctx, settings)
 	c.touch()
 	return result
-}
-
-func (c *WLEDController) ScanUpstreamNetworks(ctx context.Context) ([]WiFiNetwork, error) {
-	c.mu.RLock()
-	iface := c.settings.Upstream.InterfaceName
-	c.mu.RUnlock()
-	return c.network.ScanUpstreamNetworks(ctx, iface)
 }
 
 func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) {
@@ -1329,15 +1297,6 @@ func DefaultControllerSettings() ControllerSettings {
 			Password:      "wled-control",
 			Channel:       6,
 		},
-		Upstream: UpstreamSettings{
-			AutoConnect:   false,
-			InterfaceName: "wlan1",
-		},
-		Bridge: BridgeSettings{
-			Enabled:           true,
-			APInterface:       "wlan0",
-			UpstreamInterface: "wlan1",
-		},
 		Discovery: DiscoverySettings{
 			Enabled:         true,
 			ServiceTypes:    []string{"_wled._tcp", "_http._tcp"},
@@ -1370,15 +1329,6 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	}
 	if out.AccessPoint.Channel <= 0 {
 		out.AccessPoint.Channel = defaults.AccessPoint.Channel
-	}
-	if out.Upstream.InterfaceName == "" {
-		out.Upstream.InterfaceName = defaults.Upstream.InterfaceName
-	}
-	if out.Bridge.APInterface == "" {
-		out.Bridge.APInterface = defaults.Bridge.APInterface
-	}
-	if out.Bridge.UpstreamInterface == "" {
-		out.Bridge.UpstreamInterface = defaults.Bridge.UpstreamInterface
 	}
 	if len(out.Discovery.ServiceTypes) == 0 {
 		out.Discovery.ServiceTypes = defaults.Discovery.ServiceTypes
@@ -1426,18 +1376,6 @@ func isWLEDCandidate(serviceType string, device discoveredDevice) bool {
 	}
 	haystack := strings.ToLower(device.Name + " " + device.Host + " " + device.Address)
 	return strings.Contains(haystack, "wled")
-}
-
-func parseSignal(raw string) int {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0
-	}
-	var value int
-	if _, err := fmt.Sscanf(raw, "%d", &value); err != nil {
-		return 0
-	}
-	return value
 }
 
 func defaultString(value, fallback string) string {

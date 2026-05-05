@@ -23,13 +23,11 @@ import type {
   NetworkApplyResult,
   WLEDDevice,
   WLEDDeviceDetail,
-  WiFiNetwork,
 } from "../types/controller";
 
 export function useControllerApp() {
   const [snapshot, setSnapshot] = useState<ControllerSnapshot | null>(null);
   const [settings, setSettings] = useState<ControllerSettings | null>(null);
-  const [networks, setNetworks] = useState<WiFiNetwork[]>([]);
   const [applyResult, setApplyResult] = useState<NetworkApplyResult | null>(null);
   const [status, setStatus] = useState<string>("Loading...");
   const [error, setError] = useState<string>("");
@@ -216,14 +214,6 @@ export function useControllerApp() {
       setError("");
     });
   }, [configPatchText, settings, statePayloadText, withBusy]);
-
-  const onScanNetworks = useCallback(() => {
-    void withBusy(async () => {
-      const discovered = (await GreetService.ScanNetworks()) as WiFiNetwork[];
-      setNetworks(discovered);
-      setStatus(`Found ${discovered.length} upstream Wi-Fi networks`);
-    });
-  }, [withBusy]);
 
   const onApplyNetwork = useCallback(() => {
     void withBusy(async () => {
@@ -472,7 +462,6 @@ export function useControllerApp() {
     snapshot,
     settings,
     setSettings,
-    networks,
     applyResult,
     status,
     error,
@@ -513,7 +502,6 @@ export function useControllerApp() {
     selectedDevice,
     pullSnapshot,
     onSaveSettings,
-    onScanNetworks,
     onApplyNetwork,
     onDiscoverNow,
     onSetGlobalState,

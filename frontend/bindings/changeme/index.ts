@@ -8,7 +8,6 @@ export {
 
 export {
     AccessPointSettings,
-    BridgeSettings,
     ControllerCapabilities,
     ControllerSettings,
     ControllerSnapshot,
@@ -17,8 +16,6 @@ export {
     NetworkCommandResult,
     ProvisioningSettings,
     TestingSettings,
-    UpstreamSettings,
     WLEDDevice,
     WLEDDeviceDetail,
-    WiFiNetwork
 } from "./models.js";

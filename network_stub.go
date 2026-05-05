@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 )
 
@@ -26,7 +25,7 @@ func (s *stubBackend) available() bool {
 func (s *stubBackend) primaryCLI() string { return "—" }
 
 func (s *stubBackend) unavailableHint() string {
-	return "No OS Wi-Fi integration is built for this platform (expected Linux `nmcli`, macOS `networksetup`/`airport`, or Windows `netsh`)."
+	return "No OS Wi-Fi integration is built for this platform (expected Linux `nmcli`, macOS `networksetup`, or Windows `netsh`)."
 }
 
 func (s *stubBackend) apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
@@ -38,12 +37,6 @@ func (s *stubBackend) apply(ctx context.Context, settings ControllerSettings) Ne
 		},
 		Steps: nil,
 	}
-}
-
-func (s *stubBackend) scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error) {
-	_ = ctx
-	_ = iface
-	return nil, errors.New("Wi-Fi scan is not available on this platform")
 }
 
 func selectNetworkBackend(logger *log.Logger) networkBackend {

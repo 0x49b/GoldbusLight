@@ -57,17 +57,6 @@ func (g *GreetService) ApplyNetworkSettings() (NetworkApplyResult, error) {
 	return controller.ApplyNetwork(ctx), nil
 }
 
-func (g *GreetService) ScanNetworks() ([]WiFiNetwork, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return controller.ScanUpstreamNetworks(ctx)
-}
-
 func (g *GreetService) DiscoverDevicesNow() ([]WLEDDevice, error) {
 	controller, err := g.requireController()
 	if err != nil {

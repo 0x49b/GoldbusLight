@@ -83,12 +83,6 @@ export function SaveControllerSettings(settings: $models.ControllerSettings): $C
     });
 }
 
-export function ScanNetworks(): $CancellablePromise<$models.WiFiNetwork[]> {
-    return $Call.ByID(3040513354).then(($result: any) => {
-        return $$createType7($result);
-    });
-}
-
 export function SetDeviceIgnored(deviceID: string, ignored: boolean): $CancellablePromise<$models.ControllerSnapshot> {
     return $Call.ByID(1162459900, deviceID, ignored).then(($result: any) => {
         return $$createType4($result);
@@ -103,7 +97,7 @@ export function SetDeviceState(deviceID: string, state: { [_ in string]?: any })
 
 export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
     return $Call.ByID(646867996, state).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType6($result);
     });
 }
 
@@ -114,6 +108,4 @@ const $$createType2 = $models.WLEDDevice.createFrom;
 const $$createType3 = $Create.Array($$createType2);
 const $$createType4 = $models.ControllerSnapshot.createFrom;
 const $$createType5 = $models.WLEDDeviceDetail.createFrom;
-const $$createType6 = $models.WiFiNetwork.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = $Create.Map($Create.Any, $Create.Any);
+const $$createType6 = $Create.Map($Create.Any, $Create.Any);

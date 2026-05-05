@@ -31,7 +31,6 @@ function App() {
         settings={app.settings}
         setSettings={app.setSettings}
         snapshot={app.snapshot}
-        networks={app.networks}
         applyResult={app.applyResult}
         statePayloadText={app.statePayloadText}
         setStatePayloadText={app.setStatePayloadText}
@@ -40,7 +39,6 @@ function App() {
         ignoredDevices={app.ignoredDevices}
         busy={app.busy}
         onSaveSettings={app.onSaveSettings}
-        onScanNetworks={app.onScanNetworks}
         onApplyNetwork={app.onApplyNetwork}
         onUnignoreDevice={app.onUnignoreDevice}
       />

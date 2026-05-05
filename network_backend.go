@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// networkBackend implements OS-specific Wi-Fi / network control (nmcli on Linux,
-// macwifi/networksetup on macOS, netsh on Windows).
+// networkBackend implements OS-specific Wi-Fi access point control (nmcli on Linux,
+// networksetup on macOS, netsh on Windows).
 type networkBackend interface {
 	id() string
 	label() string
@@ -18,7 +18,6 @@ type networkBackend interface {
 	// unavailableHint explains what is missing when available() is false.
 	unavailableHint() string
 	apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult
-	scanWiFi(ctx context.Context, iface string) ([]WiFiNetwork, error)
 }
 
 func runShellCommand(ctx context.Context, logger *log.Logger, name string, args ...string) NetworkCommandResult {

@@ -9,19 +9,6 @@ export type AccessPointSettings = {
   channel: number;
 };
 
-export type UpstreamSettings = {
-  autoConnect: boolean;
-  interfaceName: string;
-  ssid: string;
-  password: string;
-};
-
-export type BridgeSettings = {
-  enabled: boolean;
-  apInterface: string;
-  upstreamInterface: string;
-};
-
 export type DiscoverySettings = {
   enabled: boolean;
   serviceTypes: string[];
@@ -41,8 +28,6 @@ export type TestingSettings = {
 
 export type ControllerSettings = {
   accessPoint: AccessPointSettings;
-  upstream: UpstreamSettings;
-  bridge: BridgeSettings;
   discovery: DiscoverySettings;
   provisioning: ProvisioningSettings;
   testing: TestingSettings;
@@ -75,12 +60,6 @@ export type ControllerSnapshot = {
     networkCliUnavailableReason?: string;
     nmcliAvailable: boolean;
   };
-};
-
-export type WiFiNetwork = {
-  ssid: string;
-  signal: number;
-  security: string;
 };
 
 export type NetworkCommandResult = {
