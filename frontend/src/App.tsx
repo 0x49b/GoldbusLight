@@ -45,6 +45,7 @@ function App() {
         updateInfo={app.updateInfo}
         updateProgress={app.updateProgress}
         updateBusy={app.updateBusy}
+        updateAction={app.updateAction}
         onCheckForUpdates={app.onCheckForUpdates}
         onDownloadAndInstallUpdate={app.onDownloadAndInstallUpdate}
       />

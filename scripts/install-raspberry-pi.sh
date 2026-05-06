@@ -70,6 +70,11 @@ apt-get install -y --no-install-recommends \
 install -d -m 0755 -o root -g root "$INSTALL_DIR"
 install -m 0755 -o root -g root "$BINARY_SRC" "$INSTALL_DIR/GoldbusLight"
 
+ICON_FILE="$INSTALL_DIR/goldbuslight.png"
+if [[ -f "$(dirname "$0")/../build/appicon.png" ]]; then
+  install -m 0644 -o root -g root "$(dirname "$0")/../build/appicon.png" "$ICON_FILE"
+fi
+
 cat >/etc/default/goldbuslight <<EOF
 # GoldbusLight runtime (exported by systemd units below)
 GOLDBUS_FULLSCREEN=1
@@ -96,6 +101,43 @@ exec "$INSTALL_DIR/GoldbusLight"
 EOF
 chmod 0755 "$INSTALL_DIR/launch.sh"
 chown root:root "$INSTALL_DIR/launch.sh"
+
+DESKTOP_FILE_SYSTEM="/usr/share/applications/goldbuslight.desktop"
+cat >"$DESKTOP_FILE_SYSTEM" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Goldbus Light Controller
+Comment=Control WLED lights in the Goldbus
+Exec=$INSTALL_DIR/launch.sh
+Icon=$ICON_FILE
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+EOF
+chmod 0644 "$DESKTOP_FILE_SYSTEM"
+
+DESKTOP_DIR="$(sudo -u "$RUN_USER" xdg-user-dir DESKTOP 2>/dev/null || true)"
+if [[ -z "$DESKTOP_DIR" || ! -d "$DESKTOP_DIR" ]]; then
+  DESKTOP_DIR="$RUN_HOME/Desktop"
+fi
+install -d -m 0755 -o "$RUN_USER" -g "$RUN_USER" "$DESKTOP_DIR"
+
+DESKTOP_FILE_USER="$DESKTOP_DIR/Goldbus Light Controller.desktop"
+cat >"$DESKTOP_FILE_USER" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Goldbus Light Controller
+Comment=Control WLED lights in the Goldbus
+Exec=$INSTALL_DIR/launch.sh
+Icon=$ICON_FILE
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+EOF
+chmod 0755 "$DESKTOP_FILE_USER"
+chown "$RUN_USER:$RUN_USER" "$DESKTOP_FILE_USER"
 
 if [[ "$SERVICE_MODE" == user ]]; then
   install -d -m 0755 -o "$RUN_USER" -g "$RUN_USER" "$RUN_HOME/.config/systemd/user"
@@ -156,6 +198,8 @@ fi
 
 echo ""
 echo "GoldbusLight installed to $INSTALL_DIR"
+echo "Menu entry installed: $DESKTOP_FILE_SYSTEM"
+echo "Desktop launcher installed: $DESKTOP_FILE_USER"
 echo "Fullscreen: GOLDBUS_FULLSCREEN=1 in /etc/default/goldbuslight (requires rebuild if your binary predates this env support)."
 if [[ "$SERVICE_MODE" == user ]]; then
   echo "Linger for $RUN_USER: $(loginctl show-user "$RUN_USER" -p Linger --value 2>/dev/null || echo unknown)"

@@ -27,6 +27,7 @@ export type ControllerSettingsViewProps = {
   updateInfo: UpdateInfo | null;
   updateProgress: number | null;
   updateBusy: boolean;
+  updateAction: "check" | "install" | null;
   onCheckForUpdates: () => void;
   onDownloadAndInstallUpdate: () => void;
 };
@@ -49,6 +50,7 @@ export function ControllerSettingsView({
   updateInfo,
   updateProgress,
   updateBusy,
+  updateAction,
   onCheckForUpdates,
   onDownloadAndInstallUpdate,
 }: ControllerSettingsViewProps) {
@@ -268,15 +270,17 @@ export function ControllerSettingsView({
             Current version: <code>{currentVersion}</code>
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-sm btn-outline" onClick={onCheckForUpdates} disabled={updateBusy}>
+            <button type="button" className="btn btn-sm btn-outline flex-1" onClick={onCheckForUpdates} disabled={updateBusy}>
+              {updateBusy && updateAction === "check" && <span className="loading loading-spinner loading-xs" aria-hidden />}
               Check for updates
             </button>
             <button
               type="button"
-              className="btn btn-sm btn-primary"
+              className="btn btn-sm btn-primary flex-1"
               onClick={onDownloadAndInstallUpdate}
               disabled={updateBusy || !updateInfo?.updateAvailable}
             >
+              {updateBusy && updateAction === "install" && <span className="loading loading-spinner loading-xs" aria-hidden />}
               Download and restart
             </button>
           </div>
