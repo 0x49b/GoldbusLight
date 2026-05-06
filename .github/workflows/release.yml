@@ -133,13 +133,13 @@ jobs:
 
       - name: Stage linux arm64 artifact
         run: |
-          cp bin/GoldbusLight GoldbusLight-raspberrypi-arm64
-          chmod +x GoldbusLight-raspberrypi-arm64
+          cp bin/GoldbusLight GoldbusLight-linux-arm64
+          chmod +x GoldbusLight-linux-arm64
 
       - uses: actions/upload-artifact@v4
         with:
-          name: goldbus-raspberrypi-arm64
-          path: GoldbusLight-raspberrypi-arm64
+          name: goldbus-linux-arm64
+          path: GoldbusLight-linux-arm64
 
   # build-windows:
   #   runs-on: windows-latest
@@ -266,7 +266,7 @@ jobs:
             | `GoldbusLight-darwin-amd64` | macOS Intel |
             | `GoldbusLight-darwin-arm64` | macOS Apple silicon |
             | `GoldbusLight-linux-amd64` | Linux x64 |
-            | `GoldbusLight-raspberrypi-arm64` | Linux arm64 (**Raspberry Pi OS 64-bit**, Pi 4 / Pi 5); built on a native arm64 GitHub runner |
+            | `GoldbusLight-linux-arm64` | Linux arm64 (**Raspberry Pi OS 64-bit**, Pi 4 / Pi 5); built on a native arm64 GitHub runner |
 
             **Raspberry Pi:** use **64-bit** Raspberry Pi OS for `linux-arm64`. **32-bit** (`armv7` / `linux/arm`) is not built in CI.
 
@@ -317,7 +317,7 @@ jobs:
           release_date = release.get("published_at") or datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
           platform_map = {
-              "GoldbusLight-raspberrypi-arm64": "linux-arm64",
+              "GoldbusLight-linux-arm64": "linux-arm64",
               "GoldbusLight-linux-amd64": "linux-amd64",
               "GoldbusLight-darwin-arm64": "macos-arm64",
               "GoldbusLight-darwin-amd64": "macos-amd64",
