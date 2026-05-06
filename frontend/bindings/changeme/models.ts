@@ -310,6 +310,44 @@ export class NetworkCommandResult {
     }
 }
 
+export class PathPermissionDiagnostic {
+    "path": string;
+    "exists": boolean;
+    "isDir": boolean;
+    "mode"?: string;
+    "ownerUid"?: number;
+    "ownerGid"?: number;
+    "writable": boolean;
+    "writeTest"?: string;
+    "error"?: string;
+
+    /** Creates a new PathPermissionDiagnostic instance. */
+    constructor($$source: Partial<PathPermissionDiagnostic> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("exists" in $$source)) {
+            this["exists"] = false;
+        }
+        if (!("isDir" in $$source)) {
+            this["isDir"] = false;
+        }
+        if (!("writable" in $$source)) {
+            this["writable"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PathPermissionDiagnostic instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PathPermissionDiagnostic {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PathPermissionDiagnostic($$parsedSource as Partial<PathPermissionDiagnostic>);
+    }
+}
+
 export class ProvisioningSettings {
     "autoProvision": boolean;
     "defaultStatePayload": { [_ in string]?: any };
@@ -365,6 +403,59 @@ export class TestingSettings {
     static createFrom($$source: any = {}): TestingSettings {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new TestingSettings($$parsedSource as Partial<TestingSettings>);
+    }
+}
+
+export class UpdatePermissionDiagnostics {
+    "timestampUtc": string;
+    "goos": string;
+    "goarch": string;
+    "username"?: string;
+    "runtimeUid": number;
+    "runtimeGid": number;
+    "executablePath"?: string;
+    "executablePathError"?: string;
+    "executableDir"?: string;
+    "canUpdate": boolean;
+    "paths": PathPermissionDiagnostic[];
+
+    /** Creates a new UpdatePermissionDiagnostics instance. */
+    constructor($$source: Partial<UpdatePermissionDiagnostics> = {}) {
+        if (!("timestampUtc" in $$source)) {
+            this["timestampUtc"] = "";
+        }
+        if (!("goos" in $$source)) {
+            this["goos"] = "";
+        }
+        if (!("goarch" in $$source)) {
+            this["goarch"] = "";
+        }
+        if (!("runtimeUid" in $$source)) {
+            this["runtimeUid"] = 0;
+        }
+        if (!("runtimeGid" in $$source)) {
+            this["runtimeGid"] = 0;
+        }
+        if (!("canUpdate" in $$source)) {
+            this["canUpdate"] = false;
+        }
+        if (!("paths" in $$source)) {
+            this["paths"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdatePermissionDiagnostics instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdatePermissionDiagnostics {
+        const $$createField10_0 = $$createType13;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("paths" in $$parsedSource) {
+            $$parsedSource["paths"] = $$createField10_0($$parsedSource["paths"]);
+        }
+        return new UpdatePermissionDiagnostics($$parsedSource as Partial<UpdatePermissionDiagnostics>);
     }
 }
 
@@ -508,3 +599,5 @@ const $$createType8 = $Create.Array($Create.Any);
 const $$createType9 = NetworkCommandResult.createFrom;
 const $$createType10 = $Create.Array($$createType9);
 const $$createType11 = $Create.Map($Create.Any, $Create.Any);
+const $$createType12 = PathPermissionDiagnostic.createFrom;
+const $$createType13 = $Create.Array($$createType12);

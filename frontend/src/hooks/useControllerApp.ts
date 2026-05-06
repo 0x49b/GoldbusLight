@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as GreetService from "../../bindings/changeme/greetservice";
+import * as UpdaterDiagnosticsService from "../../bindings/changeme/updaterdiagnosticsservice";
 import * as SelfUpdateService from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/service";
 import type { UpdateInfo } from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/models";
+import type { PathPermissionDiagnostic, UpdatePermissionDiagnostics } from "../../bindings/changeme/models";
 import { Events } from "@wailsio/runtime";
 import { parseJSONMap, prettyJSON, readNumber } from "../lib/json";
 import {
@@ -58,6 +60,7 @@ export function useControllerApp() {
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateAction, setUpdateAction] = useState<"check" | "install" | null>(null);
   const [startupUpdateModalOpen, setStartupUpdateModalOpen] = useState(false);
+  const [updateDiagnostics, setUpdateDiagnostics] = useState<UpdatePermissionDiagnostics | null>(null);
 
   const detailDeviceIdRef = useRef<string>("");
   /** Latest GET /json/state for the open device (for debounced callbacks; avoids stale closures). */
@@ -132,6 +135,7 @@ export function useControllerApp() {
 
   const checkForUpdates = useCallback(
     async (trigger: "startup" | "manual") => {
+      console.info("[updater] check.start", { trigger });
       if (trigger === "manual") {
         setUpdateBusy(true);
         setUpdateAction("check");
@@ -140,6 +144,13 @@ export function useControllerApp() {
       try {
         const info = await SelfUpdateService.Check();
         setUpdateInfo(info);
+        console.info("[updater] check.result", {
+          trigger,
+          updateAvailable: info?.updateAvailable,
+          latestVersion: info?.latestVersion,
+          currentVersion: info?.currentVersion,
+          assetName: info?.assetName,
+        });
         if (info?.currentVersion && info.currentVersion.trim() !== "") {
           setCurrentVersion(info.currentVersion);
         }
@@ -154,6 +165,7 @@ export function useControllerApp() {
           }
         }
       } catch (err: unknown) {
+        console.error("[updater] check.error", { trigger, error: String(err) });
         setError(String(err));
       } finally {
         if (trigger === "manual") {
@@ -164,6 +176,23 @@ export function useControllerApp() {
     },
     [],
   );
+
+  const fetchUpdateDiagnostics = useCallback(async () => {
+    try {
+      const diag = await UpdaterDiagnosticsService.GetUpdatePermissionDiagnostics();
+      setUpdateDiagnostics(diag);
+      console.info("[updater] diagnostics", diag);
+      return diag;
+    } catch (err) {
+      console.warn("[updater] diagnostics.error", { error: String(err) });
+      return null;
+    }
+  }, []);
+
+  const firstNonWritablePath = useCallback((diag: UpdatePermissionDiagnostics | null): PathPermissionDiagnostic | null => {
+    if (!diag) return null;
+    return diag.paths.find((p) => !p.writable) ?? null;
+  }, []);
 
   useEffect(() => {
     void checkForUpdates("startup");
@@ -316,22 +345,41 @@ export function useControllerApp() {
     setUpdateBusy(true);
     setUpdateAction("install");
     setUpdateProgress(0);
-    void Promise.all([SelfUpdateService.CanUpdate(), SelfUpdateService.GetPlatformInfo()])
-      .then(([canUpdate]) => {
+    console.info("[updater] install.start", { latestVersion: updateInfo.latestVersion });
+    void Promise.all([SelfUpdateService.CanUpdate(), SelfUpdateService.GetPlatformInfo(), fetchUpdateDiagnostics()])
+      .then(([canUpdate, platform, diag]) => {
+        console.info("[updater] install.preflight", { canUpdate, platform, diagnostics: diag });
         if (!canUpdate) {
-          throw new Error("Updater cannot write to installation directory");
+          const failingPath = firstNonWritablePath(diag);
+          if (failingPath) {
+            throw new Error(
+              `Updater cannot write to installation directory. user=${diag?.username || diag?.runtimeUid} path=${failingPath.path} mode=${failingPath.mode || "unknown"} owner=${failingPath.ownerUid ?? "?"}:${failingPath.ownerGid ?? "?"}. Run scripts/fix-raspi-update-state.sh.`,
+            );
+          }
+          throw new Error("Updater cannot write to installation directory. Run scripts/fix-raspi-update-state.sh.");
         }
         return SelfUpdateService.DownloadAndInstall();
       })
       .then(async (updated) => {
+        console.info("[updater] install.result", { updated });
         if (!updated) {
           setStatus("No update was applied");
           return;
         }
         setStatus("Update installed. Restarting...");
+        console.info("[updater] restart.trigger");
         await SelfUpdateService.Restart();
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
+        const diag = await fetchUpdateDiagnostics();
+        console.error("[updater] install.error", { error: String(err), diagnostics: diag });
+        const failingPath = firstNonWritablePath(diag);
+        if (failingPath) {
+          setError(
+            `${String(err)} (failing path: ${failingPath.path}, owner: ${failingPath.ownerUid ?? "?"}:${failingPath.ownerGid ?? "?"}, mode: ${failingPath.mode || "unknown"})`,
+          );
+          return;
+        }
         setError(String(err));
       })
       .finally(() => {
@@ -605,6 +653,7 @@ export function useControllerApp() {
     updateBusy,
     updateAction,
     startupUpdateModalOpen,
+    updateDiagnostics,
     route,
     setRoute,
     deviceDetail,

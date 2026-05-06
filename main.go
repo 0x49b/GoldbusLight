@@ -63,6 +63,7 @@ func main() {
 		Repository:      updateRepository,
 		AllowPrerelease: false,
 	})
+	updaterDiagnosticsService := NewUpdaterDiagnosticsService(updater)
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -75,6 +76,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(greetService),
 			application.NewService(updater),
+			application.NewService(updaterDiagnosticsService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -68,6 +68,31 @@ This script:
 - reinstalls the menu entry,
 - restarts the service.
 
+### Updater diagnostics logging
+
+The app now logs updater lifecycle and permission diagnostics in the frontend console with the prefix:
+
+- `[updater] check.start`
+- `[updater] check.result`
+- `[updater] install.preflight`
+- `[updater] install.error`
+- `[updater] diagnostics`
+
+When update permission checks fail, the error includes:
+
+- failing path,
+- current runtime user (`username`/`uid`),
+- owner and mode for the problematic path,
+- fix hint to run `scripts/fix-raspi-update-state.sh`.
+
+To verify on Pi before retrying update:
+
+```bash
+ps -ef | rg -i GoldbusLight
+ls -ld /opt/goldbuslight
+ls -l /opt/goldbuslight
+```
+
 ### Fullscreen startup
 
 Fullscreen is controlled by `/etc/default/goldbuslight`:

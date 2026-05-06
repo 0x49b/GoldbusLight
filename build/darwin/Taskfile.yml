@@ -43,7 +43,15 @@ tasks:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -X main.appVersion={{.APP_VERSION}}"{{end}}'
-      APP_VERSION: '{{.VERSION | default "0.0.1"}}'
+      APP_VERSION: '{{.VERSION | default .CI_TAG_VERSION | default "0.0.1"}}'
+      CI_TAG_VERSION:
+        sh: |
+          if [ -n "${GITHUB_REF_NAME:-}" ]; then
+            printf "%s" "${GITHUB_REF_NAME#v}"
+          elif [ -n "${GITHUB_REF:-}" ]; then
+            tag="${GITHUB_REF##*/}"
+            printf "%s" "${tag#v}"
+          fi
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:
