@@ -87,18 +87,56 @@ function App() {
   }
 
   return (
-    <AppShell
-      status={app.status}
-      busy={app.busy}
-      onDiscoverNow={app.onDiscoverNow}
-      onRefreshSnapshot={app.pullSnapshot}
-      route={app.route}
-      setRoute={app.setRoute}
-      devices={app.devices}
-      error={app.error}
-    >
-      {main}
-    </AppShell>
+    <>
+      <AppShell
+        status={app.status}
+        busy={app.busy}
+        onDiscoverNow={app.onDiscoverNow}
+        onRefreshSnapshot={app.pullSnapshot}
+        route={app.route}
+        setRoute={app.setRoute}
+        devices={app.devices}
+        error={app.error}
+        onDismissError={app.onDismissError}
+      >
+        {main}
+      </AppShell>
+      {app.startupUpdateModalOpen && app.updateInfo?.updateAvailable && (
+        <div className="modal modal-open" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">Update available</h3>
+            <p className="py-2">
+              Version <code>{app.updateInfo.latestVersion}</code> is available. Install now or postpone?
+            </p>
+            {app.updateProgress !== null && (
+              <div className="space-y-1 mb-3">
+                <progress className="progress progress-primary w-full" value={Math.round(app.updateProgress)} max={100} />
+                <p className="text-xs opacity-70">{Math.round(app.updateProgress)}% downloaded</p>
+              </div>
+            )}
+            <div className="modal-action">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={app.onPostponeUpdate}
+                disabled={app.updateBusy}
+              >
+                Postpone
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={app.onDownloadAndInstallUpdate}
+                disabled={app.updateBusy}
+              >
+                {app.updateBusy && <span className="loading loading-spinner loading-xs" aria-hidden />}
+                Update now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

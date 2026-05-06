@@ -1,59 +1,79 @@
-# Welcome to Your New Wails3 Project!
+# Goldbus Light Controller
 
-Congratulations on generating your Wails3 application! This README will guide you through the next steps to get your project up and running.
+Wails v3 desktop app for controlling WLED lights in the Goldbus environment.
 
-## Getting Started
+## Development
 
-1. Navigate to your project directory in the terminal.
+- Run in dev mode:
+  - `wails3 dev`
+- Build native binary:
+  - `task linux:build DEV=false` (Linux)
+  - `task darwin:build DEV=false` (macOS)
+  - `task windows:build DEV=false` (Windows)
 
-2. To run your application in development mode, use the following command:
+## Raspberry Pi setup
 
-   ```
-   wails3 dev
-   ```
+### Supported platform
 
-   This will start your application and enable hot-reloading for both frontend and backend changes.
+- Raspberry Pi OS **64-bit** (`linux-arm64`)
+- Use release asset: `GoldbusLight-linux-arm64`
 
-3. To build your application for production, use:
+### Install on Pi
 
-   ```
-   wails3 build
-   ```
+From repo checkout:
 
-   This will create a production-ready executable in the `build` directory.
+```bash
+sudo ./scripts/install-raspberry-pi.sh /path/to/GoldbusLight-linux-arm64
+```
 
-## Exploring Wails3 Features
+Optional env overrides:
 
-Now that you have your project set up, it's time to explore the features that Wails3 offers:
+- `GOLDBUS_USER` (default: `pi`)
+- `GOLDBUS_INSTALL_DIR` (default: `/opt/goldbuslight`)
+- `GOLDBUS_SERVICE_MODE` (`user` or `system`, default: `user`)
 
-1. **Check out the examples**: The best way to learn is by example. Visit the `examples` directory in the `v3/examples` directory to see various sample applications.
+Example:
 
-2. **Run an example**: To run any of the examples, navigate to the example's directory and use:
+```bash
+sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user ./scripts/install-raspberry-pi.sh /home/pi/Downloads/GoldbusLight-linux-arm64
+```
 
-   ```
-   go run .
-   ```
+### Launch behavior
 
-   Note: Some examples may be under development during the alpha phase.
+- Menu entry is installed at `/usr/share/applications/goldbuslight.desktop`
+- Desktop icon is intentionally **not** created (menu-only policy) to avoid per-desktop trust prompt behavior.
 
-3. **Explore the documentation**: Visit the [Wails3 documentation](https://v3.wails.io/) for in-depth guides and API references.
+### Updates and permissions
 
-4. **Join the community**: Have questions or want to share your progress? Join the [Wails Discord](https://discord.gg/JDdSxwjhGf) or visit the [Wails discussions on GitHub](https://github.com/wailsapp/wails/discussions).
+Self-update writes replacement binaries in the install directory. The runtime user must be able to write to:
 
-## Project Structure
+- `/opt/goldbuslight`
+- `/opt/goldbuslight/GoldbusLight`
 
-Take a moment to familiarize yourself with your project structure:
+Installer and recovery scripts enforce this for `GOLDBUS_USER`.
 
-- `frontend/`: Contains your frontend code (HTML, CSS, JavaScript/TypeScript)
-- `main.go`: The entry point of your Go backend
-- `app.go`: Define your application structure and methods here
-- `wails.json`: Configuration file for your Wails project
+### Recovery / troubleshooting
 
-## Next Steps
+If updates fail with `.old/.new` or permission errors:
 
-1. Modify the frontend in the `frontend/` directory to create your desired UI.
-2. Add backend functionality in `main.go`.
-3. Use `wails3 dev` to see your changes in real-time.
-4. When ready, build your application with `wails3 build`.
+```bash
+sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user ./scripts/fix-raspi-update-state.sh
+```
 
-Happy coding with Wails3! If you encounter any issues or have questions, don't hesitate to consult the documentation or reach out to the Wails community.
+This script:
+
+- stops the service,
+- repairs ownership/permissions in install dir,
+- removes stale `.GoldbusLight.old` and `.GoldbusLight.new`,
+- reinstalls the menu entry,
+- restarts the service.
+
+### Fullscreen startup
+
+Fullscreen is controlled by `/etc/default/goldbuslight`:
+
+```bash
+GOLDBUS_FULLSCREEN=1
+```
+
+If display artifacts appear until manual resize, this is often a Raspberry Pi WebKit/GTK compositor startup quirk. Restarting the app/session typically helps.

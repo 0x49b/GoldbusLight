@@ -11,6 +11,7 @@ export type AppShellProps = {
   setRoute: Dispatch<SetStateAction<DetailRoute>>;
   devices: WLEDDevice[];
   error: string;
+  onDismissError: () => void;
   children: ReactNode;
 };
 
@@ -23,6 +24,7 @@ export function AppShell({
   setRoute,
   devices,
   error,
+  onDismissError,
   children,
 }: AppShellProps) {
   return (
@@ -90,8 +92,11 @@ export function AppShell({
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {error && (
-            <div className="alert alert-error text-sm py-2 mb-4" role="alert">
-              {error}
+            <div className="alert alert-error text-sm py-2 mb-4 flex items-center justify-between gap-3" role="alert">
+              <span className="min-w-0 break-words">{error}</span>
+              <button type="button" className="btn btn-xs btn-outline shrink-0" onClick={onDismissError}>
+                Dismiss
+              </button>
             </div>
           )}
           {children}

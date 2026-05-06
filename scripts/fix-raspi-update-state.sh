@@ -4,12 +4,14 @@ set -euo pipefail
 # GoldbusLight recovery/fix script for Raspberry Pi install layout
 # - Fixes updater write permissions
 # - Removes stale .old/.new files from failed updates
-# - Recreates menu + desktop launchers
+# - Recreates menu launcher
 # - Restarts service (user or system mode)
 
 INSTALL_DIR="${GOLDBUS_INSTALL_DIR:-/opt/goldbuslight}"
 RUN_USER="${GOLDBUS_USER:-pi}"
 SERVICE_MODE="${GOLDBUS_SERVICE_MODE:-user}" # user|system
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APPICON_SRC="$SCRIPT_DIR/../build/appicon.png"
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -52,8 +54,8 @@ EOF
 fi
 
 echo "==> Installing icon (if available in repo)"
-if [[ -f "$(pwd)/build/appicon.png" ]]; then
-  install -m 0644 -o "$RUN_USER" -g "$RUN_USER" "$(pwd)/build/appicon.png" "$ICON_FILE"
+if [[ -f "$APPICON_SRC" ]]; then
+  install -m 0644 -o "$RUN_USER" -g "$RUN_USER" "$APPICON_SRC" "$ICON_FILE"
 fi
 
 echo "==> Writing system menu entry"
@@ -71,29 +73,6 @@ StartupNotify=true
 EOF
 chmod 0644 /usr/share/applications/goldbuslight.desktop
 
-echo "==> Writing desktop launcher for user"
-DESKTOP_DIR="$(sudo -u "$RUN_USER" xdg-user-dir DESKTOP 2>/dev/null || true)"
-if [[ -z "$DESKTOP_DIR" || ! -d "$DESKTOP_DIR" ]]; then
-  DESKTOP_DIR="$RUN_HOME/Desktop"
-fi
-install -d -m 0755 -o "$RUN_USER" -g "$RUN_USER" "$DESKTOP_DIR"
-
-USER_DESKTOP_FILE="$DESKTOP_DIR/Goldbus Light Controller.desktop"
-cat >"$USER_DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Goldbus Light Controller
-Comment=Control WLED lights in the Goldbus
-Exec=$LAUNCH_SH
-Icon=$ICON_FILE
-Terminal=false
-Categories=Utility;
-StartupNotify=true
-EOF
-chmod 0755 "$USER_DESKTOP_FILE"
-chown "$RUN_USER:$RUN_USER" "$USER_DESKTOP_FILE"
-
 echo "==> Restarting service"
 if [[ "$SERVICE_MODE" == "user" ]]; then
   loginctl enable-linger "$RUN_USER" || true
@@ -110,4 +89,4 @@ echo
 echo "Done."
 echo "Install dir writable by $RUN_USER and stale updater files removed."
 echo "Menu entry: /usr/share/applications/goldbuslight.desktop"
-echo "Desktop icon: $USER_DESKTOP_FILE"
+echo "Desktop launcher not managed (menu-only policy)."

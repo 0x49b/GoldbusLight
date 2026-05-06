@@ -129,7 +129,10 @@ jobs:
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
 
       - name: Build linux arm64 (Raspberry Pi OS 64-bit)
-        run: task linux:build ARCH=arm64 DEV=false
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          task linux:build ARCH=arm64 DEV=false VERSION="$VERSION"
 
       - name: Stage linux arm64 artifact
         run: |

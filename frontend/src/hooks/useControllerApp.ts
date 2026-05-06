@@ -52,11 +52,12 @@ export function useControllerApp() {
   const [ignoredDevices, setIgnoredDevices] = useState<WLEDDevice[]>([]);
   const [deviceNameDraft, setDeviceNameDraft] = useState("");
   const [editingDeviceName, setEditingDeviceName] = useState(false);
-  const [currentVersion, setCurrentVersion] = useState("0.0.1");
+  const [currentVersion, setCurrentVersion] = useState("unknown");
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateAction, setUpdateAction] = useState<"check" | "install" | null>(null);
+  const [startupUpdateModalOpen, setStartupUpdateModalOpen] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
   /** Latest GET /json/state for the open device (for debounced callbacks; avoids stale closures). */
@@ -122,14 +123,51 @@ export function useControllerApp() {
   useEffect(() => {
     void SelfUpdateService.GetCurrentVersion()
       .then((version) => {
-        if (version) {
+        if (version && version.trim() !== "") {
           setCurrentVersion(version);
         }
       })
-      .catch(() => {
-        // No-op: keep default version in UI when service call fails.
-      });
+      .catch(() => {});
   }, []);
+
+  const checkForUpdates = useCallback(
+    async (trigger: "startup" | "manual") => {
+      if (trigger === "manual") {
+        setUpdateBusy(true);
+        setUpdateAction("check");
+        setUpdateProgress(null);
+      }
+      try {
+        const info = await SelfUpdateService.Check();
+        setUpdateInfo(info);
+        if (info?.currentVersion && info.currentVersion.trim() !== "") {
+          setCurrentVersion(info.currentVersion);
+        }
+        if (!info || !info.updateAvailable) {
+          if (trigger === "manual") {
+            setStatus("No update available");
+          }
+        } else {
+          setStatus(`Update available: ${info.latestVersion}`);
+          if (trigger === "startup") {
+            setStartupUpdateModalOpen(true);
+          }
+        }
+      } catch (err: unknown) {
+        setError(String(err));
+      } finally {
+        if (trigger === "manual") {
+          setUpdateBusy(false);
+          setUpdateAction(null);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void checkForUpdates("startup");
+  }, [checkForUpdates]);
 
   useEffect(() => {
     const unsubscribe = Events.On("selfupdate:progress", (payload: unknown) => {
@@ -268,78 +306,8 @@ export function useControllerApp() {
   }, [withBusy]);
 
   const onCheckForUpdates = useCallback(() => {
-    setUpdateBusy(true);
-    setUpdateAction("check");
-    setUpdateProgress(null);
-    // #region agent log
-    fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-      body: JSON.stringify({
-        sessionId: "5a3f35",
-        runId: "initial",
-        hypothesisId: "H2",
-        location: "frontend/src/hooks/useControllerApp.ts:onCheckForUpdates:start",
-        message: "Starting update check",
-        data: { routeKind: route.kind },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-    void SelfUpdateService.Check()
-      .then((info) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-          body: JSON.stringify({
-            sessionId: "5a3f35",
-            runId: "initial",
-            hypothesisId: "H2",
-            location: "frontend/src/hooks/useControllerApp.ts:onCheckForUpdates:result",
-            message: "Check() returned update metadata",
-            data: {
-              hasInfo: Boolean(info),
-              updateAvailable: info?.updateAvailable,
-              latestVersion: info?.latestVersion,
-              assetName: info?.assetName,
-              assetUrl: info?.assetUrl,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-        setUpdateInfo(info);
-        if (!info || !info.updateAvailable) {
-          setStatus("No update available");
-        } else {
-          setStatus(`Update available: ${info.latestVersion}`);
-        }
-        setError("");
-      })
-      .catch((err: unknown) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-          body: JSON.stringify({
-            sessionId: "5a3f35",
-            runId: "initial",
-            hypothesisId: "H2",
-            location: "frontend/src/hooks/useControllerApp.ts:onCheckForUpdates:error",
-            message: "Check() failed",
-            data: { error: String(err) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-        setError(String(err));
-      })
-      .finally(() => {
-        setUpdateBusy(false);
-        setUpdateAction(null);
-      });
-  }, [route.kind]);
+    void checkForUpdates("manual");
+  }, [checkForUpdates]);
 
   const onDownloadAndInstallUpdate = useCallback(() => {
     if (!updateInfo?.updateAvailable) {
@@ -349,45 +317,13 @@ export function useControllerApp() {
     setUpdateAction("install");
     setUpdateProgress(0);
     void Promise.all([SelfUpdateService.CanUpdate(), SelfUpdateService.GetPlatformInfo()])
-      .then(([canUpdate, platform]) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-          body: JSON.stringify({
-            sessionId: "5a3f35",
-            runId: "initial",
-            hypothesisId: "H1",
-            location: "frontend/src/hooks/useControllerApp.ts:onDownloadAndInstallUpdate:preflight",
-            message: "Preflight before DownloadAndInstall",
-            data: {
-              canUpdate,
-              platform,
-              latestVersion: updateInfo.latestVersion,
-              assetName: updateInfo.assetName,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
+      .then(([canUpdate]) => {
+        if (!canUpdate) {
+          throw new Error("Updater cannot write to installation directory");
+        }
         return SelfUpdateService.DownloadAndInstall();
       })
       .then(async (updated) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-          body: JSON.stringify({
-            sessionId: "5a3f35",
-            runId: "initial",
-            hypothesisId: "H4",
-            location: "frontend/src/hooks/useControllerApp.ts:onDownloadAndInstallUpdate:result",
-            message: "DownloadAndInstall completed",
-            data: { updated },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         if (!updated) {
           setStatus("No update was applied");
           return;
@@ -396,21 +332,6 @@ export function useControllerApp() {
         await SelfUpdateService.Restart();
       })
       .catch((err: unknown) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5a3f35" },
-          body: JSON.stringify({
-            sessionId: "5a3f35",
-            runId: "initial",
-            hypothesisId: "H3",
-            location: "frontend/src/hooks/useControllerApp.ts:onDownloadAndInstallUpdate:error",
-            message: "Download/install failed",
-            data: { error: String(err) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setError(String(err));
       })
       .finally(() => {
@@ -418,6 +339,14 @@ export function useControllerApp() {
         setUpdateAction(null);
       });
   }, [updateInfo?.updateAvailable]);
+
+  const onPostponeUpdate = useCallback(() => {
+    setStartupUpdateModalOpen(false);
+  }, []);
+
+  const onDismissError = useCallback(() => {
+    setError("");
+  }, []);
 
   const onDiscoverNow = useCallback(() => {
     void withBusy(async () => {
@@ -675,6 +604,7 @@ export function useControllerApp() {
     updateProgress,
     updateBusy,
     updateAction,
+    startupUpdateModalOpen,
     route,
     setRoute,
     deviceDetail,
@@ -706,6 +636,7 @@ export function useControllerApp() {
     onApplyNetwork,
     onCheckForUpdates,
     onDownloadAndInstallUpdate,
+    onPostponeUpdate,
     onDiscoverNow,
     onSetGlobalState,
     onRefreshDevice,
@@ -719,5 +650,6 @@ export function useControllerApp() {
     applyWarmWhitePreset,
     applyColdWhitePreset,
     applyNamedColorPreset,
+    onDismissError,
   };
 }
