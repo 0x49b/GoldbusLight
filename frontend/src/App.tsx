@@ -41,6 +41,12 @@ function App() {
         onSaveSettings={app.onSaveSettings}
         onApplyNetwork={app.onApplyNetwork}
         onUnignoreDevice={app.onUnignoreDevice}
+        currentVersion={app.currentVersion}
+        updateInfo={app.updateInfo}
+        updateProgress={app.updateProgress}
+        updateBusy={app.updateBusy}
+        onCheckForUpdates={app.onCheckForUpdates}
+        onDownloadAndInstallUpdate={app.onDownloadAndInstallUpdate}
       />
     );
   } else {

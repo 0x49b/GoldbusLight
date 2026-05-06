@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as GreetService from "../../bindings/changeme/greetservice";
+import * as SelfUpdateService from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/service";
+import type { UpdateInfo } from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/models";
+import { Events } from "@wailsio/runtime";
 import { parseJSONMap, prettyJSON, readNumber } from "../lib/json";
 import {
   mainSegIndex,
@@ -49,6 +52,10 @@ export function useControllerApp() {
   const [ignoredDevices, setIgnoredDevices] = useState<WLEDDevice[]>([]);
   const [deviceNameDraft, setDeviceNameDraft] = useState("");
   const [editingDeviceName, setEditingDeviceName] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState("0.0.1");
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   const detailDeviceIdRef = useRef<string>("");
   /** Latest GET /json/state for the open device (for debounced callbacks; avoids stale closures). */
@@ -110,6 +117,32 @@ export function useControllerApp() {
     }, 8000);
     return () => window.clearInterval(timer);
   }, [pullSnapshot]);
+
+  useEffect(() => {
+    void SelfUpdateService.GetCurrentVersion()
+      .then((version) => {
+        if (version) {
+          setCurrentVersion(version);
+        }
+      })
+      .catch(() => {
+        // No-op: keep default version in UI when service call fails.
+      });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = Events.On("selfupdate:progress", (payload: unknown) => {
+      const percentage = Number((payload as { percentage?: unknown })?.percentage);
+      if (Number.isFinite(percentage)) {
+        setUpdateProgress(Math.max(0, Math.min(100, percentage)));
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   const loadDeviceDetail = useCallback(async (deviceId: string) => {
     try {
@@ -222,6 +255,46 @@ export function useControllerApp() {
       setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
     });
   }, [withBusy]);
+
+  const onCheckForUpdates = useCallback(() => {
+    setUpdateBusy(true);
+    setUpdateProgress(null);
+    void SelfUpdateService.Check()
+      .then((info) => {
+        setUpdateInfo(info);
+        if (!info || !info.updateAvailable) {
+          setStatus("No update available");
+        } else {
+          setStatus(`Update available: ${info.latestVersion}`);
+        }
+        setError("");
+      })
+      .catch((err: unknown) => {
+        setError(String(err));
+      })
+      .finally(() => setUpdateBusy(false));
+  }, []);
+
+  const onDownloadAndInstallUpdate = useCallback(() => {
+    if (!updateInfo?.updateAvailable) {
+      return;
+    }
+    setUpdateBusy(true);
+    setUpdateProgress(0);
+    void SelfUpdateService.DownloadAndInstall()
+      .then(async (updated) => {
+        if (!updated) {
+          setStatus("No update was applied");
+          return;
+        }
+        setStatus("Update installed. Restarting...");
+        await SelfUpdateService.Restart();
+      })
+      .catch((err: unknown) => {
+        setError(String(err));
+      })
+      .finally(() => setUpdateBusy(false));
+  }, [updateInfo?.updateAvailable]);
 
   const onDiscoverNow = useCallback(() => {
     void withBusy(async () => {
@@ -474,6 +547,10 @@ export function useControllerApp() {
     presetRgb,
     setPresetRgb,
     busy,
+    currentVersion,
+    updateInfo,
+    updateProgress,
+    updateBusy,
     route,
     setRoute,
     deviceDetail,
@@ -503,6 +580,8 @@ export function useControllerApp() {
     pullSnapshot,
     onSaveSettings,
     onApplyNetwork,
+    onCheckForUpdates,
+    onDownloadAndInstallUpdate,
     onDiscoverNow,
     onSetGlobalState,
     onRefreshDevice,

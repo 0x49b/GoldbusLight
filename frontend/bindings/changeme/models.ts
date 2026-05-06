@@ -62,7 +62,7 @@ export class ControllerCapabilities {
     "networkBackendLabel": string;
 
     /**
-     * NetworkControlAvailable is true when this OS exposes working CLI tools for scan/connect (partial features may still be unavailable).
+     * NetworkControlAvailable is true when this OS exposes working CLI tools for applying network settings (partial features may still be unavailable).
      */
     "networkControlAvailable": boolean;
 

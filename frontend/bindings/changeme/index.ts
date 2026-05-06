@@ -17,5 +17,5 @@ export {
     ProvisioningSettings,
     TestingSettings,
     WLEDDevice,
-    WLEDDeviceDetail,
+    WLEDDeviceDetail
 } from "./models.js";

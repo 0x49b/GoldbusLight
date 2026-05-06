@@ -6,9 +6,11 @@ import (
 	_ "embed"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/selfupdate"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -18,6 +20,20 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+var appVersion = "0.0.1"
+
+const updateRepository = "0x49b/GoldbusLight"
+
+func normalizedSemver(version string) string {
+	v := strings.TrimSpace(version)
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+	if v == "" {
+		return "0.0.1"
+	}
+	return v
+}
 
 func init() {
 	// Register a custom event whose associated data type is string.
@@ -41,6 +57,12 @@ func main() {
 	defer controller.Stop()
 
 	greetService := NewGreetService(controller)
+	updater := selfupdate.NewWithConfig(&selfupdate.Config{
+		CurrentVersion:  normalizedSemver(appVersion),
+		Source:          selfupdate.SourceGitHub,
+		Repository:      updateRepository,
+		AllowPrerelease: false,
+	})
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -52,6 +74,7 @@ func main() {
 		Description: "Application to control 'smart' Lights in the Goldbus",
 		Services: []application.Service{
 			application.NewService(greetService),
+			application.NewService(updater),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
