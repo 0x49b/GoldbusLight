@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as GreetService from "../../bindings/changeme/greetservice";
-import * as UpdaterDiagnosticsService from "../../bindings/changeme/updaterdiagnosticsservice";
-import * as SelfUpdateService from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/service";
-import type { UpdateInfo } from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/models";
-import type { PathPermissionDiagnostic, UpdatePermissionDiagnostics } from "../../bindings/changeme/models";
-import { Events } from "@wailsio/runtime";
 import { parseJSONMap, prettyJSON, readNumber } from "../lib/json";
 import {
   mainSegIndex,
@@ -56,12 +51,6 @@ export function useControllerApp() {
   const [deviceNameDraft, setDeviceNameDraft] = useState("");
   const [editingDeviceName, setEditingDeviceName] = useState(false);
   const [currentVersion, setCurrentVersion] = useState("unknown");
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
-  const [updateBusy, setUpdateBusy] = useState(false);
-  const [updateAction, setUpdateAction] = useState<"check" | "install" | null>(null);
-  const [startupUpdateModalOpen, setStartupUpdateModalOpen] = useState(false);
-  const [updateDiagnostics, setUpdateDiagnostics] = useState<UpdatePermissionDiagnostics | null>(null);
 
   const detailDeviceIdRef = useRef<string>("");
   /** Latest GET /json/state for the open device (for debounced callbacks; avoids stale closures). */
@@ -125,102 +114,13 @@ export function useControllerApp() {
   }, [pullSnapshot]);
 
   useEffect(() => {
-    void SelfUpdateService.GetCurrentVersion()
+    void GreetService.AppVersion()
       .then((version) => {
         if (version && version.trim() !== "") {
           setCurrentVersion(version);
         }
       })
       .catch(() => {});
-  }, []);
-
-  const checkForUpdates = useCallback(
-    async (trigger: "startup" | "manual") => {
-      console.info("[updater] check.start", { trigger });
-      if (trigger === "manual") {
-        setUpdateBusy(true);
-        setUpdateAction("check");
-        setUpdateProgress(null);
-      }
-      try {
-        const info = await SelfUpdateService.Check();
-        setUpdateInfo(info);
-        console.info("[updater] check.result", {
-          trigger,
-          updateAvailable: info?.updateAvailable,
-          latestVersion: info?.latestVersion,
-          currentVersion: info?.currentVersion,
-          assetName: info?.assetName,
-        });
-        if (info?.currentVersion && info.currentVersion.trim() !== "") {
-          setCurrentVersion(info.currentVersion);
-        }
-        if (!info || !info.updateAvailable) {
-          if (trigger === "manual") {
-            setStatus("No update available");
-          }
-        } else {
-          setStatus(`Update available: ${info.latestVersion}`);
-          if (trigger === "startup") {
-            setStartupUpdateModalOpen(true);
-          }
-        }
-      } catch (err: unknown) {
-        console.error("[updater] check.error", { trigger, error: String(err) });
-        setError(String(err));
-      } finally {
-        if (trigger === "manual") {
-          setUpdateBusy(false);
-          setUpdateAction(null);
-        }
-      }
-    },
-    [],
-  );
-
-  const fetchUpdateDiagnostics = useCallback(async () => {
-    try {
-      const diag = await UpdaterDiagnosticsService.GetUpdatePermissionDiagnostics();
-      setUpdateDiagnostics(diag);
-      console.info("[updater] diagnostics", diag);
-      return diag;
-    } catch (err) {
-      console.warn("[updater] diagnostics.error", { error: String(err) });
-      return null;
-    }
-  }, []);
-
-  const firstNonWritablePath = useCallback((diag: UpdatePermissionDiagnostics | null): PathPermissionDiagnostic | null => {
-    if (!diag) return null;
-    return diag.paths.find((p) => !p.writable) ?? null;
-  }, []);
-
-  useEffect(() => {
-    void checkForUpdates("startup");
-  }, [checkForUpdates]);
-
-  useEffect(() => {
-    const unsubscribe = Events.On("selfupdate:progress", (payload: unknown) => {
-      const root = (payload ?? {}) as Record<string, unknown>;
-      const evt = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
-
-      const percentage = Number(evt.percentage ?? evt.Percentage);
-      if (Number.isFinite(percentage)) {
-        setUpdateProgress(Math.max(0, Math.min(100, percentage)));
-        return;
-      }
-
-      const downloaded = Number(evt.downloadedBytes ?? evt.DownloadedBytes);
-      const total = Number(evt.totalBytes ?? evt.TotalBytes);
-      if (Number.isFinite(downloaded) && Number.isFinite(total) && total > 0) {
-        setUpdateProgress(Math.max(0, Math.min(100, (downloaded / total) * 100)));
-      }
-    });
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
   }, []);
 
   const loadDeviceDetail = useCallback(async (deviceId: string) => {
@@ -334,64 +234,6 @@ export function useControllerApp() {
       setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
     });
   }, [withBusy]);
-
-  const onCheckForUpdates = useCallback(() => {
-    void checkForUpdates("manual");
-  }, [checkForUpdates]);
-
-  const onDownloadAndInstallUpdate = useCallback(() => {
-    if (!updateInfo?.updateAvailable) {
-      return;
-    }
-    setUpdateBusy(true);
-    setUpdateAction("install");
-    setUpdateProgress(0);
-    console.info("[updater] install.start", { latestVersion: updateInfo.latestVersion });
-    void Promise.all([SelfUpdateService.CanUpdate(), SelfUpdateService.GetPlatformInfo(), fetchUpdateDiagnostics()])
-      .then(([canUpdate, platform, diag]) => {
-        console.info("[updater] install.preflight", { canUpdate, platform, diagnostics: diag });
-        if (!canUpdate) {
-          const failingPath = firstNonWritablePath(diag);
-          if (failingPath) {
-            throw new Error(
-              `Updater cannot write to installation directory. user=${diag?.username || diag?.runtimeUid} path=${failingPath.path} mode=${failingPath.mode || "unknown"} owner=${failingPath.ownerUid ?? "?"}:${failingPath.ownerGid ?? "?"}. Run scripts/fix-raspi-update-state.sh.`,
-            );
-          }
-          throw new Error("Updater cannot write to installation directory. Run scripts/fix-raspi-update-state.sh.");
-        }
-        return SelfUpdateService.DownloadAndInstall();
-      })
-      .then(async (updated) => {
-        console.info("[updater] install.result", { updated });
-        if (!updated) {
-          setStatus("No update was applied");
-          return;
-        }
-        setStatus("Update installed. Restarting...");
-        console.info("[updater] restart.trigger");
-        await SelfUpdateService.Restart();
-      })
-      .catch(async (err: unknown) => {
-        const diag = await fetchUpdateDiagnostics();
-        console.error("[updater] install.error", { error: String(err), diagnostics: diag });
-        const failingPath = firstNonWritablePath(diag);
-        if (failingPath) {
-          setError(
-            `${String(err)} (failing path: ${failingPath.path}, owner: ${failingPath.ownerUid ?? "?"}:${failingPath.ownerGid ?? "?"}, mode: ${failingPath.mode || "unknown"})`,
-          );
-          return;
-        }
-        setError(String(err));
-      })
-      .finally(() => {
-        setUpdateBusy(false);
-        setUpdateAction(null);
-      });
-  }, [updateInfo?.updateAvailable]);
-
-  const onPostponeUpdate = useCallback(() => {
-    setStartupUpdateModalOpen(false);
-  }, []);
 
   const onDismissError = useCallback(() => {
     setError("");
@@ -655,12 +497,6 @@ export function useControllerApp() {
     busy,
     discovering,
     currentVersion,
-    updateInfo,
-    updateProgress,
-    updateBusy,
-    updateAction,
-    startupUpdateModalOpen,
-    updateDiagnostics,
     route,
     setRoute,
     deviceDetail,
@@ -690,9 +526,6 @@ export function useControllerApp() {
     pullSnapshot,
     onSaveSettings,
     onApplyNetwork,
-    onCheckForUpdates,
-    onDownloadAndInstallUpdate,
-    onPostponeUpdate,
     onDiscoverNow,
     onSetGlobalState,
     onRefreshDevice,

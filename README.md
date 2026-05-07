@@ -43,54 +43,29 @@ sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user ./scripts/install-raspberry-pi.sh
 - Menu entry is installed at `/usr/share/applications/goldbuslight.desktop`
 - Desktop icon is intentionally **not** created (menu-only policy) to avoid per-desktop trust prompt behavior.
 
-### Updates and permissions
+### Updating to a new release
 
-Self-update writes replacement binaries in the install directory. The runtime user must be able to write to:
-
-- `/opt/goldbuslight`
-- `/opt/goldbuslight/GoldbusLight`
-
-Installer and recovery scripts enforce this for `GOLDBUS_USER`.
-
-### Recovery / troubleshooting
-
-If updates fail with `.old/.new` or permission errors:
+Updates are no longer applied from inside the app. To install a release on the Pi by tag:
 
 ```bash
-sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user ./scripts/fix-raspi-update-state.sh
+sudo ./scripts/install-release.sh v0.0.19
 ```
 
-This script:
+What the script does:
 
-- stops the service,
-- repairs ownership/permissions in install dir,
-- removes stale `.GoldbusLight.old` and `.GoldbusLight.new`,
-- reinstalls the menu entry,
+- downloads `GoldbusLight-linux-arm64` from `https://github.com/0x49b/GoldbusLight/releases/download/<tag>/`,
+- stops the running service (`goldbuslight.service`, user-mode by default),
+- replaces `/opt/goldbuslight/GoldbusLight` atomically (keeps `GoldbusLight.previous` for rollback),
 - restarts the service.
 
-### Updater diagnostics logging
+Same env overrides as the installer apply: `GOLDBUS_USER`, `GOLDBUS_INSTALL_DIR`, `GOLDBUS_SERVICE_MODE` (`user` or `system`). Override the asset name or repo with `--asset` / `--repo` if needed.
 
-The app now logs updater lifecycle and permission diagnostics in the frontend console with the prefix:
-
-- `[updater] check.start`
-- `[updater] check.result`
-- `[updater] install.preflight`
-- `[updater] install.error`
-- `[updater] diagnostics`
-
-When update permission checks fail, the error includes:
-
-- failing path,
-- current runtime user (`username`/`uid`),
-- owner and mode for the problematic path,
-- fix hint to run `scripts/fix-raspi-update-state.sh`.
-
-To verify on Pi before retrying update:
+Rolling back:
 
 ```bash
-ps -ef | rg -i GoldbusLight
-ls -ld /opt/goldbuslight
-ls -l /opt/goldbuslight
+sudo systemctl --user --machine=pi@ stop goldbuslight.service
+sudo mv /opt/goldbuslight/GoldbusLight.previous /opt/goldbuslight/GoldbusLight
+sudo systemctl --user --machine=pi@ start goldbuslight.service
 ```
 
 ### Fullscreen startup

@@ -1,7 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { prettyJSON, readNumber } from "../../lib/json";
 import { PiWifiHigh, PiFloppyDisk } from "react-icons/pi";
-import type { UpdateInfo } from "../../../bindings/github.com/wailsapp/wails/v3/pkg/services/selfupdate/models";
 import type {
   ControllerSettings,
   ControllerSnapshot,
@@ -24,12 +23,6 @@ export type ControllerSettingsViewProps = {
   onApplyNetwork: () => void;
   onUnignoreDevice: (deviceId: string) => void;
   currentVersion: string;
-  updateInfo: UpdateInfo | null;
-  updateProgress: number | null;
-  updateBusy: boolean;
-  updateAction: "check" | "install" | null;
-  onCheckForUpdates: () => void;
-  onDownloadAndInstallUpdate: () => void;
 };
 
 export function ControllerSettingsView({
@@ -47,12 +40,6 @@ export function ControllerSettingsView({
   onApplyNetwork,
   onUnignoreDevice,
   currentVersion,
-  updateInfo,
-  updateProgress,
-  updateBusy,
-  updateAction,
-  onCheckForUpdates,
-  onDownloadAndInstallUpdate,
 }: ControllerSettingsViewProps) {
   if (!settings) {
     return <p className="opacity-70">Loading settings…</p>;
@@ -267,46 +254,14 @@ export function ControllerSettingsView({
       </section>
 
       <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-        <div className="card-body space-y-3">
-          <h3 className="card-title text-base">Application updates</h3>
+        <div className="card-body space-y-2">
+          <h3 className="card-title text-base">Application version</h3>
           <p className="text-sm opacity-70">
-            Current version: <code>{currentVersion}</code>
+            Running: <code>{currentVersion}</code>
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-sm btn-outline flex-1" onClick={onCheckForUpdates} disabled={updateBusy}>
-              {updateBusy && updateAction === "check" && <span className="loading loading-spinner loading-xs" aria-hidden />}
-              Check for updates
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary flex-1"
-              onClick={onDownloadAndInstallUpdate}
-              disabled={updateBusy || !updateInfo?.updateAvailable}
-            >
-              {updateBusy && updateAction === "install" && <span className="loading loading-spinner loading-xs" aria-hidden />}
-              Download and restart
-            </button>
-          </div>
-          {updateProgress !== null && (
-            <div className="space-y-1">
-              <progress className="progress progress-primary w-full" value={Math.round(updateProgress)} max={100} />
-              <p className="text-xs opacity-70">{Math.round(updateProgress)}% downloaded</p>
-            </div>
-          )}
-          {updateInfo && (
-            <div className="rounded border border-base-300 p-3 text-sm space-y-1">
-              <div>
-                Latest: <code>{updateInfo.latestVersion || "unknown"}</code>
-              </div>
-              <div>Status: {updateInfo.updateAvailable ? "Update available" : "Up to date"}</div>
-              {updateInfo.publishedAt && <div>Published: {new Date(updateInfo.publishedAt).toLocaleString()}</div>}
-              {updateInfo.releaseUrl && (
-                <a className="link link-primary text-xs" href={updateInfo.releaseUrl} target="_blank" rel="noreferrer">
-                  Open release notes
-                </a>
-              )}
-            </div>
-          )}
+          <p className="text-xs opacity-60">
+            Updates are installed from the Pi shell with <code>scripts/install-release.sh &lt;tag&gt;</code>.
+          </p>
         </div>
       </section>
 

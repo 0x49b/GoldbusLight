@@ -9,6 +9,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function AppVersion(): $CancellablePromise<string> {
+    return $Call.ByID(1678142209);
+}
+
 export function ApplyNetworkSettings(): $CancellablePromise<$models.NetworkApplyResult> {
     return $Call.ByID(855260483).then(($result: any) => {
         return $$createType0($result);
