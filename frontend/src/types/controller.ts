@@ -14,6 +14,10 @@ export type DiscoverySettings = {
   serviceTypes: string[];
   intervalSeconds: number;
   queryTimeoutMs: number;
+  bindInterface: string;
+  passiveBrowse: boolean;
+  subnetProbe: boolean;
+  pollIntervalSecondsWhenApEnabled: number;
 };
 
 export type ProvisioningSettings = {

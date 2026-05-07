@@ -41,6 +41,7 @@ export function useControllerApp() {
   const [presetBri, setPresetBri] = useState<number>(200);
   const [presetRgb, setPresetRgb] = useState<[number, number, number]>([...WARM_WHITE_RGB]);
   const [busy, setBusy] = useState<boolean>(false);
+  const [discovering, setDiscovering] = useState<boolean>(false);
   const [route, setRoute] = useState<DetailRoute>({ kind: "presets" });
   const [deviceDetail, setDeviceDetail] = useState<WLEDDeviceDetail | null>(null);
   const [deviceFormFx, setDeviceFormFx] = useState(0);
@@ -397,10 +398,15 @@ export function useControllerApp() {
   }, []);
 
   const onDiscoverNow = useCallback(() => {
+    setDiscovering(true);
     void withBusy(async () => {
-      await GreetService.DiscoverDevicesNow();
-      await pullSnapshot();
-      setStatus("Discovery complete");
+      try {
+        await GreetService.DiscoverDevicesNow();
+        await pullSnapshot();
+        setStatus("Discovery complete");
+      } finally {
+        setDiscovering(false);
+      }
     });
   }, [pullSnapshot, withBusy]);
 
@@ -647,6 +653,7 @@ export function useControllerApp() {
     presetRgb,
     setPresetRgb,
     busy,
+    discovering,
     currentVersion,
     updateInfo,
     updateProgress,

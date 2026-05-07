@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { AppShell } from "./components/layout/AppShell";
 import { DeviceDetailView } from "./components/device/DeviceDetailView";
+import { AppShell } from "./components/layout/AppShell";
 import { GeneralPanel } from "./components/presets/GeneralPanel";
 import { ControllerSettingsView } from "./components/settings/ControllerSettingsView";
 import { useControllerApp } from "./hooks/useControllerApp";
@@ -101,6 +101,17 @@ function App() {
       >
         {main}
       </AppShell>
+      {app.discovering && (
+        <div className="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="discovery-modal-title">
+          <div className="modal-box flex items-center gap-3">
+            <span className="loading loading-spinner loading-md text-primary" aria-hidden />
+            <p id="discovery-modal-title" className="font-medium">
+              Discovery running ...
+            </p>
+          </div>
+          <div className="modal-backdrop" />
+        </div>
+      )}
       {app.startupUpdateModalOpen && app.updateInfo?.updateAvailable && (
         <div className="modal modal-open" role="dialog" aria-modal="true">
           <div className="modal-box">
@@ -117,7 +128,7 @@ function App() {
             <div className="modal-action">
               <button
                 type="button"
-                className="btn btn-outline"
+                className="btn btn-sm btn-outline  w-3/12"
                 onClick={app.onPostponeUpdate}
                 disabled={app.updateBusy}
               >
@@ -125,7 +136,7 @@ function App() {
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-sm btn-primary w-3/12"
                 onClick={app.onDownloadAndInstallUpdate}
                 disabled={app.updateBusy}
               >

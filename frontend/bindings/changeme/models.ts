@@ -214,6 +214,10 @@ export class DiscoverySettings {
     "serviceTypes": string[];
     "intervalSeconds": number;
     "queryTimeoutMs": number;
+    "bindInterface": string;
+    "passiveBrowse": boolean;
+    "subnetProbe": boolean;
+    "pollIntervalSecondsWhenApEnabled": number;
 
     /** Creates a new DiscoverySettings instance. */
     constructor($$source: Partial<DiscoverySettings> = {}) {
@@ -228,6 +232,18 @@ export class DiscoverySettings {
         }
         if (!("queryTimeoutMs" in $$source)) {
             this["queryTimeoutMs"] = 0;
+        }
+        if (!("bindInterface" in $$source)) {
+            this["bindInterface"] = "";
+        }
+        if (!("passiveBrowse" in $$source)) {
+            this["passiveBrowse"] = false;
+        }
+        if (!("subnetProbe" in $$source)) {
+            this["subnetProbe"] = false;
+        }
+        if (!("pollIntervalSecondsWhenApEnabled" in $$source)) {
+            this["pollIntervalSecondsWhenApEnabled"] = 0;
         }
 
         Object.assign(this, $$source);
