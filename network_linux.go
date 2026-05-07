@@ -60,6 +60,7 @@ func (n *linuxBackend) apply(ctx context.Context, settings ControllerSettings) N
 			result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "nmcli", "connection", "add", "type", "wifi", "ifname", iface, "con-name", connectionName, "autoconnect", "yes", "ssid", ssid))
 		}
 
+		// 802-11-wireless.band "bg" is 2.4 GHz (802.11b/g). WLED clients expect a 2.4 GHz AP; do not use "a" (5 GHz).
 		result.Steps = append(result.Steps,
 			runShellCommand(ctx, n.logger, "nmcli", "connection", "modify", connectionName,
 				"802-11-wireless.mode", "ap",

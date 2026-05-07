@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/mdns"
+	"github.com/grandcat/zeroconf"
 
 	"changeme/internal/wledhttp"
 )
@@ -23,6 +24,11 @@ import (
 const (
 	defaultStateFileName  = "state.json"
 	simulatedWLEDDeviceID = "sim:wled"
+
+	// WLED hardware commonly uses 2.4 GHz–only Wi‑Fi; the controller AP must stay on that band.
+	ap24MinChannel     = 1
+	ap24MaxChannel     = 14
+	defaultAP24Channel = 6
 )
 
 type AccessPointSettings struct {
@@ -35,10 +41,14 @@ type AccessPointSettings struct {
 }
 
 type DiscoverySettings struct {
-	Enabled         bool     `json:"enabled"`
-	ServiceTypes    []string `json:"serviceTypes"`
-	IntervalSeconds int      `json:"intervalSeconds"`
-	QueryTimeoutMS  int      `json:"queryTimeoutMs"`
+	Enabled                          bool     `json:"enabled"`
+	ServiceTypes                     []string `json:"serviceTypes"`
+	IntervalSeconds                  int      `json:"intervalSeconds"`
+	QueryTimeoutMS                   int      `json:"queryTimeoutMs"`
+	BindInterface                    string   `json:"bindInterface"`
+	PassiveBrowse                    bool     `json:"passiveBrowse"`
+	SubnetProbe                      bool     `json:"subnetProbe"`
+	PollIntervalSecondsWhenApEnabled int      `json:"pollIntervalSecondsWhenApEnabled"`
 }
 
 type ProvisioningSettings struct {
@@ -109,6 +119,8 @@ type persistentState struct {
 	Devices  map[string]WLEDDevice `json:"devices"`
 }
 
+const persistentStateVersion = 2
+
 type ControllerSnapshot struct {
 	Settings        ControllerSettings     `json:"settings"`
 	Devices         []WLEDDevice           `json:"devices"`
@@ -177,7 +189,7 @@ func (s *StatePersistenceManager) Load() (persistentState, error) {
 	defer s.mu.Unlock()
 
 	defaultState := persistentState{
-		Version:  1,
+		Version:  persistentStateVersion,
 		SavedAt:  time.Now(),
 		Settings: DefaultControllerSettings(),
 		Devices:  map[string]WLEDDevice{},
@@ -198,6 +210,13 @@ func (s *StatePersistenceManager) Load() (persistentState, error) {
 	if state.Settings.AccessPoint.SSID == "" {
 		state.Settings = mergeWithDefaults(state.Settings)
 	}
+	if state.Version < 2 {
+		state.Settings.Discovery.PassiveBrowse = true
+		if state.Settings.Discovery.PollIntervalSecondsWhenApEnabled <= 0 {
+			state.Settings.Discovery.PollIntervalSecondsWhenApEnabled = 5
+		}
+		state.Version = persistentStateVersion
+	}
 	if state.Devices == nil {
 		state.Devices = map[string]WLEDDevice{}
 	}
@@ -212,6 +231,7 @@ func (s *StatePersistenceManager) Save(state persistentState) error {
 		return err
 	}
 
+	state.Version = persistentStateVersion
 	state.SavedAt = time.Now()
 	payload, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
@@ -261,64 +281,6 @@ func NewDiscoveryEngine(logger *log.Logger) *DiscoveryEngine {
 	return &DiscoveryEngine{logger: logger}
 }
 
-func (d *DiscoveryEngine) DiscoverOnce(ctx context.Context, settings DiscoverySettings) ([]discoveredDevice, error) {
-	serviceTypes := settings.ServiceTypes
-	if len(serviceTypes) == 0 {
-		serviceTypes = []string{"_wled._tcp", "_http._tcp"}
-	}
-
-	timeout := time.Duration(settings.QueryTimeoutMS) * time.Millisecond
-	if timeout <= 0 {
-		timeout = 2 * time.Second
-	}
-
-	known := map[string]discoveredDevice{}
-	for _, serviceType := range serviceTypes {
-		serviceType := serviceType
-		entries := make(chan *mdns.ServiceEntry, 64)
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for entry := range entries {
-				candidate := toDiscoveredDevice(entry)
-				if !isWLEDCandidate(serviceType, candidate) {
-					continue
-				}
-				key := fmt.Sprintf("%s:%d", candidate.Address, candidate.Port)
-				mu.Lock()
-				known[key] = candidate
-				mu.Unlock()
-			}
-		}()
-
-		queryCtx, cancel := context.WithTimeout(ctx, timeout+500*time.Millisecond)
-		err := mdns.QueryContext(queryCtx, &mdns.QueryParam{
-			Service: serviceType,
-			Domain:  "local",
-			Timeout: timeout,
-			Entries: entries,
-		})
-		cancel()
-		close(entries)
-		wg.Wait()
-		if err != nil {
-			d.logger.Printf("mdns query failed for %s: %v", serviceType, err)
-		}
-	}
-
-	found := make([]discoveredDevice, 0, len(known))
-	for _, device := range known {
-		found = append(found, device)
-	}
-	slices.SortFunc(found, func(a, b discoveredDevice) int {
-		return strings.Compare(a.Address, b.Address)
-	})
-	return found, nil
-}
-
 type WLEDDeviceDetail struct {
 	Online    bool           `json:"online"`
 	Error     string         `json:"error,omitempty"`
@@ -343,7 +305,7 @@ func NewWLEDEngine() *WLEDEngine {
 }
 
 func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice) (WLEDDevice, error) {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload struct {
 		Info struct {
 			Name string `json:"name"`
@@ -397,7 +359,7 @@ func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice)
 }
 
 func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/state", nil, &payload); err != nil {
 		return nil, err
@@ -406,7 +368,7 @@ func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[strin
 }
 
 func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	// Reachability check via cfg endpoint (documented at kno.wled.ge).
 	var cfg map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &cfg); err != nil {
@@ -426,12 +388,12 @@ func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfg
 }
 
 func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	return w.requestJSON(ctx, http.MethodPost, base+"/json/state", state, nil)
 }
 
 func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
 		return nil, err
@@ -440,7 +402,7 @@ func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[st
 }
 
 func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
 	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &payload); err != nil {
 		return nil, err
@@ -450,7 +412,7 @@ func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[stri
 
 // ApplyCfgPatch POSTs a partial cfg object (see WLED JSON API /json/cfg).
 func (w *WLEDEngine) ApplyCfgPatch(ctx context.Context, device WLEDDevice, patch map[string]any) error {
-	base := fmt.Sprintf("http://%s:%d", wledhttp.HostForHTTP(device.Host, device.Address), device.Port)
+	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	return w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", patch, nil)
 }
 
@@ -521,6 +483,9 @@ type WLEDController struct {
 	settings ControllerSettings
 	devices  map[string]WLEDDevice
 	updated  time.Time
+
+	probeMu     sync.Mutex
+	probeRecent map[string]time.Time
 
 	cancel context.CancelFunc
 }
@@ -648,7 +613,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	if err != nil {
 		c.logger.Printf("state load failed, using defaults: %v", err)
 		loaded = persistentState{
-			Version:  1,
+			Version:  persistentStateVersion,
 			SavedAt:  time.Now(),
 			Settings: DefaultControllerSettings(),
 			Devices:  map[string]WLEDDevice{},
@@ -666,6 +631,8 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	c.cancel = cancel
 
 	go c.discoveryLoop(runCtx)
+	go c.discoveryBrowseLoop(runCtx)
+	go c.subnetProbeLoop(runCtx)
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
 	go c.restoreLastStatesOnBoot(runCtx)
@@ -728,15 +695,24 @@ func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
 func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) {
 	c.mu.RLock()
 	settings := c.settings.Discovery
+	full := c.settings
+	enabled := settings.Enabled
 	c.mu.RUnlock()
+	if !enabled {
+		return nil, fmt.Errorf("discovery is disabled in settings")
+	}
 
-	found, err := c.discovery.DiscoverOnce(ctx, settings)
+	iface := resolveDiscoveryNetInterface(c.logger, full)
+	found, err := c.discovery.DiscoverOnce(ctx, DiscoveryRunParams{
+		Settings:  settings,
+		BindIface: iface,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, candidate := range found {
-		c.processDiscoveredCandidate(ctx, candidate)
+		c.maybeProcessDiscovered(ctx, candidate, false)
 	}
 	return c.Snapshot().Devices, c.persist()
 }
@@ -1027,16 +1003,209 @@ func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string
 	return c.persist()
 }
 
-func (c *WLEDController) discoveryLoop(ctx context.Context) {
-	c.discoverAndProvision(ctx)
-	ticker := time.NewTicker(c.discoveryInterval())
+func (c *WLEDController) consumeInspectThrottle(candidate discoveredDevice) bool {
+	const ttl = 8 * time.Second
+	key := probeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
+	c.probeMu.Lock()
+	defer c.probeMu.Unlock()
+	if c.probeRecent == nil {
+		c.probeRecent = make(map[string]time.Time)
+	}
+	now := time.Now()
+	if t, ok := c.probeRecent[key]; ok && now.Sub(t) < ttl {
+		return false
+	}
+	c.probeRecent[key] = now
+	if len(c.probeRecent) > 384 {
+		for k, t := range c.probeRecent {
+			if now.Sub(t) > ttl*6 {
+				delete(c.probeRecent, k)
+			}
+		}
+	}
+	return true
+}
+
+func (c *WLEDController) maybeProcessDiscovered(ctx context.Context, candidate discoveredDevice, respectThrottle bool) {
+	if respectThrottle && !c.consumeInspectThrottle(candidate) {
+		return
+	}
+	c.processDiscoveredCandidate(ctx, candidate)
+}
+
+func (c *WLEDController) effectiveDiscoveryInterval() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	base := c.settings.Discovery.IntervalSeconds
+	if base <= 0 {
+		base = 15
+	}
+	d := time.Duration(base) * time.Second
+	if !c.settings.AccessPoint.Enabled {
+		return d
+	}
+	fast := c.settings.Discovery.PollIntervalSecondsWhenApEnabled
+	if fast <= 0 {
+		return d
+	}
+	fastDur := time.Duration(fast) * time.Second
+	if fastDur < d {
+		return fastDur
+	}
+	return d
+}
+
+func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
+	var workers sync.WaitGroup
+	var activeCancel context.CancelFunc
+	lastSig := ""
+
+	stopWorkers := func() {
+		if activeCancel != nil {
+			activeCancel()
+			workers.Wait()
+			activeCancel = nil
+		}
+	}
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	defer stopWorkers()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.mu.RLock()
+			settings := c.settings
+			c.mu.RUnlock()
+
+			sig := discoveryBrowseSignature(settings)
+			if sig == "" {
+				stopWorkers()
+				lastSig = ""
+				continue
+			}
+			if sig == lastSig && activeCancel != nil {
+				continue
+			}
+
+			stopWorkers()
+			browseCtx, cancel := context.WithCancel(ctx)
+			activeCancel = cancel
+			lastSig = sig
+
+			iface := resolveDiscoveryNetInterface(c.logger, settings)
+			for _, svc := range serviceTypesOrDefault(settings.Discovery.ServiceTypes) {
+				svc := svc
+				workers.Add(1)
+				go func() {
+					defer workers.Done()
+					c.zeroconfBrowseService(browseCtx, iface, svc)
+				}()
+			}
+		}
+	}
+}
+
+func (c *WLEDController) zeroconfBrowseService(ctx context.Context, iface *net.Interface, svc string) {
+	opts := zeroconfClientOptions(iface)
+	resolver, err := zeroconf.NewResolver(opts...)
+	if err != nil {
+		c.logger.Printf("zeroconf resolver %s: %v", svc, err)
+		return
+	}
+	entries := make(chan *zeroconf.ServiceEntry, 64)
+	if err := resolver.Browse(ctx, svc, "local.", entries); err != nil {
+		c.logger.Printf("zeroconf browse %s: %v", svc, err)
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ent, ok := <-entries:
+			if !ok {
+				return
+			}
+			if ent == nil {
+				continue
+			}
+			candidate := discoveredFromZeroconf(ent)
+			if !isWLEDCandidate(svc, candidate) {
+				continue
+			}
+			c.maybeProcessDiscovered(ctx, candidate, true)
+		}
+	}
+}
+
+func (c *WLEDController) subnetProbeLoop(ctx context.Context) {
+	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			probeCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+			c.subnetProbeOnce(probeCtx)
+			cancel()
+		}
+	}
+}
+
+func (c *WLEDController) subnetProbeOnce(ctx context.Context) {
+	c.mu.RLock()
+	settings := c.settings
+	c.mu.RUnlock()
+	disc := settings.Discovery
+	if !disc.Enabled || !disc.SubnetProbe || !settings.AccessPoint.Enabled {
+		return
+	}
+	iface := resolveDiscoveryNetInterface(c.logger, settings)
+	if iface == nil {
+		return
+	}
+	targets := ipv4ProbeTargets(iface)
+	if len(targets) == 0 {
+		return
+	}
+
+	sem := make(chan struct{}, 40)
+	var wg sync.WaitGroup
+	for _, ip := range targets {
+		ip := ip
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				return
+			case sem <- struct{}{}:
+			}
+			defer func() { <-sem }()
+			c.maybeProcessDiscovered(ctx, discoveredDevice{
+				Name:    ip,
+				Host:    "",
+				Address: ip,
+				Port:    80,
+			}, true)
+		}()
+	}
+	wg.Wait()
+}
+
+func (c *WLEDController) discoveryLoop(ctx context.Context) {
+	delay := time.Duration(0)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
 			c.discoverAndProvision(ctx)
+			delay = c.effectiveDiscoveryInterval()
 		}
 	}
 }
@@ -1044,18 +1213,23 @@ func (c *WLEDController) discoveryLoop(ctx context.Context) {
 func (c *WLEDController) discoverAndProvision(ctx context.Context) {
 	c.mu.RLock()
 	discoverySettings := c.settings.Discovery
+	fullSettings := c.settings
 	c.mu.RUnlock()
 	if !discoverySettings.Enabled {
 		return
 	}
 
-	devices, err := c.discovery.DiscoverOnce(ctx, discoverySettings)
+	iface := resolveDiscoveryNetInterface(c.logger, fullSettings)
+	devices, err := c.discovery.DiscoverOnce(ctx, DiscoveryRunParams{
+		Settings:  discoverySettings,
+		BindIface: iface,
+	})
 	if err != nil {
 		c.logger.Printf("discovery failed: %v", err)
 		return
 	}
 	for _, candidate := range devices {
-		c.processDiscoveredCandidate(ctx, candidate)
+		c.maybeProcessDiscovered(ctx, candidate, true)
 	}
 	if err := c.persist(); err != nil {
 		c.logger.Printf("persist after discovery failed: %v", err)
@@ -1251,16 +1425,6 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 	}
 }
 
-func (c *WLEDController) discoveryInterval() time.Duration {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	seconds := c.settings.Discovery.IntervalSeconds
-	if seconds <= 0 {
-		seconds = 15
-	}
-	return time.Duration(seconds) * time.Second
-}
-
 func (c *WLEDController) touch() {
 	c.mu.Lock()
 	c.updated = time.Now()
@@ -1270,7 +1434,7 @@ func (c *WLEDController) touch() {
 func (c *WLEDController) persist() error {
 	c.mu.RLock()
 	state := persistentState{
-		Version:  1,
+		Version:  persistentStateVersion,
 		SavedAt:  time.Now(),
 		Settings: c.settings,
 		Devices:  cloneDeviceMap(c.devices),
@@ -1298,10 +1462,14 @@ func DefaultControllerSettings() ControllerSettings {
 			Channel:       6,
 		},
 		Discovery: DiscoverySettings{
-			Enabled:         true,
-			ServiceTypes:    []string{"_wled._tcp", "_http._tcp"},
-			IntervalSeconds: 15,
-			QueryTimeoutMS:  2000,
+			Enabled:                          true,
+			ServiceTypes:                     []string{"_wled._tcp", "_http._tcp"},
+			IntervalSeconds:                  15,
+			QueryTimeoutMS:                   2000,
+			BindInterface:                    "",
+			PassiveBrowse:                    true,
+			SubnetProbe:                      false,
+			PollIntervalSecondsWhenApEnabled: 5,
 		},
 		Provisioning: ProvisioningSettings{
 			AutoProvision:       false,
@@ -1330,6 +1498,7 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	if out.AccessPoint.Channel <= 0 {
 		out.AccessPoint.Channel = defaults.AccessPoint.Channel
 	}
+	clampAccessPointTo24GHz(&out.AccessPoint)
 	if len(out.Discovery.ServiceTypes) == 0 {
 		out.Discovery.ServiceTypes = defaults.Discovery.ServiceTypes
 	}
@@ -1338,6 +1507,9 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	}
 	if out.Discovery.QueryTimeoutMS <= 0 {
 		out.Discovery.QueryTimeoutMS = defaults.Discovery.QueryTimeoutMS
+	}
+	if out.Discovery.PollIntervalSecondsWhenApEnabled < 0 {
+		out.Discovery.PollIntervalSecondsWhenApEnabled = defaults.Discovery.PollIntervalSecondsWhenApEnabled
 	}
 	if out.Provisioning.DefaultStatePayload == nil {
 		out.Provisioning.DefaultStatePayload = defaults.Provisioning.DefaultStatePayload
@@ -1348,34 +1520,15 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	return out
 }
 
-func toDiscoveredDevice(entry *mdns.ServiceEntry) discoveredDevice {
-	host := strings.TrimSuffix(entry.Host, ".")
-	address := host
-	if entry.AddrV4 != nil {
-		address = entry.AddrV4.String()
+// clampAccessPointTo24GHz coerces the AP Wi‑Fi channel into the 2.4 GHz band (channels 1–14).
+// Invalid values (e.g. 5 GHz channels) are replaced with defaultAP24Channel.
+func clampAccessPointTo24GHz(ap *AccessPointSettings) {
+	if ap == nil {
+		return
 	}
-	name := strings.TrimSuffix(entry.Name, ".")
-	if name == "" {
-		name = host
+	if ap.Channel < ap24MinChannel || ap.Channel > ap24MaxChannel {
+		ap.Channel = defaultAP24Channel
 	}
-	port := entry.Port
-	if port == 0 {
-		port = 80
-	}
-	return discoveredDevice{
-		Name:    name,
-		Host:    host,
-		Address: address,
-		Port:    port,
-	}
-}
-
-func isWLEDCandidate(serviceType string, device discoveredDevice) bool {
-	if serviceType == "_wled._tcp" {
-		return true
-	}
-	haystack := strings.ToLower(device.Name + " " + device.Host + " " + device.Address)
-	return strings.Contains(haystack, "wled")
 }
 
 func defaultString(value, fallback string) string {

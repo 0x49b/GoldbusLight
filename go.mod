@@ -4,7 +4,10 @@ go 1.26.1
 
 require github.com/wailsapp/wails/v3 v3.0.0-alpha.49.0.20251220134012-30af00528de2
 
-require github.com/hashicorp/mdns v1.0.6
+require (
+	github.com/grandcat/zeroconf v1.0.0
+	github.com/hashicorp/mdns v1.0.6
+)
 
 require (
 	code.gitea.io/sdk/gitea v0.22.1 // indirect
@@ -15,6 +18,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/creativeprojects/go-selfupdate v1.5.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
