@@ -77,6 +77,9 @@ export function ControllerSettingsView({
         <div className="card bg-base-100 card-bordered border-gray-500">
           <div className="card-body space-y-3">
             <h3 className="card-title text-base">Access point</h3>
+            <p className="text-xs opacity-70">
+              The controller AP is always 2.4 GHz (802.11 b/g) so WLED devices can join. Use Wi‑Fi channels 1–14 only.
+            </p>
 
             <label className="label cursor-pointer justify-start gap-3">
               <input
@@ -127,7 +130,7 @@ export function ControllerSettingsView({
                 className="input input-bordered input-sm"
                 type="number"
                 min={1}
-                max={13}
+                max={14}
                 placeholder="Channel"
                 value={settings.accessPoint.channel}
                 onChange={(e) =>
