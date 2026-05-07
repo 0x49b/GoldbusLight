@@ -42,12 +42,6 @@ function App() {
         onApplyNetwork={app.onApplyNetwork}
         onUnignoreDevice={app.onUnignoreDevice}
         currentVersion={app.currentVersion}
-        updateInfo={app.updateInfo}
-        updateProgress={app.updateProgress}
-        updateBusy={app.updateBusy}
-        updateAction={app.updateAction}
-        onCheckForUpdates={app.onCheckForUpdates}
-        onDownloadAndInstallUpdate={app.onDownloadAndInstallUpdate}
       />
     );
   } else {
@@ -110,41 +104,6 @@ function App() {
             </p>
           </div>
           <div className="modal-backdrop" />
-        </div>
-      )}
-      {app.startupUpdateModalOpen && app.updateInfo?.updateAvailable && (
-        <div className="modal modal-open" role="dialog" aria-modal="true">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg">Update available</h3>
-            <p className="py-2">
-              Version <code>{app.updateInfo.latestVersion}</code> is available. Install now or postpone?
-            </p>
-            {app.updateProgress !== null && (
-              <div className="space-y-1 mb-3">
-                <progress className="progress progress-primary w-full" value={Math.round(app.updateProgress)} max={100} />
-                <p className="text-xs opacity-70">{Math.round(app.updateProgress)}% downloaded</p>
-              </div>
-            )}
-            <div className="modal-action">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline  w-3/12"
-                onClick={app.onPostponeUpdate}
-                disabled={app.updateBusy}
-              >
-                Postpone
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary w-3/12"
-                onClick={app.onDownloadAndInstallUpdate}
-                disabled={app.updateBusy}
-              >
-                {app.updateBusy && <span className="loading loading-spinner loading-xs" aria-hidden />}
-                Update now
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </>

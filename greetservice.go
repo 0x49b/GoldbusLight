@@ -19,6 +19,10 @@ func (g *GreetService) Greet(name string) string {
 	return "Hello " + name + "!"
 }
 
+func (g *GreetService) AppVersion() string {
+	return appVersion
+}
+
 func (g *GreetService) GetControllerSnapshot() (ControllerSnapshot, error) {
 	controller, err := g.requireController()
 	if err != nil {
