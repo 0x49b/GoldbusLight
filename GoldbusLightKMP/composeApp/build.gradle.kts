@@ -1,8 +1,14 @@
 plugins {
     kotlin("multiplatform")
-    id("org.jetbrains.compose")
-    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose") version "1.7.3"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.0"
     kotlin("plugin.serialization")
+}
+
+repositories {
+    google() // Prioritize Google's Maven for androidx artifacts
+    mavenCentral()
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/stable")
 }
 
 kotlin {
@@ -47,6 +53,7 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
+
                 implementation("io.ktor:ktor-client-okhttp:3.0.1")
                 implementation("org.jmdns:jmdns:3.5.9")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")

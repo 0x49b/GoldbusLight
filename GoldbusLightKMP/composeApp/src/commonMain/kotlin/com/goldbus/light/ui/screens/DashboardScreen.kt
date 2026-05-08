@@ -6,11 +6,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Color
-import com.goldbus.light.ui.Screen
 import io.github.composefluent.FluentTheme
 import io.github.composefluent.surface.Card
-import io.github.composefluent.component.*
+import io.github.composefluent.component.Button
+import io.github.composefluent.component.Slider
+import io.github.composefluent.component.Text as FluentText
+import com.goldbus.light.ui.Screen // Import the Screen sealed class
 
 @Composable
 fun DashboardScreen(onNavigate: (Screen) -> Unit) {
@@ -24,11 +25,11 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
             .padding(24.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("General", style = FluentTheme.typography.titleLarge)
-        Text(
+        FluentText("General", style = FluentTheme.typography.titleLarge)
+        FluentText(
             "Control all WLED devices together.",
             style = FluentTheme.typography.caption,
-            color = Color(FluentTheme.colors.text.text.secondary)
+            color = FluentTheme.colors.text.text.secondary
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -37,10 +38,10 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { /* All On */ }, modifier = Modifier.weight(1f)) {
-                        Text("All On")
+                        FluentText("All On")
                     }
                     Button(onClick = { /* All Off */ }, modifier = Modifier.weight(1f)) {
-                        Text("All Off")
+                        FluentText("All Off")
                     }
                 }
                 
@@ -48,10 +49,10 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { /* Warm White */ }, modifier = Modifier.weight(1f)) {
-                        Text("Warm White")
+                        FluentText("Warm White")
                     }
                     Button(onClick = { /* Cold White */ }, modifier = Modifier.weight(1f)) {
-                        Text("Cold White")
+                        FluentText("Cold White")
                     }
                 }
             }
@@ -59,10 +60,10 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("Color & Brightness", style = FluentTheme.typography.bodyLarge)
+        FluentText("Color & Brightness", style = FluentTheme.typography.bodyLarge)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Brightness: ${brightness.toInt()}", style = FluentTheme.typography.caption)
+                FluentText("Brightness: ${brightness.toInt()}", style = FluentTheme.typography.caption)
                 Slider(
                     value = brightness,
                     onValueChange = { brightness = it },
@@ -74,10 +75,10 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("Effect Parameters", style = FluentTheme.typography.bodyLarge)
+        FluentText("Effect Parameters", style = FluentTheme.typography.bodyLarge)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Speed: ${speed.toInt()}", style = FluentTheme.typography.caption)
+                FluentText("Speed: ${speed.toInt()}", style = FluentTheme.typography.caption)
                 Slider(
                     value = speed,
                     onValueChange = { speed = it },
@@ -87,7 +88,7 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text("Intensity: ${intensity.toInt()}", style = FluentTheme.typography.caption)
+                FluentText("Intensity: ${intensity.toInt()}", style = FluentTheme.typography.caption)
                 Slider(
                     value = intensity,
                     onValueChange = { intensity = it },
@@ -101,10 +102,10 @@ fun DashboardScreen(onNavigate: (Screen) -> Unit) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Button(onClick = { onNavigate(Screen.Devices) }) {
-                Text("Manage Devices")
+                FluentText("Manage Devices")
             }
             Button(onClick = { onNavigate(Screen.Settings) }) {
-                Text("Settings")
+                FluentText("Settings")
             }
         }
     }

@@ -1,18 +1,15 @@
-import {type Dispatch, type SetStateAction, useEffect, useRef, useState} from "react";
-import {prettyJSON, readNumber} from "../../lib/json";
-import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
     PiArrowClockwise,
     PiFire,
     PiIceCream,
     PiPalette,
+    PiPencil,
     PiPower,
     PiTrash,
-    PiX,
-    PiPencil
+    PiX
 } from "react-icons/pi";
-import {EffectPickerModal} from "./EffectPickerModal";
-import {PalettePickerModal} from "./PalettePickerModal";
+import { prettyJSON, readNumber } from "../../lib/json";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
     CANDLE_LIGHT_RGB,
@@ -25,6 +22,9 @@ import {
     WARM_WHITE_RGB,
     WHITE_RGB
 } from "../../lib/wled";
+import type { JSONMap, WLEDDevice, WLEDDeviceDetail } from "../../types/controller";
+import { EffectPickerModal } from "./EffectPickerModal";
+import { PalettePickerModal } from "./PalettePickerModal";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
@@ -141,10 +141,12 @@ export function DeviceDetailView({
     const hueValue = rgbToHue(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2]);
     const applySegmentColorPreset = (rgb: [number, number, number]) => {
         setDeviceFormRgb(rgb);
+        setDeviceFormFx(0);
         onSetDeviceState(d.id, {
             seg: [
                 {
                     id: selectedSegIdx,
+                    fx: 0,
                     col: [rgb],
                 },
             ],
@@ -159,6 +161,8 @@ export function DeviceDetailView({
             }
         };
     }, []);
+
+    const brightnessPercent = Math.round((deviceFormBri / 255) * 100) || 0;
 
     return (
         <div className="space-y-6 w-full max-w-none pb-8">
@@ -382,21 +386,16 @@ export function DeviceDetailView({
             <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
                     <h3 className="font-medium">Color & brightness</h3>
-                    <p className="text-xs opacity-60">
-                        Changes apply automatically (debounced). Same fields as the WLED web UI:
-                        primary color for segment {selectedSegIdx}, global brightness and
-                        transition.
-                    </p>
                     <div className="flex flex-wrap items-start gap-4">
-                        <div className="flex flex-col gap-3">
-                            <label className="flex flex-col gap-1">
-                                <span className="text-xs opacity-70">Hue</span>
+                        <div className="flex w-full items-start gap-4">
+                            <label className="flex w-1/2 flex-col gap-1">
+                                <span className="text-xs opacity-70">Color</span>
                                 <input
                                     type="range"
                                     min={0}
                                     max={360}
                                     step={1}
-                                    className="hue-slider w-56"
+                                    className="hue-slider w-full"
                                     style={{background: "linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)"}}
                                     value={hueValue}
                                     onChange={(e) => {
@@ -419,58 +418,26 @@ export function DeviceDetailView({
                                     disabled={lightControlsLocked}
                                 />
                             </label>
-                            <div className="flex flex-wrap items-end gap-2">
-                            <label className="form-control">
-                                <span className="label-text text-xs">R</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={255}
-                                    className="input input-bordered input-sm w-20"
-                                    value={deviceFormRgb[0]}
-                                    onChange={(e) => setDeviceFormRgb([readNumber(e.target.value, 0), deviceFormRgb[1], deviceFormRgb[2]])}
-                                    disabled={lightControlsLocked}
-                                />
-                            </label>
-                            <label className="form-control">
-                                <span className="label-text text-xs">G</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={255}
-                                    className="input input-bordered input-sm w-20"
-                                    value={deviceFormRgb[1]}
-                                    onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], readNumber(e.target.value, 0), deviceFormRgb[2]])}
-                                    disabled={lightControlsLocked}
-                                />
-                            </label>
-                            <label className="form-control">
-                                <span className="label-text text-xs">B</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={255}
-                                    className="input input-bordered input-sm w-20"
-                                    value={deviceFormRgb[2]}
-                                    onChange={(e) => setDeviceFormRgb([deviceFormRgb[0], deviceFormRgb[1], readNumber(e.target.value, 0)])}
-                                    disabled={lightControlsLocked}
-                                />
-                            </label>
-                            </div>
-                        </div>
-                        <label className="form-control flex-1 min-w-[200px]">
-                            <span className="label-text text-xs">Brightness (bri)</span>
+
+                        <label className="form-control w-1/2">
+                            <span className="label-text text-xs">Brightness ({brightnessPercent}%)</span>
                             <input
                                 type="range"
-                                min={1}
-                                max={255}
+                                min={0} 
+                                max={100}
+                                step={5}
                                 className="range range-primary range-sm"
-                                value={deviceFormBri}
-                                onChange={(e) => setDeviceFormBri(readNumber(e.target.value, 180))}
+                                value={brightnessPercent}
+                                onChange={(e) => {
+                                    const percentValue = readNumber(e.target.value, 100);
+                                    const briValue = Math.round((percentValue / 100) * 255);
+                                    setDeviceFormBri(Math.max(1, briValue)); 
+                                }}
                                 disabled={lightControlsLocked}
                             />
                         </label>
-                        <span className="badge badge-neutral shrink-0">{deviceFormBri}</span>
+                        </div>
+
                         <div className="w-full grid grid-cols-3 gap-2">
                             <button
                                 type="button"

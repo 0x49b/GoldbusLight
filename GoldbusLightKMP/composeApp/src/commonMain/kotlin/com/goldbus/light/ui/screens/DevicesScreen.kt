@@ -7,12 +7,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Color
-import com.goldbus.light.model.WLEDDevice
-import com.goldbus.light.ui.Screen
 import io.github.composefluent.FluentTheme
 import io.github.composefluent.surface.Card
-import io.github.composefluent.component.*
+import io.github.composefluent.component.Button
+import io.github.composefluent.component.Switcher
+import io.github.composefluent.component.Text as FluentText
+import com.goldbus.light.model.WLEDDevice // Import the WLEDDevice data class
+import com.goldbus.light.ui.Screen // Import the Screen sealed class
 
 @Composable
 fun DevicesScreen(devices: List<WLEDDevice>, onDiscover: () -> Unit, onNavigate: (Screen) -> Unit) {
@@ -27,19 +28,19 @@ fun DevicesScreen(devices: List<WLEDDevice>, onDiscover: () -> Unit, onNavigate:
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Devices", style = FluentTheme.typography.titleLarge)
-                Text(
+                FluentText("Devices", style = FluentTheme.typography.titleLarge)
+                FluentText(
                     "${devices.size} devices found",
                     style = FluentTheme.typography.caption,
-                    color = Color(FluentTheme.colors.text.text.secondary)
+                    color = FluentTheme.colors.text.text.secondary
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onDiscover) {
-                    Text("Refresh")
+                    FluentText("Refresh")
                 }
                 Button(onClick = { onNavigate(Screen.Dashboard) }) {
-                    Text("Back")
+                    FluentText("Back")
                 }
             }
         }
@@ -48,7 +49,7 @@ fun DevicesScreen(devices: List<WLEDDevice>, onDiscover: () -> Unit, onNavigate:
 
         if (devices.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No devices found.", style = FluentTheme.typography.bodyLarge)
+                FluentText("No devices found.", style = FluentTheme.typography.bodyLarge)
             }
         } else {
             LazyColumn(
@@ -65,11 +66,11 @@ fun DevicesScreen(devices: List<WLEDDevice>, onDiscover: () -> Unit, onNavigate:
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(device.name, style = FluentTheme.typography.bodyLarge)
-                                Text(
+                                FluentText(device.name, style = FluentTheme.typography.bodyLarge)
+                                FluentText(
                                     device.address,
                                     style = FluentTheme.typography.caption,
-                                    color = Color(FluentTheme.colors.text.text.secondary)
+                                    color = FluentTheme.colors.text.text.secondary
                                 )
                             }
                             Switcher(
