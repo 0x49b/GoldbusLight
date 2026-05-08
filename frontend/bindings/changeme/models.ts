@@ -163,6 +163,7 @@ export class ControllerSettings {
 export class ControllerSnapshot {
     "settings": ControllerSettings;
     "devices": WLEDDevice[];
+    "generalTabState": GeneralTabState;
     "persistencePath": string;
     "updatedAt": time$0.Time;
     "capabilities": ControllerCapabilities;
@@ -174,6 +175,9 @@ export class ControllerSnapshot {
         }
         if (!("devices" in $$source)) {
             this["devices"] = [];
+        }
+        if (!("generalTabState" in $$source)) {
+            this["generalTabState"] = (new GeneralTabState());
         }
         if (!("persistencePath" in $$source)) {
             this["persistencePath"] = "";
@@ -194,7 +198,8 @@ export class ControllerSnapshot {
     static createFrom($$source: any = {}): ControllerSnapshot {
         const $$createField0_0 = $$createType4;
         const $$createField1_0 = $$createType6;
-        const $$createField4_0 = $$createType7;
+        const $$createField2_0 = $$createType7;
+        const $$createField5_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("settings" in $$parsedSource) {
             $$parsedSource["settings"] = $$createField0_0($$parsedSource["settings"]);
@@ -202,8 +207,11 @@ export class ControllerSnapshot {
         if ("devices" in $$parsedSource) {
             $$parsedSource["devices"] = $$createField1_0($$parsedSource["devices"]);
         }
+        if ("generalTabState" in $$parsedSource) {
+            $$parsedSource["generalTabState"] = $$createField2_0($$parsedSource["generalTabState"]);
+        }
         if ("capabilities" in $$parsedSource) {
-            $$parsedSource["capabilities"] = $$createField4_0($$parsedSource["capabilities"]);
+            $$parsedSource["capabilities"] = $$createField5_0($$parsedSource["capabilities"]);
         }
         return new ControllerSnapshot($$parsedSource as Partial<ControllerSnapshot>);
     }
@@ -253,12 +261,57 @@ export class DiscoverySettings {
      * Creates a new DiscoverySettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType8;
+        const $$createField1_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serviceTypes" in $$parsedSource) {
             $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
         }
         return new DiscoverySettings($$parsedSource as Partial<DiscoverySettings>);
+    }
+}
+
+export class GeneralTabState {
+    "on": boolean;
+    "bri": number;
+    "rgb": number[];
+    "fx": number;
+    "pal": number;
+    "sx": number;
+    "ix": number;
+
+    /** Creates a new GeneralTabState instance. */
+    constructor($$source: Partial<GeneralTabState> = {}) {
+        if (!("on" in $$source)) {
+            this["on"] = false;
+        }
+        if (!("bri" in $$source)) {
+            this["bri"] = 0;
+        }
+        if (!("rgb" in $$source)) {
+            this["rgb"] = Array.from({ length: 3 }, () => 0);
+        }
+        if (!("fx" in $$source)) {
+            this["fx"] = 0;
+        }
+        if (!("pal" in $$source)) {
+            this["pal"] = 0;
+        }
+        if (!("sx" in $$source)) {
+            this["sx"] = 0;
+        }
+        if (!("ix" in $$source)) {
+            this["ix"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GeneralTabState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GeneralTabState {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GeneralTabState($$parsedSource as Partial<GeneralTabState>);
     }
 }
 
@@ -283,8 +336,8 @@ export class NetworkApplyResult {
      * Creates a new NetworkApplyResult instance from a string or object.
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
-        const $$createField1_0 = $$createType8;
-        const $$createField2_0 = $$createType10;
+        const $$createField1_0 = $$createType9;
+        const $$createField2_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -350,8 +403,8 @@ export class ProvisioningSettings {
      * Creates a new ProvisioningSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): ProvisioningSettings {
-        const $$createField1_0 = $$createType11;
-        const $$createField2_0 = $$createType11;
+        const $$createField1_0 = $$createType12;
+        const $$createField2_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("defaultStatePayload" in $$parsedSource) {
             $$parsedSource["defaultStatePayload"] = $$createField1_0($$parsedSource["defaultStatePayload"]);
@@ -438,8 +491,8 @@ export class WLEDDevice {
      * Creates a new WLEDDevice instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDevice {
-        const $$createField9_0 = $$createType11;
-        const $$createField10_0 = $$createType11;
+        const $$createField9_0 = $$createType12;
+        const $$createField10_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("info" in $$parsedSource) {
             $$parsedSource["info"] = $$createField9_0($$parsedSource["info"]);
@@ -482,12 +535,12 @@ export class WLEDDeviceDetail {
      * Creates a new WLEDDeviceDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDeviceDetail {
-        const $$createField2_0 = $$createType11;
-        const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType8;
-        const $$createField5_0 = $$createType8;
-        const $$createField6_0 = $$createType11;
-        const $$createField7_0 = $$createType11;
+        const $$createField2_0 = $$createType12;
+        const $$createField3_0 = $$createType12;
+        const $$createField4_0 = $$createType9;
+        const $$createField5_0 = $$createType9;
+        const $$createField6_0 = $$createType12;
+        const $$createField7_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -519,8 +572,9 @@ const $$createType3 = TestingSettings.createFrom;
 const $$createType4 = ControllerSettings.createFrom;
 const $$createType5 = WLEDDevice.createFrom;
 const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = ControllerCapabilities.createFrom;
-const $$createType8 = $Create.Array($Create.Any);
-const $$createType9 = NetworkCommandResult.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $Create.Map($Create.Any, $Create.Any);
+const $$createType7 = GeneralTabState.createFrom;
+const $$createType8 = ControllerCapabilities.createFrom;
+const $$createType9 = $Create.Array($Create.Any);
+const $$createType10 = NetworkCommandResult.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = $Create.Map($Create.Any, $Create.Any);

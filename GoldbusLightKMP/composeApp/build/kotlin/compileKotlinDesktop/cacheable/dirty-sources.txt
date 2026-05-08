@@ -1,0 +1,16 @@
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/build/generated/compose/resourceGenerator/kotlin/desktopMainResourceCollectors/goldbuslightkmp/composeapp/generated/resources/ActualResourceCollectors.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/desktopMain/kotlin/com/goldbus/light/discovery/DesktopDiscoveryService.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/model/Models.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/build/generated/compose/resourceGenerator/kotlin/commonResClass/goldbuslightkmp/composeapp/generated/resources/Res.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/ui/screens/SettingsScreen.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/desktopMain/kotlin/com/goldbus/light/di/Modules.desktop.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/ui/App.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/build/generated/compose/resourceGenerator/kotlin/commonMainResourceCollectors/goldbuslightkmp/composeapp/generated/resources/ExpectResourceCollectors.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/ui/screens/DashboardScreen.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/desktopMain/kotlin/com/goldbus/light/network/NetworkManager.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/ui/screens/DevicesScreen.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/desktopMain/kotlin/com/goldbus/light/main.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/di/Modules.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/viewmodel/MainViewModel.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/discovery/DiscoveryService.kt
+/Users/florianthievent/workspace/private/GoldbusLight/GoldbusLightKMP/composeApp/src/commonMain/kotlin/com/goldbus/light/api/WLEDClient.kt

@@ -12,6 +12,7 @@ export {
     ControllerSettings,
     ControllerSnapshot,
     DiscoverySettings,
+    GeneralTabState,
     NetworkApplyResult,
     NetworkCommandResult,
     ProvisioningSettings,

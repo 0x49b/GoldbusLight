@@ -54,6 +54,15 @@ export type WLEDDevice = {
 export type ControllerSnapshot = {
   settings: ControllerSettings;
   devices: WLEDDevice[];
+  generalTabState?: {
+    on: boolean;
+    bri: number;
+    rgb: [number, number, number];
+    fx: number;
+    pal: number;
+    sx: number;
+    ix: number;
+  };
   persistencePath: string;
   updatedAt: string;
   capabilities: {

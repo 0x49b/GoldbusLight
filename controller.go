@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	defaultStateFileName  = "state.json"
-	simulatedWLEDDeviceID = "sim:wled"
+	defaultStateFileName    = "state.json"
+	generalTabStateFileName = "general-tab-state.json"
+	simulatedWLEDDeviceID   = "sim:wled"
 
 	// WLED hardware commonly uses 2.4 GHz–only Wi‑Fi; the controller AP must stay on that band.
 	ap24MinChannel     = 1
@@ -124,9 +125,20 @@ const persistentStateVersion = 2
 type ControllerSnapshot struct {
 	Settings        ControllerSettings     `json:"settings"`
 	Devices         []WLEDDevice           `json:"devices"`
+	GeneralTabState GeneralTabState        `json:"generalTabState"`
 	PersistencePath string                 `json:"persistencePath"`
 	UpdatedAt       time.Time              `json:"updatedAt"`
 	Capabilities    ControllerCapabilities `json:"capabilities"`
+}
+
+type GeneralTabState struct {
+	On  bool   `json:"on"`
+	Bri int    `json:"bri"`
+	RGB [3]int `json:"rgb"`
+	FX  int    `json:"fx"`
+	Pal int    `json:"pal"`
+	SX  int    `json:"sx"`
+	IX  int    `json:"ix"`
 }
 
 type ControllerCapabilities struct {
@@ -169,6 +181,11 @@ type StatePersistenceManager struct {
 	mu   sync.Mutex
 }
 
+type GeneralTabStatePersistenceManager struct {
+	path string
+	mu   sync.Mutex
+}
+
 func NewStatePersistenceManager() *StatePersistenceManager {
 	cfgDir, err := os.UserConfigDir()
 	if err != nil || cfgDir == "" {
@@ -178,6 +195,47 @@ func NewStatePersistenceManager() *StatePersistenceManager {
 	return &StatePersistenceManager{
 		path: filepath.Join(cfgDir, "wled-controller", defaultStateFileName),
 	}
+}
+
+func NewGeneralTabStatePersistenceManager() *GeneralTabStatePersistenceManager {
+	cfgDir, err := os.UserConfigDir()
+	if err != nil || cfgDir == "" {
+		return &GeneralTabStatePersistenceManager{path: filepath.Join(".", generalTabStateFileName)}
+	}
+	return &GeneralTabStatePersistenceManager{
+		path: filepath.Join(cfgDir, "wled-controller", generalTabStateFileName),
+	}
+}
+
+func (s *GeneralTabStatePersistenceManager) Load() (GeneralTabState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	def := defaultGeneralTabState()
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return def, nil
+		}
+		return def, err
+	}
+	var st GeneralTabState
+	if err := json.Unmarshal(data, &st); err != nil {
+		return def, err
+	}
+	return clampGeneralTabState(st), nil
+}
+
+func (s *GeneralTabStatePersistenceManager) Save(st GeneralTabState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(clampGeneralTabState(st), "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, payload, 0o600)
 }
 
 func (s *StatePersistenceManager) Path() string {
@@ -359,28 +417,26 @@ func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice)
 }
 
 func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
-	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/state", nil, &payload); err != nil {
+	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/state", nil, &payload); err != nil {
 		return nil, err
 	}
 	return payload, nil
 }
 
 func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	// Reachability check via cfg endpoint (documented at kno.wled.ge).
 	var cfg map[string]any
-	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &cfg); err != nil {
+	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/cfg", nil, &cfg); err != nil {
 		return err
 	}
 	if len(cfgPatch) > 0 {
-		if err := w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", cfgPatch, nil); err != nil {
+		if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/cfg", cfgPatch, nil); err != nil {
 			return err
 		}
 	}
 	if len(initialState) > 0 {
-		if err := w.requestJSON(ctx, http.MethodPost, base+"/json/state", initialState, nil); err != nil {
+		if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/state", initialState, nil); err != nil {
 			return err
 		}
 	}
@@ -388,23 +444,20 @@ func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfg
 }
 
 func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
-	return w.requestJSON(ctx, http.MethodPost, base+"/json/state", state, nil)
+	return w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/state", state, nil)
 }
 
 func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
-	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
+	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json", nil, &payload); err != nil {
 		return nil, err
 	}
 	return payload, nil
 }
 
 func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
 	var payload map[string]any
-	if err := w.requestJSON(ctx, http.MethodGet, base+"/json/cfg", nil, &payload); err != nil {
+	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/cfg", nil, &payload); err != nil {
 		return nil, err
 	}
 	return payload, nil
@@ -412,8 +465,7 @@ func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[stri
 
 // ApplyCfgPatch POSTs a partial cfg object (see WLED JSON API /json/cfg).
 func (w *WLEDEngine) ApplyCfgPatch(ctx context.Context, device WLEDDevice, patch map[string]any) error {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
-	return w.requestJSON(ctx, http.MethodPost, base+"/json/cfg", patch, nil)
+	return w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/cfg", patch, nil)
 }
 
 func (w *WLEDEngine) ApplyStateToAll(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
@@ -469,20 +521,74 @@ func (w *WLEDEngine) requestJSON(ctx context.Context, method, endpoint string, p
 	if out == nil {
 		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	err = json.NewDecoder(resp.Body).Decode(out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w *WLEDEngine) requestJSONWithDeviceFallback(ctx context.Context, device WLEDDevice, method, apiPath string, payload any, out any) error {
+	primaryBase := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
+	primaryEndpoint := primaryBase + apiPath
+	primaryHost := wledhttp.HostForHTTP(device.Host, device.Address)
+	fallbackHost := strings.TrimSpace(device.Address)
+
+	// .local resolution can intermittently stall and consume most timeout budget.
+	// Prefer direct IP first for hot paths and detail reads when an address is known.
+	ipFirstAllowed := (method == http.MethodPost && apiPath == "/json/state") ||
+		(method == http.MethodGet && (apiPath == "/json" || apiPath == "/json/cfg" || apiPath == "/json/state"))
+	if ipFirstAllowed && fallbackHost != "" && !strings.EqualFold(primaryHost, fallbackHost) {
+		fastEndpoint := "http://" + net.JoinHostPort(fallbackHost, fmt.Sprintf("%d", device.Port)) + apiPath
+		if err := w.requestJSON(ctx, method, fastEndpoint, payload, out); err == nil {
+			return nil
+		}
+		// If IP-first fails, continue with existing strategy below.
+	}
+
+	err := w.requestJSON(ctx, method, primaryEndpoint, payload, out)
+	if err == nil {
+		return nil
+	}
+	if fallbackHost == "" || strings.EqualFold(primaryHost, fallbackHost) {
+		return err
+	}
+	if !shouldRetryWithAddressFallback(err) {
+		return err
+	}
+	fallbackBase := "http://" + net.JoinHostPort(fallbackHost, fmt.Sprintf("%d", device.Port))
+	fallbackEndpoint := fallbackBase + apiPath
+	if fallbackErr := w.requestJSON(ctx, method, fallbackEndpoint, payload, out); fallbackErr != nil {
+		return fallbackErr
+	}
+	return nil
+}
+
+func shouldRetryWithAddressFallback(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "deadline exceeded") || strings.Contains(msg, "timeout") {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }
 
 type WLEDController struct {
-	logger      *log.Logger
-	persistence *StatePersistenceManager
-	network     *NetworkManager
-	discovery   *DiscoveryEngine
-	wled        *WLEDEngine
+	logger                *log.Logger
+	persistence           *StatePersistenceManager
+	generalTabPersistence *GeneralTabStatePersistenceManager
+	network               *NetworkManager
+	discovery             *DiscoveryEngine
+	wled                  *WLEDEngine
 
-	mu       sync.RWMutex
-	settings ControllerSettings
-	devices  map[string]WLEDDevice
-	updated  time.Time
+	mu              sync.RWMutex
+	settings        ControllerSettings
+	devices         map[string]WLEDDevice
+	generalTabState GeneralTabState
+	updated         time.Time
 
 	probeMu     sync.Mutex
 	probeRecent map[string]time.Time
@@ -495,14 +601,16 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		logger = log.Default()
 	}
 	return &WLEDController{
-		logger:      logger,
-		persistence: NewStatePersistenceManager(),
-		network:     NewNetworkManager(logger),
-		discovery:   NewDiscoveryEngine(logger),
-		wled:        NewWLEDEngine(),
-		settings:    DefaultControllerSettings(),
-		devices:     map[string]WLEDDevice{},
-		updated:     time.Now(),
+		logger:                logger,
+		persistence:           NewStatePersistenceManager(),
+		generalTabPersistence: NewGeneralTabStatePersistenceManager(),
+		network:               NewNetworkManager(logger),
+		discovery:             NewDiscoveryEngine(logger),
+		wled:                  NewWLEDEngine(),
+		settings:              DefaultControllerSettings(),
+		devices:               map[string]WLEDDevice{},
+		generalTabState:       defaultGeneralTabState(),
+		updated:               time.Now(),
 	}
 }
 
@@ -536,7 +644,8 @@ func (c *WLEDController) applyWLEDState(ctx context.Context, device WLEDDevice, 
 	if isSimulatedWLED(device, settings) {
 		return nil
 	}
-	return c.wled.ApplyState(ctx, device, state)
+	err := c.wled.ApplyState(ctx, device, state)
+	return err
 }
 
 func (c *WLEDController) applyStateToAllDevices(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
@@ -619,10 +728,16 @@ func (c *WLEDController) Start(ctx context.Context) error {
 			Devices:  map[string]WLEDDevice{},
 		}
 	}
+	generalTab, err := c.generalTabPersistence.Load()
+	if err != nil {
+		c.logger.Printf("general tab state load failed, using defaults: %v", err)
+		generalTab = defaultGeneralTabState()
+	}
 
 	c.mu.Lock()
 	c.settings = mergeWithDefaults(loaded.Settings)
 	c.devices = loaded.Devices
+	c.generalTabState = clampGeneralTabState(generalTab)
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
@@ -667,6 +782,7 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 	return ControllerSnapshot{
 		Settings:        c.settings,
 		Devices:         devices,
+		GeneralTabState: c.generalTabState,
 		PersistencePath: c.persistence.Path(),
 		UpdatedAt:       c.updated,
 		Capabilities:    c.network.controllerCapabilities(),
@@ -727,6 +843,9 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 	if device.Ignored {
 		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
+	if isNoOpStatePatch(device.LastState, state) {
+		return nil
+	}
 
 	if err := c.applyWLEDState(ctx, device, state); err != nil {
 		return err
@@ -767,6 +886,7 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 	results := c.applyStateToAllDevices(ctx, devices, state)
 
 	c.mu.Lock()
+	c.generalTabState = mergeGeneralTabState(c.generalTabState, state)
 	for id, d := range c.devices {
 		if d.Ignored {
 			continue
@@ -790,6 +910,9 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 	c.updated = time.Now()
 	c.mu.Unlock()
 
+	if err := c.generalTabPersistence.Save(c.generalTabState); err != nil {
+		c.logger.Printf("persist general tab state failed: %v", err)
+	}
 	if err := c.persist(); err != nil {
 		c.logger.Printf("persist after global state failed: %v", err)
 	}
@@ -1614,6 +1737,189 @@ func stringifyAnySlice(items []any) []string {
 		}
 	}
 	return out
+}
+
+func defaultGeneralTabState() GeneralTabState {
+	return GeneralTabState{
+		On:  true,
+		Bri: 200,
+		RGB: [3]int{255, 169, 87},
+		FX:  0,
+		Pal: 0,
+		SX:  128,
+		IX:  128,
+	}
+}
+
+func clampGeneralTabState(st GeneralTabState) GeneralTabState {
+	clamp255 := func(v int) int {
+		if v < 0 {
+			return 0
+		}
+		if v > 255 {
+			return 255
+		}
+		return v
+	}
+	if st.FX < 0 {
+		st.FX = 0
+	}
+	if st.Pal < 0 {
+		st.Pal = 0
+	}
+	st.Bri = clamp255(st.Bri)
+	st.SX = clamp255(st.SX)
+	st.IX = clamp255(st.IX)
+	st.RGB[0] = clamp255(st.RGB[0])
+	st.RGB[1] = clamp255(st.RGB[1])
+	st.RGB[2] = clamp255(st.RGB[2])
+	return st
+}
+
+func mergeGeneralTabState(current GeneralTabState, patch map[string]any) GeneralTabState {
+	next := current
+	if on, ok := patch["on"].(bool); ok {
+		next.On = on
+	}
+	if bri, ok := intFromAny(patch["bri"]); ok {
+		next.Bri = bri
+	}
+	segArr, ok := patch["seg"].([]any)
+	if !ok || len(segArr) == 0 {
+		return clampGeneralTabState(next)
+	}
+	seg, ok := segArr[0].(map[string]any)
+	if !ok {
+		return clampGeneralTabState(next)
+	}
+	if fx, ok := intFromAny(seg["fx"]); ok {
+		next.FX = fx
+	}
+	if pal, ok := intFromAny(seg["pal"]); ok {
+		next.Pal = pal
+	}
+	if sx, ok := intFromAny(seg["sx"]); ok {
+		next.SX = sx
+	}
+	if ix, ok := intFromAny(seg["ix"]); ok {
+		next.IX = ix
+	}
+	if rgb, ok := rgbFromSegColor(seg["col"]); ok {
+		next.RGB = rgb
+	}
+	return clampGeneralTabState(next)
+}
+
+func intFromAny(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int8:
+		return int(n), true
+	case int16:
+		return int(n), true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	case float64:
+		return int(n), true
+	default:
+		return 0, false
+	}
+}
+
+func rgbFromSegColor(v any) ([3]int, bool) {
+	out := [3]int{}
+	col, ok := v.([]any)
+	if !ok || len(col) == 0 {
+		return out, false
+	}
+	first, ok := col[0].([]any)
+	if !ok || len(first) < 3 {
+		return out, false
+	}
+	r, okR := intFromAny(first[0])
+	g, okG := intFromAny(first[1])
+	b, okB := intFromAny(first[2])
+	if !okR || !okG || !okB {
+		return out, false
+	}
+	out[0], out[1], out[2] = r, g, b
+	return out, true
+}
+
+func isNoOpStatePatch(last map[string]any, patch map[string]any) bool {
+	if len(patch) == 0 {
+		return true
+	}
+	if v, ok := patch["on"]; ok {
+		if s, ok := v.(string); ok && s == "t" {
+			return false
+		}
+	}
+	return isStatePatchSatisfiedByState(last, patch)
+}
+
+func isStatePatchSatisfiedByState(state map[string]any, patch map[string]any) bool {
+	for key, value := range patch {
+		if key == "seg" {
+			patchSegList, ok := value.([]any)
+			if !ok {
+				continue
+			}
+			stateSegList, _ := state["seg"].([]any)
+			for _, segRaw := range patchSegList {
+				segPatch, ok := segRaw.(map[string]any)
+				if !ok {
+					continue
+				}
+				segID, ok := intFromAny(segPatch["id"])
+				if !ok || segID < 0 {
+					continue
+				}
+				var stateSeg map[string]any
+				for _, s := range stateSegList {
+					candidate, ok := s.(map[string]any)
+					if !ok {
+						continue
+					}
+					candidateID, ok := intFromAny(candidate["id"])
+					if ok && candidateID == segID {
+						stateSeg = candidate
+						break
+					}
+				}
+				if stateSeg == nil {
+					return false
+				}
+				for segKey, segValue := range segPatch {
+					if segKey == "id" {
+						continue
+					}
+					if !jsonEqual(stateSeg[segKey], segValue) {
+						return false
+					}
+				}
+			}
+			continue
+		}
+		if !jsonEqual(state[key], value) {
+			return false
+		}
+	}
+	return true
+}
+
+func jsonEqual(a any, b any) bool {
+	ab, errA := json.Marshal(a)
+	bb, errB := json.Marshal(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return bytes.Equal(ab, bb)
 }
 
 func defaultSimulatedState() map[string]any {

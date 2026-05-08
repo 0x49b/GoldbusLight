@@ -23,6 +23,14 @@ function App() {
         applyWarmWhitePreset={app.applyWarmWhitePreset}
         applyColdWhitePreset={app.applyColdWhitePreset}
         applyNamedColorPreset={app.applyNamedColorPreset}
+        generalFx={app.generalFx}
+        setGeneralFx={app.setGeneralFx}
+        generalPal={app.generalPal}
+        setGeneralPal={app.setGeneralPal}
+        generalSx={app.generalSx}
+        setGeneralSx={app.setGeneralSx}
+        generalIx={app.generalIx}
+        setGeneralIx={app.setGeneralIx}
       />
     );
   } else if (app.route.kind === "settings") {
@@ -49,6 +57,8 @@ function App() {
       <DeviceDetailView
         device={app.selectedDevice}
         deviceDetail={app.deviceDetail}
+        deviceDetailInitializing={app.deviceDetailInitializing}
+        deviceDetailReloading={app.deviceDetailReloading}
         busy={app.busy}
         editingDeviceName={app.editingDeviceName}
         setEditingDeviceName={app.setEditingDeviceName}

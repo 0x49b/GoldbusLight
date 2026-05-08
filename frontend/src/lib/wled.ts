@@ -18,7 +18,7 @@ export function warmWhiteState(bri: number): JSONMap {
   return {
     on: true,
     bri,
-    seg: [{ col: [WARM_WHITE_RGB] }],
+    seg: [{ col: [WARM_WHITE_RGB], fx: 0, pal: 0 }],
   };
 }
 
@@ -26,7 +26,7 @@ export function coldWhiteState(bri: number): JSONMap {
   return {
     on: true,
     bri,
-    seg: [{ col: [COLD_WHITE_RGB] }],
+    seg: [{ col: [COLD_WHITE_RGB], fx: 0, pal: 0 }],
   };
 }
 
@@ -34,7 +34,7 @@ export function rgbState(r: number, g: number, b: number, bri: number, on = true
   return {
     on,
     bri,
-    seg: [{ col: [[r, g, b]] }],
+    seg: [{ col: [[r, g, b]], fx: 0, pal: 0 }],
   };
 }
 

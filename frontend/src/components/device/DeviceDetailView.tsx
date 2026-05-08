@@ -1,10 +1,11 @@
-import {type Dispatch, type SetStateAction, useState} from "react";
+import {type Dispatch, type SetStateAction, useEffect, useRef, useState} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
-import {hexToRgb, rgbToHex} from "../../lib/wled";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
 import {
     PiArrowClockwise,
-    PiPaperPlaneTilt,
+    PiFire,
+    PiIceCream,
+    PiPalette,
     PiPower,
     PiTrash,
     PiX,
@@ -12,10 +13,37 @@ import {
 } from "react-icons/pi";
 import {EffectPickerModal} from "./EffectPickerModal";
 import {PalettePickerModal} from "./PalettePickerModal";
+import {
+    BLACK_LIGHT_FLUORESCENT_RGB,
+    CANDLE_LIGHT_RGB,
+    CLEAR_BLUE_SKY_RGB,
+    COLD_WHITE_RGB,
+    DAYLIGHT_WHITE_RGB,
+    DIRECT_SUNLIGHT_RGB,
+    FROSTY_WHITE_RGB,
+    SUPER_WARM_RGB,
+    WARM_WHITE_RGB,
+    WHITE_RGB
+} from "../../lib/wled";
+
+const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
+    {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
+    {name: "2200K Super Warm", rgb: SUPER_WARM_RGB},
+    {name: "2700K Warm White", rgb: WARM_WHITE_RGB},
+    {name: "4300K Daylight White", rgb: DAYLIGHT_WHITE_RGB},
+    {name: "5300K White", rgb: WHITE_RGB},
+    {name: "7000K Frosty White", rgb: FROSTY_WHITE_RGB},
+    {name: "Cold White", rgb: COLD_WHITE_RGB},
+    {name: "Black Light Fluorescent", rgb: BLACK_LIGHT_FLUORESCENT_RGB},
+    {name: "Clear Blue Sky", rgb: CLEAR_BLUE_SKY_RGB},
+    {name: "Direct Sunlight", rgb: DIRECT_SUNLIGHT_RGB},
+];
 
 export type DeviceDetailViewProps = {
     device: WLEDDevice | undefined;
     deviceDetail: WLEDDeviceDetail | null;
+    deviceDetailInitializing: boolean;
+    deviceDetailReloading: boolean;
     busy: boolean;
     editingDeviceName: boolean;
     setEditingDeviceName: Dispatch<SetStateAction<boolean>>;
@@ -48,6 +76,8 @@ export type DeviceDetailViewProps = {
 export function DeviceDetailView({
                                      device: d,
                                      deviceDetail: detail,
+                                     deviceDetailInitializing,
+                                     deviceDetailReloading,
                                      busy,
                                      editingDeviceName,
                                      setEditingDeviceName,
@@ -79,13 +109,17 @@ export function DeviceDetailView({
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
+    const huePendingRef = useRef<number | null>(null);
+    const hueRafRef = useRef<number | null>(null);
+    const colorPresetDropdownRef = useRef<HTMLDetailsElement>(null);
 
     if (!d) {
         return <p className="opacity-70">Device not found.</p>;
     }
 
     const liveOnline = detail?.online ?? d.online;
-    const stateObj = detail?.state as JSONMap | undefined;
+    const cachedStateObj = d.lastState as JSONMap | undefined;
+    const stateObj = (detail?.state as JSONMap | undefined) ?? cachedStateObj;
     const segList = stateObj && Array.isArray(stateObj.seg) ? (stateObj.seg as unknown[]) : [];
     const segCount = segList.length;
     const last = d.lastState as JSONMap | undefined;
@@ -96,7 +130,35 @@ export function DeviceDetailView({
                 ? last.on
                 : undefined;
 
-    const lightControlsLocked = busy || !liveOnline || powerOn === false;
+    const lightControlsLocked = !liveOnline || powerOn === false;
+    const powerDisabled = !liveOnline || powerOn === undefined;
+    const powerButtonVariant =
+        powerOn === true
+            ? "btn-success"
+            : powerOn === false
+                ? "btn-error"
+                : "btn-ghost";
+    const hueValue = rgbToHue(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2]);
+    const applySegmentColorPreset = (rgb: [number, number, number]) => {
+        setDeviceFormRgb(rgb);
+        onSetDeviceState(d.id, {
+            seg: [
+                {
+                    id: selectedSegIdx,
+                    col: [rgb],
+                },
+            ],
+        });
+    };
+
+    useEffect(() => {
+        return () => {
+            if (hueRafRef.current !== null) {
+                window.cancelAnimationFrame(hueRafRef.current);
+                hueRafRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div className="space-y-6 w-full max-w-none pb-8">
@@ -170,18 +232,13 @@ export function DeviceDetailView({
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-
                     <button
                         type="button"
                         className={`btn btn-sm whitespace-nowrap inline-flex items-center justify-center gap-2 shrink-0 ${
-                            powerOn === true
-                                ? "btn-success"
-                                : powerOn === false
-                                    ? "btn-error"
-                                    : "btn-ghost"
+                            powerButtonVariant
                         }`}
                         onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
-                        disabled={busy || !liveOnline || powerOn === undefined}
+                        disabled={powerDisabled}
                     >
                         <PiPower className="text-lg shrink-0" aria-hidden/>
                     </button>
@@ -190,12 +247,6 @@ export function DeviceDetailView({
                         <button className="btn btn-sm" onClick={() => onRefreshDevice(d.id)}
                                 disabled={busy}>
                             <PiArrowClockwise/>
-                        </button>
-                    </div>
-                    <div className="tooltip tooltip-bottom" data-tip="send defaults">
-                        <button className="btn btn-sm"
-                                onClick={() => onProvisionDevice(d.id)} disabled={busy}>
-                            <PiPaperPlaneTilt/>
                         </button>
                     </div>
                     <div className="tooltip tooltip-bottom" data-tip="ignore">
@@ -264,8 +315,17 @@ export function DeviceDetailView({
                 </div>
             )}
 
-            {!detail?.state && liveOnline &&
-                <p className="text-sm opacity-70">Loading device state…</p>}
+            {(deviceDetailInitializing || deviceDetailReloading || (!detail?.state && liveOnline)) && (
+                <div className="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="device-state-loading-title">
+                    <div className="modal-box flex items-center gap-3">
+                        <span className="loading loading-spinner loading-md text-primary" aria-hidden />
+                        <p id="device-state-loading-title" className="font-medium">
+                            Refreshing device state ...
+                        </p>
+                    </div>
+                    <div className="modal-backdrop" />
+                </div>
+            )}
 
             {segCount > 1 && (
                 <div className="card bg-base-200 shadow-sm">
@@ -317,6 +377,8 @@ export function DeviceDetailView({
                 </div>
             </div>*/}
 
+
+
             <div className="card bg-base-100 card-bordered border-gray-500">
                 <div className="card-body gap-4">
                     <h3 className="font-medium">Color & brightness</h3>
@@ -325,18 +387,39 @@ export function DeviceDetailView({
                         primary color for segment {selectedSegIdx}, global brightness and
                         transition.
                     </p>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <label className="flex flex-col gap-1">
-                            <span className="text-xs opacity-70">Color wheel</span>
-                            <input
-                                type="color"
-                                className="h-12 w-24 cursor-pointer rounded border border-base-300 bg-base-100"
-                                value={rgbToHex(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2])}
-                                onChange={(e) => setDeviceFormRgb(hexToRgb(e.target.value))}
-                                disabled={lightControlsLocked}
-                            />
-                        </label>
-                        <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex flex-wrap items-start gap-4">
+                        <div className="flex flex-col gap-3">
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs opacity-70">Hue</span>
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={360}
+                                    step={1}
+                                    className="hue-slider w-56"
+                                    style={{background: "linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)"}}
+                                    value={hueValue}
+                                    onChange={(e) => {
+                                        const nextHue = readNumber(e.target.value, 0);
+                                        huePendingRef.current = nextHue;
+                                        if (hueRafRef.current !== null) {
+                                            return;
+                                        }
+                                        hueRafRef.current = window.requestAnimationFrame(() => {
+                                            hueRafRef.current = null;
+                                            const pendingHue = huePendingRef.current;
+                                            if (pendingHue === null) {
+                                                return;
+                                            }
+                                            huePendingRef.current = null;
+                                            const nextRgb = hueToRgb(pendingHue);
+                                            setDeviceFormRgb(nextRgb);
+                                        });
+                                    }}
+                                    disabled={lightControlsLocked}
+                                />
+                            </label>
+                            <div className="flex flex-wrap items-end gap-2">
                             <label className="form-control">
                                 <span className="label-text text-xs">R</span>
                                 <input
@@ -373,6 +456,7 @@ export function DeviceDetailView({
                                     disabled={lightControlsLocked}
                                 />
                             </label>
+                            </div>
                         </div>
                         <label className="form-control flex-1 min-w-[200px]">
                             <span className="label-text text-xs">Brightness (bri)</span>
@@ -387,6 +471,58 @@ export function DeviceDetailView({
                             />
                         </label>
                         <span className="badge badge-neutral shrink-0">{deviceFormBri}</span>
+                        <div className="w-full grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-active w-full min-w-0 gap-1"
+                                onClick={() => applySegmentColorPreset(WARM_WHITE_RGB)}
+                                disabled={lightControlsLocked}
+                            >
+                                <PiFire/>
+                                Warm white
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-active w-full min-w-0 gap-1"
+                                onClick={() => applySegmentColorPreset(COLD_WHITE_RGB)}
+                                disabled={lightControlsLocked}
+                            >
+                                <PiIceCream/>
+                                Cold white
+                            </button>
+                            <details
+                                ref={colorPresetDropdownRef}
+                                className={`dropdown dropdown-end min-w-0 w-full ${lightControlsLocked ? "pointer-events-none opacity-50" : ""}`}
+                            >
+                                <summary className="btn btn-sm btn-active m-0 w-full min-w-0 list-none gap-1 [&::-webkit-details-marker]:hidden">
+                                    <PiPalette/>
+                                    Color
+                                </summary>
+                                <ul className="menu dropdown-content rounded-box z-50 w-max bg-base-100 p-2 shadow-sm">
+                                    {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
+                                        <li key={name}>
+                                            <button
+                                                type="button"
+                                                className="flex w-full items-center gap-2 whitespace-nowrap text-left active:bg-base-200"
+                                                disabled={lightControlsLocked}
+                                                onClick={() => {
+                                                    applySegmentColorPreset(rgb);
+                                                    const root = colorPresetDropdownRef.current;
+                                                    if (root) root.open = false;
+                                                }}
+                                            >
+                                                <span
+                                                    className="h-4 w-4 shrink-0 rounded-sm border border-base-300"
+                                                    style={{backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`}}
+                                                    aria-hidden
+                                                />
+                                                <span>{name}</span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </details>
+                        </div>
                         <label className="form-control min-w-[140px]">
                             <span className="label-text text-xs">Transition (×100 ms)</span>
                             <input
@@ -570,4 +706,51 @@ export function DeviceDetailView({
             </div>
         </div>
     );
+}
+
+function hueToRgb(hue: number): [number, number, number] {
+    const h = ((hue % 360) + 360) % 360;
+    const c = 1;
+    const x = 1 - Math.abs(((h / 60) % 2) - 1);
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (h < 60) {
+        r = c; g = x; b = 0;
+    } else if (h < 120) {
+        r = x; g = c; b = 0;
+    } else if (h < 180) {
+        r = 0; g = c; b = x;
+    } else if (h < 240) {
+        r = 0; g = x; b = c;
+    } else if (h < 300) {
+        r = x; g = 0; b = c;
+    } else {
+        r = c; g = 0; b = x;
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function rgbToHue(r: number, g: number, b: number): number {
+    const rn = r / 255;
+    const gn = g / 255;
+    const bn = b / 255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+    if (delta === 0) {
+        return 0;
+    }
+    let hue = 0;
+    if (max === rn) {
+        hue = 60 * (((gn - bn) / delta) % 6);
+    } else if (max === gn) {
+        hue = 60 * (((bn - rn) / delta) + 2);
+    } else {
+        hue = 60 * (((rn - gn) / delta) + 4);
+    }
+    if (hue < 0) {
+        hue += 360;
+    }
+    return Math.round(hue);
 }
