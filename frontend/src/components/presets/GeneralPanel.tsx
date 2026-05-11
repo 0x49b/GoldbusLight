@@ -132,7 +132,7 @@ export function GeneralPanel({
     return (
         <div className="space-y-6 w-full max-w-none">
             <div>
-                <h2 className="text-xl font-semibold">General</h2>
+                <h2 className="text-lg font-semibold">General</h2>
             </div>
             <Card>
                 <CardContent className="gap-4 pt-6">
@@ -212,7 +212,7 @@ export function GeneralPanel({
                         </DropdownMenu>
                     </div>
 
-                    <h3 className="font-medium">Color (all devices)</h3>
+                    <h3 className="text-sm font-semibold">Color (all devices)</h3>
                     <div className="flex flex-wrap items-center gap-4">
                         <label className="flex flex-col gap-1">
                             <span className="text-xs opacity-70">Color wheel</span>
@@ -240,7 +240,7 @@ export function GeneralPanel({
             </Card>
             <Card>
                 <CardContent className="gap-4 pt-6">
-                    <h3 className="font-medium">Effect & palette (all devices)</h3>
+                    <h3 className="text-sm font-semibold">Effect & palette (all devices)</h3>
                     <p className="text-xs opacity-60">
                         Apply the same effect and palette to all connected devices.
                     </p>

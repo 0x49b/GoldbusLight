@@ -42,7 +42,7 @@ export function HueSlider({ value, disabled, onChange }: HueSliderProps) {
         }}
         disabled={disabled}
       />
-      <style>{`.hue-slider [data-slot="slider-track"]{background:linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)}`}</style>
+      <style>{`.hue-slider [data-slot="slider-track"]{background:linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)} .hue-slider [data-slot="slider-range"]{background: transparent}`}</style>
     </div>
   );
 }

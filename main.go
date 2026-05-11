@@ -75,11 +75,11 @@ func main() {
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:      "GoldbusLightControllerMainWindow",
 		StartState: startState,
-		Mac: application.MacWindow{
+		/*Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+		},*/
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})

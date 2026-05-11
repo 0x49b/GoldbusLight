@@ -1,7 +1,6 @@
 import {useEffect, useState} from "react";
 import {readNumber} from "../../lib/json";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,31 +35,43 @@ export function EffectPickerModal({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle>Effect</DialogTitle>
+                    <DialogTitle className="text-sm">Effect</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
-                    <ScrollArea className="max-h-[60vh] rounded-lg border p-2">
-                        <div className="space-y-1">
+                    <div className="max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                        <div
+                            role="listbox"
+                            aria-label="Effects"
+                            className="inline-block max-h-[min(70dvh,calc(100dvh-14rem))] columns-[10rem] [column-fill:auto] [column-gap:0.625rem] align-top"
+                        >
                             {effectNames!.map((name, idx) => (
                                 <Button
                                     type="button"
                                     key={idx}
+                                    size="xs"
                                     variant={idx === selectedIndex ? "secondary" : "ghost"}
-                                    className={cn("w-full justify-start gap-2", idx === selectedIndex && "font-medium")}
+                                    className={cn(
+                                        "mb-1 block h-auto w-full flex-col gap-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
+                                        idx === selectedIndex && "font-medium"
+                                    )}
                                     disabled={disabled}
                                     onClick={() => {
                                         onPick(idx);
                                         onClose();
                                     }}
                                 >
-                                    <span className="shrink-0 font-mono text-xs opacity-60">{idx}</span>
-                                    <span className="truncate">{name}</span>
+                                    <span className="font-mono text-[10px] leading-none opacity-60">
+                                        {idx}
+                                    </span>
+                                    <span className="break-words text-[11px] leading-snug" title={name}>
+                                        {name}
+                                    </span>
                                 </Button>
                             ))}
                         </div>
-                    </ScrollArea>
+                    </div>
                 ) : (
                     <div className="flex flex-wrap items-end gap-2">
                         <div className="grid gap-1">

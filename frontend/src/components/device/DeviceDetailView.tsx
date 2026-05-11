@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import {type Dispatch, type SetStateAction, useState} from "react";
 import {
     PiArrowClockwise,
     PiFire,
@@ -9,7 +9,7 @@ import {
     PiTrash,
     PiX
 } from "react-icons/pi";
-import { prettyJSON, readNumber } from "../../lib/json";
+import {prettyJSON, readNumber} from "../../lib/json";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
     CANDLE_LIGHT_RGB,
@@ -22,22 +22,40 @@ import {
     WARM_WHITE_RGB,
     WHITE_RGB
 } from "../../lib/wled";
-import type { JSONMap, WLEDDevice, WLEDDeviceDetail } from "../../types/controller";
-import { EffectPickerModal } from "./EffectPickerModal";
-import { PalettePickerModal } from "./PalettePickerModal";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Spinner } from "@/components/ui/spinner";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { HueSlider } from "@/components/ui/hue-slider";
+import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
+import {EffectPickerModal} from "./EffectPickerModal";
+import {PalettePickerModal} from "./PalettePickerModal";
+import {Button} from "@/components/ui/button";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {Badge} from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
+import {Spinner} from "@/components/ui/spinner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import {Slider} from "@/components/ui/slider";
+import {HueSlider} from "@/components/ui/hue-slider";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
@@ -57,6 +75,8 @@ export type DeviceDetailViewProps = {
     deviceDetail: WLEDDeviceDetail | null;
     deviceDetailInitializing: boolean;
     deviceDetailReloading: boolean;
+    deviceDetailFetchAttempt: number;
+    deviceDetailFetchMax: number;
     busy: boolean;
     editingDeviceName: boolean;
     setEditingDeviceName: Dispatch<SetStateAction<boolean>>;
@@ -91,6 +111,8 @@ export function DeviceDetailView({
                                      deviceDetail: detail,
                                      deviceDetailInitializing,
                                      deviceDetailReloading,
+                                     deviceDetailFetchAttempt,
+                                     deviceDetailFetchMax,
                                      busy,
                                      editingDeviceName,
                                      setEditingDeviceName,
@@ -208,7 +230,7 @@ export function DeviceDetailView({
                         </div>
                     ) : (
                         <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-xl font-semibold truncate min-w-0">{d.name}</h2>
+                            <h2 className="text-lg font-semibold truncate min-w-0">{d.name}</h2>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -228,9 +250,9 @@ export function DeviceDetailView({
                         {d.address}:{d.port} • {d.id}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 items-center">
-            <Badge variant={liveOnline ? "default" : "secondary"}>
-              {liveOnline ? "Connected" : "Unreachable"}
-            </Badge>
+                        <Badge variant={liveOnline ? "default" : "secondary"}>
+                            {liveOnline ? "Connected" : "Unreachable"}
+                        </Badge>
                         {detail?.error && liveOnline === false && (
                             <span className="text-xs opacity-70 max-w-xl">{detail.error}</span>
                         )}
@@ -245,12 +267,19 @@ export function DeviceDetailView({
                         onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
                         disabled={powerDisabled}
                     >
-                        <PiPower className="text-lg shrink-0" aria-hidden/>
+                        <PiPower className="text-lg shrink-0"
+                                 aria-hidden/> Power {powerOn === true ? "on" : powerOn === false ? "off" : "unknown"}
                     </Button>
                     <TooltipProvider>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="outline" onClick={() => onRefreshDevice(d.id)} disabled={busy}><PiArrowClockwise/></Button></TooltipTrigger><TooltipContent>reload</TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive" onClick={() => setConfirmAction("ignore")} disabled={busy}><PiX/></Button></TooltipTrigger><TooltipContent>ignore</TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive" onClick={() => setConfirmAction("remove")} disabled={busy}><PiTrash/></Button></TooltipTrigger><TooltipContent>forget</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="outline"
+                                                                 onClick={() => onRefreshDevice(d.id)}
+                                                                 disabled={busy}><PiArrowClockwise/> Reload</Button></TooltipTrigger><TooltipContent>reload</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
+                                                                 onClick={() => setConfirmAction("ignore")}
+                                                                 disabled={busy}><PiX/> Ignore</Button></TooltipTrigger><TooltipContent>ignore</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
+                                                                 onClick={() => setConfirmAction("remove")}
+                                                                 disabled={busy}><PiTrash/> Delete</Button></TooltipTrigger><TooltipContent>forget</TooltipContent></Tooltip>
                     </TooltipProvider>
                 </div>
             </div>
@@ -259,12 +288,12 @@ export function DeviceDetailView({
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>
-                            {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
+                                {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
                             </DialogTitle>
                             <DialogDescription>
-                            {confirmAction === "ignore"
-                                ? `Are you sure you want to ignore "${d.name}"?`
-                                : `Are you sure you want to forget "${d.name}"?`}
+                                {confirmAction === "ignore"
+                                    ? `Are you sure you want to ignore "${d.name}"?`
+                                    : `Are you sure you want to forget "${d.name}"?`}
                             </DialogDescription>
                         </DialogHeader>
                         <p className="text-xs opacity-70">
@@ -306,10 +335,20 @@ export function DeviceDetailView({
             {(deviceDetailInitializing || deviceDetailReloading || (!detail?.state && liveOnline)) && (
                 <Dialog open>
                     <DialogContent showCloseButton={false} className="max-w-sm">
-                        <p id="device-state-loading-title" className="font-medium flex items-center gap-3">
-                            <Spinner className="text-primary" aria-hidden />
-                            Refreshing device state ...
+                        <p id="device-state-loading-title"
+                           className="font-medium flex items-center gap-3">
+                            <Spinner className="text-primary" aria-hidden/>
+                            {deviceDetailReloading
+                                ? "Refreshing device …"
+                                : deviceDetailInitializing
+                                    ? "Loading device state …"
+                                    : "Refreshing device state …"}
                         </p>
+                        {deviceDetailFetchAttempt > 0 && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                                Attempt {deviceDetailFetchAttempt} of {deviceDetailFetchMax}
+                            </p>
+                        )}
                     </DialogContent>
                 </Dialog>
             )}
@@ -319,19 +358,21 @@ export function DeviceDetailView({
                     <CardContent className="gap-2 py-4">
                         <div className="w-full max-w-md space-y-2">
                             <Label className="text-xs">Segment</Label>
-                            <Select value={String(selectedSegIdx)} onValueChange={(value) => setSelectedSegIdx(readNumber(value, 0))} disabled={!liveOnline}>
-                                <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                            <Select value={String(selectedSegIdx)}
+                                    onValueChange={(value) => setSelectedSegIdx(readNumber(value, 0))}
+                                    disabled={!liveOnline}>
+                                <SelectTrigger className="h-8 w-full"><SelectValue/></SelectTrigger>
                                 <SelectContent>
-                                {segList.map((raw, i) => {
-                                    const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
-                                    const sid = readNumber(s.id, i);
-                                    const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
-                                    return (
-                                        <SelectItem key={i} value={String(i)}>
-                                            {nm} (id {sid})
-                                        </SelectItem>
-                                    );
-                                })}
+                                    {segList.map((raw, i) => {
+                                        const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
+                                        const sid = readNumber(s.id, i);
+                                        const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
+                                        return (
+                                            <SelectItem key={i} value={String(i)}>
+                                                {nm} (id {sid})
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -340,33 +381,41 @@ export function DeviceDetailView({
             )}
 
             <Card>
-                <CardContent className="gap-4 pt-6">
-                    <h3 className="font-medium">Color & brightness</h3>
+
+                <CardHeader>
+                    <CardTitle>Color & Brightness</CardTitle>
+                </CardHeader>
+                <CardContent>
                     <div className="flex flex-wrap items-start gap-4">
+
                         <div className="flex w-full items-start gap-4">
                             <label className="flex w-1/2 flex-col gap-1">
                                 <span className="text-xs opacity-70">Color</span>
-                                <HueSlider value={hueValue} disabled={lightControlsLocked} onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))} />
+                                <HueSlider value={hueValue} disabled={lightControlsLocked}
+                                           onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))}/>
                             </label>
 
-                        <div className="w-1/2 space-y-2">
-                            <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
-                            <Slider
-                                min={0}
-                                max={100}
-                                step={5}
-                                value={[brightnessPercent]}
-                                onValueChange={(value) => {
-                                    const percentValue = readNumber(value[0], 100);
-                                    const briValue = Math.round((percentValue / 100) * 255);
-                                    setDeviceFormBri(Math.max(1, briValue));
-                                }}
-                                disabled={lightControlsLocked}
-                            />
-                        </div>
+                            <div className="w-1/2 space-y-2">
+                                <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
+                                <Slider
+                                    min={0}
+                                    max={100}
+                                    step={5}
+                                    value={[brightnessPercent]}
+                                    onValueChange={(value) => {
+                                        const percentValue = readNumber(value[0], 100);
+                                        const briValue = Math.round((percentValue / 100) * 255);
+                                        setDeviceFormBri(Math.max(1, briValue));
+                                    }}
+                                    disabled={lightControlsLocked}
+                                />
+                            </div>
                         </div>
 
+
                         <div className="w-full grid grid-cols-3 gap-2">
+
+
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -391,28 +440,30 @@ export function DeviceDetailView({
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="secondary" size="sm" className="w-full min-w-0 gap-1" disabled={lightControlsLocked}>
+                                    <Button variant="secondary" size="sm"
+                                            className="w-full min-w-0 gap-1"
+                                            disabled={lightControlsLocked}>
                                         <PiPalette/>
                                         Color
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-max">
                                     {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
-                                            <DropdownMenuItem
-                                                key={name}
-                                                className="flex w-full items-center gap-2 whitespace-nowrap text-left"
-                                                disabled={lightControlsLocked}
-                                                onClick={() => {
-                                                    applySegmentColorPreset(rgb);
-                                                }}
-                                            >
+                                        <DropdownMenuItem
+                                            key={name}
+                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left"
+                                            disabled={lightControlsLocked}
+                                            onClick={() => {
+                                                applySegmentColorPreset(rgb);
+                                            }}
+                                        >
                                                 <span
                                                     className="h-4 w-4 shrink-0 rounded-sm border"
                                                     style={{backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`}}
                                                     aria-hidden
                                                 />
-                                                <span>{name}</span>
-                                            </DropdownMenuItem>
+                                            <span>{name}</span>
+                                        </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -431,14 +482,21 @@ export function DeviceDetailView({
                         </div>
                     </div>
                 </CardContent>
+
+
             </Card>
 
             <Card>
-                <CardContent className="gap-4 pt-6">
-                    <h3 className="font-medium">Effect & palette</h3>
-                    <p className="text-xs opacity-60">
+                <CardHeader>
+                    <CardTitle>
+                        Effect & palette
+                    </CardTitle>
+                    <CardDescription>
                         Tap to choose from the list; speed and intensity apply automatically.
-                    </p>
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="gap-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label className="text-xs">Effect</Label>
@@ -547,14 +605,15 @@ export function DeviceDetailView({
             </Card>
 
             <Collapsible className="rounded-lg border">
-                <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State & Config</CollapsibleTrigger>
+                <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State &
+                    Config</CollapsibleTrigger>
                 <CollapsibleContent className="px-4 pb-4 text-sm grid gap-5">
 
 
                     <div className="grid gap-4 lg:grid-cols-2">
                         <Card className="bg-muted/50">
                             <CardContent className="pt-4">
-                                <h3 className="font-medium text-sm mb-2">Device info (GET
+                                <h3 className="text-sm font-semibold mb-2">Device info (GET
                                     /json)</h3>
                                 <pre
                                     className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
@@ -564,7 +623,8 @@ export function DeviceDetailView({
                         </Card>
                         <Card className="bg-muted/50">
                             <CardContent className="pt-4">
-                                <h3 className="font-medium text-sm mb-2">Config (GET /json/cfg)</h3>
+                                <h3 className="text-sm font-semibold mb-2">Config (GET
+                                    /json/cfg)</h3>
                                 <pre
                                     className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.config ? prettyJSON(detail.config) : "—"}
@@ -575,7 +635,7 @@ export function DeviceDetailView({
 
                     <Card className="bg-muted/50">
                         <CardContent className="pt-4">
-                            <h3 className="font-medium text-sm mb-2">Current state (GET /json →
+                            <h3 className="text-sm font-semibold mb-2">Current state (GET /json →
                                 state)</h3>
                             <pre
                                 className="text-xs overflow-auto max-h-72 rounded bg-card p-2 border whitespace-pre-wrap">
@@ -608,17 +668,29 @@ function hueToRgb(hue: number): [number, number, number] {
     let g = 0;
     let b = 0;
     if (h < 60) {
-        r = c; g = x; b = 0;
+        r = c;
+        g = x;
+        b = 0;
     } else if (h < 120) {
-        r = x; g = c; b = 0;
+        r = x;
+        g = c;
+        b = 0;
     } else if (h < 180) {
-        r = 0; g = c; b = x;
+        r = 0;
+        g = c;
+        b = x;
     } else if (h < 240) {
-        r = 0; g = x; b = c;
+        r = 0;
+        g = x;
+        b = c;
     } else if (h < 300) {
-        r = x; g = 0; b = c;
+        r = x;
+        g = 0;
+        b = c;
     } else {
-        r = c; g = 0; b = x;
+        r = c;
+        g = 0;
+        b = x;
     }
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
