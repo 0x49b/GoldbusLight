@@ -1,112 +1,174 @@
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { PiArrowsClockwise, PiBinoculars } from "react-icons/pi";
-import type { DetailRoute, WLEDDevice } from "../../types/controller";
+import type {Dispatch, ReactNode, SetStateAction} from "react";
+import {
+    PiArrowsClockwise,
+    PiBinoculars,
+    PiGearSix,
+    PiLightbulb,
+    PiSquaresFour,
+} from "react-icons/pi";
+import type {DetailRoute, WLEDDevice} from "../../types/controller";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarInset,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarProvider,
+} from "@/components/ui/sidebar";
+import {Button} from "@/components/ui/button";
+import {cn} from "@/lib/utils";
 
 export type AppShellProps = {
-  status: string;
-  busy: boolean;
-  onDiscoverNow: () => void;
-  onRefreshSnapshot: () => void;
-  route: DetailRoute;
-  setRoute: Dispatch<SetStateAction<DetailRoute>>;
-  devices: WLEDDevice[];
-  error: string;
-  onDismissError: () => void;
-  children: ReactNode;
+    status: string;
+    busy: boolean;
+    onDiscoverNow: () => void;
+    onRefreshSnapshot: () => void;
+    route: DetailRoute;
+    setRoute: Dispatch<SetStateAction<DetailRoute>>;
+    devices: WLEDDevice[];
+    error: string;
+    onDismissError: () => void;
+    children: ReactNode;
 };
 
+
 export function AppShell({
-  status,
-  busy,
-  onDiscoverNow,
-  onRefreshSnapshot,
-  route,
-  setRoute,
-  devices,
-  error,
-  onDismissError,
-  children,
-}: AppShellProps) {
-  return (
-    <div className="min-h-screen w-full min-w-0 bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
-      <header
-        className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0"
-        style={{ paddingLeft: "100px" }}
-      >
-        <div className="min-w-0">
-          <h1 className="text-lg font-bold leading-tight">Goldbus Licht Controller</h1>
-          <p className="text-xs opacity-70 mt-0.5 truncate" title={status}>
-            {status}
-          </p>
-        </div>
+                             status,
+                             busy,
+                             onDiscoverNow,
+                             onRefreshSnapshot,
+                             route,
+                             setRoute,
+                             devices,
+                             error,
+                             onDismissError,
+                             children,
+                         }: AppShellProps) {
+    return (
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="btn btn-sm inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={onDiscoverNow} disabled={busy}>
-          <PiBinoculars />
-          Discover
-          </button>
-          <button className="btn btn-sm inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={() => void onRefreshSnapshot()} disabled={busy}>
-          <PiArrowsClockwise />
-          Refresh
-          </button>
-        </div>
+        <SidebarProvider>
+            <Sidebar collapsible="offcanvas">
+                <SidebarHeader>
+                    Goldbus Licht Controller
+                    <p className="text-xs opacity-70 truncate" title={status}>
+                        {status}
+                    </p>
+                </SidebarHeader>
+                <SidebarContent>
+                    <SidebarGroup>
+                        <SidebarGroupLabel>WLED Devices</SidebarGroupLabel>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    type="button"
+                                    isActive={route.kind === "presets"}
+                                    onClick={() => setRoute({kind: "presets"})}
+                                >
+                                    <PiSquaresFour className="size-4 shrink-0" aria-hidden/>
+                                    <span className="min-w-0 flex-1 truncate">General</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            {devices.map((dev) => (
+                                <SidebarMenuItem key={dev.id}>
+                                    <SidebarMenuButton
+                                        type="button"
+                                        isActive={route.kind === "device" && route.id === dev.id}
 
-      </header>
+                                        aria-label={`${dev.name} (${dev.online ? "Online" : "Offline"})`}
+                                        onClick={() => setRoute({kind: "device", id: dev.id})}
+                                    >
+                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                        <span className="min-w-0 flex-1 truncate">{dev.name}</span>
+                                        <span
+                                            className={cn(
+                                                "status status-sm shrink-0",
+                                                dev.online ? "status-success" : "status-neutral"
+                                            )}
+                                            aria-hidden
+                                        />
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroup>
+                </SidebarContent>
 
-      <div className="flex flex-1 min-h-0">
-        <aside className="w-64 shrink-0 border-r border-base-300 flex flex-col bg-base-200/50">
-          <div className="p-3 text-xs font-semibold uppercase tracking-wide opacity-50">Devices</div>
-          <nav className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            <button
-              type="button"
-              className={`btn btn-sm w-full justify-start font-normal ${route.kind === "presets" ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setRoute({ kind: "presets" })}
-            >
-              General
-            </button>
-            {devices.map((dev) => (
-              <button
-                key={dev.id}
-                type="button"
-                className={`btn btn-sm w-full justify-start font-normal min-h-10 py-2 ${
-                  route.kind === "device" && route.id === dev.id ? "btn-primary" : "btn-ghost"
-                }`}
-                aria-label={`${dev.name} (${dev.online ? "Online" : "Offline"})`}
-                onClick={() => setRoute({ kind: "device", id: dev.id })}
-              >
-                <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <span
-                    className={`status status-sm ${dev.online ? "status-success" : "status-neutral"}`}
-                    aria-hidden
-                  />
-                  <span className="truncate">{dev.name}</span>
-                </span>
-              </button>
-            ))}
-          </nav>
-          <div className="p-2 border-t border-base-300 shrink-0">
-            <button
-              type="button"
-              className={`btn btn-sm w-full ${route.kind === "settings" ? "btn-primary" : "btn-outline"}`}
-              onClick={() => setRoute({ kind: "settings" })}
-            >
-              Settings
-            </button>
-          </div>
-        </aside>
+                <SidebarFooter>
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                type="button"
+                                isActive={route.kind === "settings"}
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          {error && (
-            <div className="alert alert-error text-sm py-2 mb-4 flex items-center justify-between gap-3" role="alert">
-              <span className="min-w-0 break-words">{error}</span>
-              <button type="button" className="btn btn-xs btn-outline shrink-0" onClick={onDismissError}>
-                Dismiss
-              </button>
-            </div>
-          )}
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+                                onClick={() => setRoute({kind: "settings"})}
+                            >
+                                <PiGearSix className="size-4 shrink-0" aria-hidden/>
+                                <span className="min-w-0 flex-1 truncate">Settings</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarFooter>
+            </Sidebar>
+
+            <SidebarInset className="min-h-screen min-w-0">
+                <header
+                    className="shrink-0 border-b px-4 py-3 flex flex-wrap items-center justify-between gap-2 min-w-0">
+
+                    <div className="flex flex-row gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={onDiscoverNow}
+                            disabled={busy}
+                            className="basis-24"
+                        >
+                            <PiBinoculars/>
+                            Discover
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="basis-24"
+                            onClick={() => void onRefreshSnapshot()}
+                            disabled={busy}
+                        >
+                            <PiArrowsClockwise/>
+                            Refresh
+                        </Button>
+                    </div>
+                </header>
+
+                <main className="flex-1 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
+                    {error && (
+                        <Alert
+                            variant="destructive"
+                            className="mb-4 flex items-center justify-between gap-3 py-2 text-sm"
+                            role="alert"
+                        >
+                            <AlertDescription className="min-w-0 break-words">
+                                {error}
+                            </AlertDescription>
+                            <Button
+                                type="button"
+                                size="xs"
+                                variant="outline"
+                                className="shrink-0"
+                                onClick={onDismissError}
+                            >
+                                Dismiss
+                            </Button>
+                        </Alert>
+                    )}
+                    {children}
+                </main>
+            </SidebarInset>
+        </SidebarProvider>
+
+    );
 }

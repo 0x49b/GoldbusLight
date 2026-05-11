@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import {type Dispatch, type SetStateAction, useState} from "react";
 import {
     PiArrowClockwise,
     PiFire,
@@ -9,7 +9,7 @@ import {
     PiTrash,
     PiX
 } from "react-icons/pi";
-import { prettyJSON, readNumber } from "../../lib/json";
+import {prettyJSON, readNumber} from "../../lib/json";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
     CANDLE_LIGHT_RGB,
@@ -22,9 +22,40 @@ import {
     WARM_WHITE_RGB,
     WHITE_RGB
 } from "../../lib/wled";
-import type { JSONMap, WLEDDevice, WLEDDeviceDetail } from "../../types/controller";
-import { EffectPickerModal } from "./EffectPickerModal";
-import { PalettePickerModal } from "./PalettePickerModal";
+import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
+import {EffectPickerModal} from "./EffectPickerModal";
+import {PalettePickerModal} from "./PalettePickerModal";
+import {Button} from "@/components/ui/button";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {Badge} from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
+import {Spinner} from "@/components/ui/spinner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import {Slider} from "@/components/ui/slider";
+import {HueSlider} from "@/components/ui/hue-slider";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
@@ -44,6 +75,8 @@ export type DeviceDetailViewProps = {
     deviceDetail: WLEDDeviceDetail | null;
     deviceDetailInitializing: boolean;
     deviceDetailReloading: boolean;
+    deviceDetailFetchAttempt: number;
+    deviceDetailFetchMax: number;
     busy: boolean;
     editingDeviceName: boolean;
     setEditingDeviceName: Dispatch<SetStateAction<boolean>>;
@@ -78,6 +111,8 @@ export function DeviceDetailView({
                                      deviceDetail: detail,
                                      deviceDetailInitializing,
                                      deviceDetailReloading,
+                                     deviceDetailFetchAttempt,
+                                     deviceDetailFetchMax,
                                      busy,
                                      editingDeviceName,
                                      setEditingDeviceName,
@@ -109,9 +144,6 @@ export function DeviceDetailView({
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
-    const huePendingRef = useRef<number | null>(null);
-    const hueRafRef = useRef<number | null>(null);
-    const colorPresetDropdownRef = useRef<HTMLDetailsElement>(null);
 
     if (!d) {
         return <p className="opacity-70">Device not found.</p>;
@@ -132,12 +164,7 @@ export function DeviceDetailView({
 
     const lightControlsLocked = !liveOnline || powerOn === false;
     const powerDisabled = !liveOnline || powerOn === undefined;
-    const powerButtonVariant =
-        powerOn === true
-            ? "btn-success"
-            : powerOn === false
-                ? "btn-error"
-                : "btn-ghost";
+    const powerButtonVariant = powerOn === true ? "default" : powerOn === false ? "destructive" : "secondary";
     const hueValue = rgbToHue(deviceFormRgb[0], deviceFormRgb[1], deviceFormRgb[2]);
     const applySegmentColorPreset = (rgb: [number, number, number]) => {
         setDeviceFormRgb(rgb);
@@ -153,15 +180,6 @@ export function DeviceDetailView({
         });
     };
 
-    useEffect(() => {
-        return () => {
-            if (hueRafRef.current !== null) {
-                window.cancelAnimationFrame(hueRafRef.current);
-                hueRafRef.current = null;
-            }
-        };
-    }, []);
-
     const brightnessPercent = Math.round((deviceFormBri / 255) * 100) || 0;
 
     return (
@@ -170,10 +188,10 @@ export function DeviceDetailView({
                 <div className="space-y-3 min-w-0 flex-1">
                     {editingDeviceName ? (
                         <div className="flex flex-wrap items-end gap-2">
-                            <label className="form-control flex-1 min-w-[14rem] max-w-md">
+                            <label className="flex-1 min-w-[14rem] max-w-md">
 
-                                <input
-                                    className="input input-bordered input-sm w-full"
+                                <Input
+                                    className="h-8 w-full"
                                     value={deviceNameDraft}
                                     onChange={(e) => setDeviceNameDraft(e.target.value)}
                                     disabled={busy}
@@ -187,17 +205,20 @@ export function DeviceDetailView({
                                     }}
                                 />
                             </label>
-                            <button
+                            <Button
                                 type="button"
-                                className="btn btn-sm btn-primary shrink-0"
+                                size="sm"
+                                className="shrink-0"
                                 disabled={busy || !deviceNameDraft.trim() || deviceNameDraft.trim() === d.name}
                                 onClick={() => onRenameDevice(d.id, deviceNameDraft.trim())}
                             >
                                 Save
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                className="btn btn-sm btn-ghost shrink-0"
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0"
                                 disabled={busy}
                                 onClick={() => {
                                     setEditingDeviceName(false);
@@ -205,14 +226,16 @@ export function DeviceDetailView({
                                 }}
                             >
                                 Cancel
-                            </button>
+                            </Button>
                         </div>
                     ) : (
                         <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-xl font-semibold truncate min-w-0">{d.name}</h2>
-                            <button
+                            <h2 className="text-lg font-semibold truncate min-w-0">{d.name}</h2>
+                            <Button
                                 type="button"
-                                className="btn btn-xs btn-outline shrink-0"
+                                variant="outline"
+                                size="xs"
+                                className="shrink-0"
                                 disabled={busy}
                                 onClick={() => {
                                     setDeviceNameDraft(d.name);
@@ -220,81 +243,78 @@ export function DeviceDetailView({
                                 }}
                             >
                                 <PiPencil/>
-                            </button>
+                            </Button>
                         </div>
                     )}
                     <p className="text-sm opacity-70 font-mono">
                         {d.address}:{d.port} • {d.id}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 items-center">
-            <span className={`badge ${liveOnline ? "badge-success" : "badge-ghost"}`}>
-              {liveOnline ? "Connected" : "Unreachable"}
-            </span>
+                        <Badge variant={liveOnline ? "default" : "secondary"}>
+                            {liveOnline ? "Connected" : "Unreachable"}
+                        </Badge>
                         {detail?.error && liveOnline === false && (
                             <span className="text-xs opacity-70 max-w-xl">{detail.error}</span>
                         )}
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <button
+                    <Button
                         type="button"
-                        className={`btn btn-sm whitespace-nowrap inline-flex items-center justify-center gap-2 shrink-0 ${
-                            powerButtonVariant
-                        }`}
+                        variant={powerButtonVariant as "default" | "destructive" | "secondary"}
+                        size="sm"
+                        className="whitespace-nowrap inline-flex items-center justify-center gap-2 shrink-0"
                         onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
                         disabled={powerDisabled}
                     >
-                        <PiPower className="text-lg shrink-0" aria-hidden/>
-                    </button>
-
-                    <div className="tooltip tooltip-bottom" data-tip="reload">
-                        <button className="btn btn-sm" onClick={() => onRefreshDevice(d.id)}
-                                disabled={busy}>
-                            <PiArrowClockwise/>
-                        </button>
-                    </div>
-                    <div className="tooltip tooltip-bottom" data-tip="ignore">
-                        <button className="btn btn-sm btn-error btn-outline"
-                                onClick={() => setConfirmAction("ignore")} disabled={busy}>
-                            <PiX/>
-                        </button>
-                    </div>
-                    <div className="tooltip tooltip-bottom" data-tip="forget">
-                        <button className="btn btn-sm btn-error btn-outline"
-                                onClick={() => setConfirmAction("remove")} disabled={busy}>
-                            <PiTrash/>
-                        </button>
-                    </div>
+                        <PiPower className="text-lg shrink-0"
+                                 aria-hidden/> Power {powerOn === true ? "on" : powerOn === false ? "off" : "unknown"}
+                    </Button>
+                    <TooltipProvider>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="outline"
+                                                                 onClick={() => onRefreshDevice(d.id)}
+                                                                 disabled={busy}><PiArrowClockwise/> Reload</Button></TooltipTrigger><TooltipContent>reload</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
+                                                                 onClick={() => setConfirmAction("ignore")}
+                                                                 disabled={busy}><PiX/> Ignore</Button></TooltipTrigger><TooltipContent>ignore</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
+                                                                 onClick={() => setConfirmAction("remove")}
+                                                                 disabled={busy}><PiTrash/> Delete</Button></TooltipTrigger><TooltipContent>forget</TooltipContent></Tooltip>
+                    </TooltipProvider>
                 </div>
             </div>
             {confirmAction && (
-                <div className="modal modal-open">
-                    <div className="modal-box">
-                        <h3 className="font-bold text-lg">
-                            {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
-                        </h3>
-                        <p className="py-3 text-sm opacity-80">
-                            {confirmAction === "ignore"
-                                ? `Are you sure you want to ignore "${d.name}"?`
-                                : `Are you sure you want to forget "${d.name}"?`}
-                        </p>
+                <Dialog open onOpenChange={(next) => !next && setConfirmAction(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {confirmAction === "ignore"
+                                    ? `Are you sure you want to ignore "${d.name}"?`
+                                    : `Are you sure you want to forget "${d.name}"?`}
+                            </DialogDescription>
+                        </DialogHeader>
                         <p className="text-xs opacity-70">
                             {confirmAction === "ignore"
                                 ? "This device will be ignored and hidden from active management."
                                 : "This device will be removed from the controller list."}
                         </p>
-                        <div className="modal-action">
-                            <button
+                        <DialogFooter className="border-0 bg-transparent p-0 m-0 mt-4">
+                            <Button
                                 type="button"
-                                className="btn btn-ghost btn-sm"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setConfirmAction(null)}
                                 disabled={busy}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                className="btn btn-error btn-sm"
+                                variant="destructive"
+                                size="sm"
                                 onClick={() => {
                                     if (confirmAction === "ignore") {
                                         onIgnoreDevice(d.id);
@@ -306,218 +326,185 @@ export function DeviceDetailView({
                                 disabled={busy}
                             >
                                 {confirmAction === "ignore" ? "Ignore device" : "Forget device"}
-                            </button>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        className="modal-backdrop"
-                        onClick={() => setConfirmAction(null)}
-                        disabled={busy}
-                        aria-label="Close confirmation dialog"
-                    />
-                </div>
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             )}
 
             {(deviceDetailInitializing || deviceDetailReloading || (!detail?.state && liveOnline)) && (
-                <div className="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="device-state-loading-title">
-                    <div className="modal-box flex items-center gap-3">
-                        <span className="loading loading-spinner loading-md text-primary" aria-hidden />
-                        <p id="device-state-loading-title" className="font-medium">
-                            Refreshing device state ...
+                <Dialog open>
+                    <DialogContent showCloseButton={false} className="max-w-sm">
+                        <p id="device-state-loading-title"
+                           className="font-medium flex items-center gap-3">
+                            <Spinner className="text-primary" aria-hidden/>
+                            {deviceDetailReloading
+                                ? "Refreshing device …"
+                                : deviceDetailInitializing
+                                    ? "Loading device state …"
+                                    : "Refreshing device state …"}
                         </p>
-                    </div>
-                    <div className="modal-backdrop" />
-                </div>
+                        {deviceDetailFetchAttempt > 0 && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                                Attempt {deviceDetailFetchAttempt} of {deviceDetailFetchMax}
+                            </p>
+                        )}
+                    </DialogContent>
+                </Dialog>
             )}
 
             {segCount > 1 && (
-                <div className="card bg-base-200 shadow-sm">
-                    <div className="card-body gap-2 py-4">
-                        <label className="form-control w-full max-w-md">
-                            <span className="label-text text-xs">Segment</span>
-                            <select
-                                className="select select-bordered select-sm"
-                                value={selectedSegIdx}
-                                onChange={(e) => setSelectedSegIdx(readNumber(e.target.value, 0))}
-                                disabled={!liveOnline}
-                            >
-                                {segList.map((raw, i) => {
-                                    const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
-                                    const sid = readNumber(s.id, i);
-                                    const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
-                                    return (
-                                        <option key={i} value={i}>
-                                            {nm} (id {sid})
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </label>
-                    </div>
-                </div>
+                <Card className="bg-muted/50">
+                    <CardContent className="gap-2 py-4">
+                        <div className="w-full max-w-md space-y-2">
+                            <Label className="text-xs">Segment</Label>
+                            <Select value={String(selectedSegIdx)}
+                                    onValueChange={(value) => setSelectedSegIdx(readNumber(value, 0))}
+                                    disabled={!liveOnline}>
+                                <SelectTrigger className="h-8 w-full"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {segList.map((raw, i) => {
+                                        const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
+                                        const sid = readNumber(s.id, i);
+                                        const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
+                                        return (
+                                            <SelectItem key={i} value={String(i)}>
+                                                {nm} (id {sid})
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
 
-            {/*<div className="card bg-base-100 card-bordered border-gray-500">
-                <div className="card-body gap-3">
-                    <h3 className="font-medium">Power</h3>
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <button
-                            type="button"
-                            className={`btn btn-sm min-w-[11rem] whitespace-nowrap inline-flex items-center justify-center gap-2 shrink-0 ${
-                                powerOn === true
-                                    ? "btn-success"
-                                    : powerOn === false
-                                        ? "btn-error"
-                                        : "btn-ghost"
-                            }`}
-                            onClick={() => onSetDeviceState(d.id, {on: powerOn !== true})}
-                            disabled={busy || !liveOnline || powerOn === undefined}
-                        >
-                            <PiPower className="text-lg shrink-0" aria-hidden/>
-                            {powerOn === true ? "On" : powerOn === false ? "Off" : "…"}
-                        </button>
-                    </div>
-                </div>
-            </div>*/}
+            <Card>
 
-
-
-            <div className="card bg-base-100 card-bordered border-gray-500">
-                <div className="card-body gap-4">
-                    <h3 className="font-medium">Color & brightness</h3>
+                <CardHeader>
+                    <CardTitle>Color & Brightness</CardTitle>
+                </CardHeader>
+                <CardContent>
                     <div className="flex flex-wrap items-start gap-4">
+
                         <div className="flex w-full items-start gap-4">
                             <label className="flex w-1/2 flex-col gap-1">
                                 <span className="text-xs opacity-70">Color</span>
-                                <input
-                                    type="range"
+                                <HueSlider value={hueValue} disabled={lightControlsLocked}
+                                           onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))}/>
+                            </label>
+
+                            <div className="w-1/2 space-y-2">
+                                <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
+                                <Slider
                                     min={0}
-                                    max={360}
-                                    step={1}
-                                    className="hue-slider w-full"
-                                    style={{background: "linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)"}}
-                                    value={hueValue}
-                                    onChange={(e) => {
-                                        const nextHue = readNumber(e.target.value, 0);
-                                        huePendingRef.current = nextHue;
-                                        if (hueRafRef.current !== null) {
-                                            return;
-                                        }
-                                        hueRafRef.current = window.requestAnimationFrame(() => {
-                                            hueRafRef.current = null;
-                                            const pendingHue = huePendingRef.current;
-                                            if (pendingHue === null) {
-                                                return;
-                                            }
-                                            huePendingRef.current = null;
-                                            const nextRgb = hueToRgb(pendingHue);
-                                            setDeviceFormRgb(nextRgb);
-                                        });
+                                    max={100}
+                                    step={5}
+                                    value={[brightnessPercent]}
+                                    onValueChange={(value) => {
+                                        const percentValue = readNumber(value[0], 100);
+                                        const briValue = Math.round((percentValue / 100) * 255);
+                                        setDeviceFormBri(Math.max(1, briValue));
                                     }}
                                     disabled={lightControlsLocked}
                                 />
-                            </label>
-
-                        <label className="form-control w-1/2">
-                            <span className="label-text text-xs">Brightness ({brightnessPercent}%)</span>
-                            <input
-                                type="range"
-                                min={0} 
-                                max={100}
-                                step={5}
-                                className="range range-primary range-sm"
-                                value={brightnessPercent}
-                                onChange={(e) => {
-                                    const percentValue = readNumber(e.target.value, 100);
-                                    const briValue = Math.round((percentValue / 100) * 255);
-                                    setDeviceFormBri(Math.max(1, briValue)); 
-                                }}
-                                disabled={lightControlsLocked}
-                            />
-                        </label>
+                            </div>
                         </div>
 
+
                         <div className="w-full grid grid-cols-3 gap-2">
-                            <button
+
+
+                            <Button
                                 type="button"
-                                className="btn btn-sm btn-active w-full min-w-0 gap-1"
+                                variant="secondary"
+                                size="sm"
+                                className="w-full min-w-0 gap-1"
                                 onClick={() => applySegmentColorPreset(WARM_WHITE_RGB)}
                                 disabled={lightControlsLocked}
                             >
                                 <PiFire/>
                                 Warm white
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                className="btn btn-sm btn-active w-full min-w-0 gap-1"
+                                variant="secondary"
+                                size="sm"
+                                className="w-full min-w-0 gap-1"
                                 onClick={() => applySegmentColorPreset(COLD_WHITE_RGB)}
                                 disabled={lightControlsLocked}
                             >
                                 <PiIceCream/>
                                 Cold white
-                            </button>
-                            <details
-                                ref={colorPresetDropdownRef}
-                                className={`dropdown dropdown-end min-w-0 w-full ${lightControlsLocked ? "pointer-events-none opacity-50" : ""}`}
-                            >
-                                <summary className="btn btn-sm btn-active m-0 w-full min-w-0 list-none gap-1 [&::-webkit-details-marker]:hidden">
-                                    <PiPalette/>
-                                    Color
-                                </summary>
-                                <ul className="menu dropdown-content rounded-box z-50 w-max bg-base-100 p-2 shadow-sm">
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="secondary" size="sm"
+                                            className="w-full min-w-0 gap-1"
+                                            disabled={lightControlsLocked}>
+                                        <PiPalette/>
+                                        Color
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-max">
                                     {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
-                                        <li key={name}>
-                                            <button
-                                                type="button"
-                                                className="flex w-full items-center gap-2 whitespace-nowrap text-left active:bg-base-200"
-                                                disabled={lightControlsLocked}
-                                                onClick={() => {
-                                                    applySegmentColorPreset(rgb);
-                                                    const root = colorPresetDropdownRef.current;
-                                                    if (root) root.open = false;
-                                                }}
-                                            >
+                                        <DropdownMenuItem
+                                            key={name}
+                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left"
+                                            disabled={lightControlsLocked}
+                                            onClick={() => {
+                                                applySegmentColorPreset(rgb);
+                                            }}
+                                        >
                                                 <span
-                                                    className="h-4 w-4 shrink-0 rounded-sm border border-base-300"
+                                                    className="h-4 w-4 shrink-0 rounded-sm border"
                                                     style={{backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`}}
                                                     aria-hidden
                                                 />
-                                                <span>{name}</span>
-                                            </button>
-                                        </li>
+                                            <span>{name}</span>
+                                        </DropdownMenuItem>
                                     ))}
-                                </ul>
-                            </details>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-                        <label className="form-control min-w-[140px]">
-                            <span className="label-text text-xs">Transition (×100 ms)</span>
-                            <input
+                        <div className="min-w-[140px] space-y-2">
+                            <Label className="text-xs">Transition (x100 ms)</Label>
+                            <Input
                                 type="number"
                                 min={0}
                                 max={255}
-                                className="input input-bordered input-sm"
+                                className="h-8"
                                 value={deviceFormTransition}
                                 onChange={(e) => setDeviceFormTransition(readNumber(e.target.value, 7))}
                                 disabled={lightControlsLocked}
                             />
-                        </label>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
 
-            <div className="card bg-base-100 card-bordered border-gray-500">
-                <div className="card-body gap-4">
-                    <h3 className="font-medium">Effect & palette</h3>
-                    <p className="text-xs opacity-60">
+
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>
+                        Effect & palette
+                    </CardTitle>
+                    <CardDescription>
                         Tap to choose from the list; speed and intensity apply automatically.
-                    </p>
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="gap-4">
                     <div className="grid gap-3 md:grid-cols-2">
-                        <label className="form-control">
-                            <span className="label-text text-xs">Effect</span>
-                            <button
+                        <div className="space-y-2">
+                            <Label className="text-xs">Effect</Label>
+                            <Button
                                 type="button"
-                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto min-h-10 w-full justify-start text-left"
                                 disabled={lightControlsLocked}
                                 onClick={() => setEffectModalOpen(true)}
                             >
@@ -527,13 +514,15 @@ export function DeviceDetailView({
                                         ? `: ${detail.effects[deviceFormFx]}`
                                         : ""}
                                 </span>
-                            </button>
-                        </label>
-                        <label className="form-control">
-                            <span className="label-text text-xs">Palette</span>
-                            <button
+                            </Button>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Palette</Label>
+                            <Button
                                 type="button"
-                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto min-h-10 w-full justify-start text-left"
                                 disabled={lightControlsLocked}
                                 onClick={() => setPaletteModalOpen(true)}
                             >
@@ -543,8 +532,8 @@ export function DeviceDetailView({
                                         ? `: ${detail.palettes[deviceFormPal]}`
                                         : ""}
                                 </span>
-                            </button>
-                        </label>
+                            </Button>
+                        </div>
                     </div>
                     <EffectPickerModal
                         open={effectModalOpen}
@@ -591,73 +580,69 @@ export function DeviceDetailView({
                         }}
                     />
                     <div className="grid gap-3 md:grid-cols-2">
-                        <label className="form-control">
-                            <span className="label-text text-xs">Speed (sx) — {deviceFormSx}</span>
-                            <input
-                                type="range"
+                        <div className="space-y-2">
+                            <Label className="text-xs">Speed (sx) - {deviceFormSx}</Label>
+                            <Slider
                                 min={0}
                                 max={255}
-                                className="range range-sm"
-                                value={deviceFormSx}
-                                onChange={(e) => setDeviceFormSx(readNumber(e.target.value, 128))}
+                                value={[deviceFormSx]}
+                                onValueChange={(value) => setDeviceFormSx(readNumber(value[0], 128))}
                                 disabled={lightControlsLocked}
                             />
-                        </label>
-                        <label className="form-control">
-                            <span
-                                className="label-text text-xs">Intensity (ix) — {deviceFormIx}</span>
-                            <input
-                                type="range"
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Intensity (ix) - {deviceFormIx}</Label>
+                            <Slider
                                 min={0}
                                 max={255}
-                                className="range range-sm"
-                                value={deviceFormIx}
-                                onChange={(e) => setDeviceFormIx(readNumber(e.target.value, 128))}
+                                value={[deviceFormIx]}
+                                onValueChange={(value) => setDeviceFormIx(readNumber(value[0], 128))}
                                 disabled={lightControlsLocked}
                             />
-                        </label>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
 
-            <div className="collapse bg-base-100 border border-gray-500">
-                <input type="checkbox"/>
-                <div className="collapse-title font-semibold">State & Config</div>
-                <div className="collapse-content text-sm grid gap-5">
+            <Collapsible className="rounded-lg border">
+                <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State &
+                    Config</CollapsibleTrigger>
+                <CollapsibleContent className="px-4 pb-4 text-sm grid gap-5">
 
 
                     <div className="grid gap-4 lg:grid-cols-2">
-                        <div className="card bg-base-200 shadow-sm">
-                            <div className="card-body">
-                                <h3 className="font-medium text-sm mb-2">Device info (GET
+                        <Card className="bg-muted/50">
+                            <CardContent className="pt-4">
+                                <h3 className="text-sm font-semibold mb-2">Device info (GET
                                     /json)</h3>
                                 <pre
-                                    className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                                    className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.info ? prettyJSON(detail.info) : "—"}
             </pre>
-                            </div>
-                        </div>
-                        <div className="card bg-base-200 shadow-sm">
-                            <div className="card-body">
-                                <h3 className="font-medium text-sm mb-2">Config (GET /json/cfg)</h3>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-muted/50">
+                            <CardContent className="pt-4">
+                                <h3 className="text-sm font-semibold mb-2">Config (GET
+                                    /json/cfg)</h3>
                                 <pre
-                                    className="text-xs overflow-auto max-h-64 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                                    className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.config ? prettyJSON(detail.config) : "—"}
             </pre>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div className="card bg-base-200 shadow-sm">
-                        <div className="card-body">
-                            <h3 className="font-medium text-sm mb-2">Current state (GET /json →
+                    <Card className="bg-muted/50">
+                        <CardContent className="pt-4">
+                            <h3 className="text-sm font-semibold mb-2">Current state (GET /json →
                                 state)</h3>
                             <pre
-                                className="text-xs overflow-auto max-h-72 rounded bg-base-100 p-2 border border-base-300 whitespace-pre-wrap">
+                                className="text-xs overflow-auto max-h-72 rounded bg-card p-2 border whitespace-pre-wrap">
             {detail?.state ? prettyJSON(detail.state) : "—"}
           </pre>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
                     {d.lastState && Object.keys(d.lastState).length > 0 && (
                         <div className="text-xs opacity-60">
@@ -669,8 +654,8 @@ export function DeviceDetailView({
                         </div>
                     )}
 
-                </div>
-            </div>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     );
 }
@@ -683,17 +668,29 @@ function hueToRgb(hue: number): [number, number, number] {
     let g = 0;
     let b = 0;
     if (h < 60) {
-        r = c; g = x; b = 0;
+        r = c;
+        g = x;
+        b = 0;
     } else if (h < 120) {
-        r = x; g = c; b = 0;
+        r = x;
+        g = c;
+        b = 0;
     } else if (h < 180) {
-        r = 0; g = c; b = x;
+        r = 0;
+        g = c;
+        b = x;
     } else if (h < 240) {
-        r = 0; g = x; b = c;
+        r = 0;
+        g = x;
+        b = c;
     } else if (h < 300) {
-        r = x; g = 0; b = c;
+        r = x;
+        g = 0;
+        b = c;
     } else {
-        r = c; g = 0; b = x;
+        r = c;
+        g = 0;
+        b = x;
     }
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }

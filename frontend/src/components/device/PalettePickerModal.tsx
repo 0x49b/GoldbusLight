@@ -1,5 +1,10 @@
 import {useEffect, useState} from "react";
 import {readNumber} from "../../lib/json";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export type PalettePickerModalProps = {
     open: boolean;
@@ -29,60 +34,60 @@ export function PalettePickerModal({
     const hasList = paletteNames && paletteNames.length > 0;
 
     return (
-        <dialog
-            className="modal"
-            open={open}
-            onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                    onClose();
-                }
-            }}
-            onCancel={(e) => {
-                e.preventDefault();
-                onClose();
-            }}
-        >
-            <div
-                className="modal-box flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-none flex-col gap-3 p-4"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <h3 className="text-lg font-semibold">Palette</h3>
+        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+            <DialogContent className="sm:max-w-5xl">
+                <DialogHeader>
+                    <DialogTitle className="text-sm">Palette</DialogTitle>
+                </DialogHeader>
                 {hasList ? (
-                    <ul className="menu menu-sm max-h-[60vh] min-h-0 flex-1 overflow-y-auto rounded-lg border border-gray-500 bg-base-100 p-1">
-                        {paletteNames!.map((name, idx) => (
-                            <li key={idx}>
-                                <button
+                    <div className="max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                        <div
+                            role="listbox"
+                            aria-label="Palettes"
+                            className="inline-block max-h-[min(70dvh,calc(100dvh-14rem))] columns-[10rem] [column-fill:auto] [column-gap:0.625rem] align-top"
+                        >
+                            {paletteNames!.map((name, idx) => (
+                                <Button
                                     type="button"
-                                    className={`gap-2 ${idx === selectedIndex ? "active w-full" : "w-full"}`}
+                                    key={idx}
+                                    size="xs"
+                                    variant={idx === selectedIndex ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "mb-1 block h-auto w-full flex-col gap-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
+                                        idx === selectedIndex && "font-medium"
+                                    )}
                                     disabled={disabled}
                                     onClick={() => {
                                         onPick(idx);
                                         onClose();
                                     }}
                                 >
-                                    <span
-                                        className="shrink-0 font-mono text-xs opacity-60">{idx}</span>
-                                    <span className="truncate">{name}</span>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+                                    <span className="font-mono text-[10px] leading-none opacity-60">
+                                        {idx}
+                                    </span>
+                                    <span className="break-words text-[11px] leading-snug" title={name}>
+                                        {name}
+                                    </span>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
                 ) : (
                     <div className="flex flex-wrap items-end gap-2">
-                        <label className="form-control">
-                            <span className="label-text text-xs">Palette index</span>
-                            <input
+                        <div className="grid gap-1">
+                            <Label className="text-xs">Palette index</Label>
+                            <Input
                                 type="number"
                                 min={0}
-                                className="input input-bordered input-sm w-32"
+                                className="h-8 w-32"
                                 value={manualIdx}
                                 onChange={(e) => setManualIdx(e.target.value)}
                                 disabled={disabled}
                             />
-                        </label>
-                        <button
+                        </div>
+                        <Button
                             type="button"
-                            className="btn btn-primary btn-sm"
+                            size="sm"
                             disabled={disabled}
                             onClick={() => {
                                 onPick(readNumber(manualIdx, 0));
@@ -90,15 +95,15 @@ export function PalettePickerModal({
                             }}
                         >
                             Use index
-                        </button>
+                        </Button>
                     </div>
                 )}
-                <div className="modal-action mt-0">
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+                <div className="flex justify-end">
+                    <Button type="button" variant="outline" size="sm" onClick={onClose}>
                         Close
-                    </button>
+                    </Button>
                 </div>
-            </div>
-        </dialog>
+            </DialogContent>
+        </Dialog>
     );
 }
