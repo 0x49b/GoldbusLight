@@ -4,6 +4,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { GeneralPanel } from "./components/presets/GeneralPanel";
 import { ControllerSettingsView } from "./components/settings/ControllerSettingsView";
 import { useControllerApp } from "./hooks/useControllerApp";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 function App() {
   const app = useControllerApp();
@@ -106,15 +108,16 @@ function App() {
         {main}
       </AppShell>
       {app.discovering && (
-        <div className="modal modal-open" role="dialog" aria-modal="true" aria-labelledby="discovery-modal-title">
-          <div className="modal-box flex items-center gap-3">
-            <span className="loading loading-spinner loading-md text-primary" aria-hidden />
-            <p id="discovery-modal-title" className="font-medium">
-              Discovery running ...
-            </p>
-          </div>
-          <div className="modal-backdrop" />
-        </div>
+        <Dialog open>
+          <DialogContent showCloseButton={false} className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle id="discovery-modal-title" className="flex items-center gap-3 font-medium">
+                <Spinner className="size-4 text-primary" aria-hidden />
+                Discovery running ...
+              </DialogTitle>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );

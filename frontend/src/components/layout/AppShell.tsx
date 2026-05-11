@@ -1,6 +1,9 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { PiArrowsClockwise, PiBinoculars } from "react-icons/pi";
 import type { DetailRoute, WLEDDevice } from "../../types/controller";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 export type AppShellProps = {
   status: string;
@@ -28,9 +31,9 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen w-full min-w-0 bg-base-100 text-base-content flex flex-col h-screen overflow-hidden">
+    <div className="flex h-screen min-h-screen w-full min-w-0 flex-col overflow-hidden bg-background text-foreground">
       <header
-        className="border-b border-base-300 px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0"
+        className="shrink-0 border-b px-4 py-3 flex flex-wrap items-center justify-between gap-2"
         style={{ paddingLeft: "100px" }}
       >
         <div className="min-w-0">
@@ -41,68 +44,69 @@ export function AppShell({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn btn-sm inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={onDiscoverNow} disabled={busy}>
+          <Button size="sm" variant="outline" className="inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={onDiscoverNow} disabled={busy}>
           <PiBinoculars />
           Discover
-          </button>
-          <button className="btn btn-sm inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={() => void onRefreshSnapshot()} disabled={busy}>
+          </Button>
+          <Button size="sm" variant="outline" className="inline-flex items-center gap-2 whitespace-nowrap shrink-0" onClick={() => void onRefreshSnapshot()} disabled={busy}>
           <PiArrowsClockwise />
           Refresh
-          </button>
+          </Button>
         </div>
 
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <aside className="w-64 shrink-0 border-r border-base-300 flex flex-col bg-base-200/50">
+        <aside className="w-64 shrink-0 border-r flex flex-col bg-muted/30">
           <div className="p-3 text-xs font-semibold uppercase tracking-wide opacity-50">Devices</div>
           <nav className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            <button
+            <Button
               type="button"
-              className={`btn btn-sm w-full justify-start font-normal ${route.kind === "presets" ? "btn-primary" : "btn-ghost"}`}
+              size="sm"
+              variant={route.kind === "presets" ? "default" : "ghost"}
+              className="w-full justify-start font-normal"
               onClick={() => setRoute({ kind: "presets" })}
             >
               General
-            </button>
+            </Button>
             {devices.map((dev) => (
-              <button
+              <Button
                 key={dev.id}
                 type="button"
-                className={`btn btn-sm w-full justify-start font-normal min-h-10 py-2 ${
-                  route.kind === "device" && route.id === dev.id ? "btn-primary" : "btn-ghost"
-                }`}
+                size="sm"
+                variant={route.kind === "device" && route.id === dev.id ? "default" : "ghost"}
+                className="w-full justify-start font-normal min-h-10 py-2"
                 aria-label={`${dev.name} (${dev.online ? "Online" : "Offline"})`}
                 onClick={() => setRoute({ kind: "device", id: dev.id })}
               >
                 <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <span
-                    className={`status status-sm ${dev.online ? "status-success" : "status-neutral"}`}
-                    aria-hidden
-                  />
+                  <span className={cn("status status-sm", dev.online ? "status-success" : "status-neutral")} aria-hidden />
                   <span className="truncate">{dev.name}</span>
                 </span>
-              </button>
+              </Button>
             ))}
           </nav>
-          <div className="p-2 border-t border-base-300 shrink-0">
-            <button
+          <div className="p-2 border-t shrink-0">
+            <Button
               type="button"
-              className={`btn btn-sm w-full ${route.kind === "settings" ? "btn-primary" : "btn-outline"}`}
+              size="sm"
+              variant={route.kind === "settings" ? "default" : "outline"}
+              className="w-full"
               onClick={() => setRoute({ kind: "settings" })}
             >
               Settings
-            </button>
+            </Button>
           </div>
         </aside>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {error && (
-            <div className="alert alert-error text-sm py-2 mb-4 flex items-center justify-between gap-3" role="alert">
-              <span className="min-w-0 break-words">{error}</span>
-              <button type="button" className="btn btn-xs btn-outline shrink-0" onClick={onDismissError}>
+            <Alert variant="destructive" className="mb-4 flex items-center justify-between gap-3 py-2 text-sm" role="alert">
+              <AlertDescription className="min-w-0 break-words">{error}</AlertDescription>
+              <Button type="button" size="xs" variant="outline" className="shrink-0" onClick={onDismissError}>
                 Dismiss
-              </button>
-            </div>
+              </Button>
+            </Alert>
           )}
           {children}
         </main>

@@ -7,6 +7,14 @@ import type {
     NetworkApplyResult,
     WLEDDevice,
 } from "../../types/controller";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -49,349 +57,130 @@ export function ControllerSettingsView({
         <div className="space-y-5 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold">Controller settings</h2>
-                <div className="flex gap-2">
-                    <div className="tooltip tooltip-bottom" data-tip="Apply network (access point)">
-                        <button className="btn btn-sm btn-success" onClick={onApplyNetwork}
-                                disabled={busy}>
-                            <PiWifiHigh/>
-                        </button>
-                    </div>
-
-
-                </div>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button size="sm" onClick={onApplyNetwork} disabled={busy}>
+                                <PiWifiHigh/>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Apply network (access point)</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
 
-            <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-                <div className="card-body space-y-2">
-                    <h3 className="card-title text-base">Access point</h3>
-                    <label className="label cursor-pointer justify-start gap-3">
-                        <input
-                            type="checkbox"
-                            className="toggle toggle-primary"
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-base">Access point</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                    <label className="flex cursor-pointer justify-start gap-3 items-center">
+                        <Switch
                             checked={settings.accessPoint.enabled}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {
-                                        ...settings.accessPoint,
-                                        enabled: e.target.checked
-                                    }
-                                })
-                            }
+                            onCheckedChange={(checked) => setSettings({...settings, accessPoint: {...settings.accessPoint, enabled: checked}})}
                         />
-                        <span className="label-text">Enable local AP</span>
+                        <span>Enable local AP</span>
                     </label>
 
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <input
-                            className="input input-bordered input-sm"
-                            placeholder="AP connection name"
-                            value={settings.accessPoint.connection}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {
-                                        ...settings.accessPoint,
-                                        connection: e.target.value
-                                    }
-                                })
-                            }
-                        />
-                        <input
-                            className="input input-bordered input-sm"
-                            placeholder="AP interface"
-                            value={settings.accessPoint.interfaceName}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {
-                                        ...settings.accessPoint,
-                                        interfaceName: e.target.value
-                                    }
-                                })
-                            }
-                        />
-                        <input
-                            className="input input-bordered input-sm"
-                            placeholder="AP SSID"
-                            value={settings.accessPoint.ssid}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {...settings.accessPoint, ssid: e.target.value}
-                                })
-                            }
-                        />
-                        <input
-                            className="input input-bordered input-sm"
-                            placeholder="AP password"
-                            value={settings.accessPoint.password}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {
-                                        ...settings.accessPoint,
-                                        password: e.target.value
-                                    }
-                                })
-                            }
-                        />
-                        <input
-                            className="input input-bordered input-sm"
-                            type="number"
-                            min={1}
-                            max={14}
-                            placeholder="Channel"
-                            value={settings.accessPoint.channel}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    accessPoint: {
-                                        ...settings.accessPoint,
-                                        channel: readNumber(e.target.value, 6)
-                                    },
-                                })
-                            }
-                        />
+                        <Input className="h-8" placeholder="AP connection name" value={settings.accessPoint.connection} onChange={(e) => setSettings({...settings, accessPoint: {...settings.accessPoint, connection: e.target.value}})} />
+                        <Input className="h-8" placeholder="AP interface" value={settings.accessPoint.interfaceName} onChange={(e) => setSettings({...settings, accessPoint: {...settings.accessPoint, interfaceName: e.target.value}})} />
+                        <Input className="h-8" placeholder="AP SSID" value={settings.accessPoint.ssid} onChange={(e) => setSettings({...settings, accessPoint: {...settings.accessPoint, ssid: e.target.value}})} />
+                        <Input className="h-8" placeholder="AP password" value={settings.accessPoint.password} onChange={(e) => setSettings({...settings, accessPoint: {...settings.accessPoint, password: e.target.value}})} />
+                        <Input className="h-8" type="number" min={1} max={14} placeholder="Channel" value={settings.accessPoint.channel} onChange={(e) => setSettings({...settings, accessPoint: {...settings.accessPoint, channel: readNumber(e.target.value, 6)}})} />
                     </div>
-                </div>
+                </CardContent>
+            </Card>
 
-            </section>
-            <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-                <div className="card-body space-y-2">
-                    <h3 className="card-title text-base">Discovery / provisioning</h3>
-                    <label className="label cursor-pointer justify-start gap-3">
-                        <input
-                            type="checkbox"
-                            className="toggle toggle-primary"
-                            checked={settings.discovery.enabled}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    discovery: {
-                                        ...settings.discovery,
-                                        enabled: e.target.checked
-                                    }
-                                })
-                            }
-                        />
-                        <span className="label-text">Enable mDNS discovery loop</span>
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-base">Discovery / provisioning</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                    <label className="flex cursor-pointer justify-start gap-3 items-center">
+                        <Switch checked={settings.discovery.enabled} onCheckedChange={(checked) => setSettings({...settings, discovery: {...settings.discovery, enabled: checked}})} />
+                        <span>Enable mDNS discovery loop</span>
                     </label>
-
-                    <label className="label cursor-pointer justify-start gap-3">
-                        <input
-                            type="checkbox"
-                            className="toggle toggle-error"
-                            checked={settings.testing.simulateWled}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    testing: {
-                                        ...settings.testing,
-                                        simulateWled: e.target.checked
-                                    },
-                                })
-                            }
-                        />
-                        <span className="label-text">Simulate WLED device (testing)</span>
+                    <label className="flex cursor-pointer justify-start gap-3 items-center">
+                        <Switch checked={settings.testing.simulateWled} onCheckedChange={(checked) => setSettings({...settings, testing: {...settings.testing, simulateWled: checked}})} />
+                        <span>Simulate WLED device (testing)</span>
                     </label>
-                    <p className="text-xs opacity-60">
-                        Adds an in-app fake device (<code
-                        className="font-mono text-[10px]">sim:wled</code>) with no network
-                        traffic.
-                        Enable this option, save settings, then pick the device from the list
-                        (Discover or wait for the next snapshot refresh).
-                    </p>
+                    <p className="text-xs opacity-60">Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>) with no network traffic. Enable this option, save settings, then pick the device from the list (Discover or wait for the next snapshot refresh).</p>
 
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <input
-                            className="input input-bordered input-sm"
-                            type="number"
-                            min={2}
-                            value={settings.discovery.intervalSeconds}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    discovery: {
-                                        ...settings.discovery,
-                                        intervalSeconds: readNumber(e.target.value, 15)
-                                    },
-                                })
-                            }
-                            placeholder="Interval (s)"
-                        />
-                        <input
-                            className="input input-bordered input-sm"
-                            type="number"
-                            min={500}
-                            value={settings.discovery.queryTimeoutMs}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    discovery: {
-                                        ...settings.discovery,
-                                        queryTimeoutMs: readNumber(e.target.value, 2000)
-                                    },
-                                })
-                            }
-                            placeholder="Query timeout ms"
-                        />
+                        <Input className="h-8" type="number" min={2} value={settings.discovery.intervalSeconds} onChange={(e) => setSettings({...settings, discovery: {...settings.discovery, intervalSeconds: readNumber(e.target.value, 15)}})} placeholder="Interval (s)" />
+                        <Input className="h-8" type="number" min={500} value={settings.discovery.queryTimeoutMs} onChange={(e) => setSettings({...settings, discovery: {...settings.discovery, queryTimeoutMs: readNumber(e.target.value, 2000)}})} placeholder="Query timeout ms" />
                     </div>
 
-                    <input
-                        className="input input-bordered input-sm"
-                        placeholder="Service types (comma separated)"
-                        value={settings.discovery.serviceTypes.join(",")}
-                        onChange={(e) =>
-                            setSettings({
-                                ...settings,
-                                discovery: {
-                                    ...settings.discovery,
-                                    serviceTypes: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                                },
-                            })
-                        }
-                    />
+                    <Input className="h-8" placeholder="Service types (comma separated)" value={settings.discovery.serviceTypes.join(",")} onChange={(e) => setSettings({...settings, discovery: {...settings.discovery, serviceTypes: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)}})} />
 
-                    <label className="label cursor-pointer justify-start gap-3">
-                        <input
-                            type="checkbox"
-                            className="toggle toggle-primary"
-                            checked={settings.provisioning.autoProvision}
-                            onChange={(e) =>
-                                setSettings({
-                                    ...settings,
-                                    provisioning: {
-                                        ...settings.provisioning,
-                                        autoProvision: e.target.checked
-                                    },
-                                })
-                            }
-                        />
-                        <span
-                            className="label-text">Auto-provision newly discovered devices</span>
+                    <label className="flex cursor-pointer justify-start gap-3 items-center">
+                        <Switch checked={settings.provisioning.autoProvision} onCheckedChange={(checked) => setSettings({...settings, provisioning: {...settings.provisioning, autoProvision: checked}})} />
+                        <span>Auto-provision newly discovered devices</span>
                     </label>
 
                     <div>
-                        <label className="label py-0">
-                                <span
-                                    className="label-text text-xs">Default /json/state payload</span>
-                        </label>
-                        <textarea
-                            className="textarea textarea-bordered w-full h-24 font-mono text-xs"
-                            value={statePayloadText}
-                            onChange={(e) => setStatePayloadText(e.target.value)}
-                        />
+                        <Label className="py-0 text-xs">Default /json/state payload</Label>
+                        <Textarea className="h-24 w-full font-mono text-xs" value={statePayloadText} onChange={(e) => setStatePayloadText(e.target.value)} />
                     </div>
 
                     <div>
-                        <label className="label py-0">
-                            <span className="label-text text-xs">Default /json/cfg patch</span>
-                        </label>
-                        <textarea
-                            className="textarea textarea-bordered w-full h-24 font-mono text-xs"
-                            value={configPatchText}
-                            onChange={(e) => setConfigPatchText(e.target.value)}
-                        />
+                        <Label className="py-0 text-xs">Default /json/cfg patch</Label>
+                        <Textarea className="h-24 w-full font-mono text-xs" value={configPatchText} onChange={(e) => setConfigPatchText(e.target.value)} />
                     </div>
 
-                    <button className="btn btn-primary btn-sm" onClick={onSaveSettings}
-                            disabled={busy}>
-                        <PiFloppyDisk/>
-                    </button>
-                </div>
-            </section>
+                    <Button size="sm" onClick={onSaveSettings} disabled={busy}><PiFloppyDisk/></Button>
+                </CardContent>
+            </Card>
 
-            <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-                <div className="card-body space-y-2">
-                    <h3 className="card-title text-base">Application version</h3>
-                    <p className="text-sm opacity-70">
-                        Running: <code>{currentVersion}</code>
-                    </p>
-                    <p className="text-xs opacity-60">
-                        Updates are installed from the Pi shell
-                        with <code>scripts/install-release.sh &lt;tag&gt;</code>.
-                    </p>
-                </div>
-            </section>
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-base">Application version</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                    <p className="text-sm opacity-70">Running: <code>{currentVersion}</code></p>
+                    <p className="text-xs opacity-60">Updates are installed from the Pi shell with <code>scripts/install-release.sh &lt;tag&gt;</code>.</p>
+                </CardContent>
+            </Card>
 
-            <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-                <div className="card-body space-y-3">
-                    <h3 className="card-title text-base">Ignored devices</h3>
-                    <p className="text-sm opacity-70">
-                        Ignored devices stay out of the sidebar and presets but remain in <code
-                        className="text-xs">state.json</code>. Use this to hide
-                        unrelated mDNS hosts.
-                    </p>
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-base">Ignored devices</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                    <p className="text-sm opacity-70">Ignored devices stay out of the sidebar and presets but remain in <code className="text-xs">state.json</code>. Use this to hide unrelated mDNS hosts.</p>
                     {ignoredDevices.length === 0 ? (
                         <p className="text-sm opacity-60">No ignored devices.</p>
                     ) : (
                         <ul className="space-y-2">
                             {ignoredDevices.map((dev) => (
-                                <li
-                                    key={dev.id}
-                                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-base-300 bg-base-100 px-3 py-2"
-                                >
+                                <li key={dev.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-card px-3 py-2">
                                     <div className="min-w-0">
                                         <div className="font-medium truncate">{dev.name}</div>
-                                        <div className="text-xs opacity-60 font-mono truncate">
-                                            {dev.address}:{dev.port} • {dev.id}
-                                        </div>
+                                        <div className="text-xs opacity-60 font-mono truncate">{dev.address}:{dev.port} • {dev.id}</div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline btn-success shrink-0"
-                                        onClick={() => onUnignoreDevice(dev.id)}
-                                        disabled={busy}
-                                    >
-                                        Un-ignore
-                                    </button>
+                                    <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => onUnignoreDevice(dev.id)} disabled={busy}>Un-ignore</Button>
                                 </li>
                             ))}
                         </ul>
                     )}
-                </div>
-            </section>
+                </CardContent>
+            </Card>
 
-            <section className="card bg-base-100 card-bordered border-gray-500 w-full max-w-none">
-                <div className="card-body">
-                    <h3 className="card-title text-base">Network apply result</h3>
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-base">Network apply result</CardTitle></CardHeader>
+                <CardContent>
                     {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
                     {applyResult && (
                         <div className="space-y-2">
-                            <p className="text-sm">
-                                {applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}
-                            </p>
+                            <p className="text-sm">{applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}</p>
                             {(applyResult.warnings ?? []).map((warning) => (
-                                <div key={warning} className="alert alert-warning py-1 text-xs">
-                                    {warning}
-                                </div>
+                                <Alert key={warning} className="py-1 text-xs"><AlertDescription>{warning}</AlertDescription></Alert>
                             ))}
-                            <div
-                                className="max-h-48 overflow-auto rounded border border-base-300 p-2 bg-base-100">
-                                <pre
-                                    className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
+                            <div className="max-h-48 overflow-auto rounded border p-2 bg-card">
+                                <pre className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
                             </div>
                         </div>
                     )}
-                </div>
-            </section>
+                </CardContent>
+            </Card>
 
             {snapshot && (
                 <p className="text-xs opacity-60">
-                    Persistence: <code>{snapshot.persistencePath}</code> •
-                    backend: {snapshot.capabilities.networkBackendLabel} (
-                    {snapshot.capabilities.networkBackendId}) • host CLI:{" "}
-                    <code>{snapshot.capabilities.networkCliName || "—"}</code>
-                    {snapshot.capabilities.networkControlAvailable
-                        ? ""
-                        : snapshot.capabilities.networkCliUnavailableReason && (
-                        <>
-                            {" "}
-                            — <span
-                            className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span>
-                        </>
-                    )}
+                    Persistence: <code>{snapshot.persistencePath}</code> • backend: {snapshot.capabilities.networkBackendLabel} ({snapshot.capabilities.networkBackendId}) • host CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
+                    {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
                 </p>
             )}
         </div>

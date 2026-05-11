@@ -1,4 +1,4 @@
-import {type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState} from "react";
+import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
 import * as GreetService from "../../../bindings/changeme/greetservice";
 import {readNumber} from "../../lib/json";
@@ -19,6 +19,13 @@ import {
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
 import {EffectPickerModal} from "../device/EffectPickerModal";
 import {PalettePickerModal} from "../device/PalettePickerModal";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light ", rgb: CANDLE_LIGHT_RGB},
@@ -76,7 +83,6 @@ export function GeneralPanel({
                                  generalIx,
                                  setGeneralIx,
                              }: PresetsPanelProps) {
-    const namedColorDropdownRef = useRef<HTMLDetailsElement>(null);
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [effectNames, setEffectNames] = useState<string[]>([]);
@@ -128,15 +134,17 @@ export function GeneralPanel({
             <div>
                 <h2 className="text-xl font-semibold">General</h2>
             </div>
-            <div className="card bg-base-100 card-bordered border-gray-500">
-                <div className="card-body gap-4">
+            <Card>
+                <CardContent className="gap-4 pt-6">
                     <p className="text-sm opacity-70 mt-1">
                         Control all WLED devices together. Default scene is warm white.
                     </p>
                     <div className="flex w-full min-w-0 gap-2">
-                        <button
+                        <Button
                             type="button"
-                            className={`btn btn-active min-w-0 flex-1 gap-1 px-2 sm:px-4 ${allOff ? "btn-error" : "btn-success"}`}
+                            variant={allOff ? "destructive" : "default"}
+                            size="sm"
+                            className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
                             onClick={() =>
                                 allOff
                                     ? onSetGlobalState({on: true, seg: [{fx: 0, pal: 0}]}, "All on")
@@ -146,63 +154,62 @@ export function GeneralPanel({
                         >
                             {allOff ? <PiMoon/> : <PiSun/>}
                             {allOff ? "All off" : "All on"}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="btn btn-active min-w-0 flex-1 gap-1 px-2 sm:px-4"
+                            variant="secondary"
+                            size="sm"
+                            className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
                             onClick={applyWarmWhitePreset}
                             disabled={busy}
                         >
                             <PiFire/>
                             Warm white
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="btn btn-active min-w-0 flex-1 gap-1 px-2 sm:px-4"
+                            variant="secondary"
+                            size="sm"
+                            className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
                             onClick={applyColdWhitePreset}
                             disabled={busy}
                         >
                             <PiIceCream/>
                             Cold white
-                        </button>
-                        <details
-                            ref={namedColorDropdownRef}
-                            className={`dropdown dropdown-end flex min-w-0 flex-1 ${busy ? "pointer-events-none opacity-50" : ""}`}
-                        >
-                            <summary
-                                className="btn btn-active m-0 flex min-h-0 w-full min-w-0 list-none gap-1 px-2 sm:px-4 [&::-webkit-details-marker]:hidden"
-                            >
-                                <PiPalette/>
-                                Color
-                            </summary>
-                            <ul
-                                className="menu dropdown-content rounded-box z-50 w-max bg-base-100 p-2 shadow-sm"
-                            >
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className={cn("min-w-0 flex-1 gap-1 px-2 sm:px-4", busy && "pointer-events-none opacity-50")}
+                                >
+                                    <PiPalette/>
+                                    Color
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-max">
                                 {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
-                                    <li key={name}>
-                                        <button
-                                            type="button"
-                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left active:bg-base-200"
+                                        <DropdownMenuItem
+                                            key={name}
+                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left"
                                             disabled={busy}
                                             onClick={() => {
                                                 applyNamedColorPreset(name, rgb);
-                                                const root = namedColorDropdownRef.current;
-                                                if (root) root.open = false;
                                             }}
                                         >
                                             <span
-                                                className="h-4 w-4 shrink-0 rounded-sm border border-base-300"
+                                                className="h-4 w-4 shrink-0 rounded-sm border"
                                                 style={{
                                                     backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`,
                                                 }}
                                                 aria-hidden
                                             />
                                             <span>{name}</span>
-                                        </button>
-                                    </li>
+                                        </DropdownMenuItem>
                                 ))}
-                            </ul>
-                        </details>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <h3 className="font-medium">Color (all devices)</h3>
@@ -211,40 +218,40 @@ export function GeneralPanel({
                             <span className="text-xs opacity-70">Color wheel</span>
                             <input
                                 type="color"
-                                className="h-12 w-24 cursor-pointer rounded border border-base-300 bg-base-100"
+                                className="h-12 w-24 cursor-pointer rounded border bg-card"
                                 value={rgbToHex(presetRgb[0], presetRgb[1], presetRgb[2])}
                                 onChange={(e) => setPresetRgb(hexToRgb(e.target.value))}
                                 disabled={busy}
                             />
                         </label>
-                        <label className="form-control flex-1 min-w-[200px]">
-                            <span className="label-text text-xs">Brightness (bri)</span>
-                            <input
-                                type="range"
+                        <div className="flex-1 min-w-[200px] space-y-2">
+                            <Label className="text-xs">Brightness (bri)</Label>
+                            <Slider
                                 min={1}
                                 max={255}
-                                className="range range-primary range-sm"
-                                value={presetBri}
-                                onChange={(e) => setPresetBri(readNumber(e.target.value, 200))}
+                                value={[presetBri]}
+                                onValueChange={(value) => setPresetBri(readNumber(value[0], 200))}
                                 disabled={busy}
                             />
-                        </label>
-                        <span className="badge badge-neutral shrink-0">{presetBri}</span>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0">{presetBri}</Badge>
                     </div>
-                </div>
-            </div>
-            <div className="card bg-base-100 card-bordered border-gray-500">
-                <div className="card-body gap-4">
+                </CardContent>
+            </Card>
+            <Card>
+                <CardContent className="gap-4 pt-6">
                     <h3 className="font-medium">Effect & palette (all devices)</h3>
                     <p className="text-xs opacity-60">
                         Apply the same effect and palette to all connected devices.
                     </p>
                     <div className="grid gap-3 md:grid-cols-2">
-                        <label className="form-control">
-                            <span className="label-text text-xs">Effect</span>
-                            <button
+                        <div className="space-y-2">
+                            <Label className="text-xs">Effect</Label>
+                            <Button
                                 type="button"
-                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto min-h-10 w-full justify-start text-left"
                                 disabled={busy || activeDevices.length === 0}
                                 onClick={() => setEffectModalOpen(true)}
                             >
@@ -252,13 +259,15 @@ export function GeneralPanel({
                                     {generalFx}
                                     {effectNames[generalFx] != null ? `: ${effectNames[generalFx]}` : ""}
                                 </span>
-                            </button>
-                        </label>
-                        <label className="form-control">
-                            <span className="label-text text-xs">Palette</span>
-                            <button
+                            </Button>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Palette</Label>
+                            <Button
                                 type="button"
-                                className="btn btn-sm h-auto min-h-10 w-full text-left"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto min-h-10 w-full justify-start text-left"
                                 disabled={busy || activeDevices.length === 0}
                                 onClick={() => setPaletteModalOpen(true)}
                             >
@@ -266,8 +275,8 @@ export function GeneralPanel({
                                     {generalPal}
                                     {paletteNames[generalPal] != null ? `: ${paletteNames[generalPal]}` : ""}
                                 </span>
-                            </button>
-                        </label>
+                            </Button>
+                        </div>
                     </div>
                     <EffectPickerModal
                         open={effectModalOpen}
@@ -292,41 +301,37 @@ export function GeneralPanel({
                         }}
                     />
                     <div className="grid gap-3 md:grid-cols-2">
-                        <label className="form-control">
-                            <span className="label-text text-xs">Speed (sx) — {generalSx}</span>
-                            <input
-                                type="range"
+                        <div className="space-y-2">
+                            <Label className="text-xs">Speed (sx) - {generalSx}</Label>
+                            <Slider
                                 min={0}
                                 max={255}
-                                className="range range-sm"
-                                value={generalSx}
-                                onChange={(e) => {
-                                    const next = readNumber(e.target.value, 128);
+                                value={[generalSx]}
+                                onValueChange={(value) => {
+                                    const next = readNumber(value[0], 128);
                                     setGeneralSx(next);
                                     applyGlobalEffectPalette({sx: next});
                                 }}
                                 disabled={busy || activeDevices.length === 0}
                             />
-                        </label>
-                        <label className="form-control">
-                            <span className="label-text text-xs">Intensity (ix) — {generalIx}</span>
-                            <input
-                                type="range"
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Intensity (ix) - {generalIx}</Label>
+                            <Slider
                                 min={0}
                                 max={255}
-                                className="range range-sm"
-                                value={generalIx}
-                                onChange={(e) => {
-                                    const next = readNumber(e.target.value, 128);
+                                value={[generalIx]}
+                                onValueChange={(value) => {
+                                    const next = readNumber(value[0], 128);
                                     setGeneralIx(next);
                                     applyGlobalEffectPalette({ix: next});
                                 }}
                                 disabled={busy || activeDevices.length === 0}
                             />
-                        </label>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
