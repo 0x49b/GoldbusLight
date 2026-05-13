@@ -73,7 +73,7 @@ func main() {
 		startState = application.WindowStateFullscreen
 	}
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:      "GoldbusLightControllerMainWindow",
+		Title:      "Goldbus Licht Controller",
 		StartState: startState,
 		/*Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,

@@ -40,7 +40,7 @@ export function PalettePickerModal({
                     <DialogTitle className="text-sm">Palette</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
-                    <div className="max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                    <div className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
                             aria-label="Palettes"
@@ -53,7 +53,7 @@ export function PalettePickerModal({
                                     size="xs"
                                     variant={idx === selectedIndex ? "secondary" : "ghost"}
                                     className={cn(
-                                        "mb-1 block h-auto w-full flex-col gap-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
+                                        "mb-1 flex h-auto w-full flex-row flex-wrap items-baseline justify-start gap-x-1 gap-y-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
                                         idx === selectedIndex && "font-medium"
                                     )}
                                     disabled={disabled}
@@ -63,7 +63,7 @@ export function PalettePickerModal({
                                     }}
                                 >
                                     <span className="font-mono text-[10px] leading-none opacity-60">
-                                        {idx}
+                                        {idx}: 
                                     </span>
                                     <span className="break-words text-[11px] leading-snug" title={name}>
                                         {name}

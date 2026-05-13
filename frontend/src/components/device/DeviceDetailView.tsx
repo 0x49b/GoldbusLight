@@ -335,6 +335,12 @@ export function DeviceDetailView({
             {(deviceDetailInitializing || deviceDetailReloading || (!detail?.state && liveOnline)) && (
                 <Dialog open>
                     <DialogContent showCloseButton={false} className="max-w-sm">
+                        <DialogHeader className="sr-only">
+                            <DialogTitle>Device state loading</DialogTitle>
+                            <DialogDescription>
+                                Loading status and retry information for the selected device.
+                            </DialogDescription>
+                        </DialogHeader>
                         <p id="device-state-loading-title"
                            className="font-medium flex items-center gap-3">
                             <Spinner className="text-primary" aria-hidden/>

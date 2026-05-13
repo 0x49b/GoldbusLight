@@ -4,7 +4,9 @@ import {PiFloppyDisk, PiWifiHigh} from "react-icons/pi";
 import type {
     ControllerSettings,
     ControllerSnapshot,
+    DMXState,
     NetworkApplyResult,
+    USBSerialDevice,
     WLEDDevice,
 } from "../../types/controller";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
@@ -17,6 +19,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import {Label} from "@/components/ui/label"
 import {Switch} from "@/components/ui/switch"
 import {Field, FieldLabel,} from "@/components/ui/field"
+import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 
 
 export type ControllerSettingsViewProps = {
@@ -34,6 +37,10 @@ export type ControllerSettingsViewProps = {
     onApplyNetwork: () => void;
     onUnignoreDevice: (deviceId: string) => void;
     currentVersion: string;
+    dmxState: DMXState;
+    usbSerialDevices: USBSerialDevice[];
+    onRefreshUSBSerialDevices: () => void;
+    onSelectUSBSerialDevice: (deviceId: string) => void;
 };
 
 export function ControllerSettingsView({
@@ -51,6 +58,10 @@ export function ControllerSettingsView({
                                            onApplyNetwork,
                                            onUnignoreDevice,
                                            currentVersion,
+                                           dmxState,
+                                           usbSerialDevices,
+                                           onRefreshUSBSerialDevices,
+                                           onSelectUSBSerialDevice,
                                        }: ControllerSettingsViewProps) {
     if (!settings) {
         return <p className="opacity-70">Loading settings…</p>;
@@ -246,6 +257,35 @@ export function ControllerSettingsView({
                     <p className="text-sm opacity-70">Running: <code>{currentVersion}</code></p>
                     <p className="text-xs opacity-60">Updates are installed from the Pi shell
                         with <code>scripts/install-release.sh &lt;tag&gt;</code>.</p>
+                </CardContent>
+            </Card>
+
+            <Card className="w-full max-w-none">
+                <CardHeader><CardTitle className="text-sm font-semibold">DMX USB interface</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                    <p className="text-sm opacity-70">Select the active USB-to-DMX serial interface. Selection is saved automatically.</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <NativeSelect
+                            className="w-full md:w-[28rem]"
+                            value={dmxState.selectedUSBDeviceId ?? ""}
+                            onChange={(event) => onSelectUSBSerialDevice(event.target.value)}
+                        >
+                            <NativeSelectOption value="">No device selected</NativeSelectOption>
+                            {usbSerialDevices.map((device) => (
+                                <NativeSelectOption key={device.id} value={device.id}>
+                                    {device.name} ({device.path})
+                                </NativeSelectOption>
+                            ))}
+                        </NativeSelect>
+                        <Button type="button" size="sm" variant="outline" onClick={onRefreshUSBSerialDevices} disabled={busy}>
+                            Refresh USB devices
+                        </Button>
+                    </div>
+                    {dmxState.selectedUSBDeviceId && !usbSerialDevices.some((device) => device.id === dmxState.selectedUSBDeviceId) && (
+                        <p className="text-xs text-destructive">
+                            Selected device is currently unavailable: <code>{dmxState.selectedUSBDeviceId}</code>
+                        </p>
+                    )}
                 </CardContent>
             </Card>
 

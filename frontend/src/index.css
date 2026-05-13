@@ -50,6 +50,12 @@
 
 @layer components {
 
+  .touch-pan-scroll {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
 
   .status {
     display: inline-block;
