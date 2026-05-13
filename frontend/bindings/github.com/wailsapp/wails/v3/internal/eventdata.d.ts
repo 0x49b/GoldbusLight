@@ -7,13 +7,13 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as main$0 from "../../../../../goldbus/models.js";
+import type * as controller$0 from "../../../../../goldbus/internal/controller/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "controller:error": string;
-            "controller:snapshot": main$0.ControllerSnapshot;
+            "controller:snapshot": controller$0.ControllerSnapshot;
             "time": string;
         }
     }

@@ -7,10 +7,10 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as serial$0 from "./internal/serial/models.js";
+import * as serial$0 from "../serial/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as time$0 from "../time/models.js";
+import * as time$0 from "../../../time/models.js";
 
 export class AccessPointSettings {
     "enabled": boolean;

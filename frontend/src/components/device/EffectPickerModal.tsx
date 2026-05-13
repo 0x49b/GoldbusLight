@@ -1,10 +1,10 @@
 import {useEffect, useState} from "react";
 import {readNumber} from "../../lib/json";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {cn} from "@/lib/utils";
 
 export type EffectPickerModalProps = {
     open: boolean;
@@ -40,7 +40,8 @@ export function EffectPickerModal({
                     <DialogTitle className="text-sm">Effect</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
-                    <div className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                    <div
+                        className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
                             aria-label="Effects"
@@ -62,10 +63,13 @@ export function EffectPickerModal({
                                         onClose();
                                     }}
                                 >
-                                    <span className="shrink-0 font-mono text-[10px] leading-snug opacity-60">
+                                    <span
+                                        className="shrink-0 font-mono text-[10px] leading-snug opacity-60">
                                         {idx}:
                                     </span>
-                                    <span className="min-w-0 flex-1 break-words text-[11px] leading-snug" title={name}>
+                                    <span
+                                        className="min-w-0 flex-1 break-words text-[11px] leading-snug"
+                                        title={name}>
                                         {name}
                                     </span>
                                 </Button>

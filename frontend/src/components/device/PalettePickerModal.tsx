@@ -1,10 +1,10 @@
 import {useEffect, useState} from "react";
 import {readNumber} from "../../lib/json";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {cn} from "@/lib/utils";
 
 export type PalettePickerModalProps = {
     open: boolean;
@@ -40,7 +40,8 @@ export function PalettePickerModal({
                     <DialogTitle className="text-sm">Palette</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
-                    <div className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                    <div
+                        className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
                             aria-label="Palettes"
@@ -65,7 +66,8 @@ export function PalettePickerModal({
                                     <span className="font-mono text-[10px] leading-none opacity-60">
                                         {idx}: 
                                     </span>
-                                    <span className="break-words text-[11px] leading-snug" title={name}>
+                                    <span className="break-words text-[11px] leading-snug"
+                                          title={name}>
                                         {name}
                                     </span>
                                 </Button>

@@ -1,4 +1,4 @@
-package main
+package logging
 
 import (
 	"fmt"
@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 )
 
-// initFileLogger tees the standard library logger to stderr and a log file.
+// InitFileLogger tees the standard library logger to stderr and a log file.
 // The default path matches the controller state directory: UserConfigDir/wled-controller/app.log.
 // Override with GOLDBUS_LOG_FILE (absolute or relative path).
-func initFileLogger() (cleanup func()) {
+func InitFileLogger() (cleanup func()) {
 	path := os.Getenv("GOLDBUS_LOG_FILE")
 	if path == "" {
 		path = defaultLogFilePath()

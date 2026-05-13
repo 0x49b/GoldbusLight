@@ -6,8 +6,17 @@
     url('./Inter-Medium.ttf') format('truetype');
 }
 
+@font-face {
+    font-family  : 'Oxanium';
+    font-style   : normal;
+    font-weight  : 125 950;
+    font-stretch : 75% 125%;
+    src          : local(''),
+    url('./Oxanium-VariableFont_wght.ttf') format('truetype');
+}
+
 :root {
-    font-family              : 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    font-family              : 'Oxanium', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
     font-size                : 16px;

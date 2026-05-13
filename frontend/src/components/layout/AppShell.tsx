@@ -8,7 +8,7 @@ import {
     PiPlus,
     PiSquaresFour,
 } from "react-icons/pi";
-import type {DMXFixture, DetailRoute, WLEDDevice} from "../../types/controller";
+import type {DetailRoute, DMXFixture, WLEDDevice} from "../../types/controller";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {
     Sidebar,
@@ -66,10 +66,16 @@ export function AppShell({
                     </p>
                 </SidebarHeader>
                 <SidebarContent>
+
+                    <div className="px-2 pt-2">
+                        <span
+                            className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
+                            WLED
+                        </span>
+                    </div>
                     <SidebarGroup>
-                        <SidebarGroupLabel>WLED Devices</SidebarGroupLabel>
                         <SidebarMenu>
-                            <SidebarMenuItem className="mb-2">
+                            <SidebarMenuItem>
                                 <SidebarMenuButton
                                     type="button"
                                     isActive={route.kind === "presets"}
@@ -83,6 +89,12 @@ export function AppShell({
                                     <span className="min-w-0 flex-1 truncate">General</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroup>
+
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Devices</SidebarGroupLabel>
+                        <SidebarMenu>
                             {devices.map((dev) => (
                                 <SidebarMenuItem key={dev.id} className="mb-2">
                                     <SidebarMenuButton
@@ -109,7 +121,7 @@ export function AppShell({
                                             if (!dev.online) {
                                                 return;
                                             }
-                                            setRoute({ kind: "device", id: dev.id });
+                                            setRoute({kind: "device", id: dev.id});
                                         }}
                                     >
                                         <PiLightbulb className="size-4 shrink-0" aria-hidden/>
@@ -127,8 +139,9 @@ export function AppShell({
                         </SidebarMenu>
                     </SidebarGroup>
 
-                    <div className="px-2 pt-2 pb-1">
-                        <span className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
+                    <div className="px-2 pt-2">
+                        <span
+                            className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
                             DMX
                         </span>
                     </div>
@@ -178,10 +191,14 @@ export function AppShell({
                                             route.id === fixture.id &&
                                             "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
                                         )}
-                                        onClick={() => setRoute({kind: "dmxFixture", id: fixture.id})}
+                                        onClick={() => setRoute({
+                                            kind: "dmxFixture",
+                                            id: fixture.id
+                                        })}
                                     >
                                         <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">{fixture.name}</span>
+                                        <span
+                                            className="min-w-0 flex-1 truncate">{fixture.name}</span>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}
@@ -213,7 +230,6 @@ export function AppShell({
             <SidebarInset className="min-h-screen min-w-0">
                 <header
                     className="shrink-0 border-b px-4 py-3 flex flex-wrap items-center justify-between gap-2 min-w-0">
-
                     <div className="flex flex-row gap-2">
                         <Button
                             size="sm"
@@ -238,7 +254,8 @@ export function AppShell({
                     </div>
                 </header>
 
-                <main className="touch-pan-scroll flex-1 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
+                <main
+                    className="touch-pan-scroll flex-1 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
                     {error && (
                         <Alert
                             variant="destructive"
@@ -263,6 +280,5 @@ export function AppShell({
                 </main>
             </SidebarInset>
         </SidebarProvider>
-
     );
 }

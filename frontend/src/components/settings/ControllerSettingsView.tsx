@@ -261,9 +261,11 @@ export function ControllerSettingsView({
             </Card>
 
             <Card className="w-full max-w-none">
-                <CardHeader><CardTitle className="text-sm font-semibold">DMX USB interface</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-semibold">DMX USB
+                    interface</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                    <p className="text-sm opacity-70">Select the active USB-to-DMX serial interface. Selection is saved automatically.</p>
+                    <p className="text-sm opacity-70">Select the active USB-to-DMX serial interface.
+                        Selection is saved automatically.</p>
                     <div className="flex flex-wrap items-center gap-2">
                         <NativeSelect
                             className="w-full md:w-[28rem]"
@@ -277,13 +279,15 @@ export function ControllerSettingsView({
                                 </NativeSelectOption>
                             ))}
                         </NativeSelect>
-                        <Button type="button" size="sm" variant="outline" onClick={onRefreshUSBSerialDevices} disabled={busy}>
+                        <Button type="button" size="sm" variant="outline"
+                                onClick={onRefreshUSBSerialDevices} disabled={busy}>
                             Refresh USB devices
                         </Button>
                     </div>
                     {dmxState.selectedUSBDeviceId && !usbSerialDevices.some((device) => device.id === dmxState.selectedUSBDeviceId) && (
                         <p className="text-xs text-destructive">
-                            Selected device is currently unavailable: <code>{dmxState.selectedUSBDeviceId}</code>
+                            Selected device is currently
+                            unavailable: <code>{dmxState.selectedUSBDeviceId}</code>
                         </p>
                     )}
                 </CardContent>

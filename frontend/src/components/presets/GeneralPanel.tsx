@@ -1,6 +1,6 @@
 import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
-import * as GreetService from "../../../bindings/goldbus/goldbuslightservice";
+import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 import {readNumber} from "../../lib/json";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
@@ -19,13 +19,18 @@ import {
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
 import {EffectPickerModal} from "../device/EffectPickerModal";
 import {PalettePickerModal} from "../device/PalettePickerModal";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import {Card, CardContent} from "@/components/ui/card";
+import {Button} from "@/components/ui/button";
+import {Badge} from "@/components/ui/badge";
+import {Slider} from "@/components/ui/slider";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {Label} from "@/components/ui/label";
+import {cn} from "@/lib/utils";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light ", rgb: CANDLE_LIGHT_RGB},
@@ -116,7 +121,12 @@ export function GeneralPanel({
         })();
     }, [firstOnlineDevice?.id]);
 
-    const applyGlobalEffectPalette = (next: { fx?: number; pal?: number; sx?: number; ix?: number }) => {
+    const applyGlobalEffectPalette = (next: {
+        fx?: number;
+        pal?: number;
+        sx?: number;
+        ix?: number
+    }) => {
         const fx = next.fx ?? generalFx;
         const pal = next.pal ?? generalPal;
         const sx = next.sx ?? generalSx;
@@ -148,7 +158,10 @@ export function GeneralPanel({
                             onClick={() =>
                                 allOff
                                     ? onSetGlobalState({on: true, seg: [{fx: 0, pal: 0}]}, "All on")
-                                    : onSetGlobalState({on: false, seg: [{fx: 0, pal: 0}]}, "All off")
+                                    : onSetGlobalState({
+                                        on: false,
+                                        seg: [{fx: 0, pal: 0}]
+                                    }, "All off")
                             }
                             disabled={busy || activeDevices.length === 0}
                         >
@@ -190,14 +203,14 @@ export function GeneralPanel({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-max">
                                 {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
-                                        <DropdownMenuItem
-                                            key={name}
-                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left"
-                                            disabled={busy}
-                                            onClick={() => {
-                                                applyNamedColorPreset(name, rgb);
-                                            }}
-                                        >
+                                    <DropdownMenuItem
+                                        key={name}
+                                        className="flex w-full items-center gap-2 whitespace-nowrap text-left"
+                                        disabled={busy}
+                                        onClick={() => {
+                                            applyNamedColorPreset(name, rgb);
+                                        }}
+                                    >
                                             <span
                                                 className="h-4 w-4 shrink-0 rounded-sm border"
                                                 style={{
@@ -205,8 +218,8 @@ export function GeneralPanel({
                                                 }}
                                                 aria-hidden
                                             />
-                                            <span>{name}</span>
-                                        </DropdownMenuItem>
+                                        <span>{name}</span>
+                                    </DropdownMenuItem>
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>

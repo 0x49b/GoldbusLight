@@ -8,7 +8,7 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as main$0 from "../../../../../goldbus/models.js";
+import * as controller$0 from "../../../../../goldbus/internal/controller/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
@@ -17,6 +17,6 @@ function configure() {
 }
 
 // Private type creation functions
-const $$createType0 = main$0.ControllerSnapshot.createFrom;
+const $$createType0 = controller$0.ControllerSnapshot.createFrom;
 
 configure();
