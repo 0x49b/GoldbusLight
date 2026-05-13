@@ -61,7 +61,14 @@ function App() {
             />
         );
     } else if (app.route.kind === "dmxUniverse") {
-        main = <DMXUniverseView/>;
+        main = (
+            <DMXUniverseView
+                fixtures={app.dmxState.fixtures}
+                selectedUSBDeviceId={app.dmxState.selectedUSBDeviceId}
+                usbSerialDevices={app.usbSerialDevices}
+                setRoute={app.setRoute}
+            />
+        );
     } else if (app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") {
         main = (
             <DMXFixtureEditorView
