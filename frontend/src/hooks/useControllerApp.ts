@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as GreetService from "../../bindings/changeme/greetservice";
+import { useShallow } from "zustand/shallow";
+import * as GreetService from "../../bindings/goldbus/goldbuslightservice";
+import { DMXLiveStatus, DMXOutputUpdate } from "../../bindings/goldbus/internal/dmx/models";
+import { useControllerStore } from "../store/controllerStore";
 import { parseJSONMap, prettyJSON, readNumber } from "../lib/json";
 import {
   mainSegIndex,
@@ -18,9 +21,12 @@ import {
 import type {
   ControllerSettings,
   ControllerSnapshot,
-  DetailRoute,
+  DMXFixture,
+  DMXState,
   JSONMap,
   NetworkApplyResult,
+  UpsertDMXFixtureInput,
+  USBSerialDevice,
   WLEDDevice,
   WLEDDeviceDetail,
 } from "../types/controller";
@@ -28,6 +34,9 @@ import type {
 const DEVICE_DETAIL_MAX_TRIES = 5;
 const DEVICE_DETAIL_TRY_MS = 10_000;
 const DEVICE_DETAIL_RETRY_DELAY_MS = 400;
+
+/** Background snapshot poll to pick up devices coming back online (matches header Refresh data). */
+const BACKGROUND_SNAPSHOT_POLL_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -85,38 +94,147 @@ function markDeviceOfflineInSnapshot(
 }
 
 export function useControllerApp() {
-  const [snapshot, setSnapshot] = useState<ControllerSnapshot | null>(null);
-  const [settings, setSettings] = useState<ControllerSettings | null>(null);
-  const [applyResult, setApplyResult] = useState<NetworkApplyResult | null>(null);
-  const [status, setStatus] = useState<string>("Loading...");
-  const [error, setError] = useState<string>("");
-  const [statePayloadText, setStatePayloadText] = useState<string>('{"on":true,"bri":180}');
-  const [configPatchText, setConfigPatchText] = useState<string>("{}");
-  const [presetBri, setPresetBri] = useState<number>(200);
-  const [presetRgb, setPresetRgb] = useState<[number, number, number]>([...WARM_WHITE_RGB]);
-  const [generalFx, setGeneralFx] = useState<number>(0);
-  const [generalPal, setGeneralPal] = useState<number>(0);
-  const [generalSx, setGeneralSx] = useState<number>(128);
-  const [generalIx, setGeneralIx] = useState<number>(128);
-  const [busy, setBusy] = useState<boolean>(false);
-  const [discovering, setDiscovering] = useState<boolean>(false);
-  const [route, setRoute] = useState<DetailRoute>({ kind: "presets" });
-  const [deviceDetail, setDeviceDetail] = useState<WLEDDeviceDetail | null>(null);
-  const [deviceDetailInitializing, setDeviceDetailInitializing] = useState(false);
-  const [deviceDetailReloading, setDeviceDetailReloading] = useState(false);
-  const [deviceDetailFetchAttempt, setDeviceDetailFetchAttempt] = useState(0);
-  const [deviceFormFx, setDeviceFormFx] = useState(0);
-  const [deviceFormPal, setDeviceFormPal] = useState(0);
-  const [deviceFormSx, setDeviceFormSx] = useState(128);
-  const [deviceFormIx, setDeviceFormIx] = useState(128);
-  const [deviceFormRgb, setDeviceFormRgb] = useState<[number, number, number]>([255, 0, 0]);
-  const [deviceFormBri, setDeviceFormBri] = useState(180);
-  const [deviceFormTransition, setDeviceFormTransition] = useState(7);
-  const [selectedSegIdx, setSelectedSegIdx] = useState(0);
-  const [ignoredDevices, setIgnoredDevices] = useState<WLEDDevice[]>([]);
-  const [deviceNameDraft, setDeviceNameDraft] = useState("");
-  const [editingDeviceName, setEditingDeviceName] = useState(false);
-  const [currentVersion, setCurrentVersion] = useState("unknown");
+  const {
+    snapshot,
+    settings,
+    applyResult,
+    status,
+    error,
+    statePayloadText,
+    configPatchText,
+    presetBri,
+    presetRgb,
+    generalFx,
+    generalPal,
+    generalSx,
+    generalIx,
+    busy,
+    discovering,
+    route,
+    deviceDetail,
+    deviceDetailInitializing,
+    deviceDetailReloading,
+    deviceDetailFetchAttempt,
+    deviceFormFx,
+    deviceFormPal,
+    deviceFormSx,
+    deviceFormIx,
+    deviceFormRgb,
+    deviceFormBri,
+    deviceFormTransition,
+    selectedSegIdx,
+    ignoredDevices,
+    deviceNameDraft,
+    editingDeviceName,
+    currentVersion,
+    dmxState,
+    usbSerialDevices,
+    setSnapshot,
+    setSettings,
+    setApplyResult,
+    setStatus,
+    setError,
+    setStatePayloadText,
+    setConfigPatchText,
+    setPresetBri,
+    setPresetRgb,
+    setGeneralFx,
+    setGeneralPal,
+    setGeneralSx,
+    setGeneralIx,
+    setBusy,
+    setDiscovering,
+    setRoute,
+    setDeviceDetail,
+    setDeviceDetailInitializing,
+    setDeviceDetailReloading,
+    setDeviceDetailFetchAttempt,
+    setDeviceFormFx,
+    setDeviceFormPal,
+    setDeviceFormSx,
+    setDeviceFormIx,
+    setDeviceFormRgb,
+    setDeviceFormBri,
+    setDeviceFormTransition,
+    setSelectedSegIdx,
+    setIgnoredDevices,
+    setDeviceNameDraft,
+    setEditingDeviceName,
+    setCurrentVersion,
+    setDMXState,
+    setUSBSerialDevices,
+  } = useControllerStore(
+    useShallow((s) => ({
+      snapshot: s.snapshot,
+      settings: s.settings,
+      applyResult: s.applyResult,
+      status: s.status,
+      error: s.error,
+      statePayloadText: s.statePayloadText,
+      configPatchText: s.configPatchText,
+      presetBri: s.presetBri,
+      presetRgb: s.presetRgb,
+      generalFx: s.generalFx,
+      generalPal: s.generalPal,
+      generalSx: s.generalSx,
+      generalIx: s.generalIx,
+      busy: s.busy,
+      discovering: s.discovering,
+      route: s.route,
+      deviceDetail: s.deviceDetail,
+      deviceDetailInitializing: s.deviceDetailInitializing,
+      deviceDetailReloading: s.deviceDetailReloading,
+      deviceDetailFetchAttempt: s.deviceDetailFetchAttempt,
+      deviceFormFx: s.deviceFormFx,
+      deviceFormPal: s.deviceFormPal,
+      deviceFormSx: s.deviceFormSx,
+      deviceFormIx: s.deviceFormIx,
+      deviceFormRgb: s.deviceFormRgb,
+      deviceFormBri: s.deviceFormBri,
+      deviceFormTransition: s.deviceFormTransition,
+      selectedSegIdx: s.selectedSegIdx,
+      ignoredDevices: s.ignoredDevices,
+      deviceNameDraft: s.deviceNameDraft,
+      editingDeviceName: s.editingDeviceName,
+      currentVersion: s.currentVersion,
+      dmxState: s.dmxState,
+      usbSerialDevices: s.usbSerialDevices,
+      setSnapshot: s.setSnapshot,
+      setSettings: s.setSettings,
+      setApplyResult: s.setApplyResult,
+      setStatus: s.setStatus,
+      setError: s.setError,
+      setStatePayloadText: s.setStatePayloadText,
+      setConfigPatchText: s.setConfigPatchText,
+      setPresetBri: s.setPresetBri,
+      setPresetRgb: s.setPresetRgb,
+      setGeneralFx: s.setGeneralFx,
+      setGeneralPal: s.setGeneralPal,
+      setGeneralSx: s.setGeneralSx,
+      setGeneralIx: s.setGeneralIx,
+      setBusy: s.setBusy,
+      setDiscovering: s.setDiscovering,
+      setRoute: s.setRoute,
+      setDeviceDetail: s.setDeviceDetail,
+      setDeviceDetailInitializing: s.setDeviceDetailInitializing,
+      setDeviceDetailReloading: s.setDeviceDetailReloading,
+      setDeviceDetailFetchAttempt: s.setDeviceDetailFetchAttempt,
+      setDeviceFormFx: s.setDeviceFormFx,
+      setDeviceFormPal: s.setDeviceFormPal,
+      setDeviceFormSx: s.setDeviceFormSx,
+      setDeviceFormIx: s.setDeviceFormIx,
+      setDeviceFormRgb: s.setDeviceFormRgb,
+      setDeviceFormBri: s.setDeviceFormBri,
+      setDeviceFormTransition: s.setDeviceFormTransition,
+      setSelectedSegIdx: s.setSelectedSegIdx,
+      setIgnoredDevices: s.setIgnoredDevices,
+      setDeviceNameDraft: s.setDeviceNameDraft,
+      setEditingDeviceName: s.setEditingDeviceName,
+      setCurrentVersion: s.setCurrentVersion,
+      setDMXState: s.setDMXState,
+      setUSBSerialDevices: s.setUSBSerialDevices,
+    })),
+  );
 
   const detailDeviceIdRef = useRef<string>("");
   /** Latest GET /json/state for the open device (for debounced callbacks; avoids stale closures). */
@@ -155,12 +273,23 @@ export function useControllerApp() {
     segIdx: 0,
   });
 
+  const dmxLivePendingRef = useRef<Map<number, number>>(new Map());
+  const dmxLiveFlushTimerRef = useRef<number | undefined>(undefined);
+  const [dmxLiveStatus, setDmxLiveStatus] = useState<DMXLiveStatus | null>(null);
+
   const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
 
   const selectedDevice = useMemo(() => {
     if (route.kind !== "device") return undefined;
     return devices.find((d) => d.id === route.id);
   }, [devices, route]);
+
+  const selectedFixture = useMemo(() => {
+    if (route.kind !== "dmxFixture") {
+      return undefined;
+    }
+    return dmxState.fixtures.find((fixture) => fixture.id === route.id);
+  }, [dmxState.fixtures, route]);
 
   useEffect(() => {
     if (route.kind !== "device" || !selectedDevice) {
@@ -177,6 +306,18 @@ export function useControllerApp() {
     }
     setDeviceNameDraft(selectedDevice.name);
   }, [selectedDevice?.name, editingDeviceName, selectedDevice]);
+
+  const pullDMXState = useCallback(async () => {
+    const next = (await GreetService.GetDMXState()) as DMXState;
+    setDMXState(next);
+    return next;
+  }, []);
+
+  const pullUSBSerialDevices = useCallback(async () => {
+    const devices = (await GreetService.ListUSBSerialDevices()) as USBSerialDevice[];
+    setUSBSerialDevices(devices);
+    return devices;
+  }, []);
 
   const pullSnapshot = useCallback(async () => {
     const next = (await GreetService.GetControllerSnapshot()) as ControllerSnapshot;
@@ -218,7 +359,17 @@ export function useControllerApp() {
     } catch {
       setIgnoredDevices([]);
     }
-  }, []);
+    try {
+      await pullDMXState();
+    } catch {
+      setDMXState((prev) => ({ ...prev, fixtures: prev.fixtures ?? [] }));
+    }
+    try {
+      await pullUSBSerialDevices();
+    } catch {
+      setUSBSerialDevices([]);
+    }
+  }, [pullDMXState, pullUSBSerialDevices]);
 
   useEffect(() => {
     void pullSnapshot().catch((err: unknown) => {
@@ -228,9 +379,28 @@ export function useControllerApp() {
       void pullSnapshot().catch((err: unknown) => {
         setError(String(err));
       });
-    }, 8000);
+    }, BACKGROUND_SNAPSHOT_POLL_MS);
     return () => window.clearInterval(timer);
   }, [pullSnapshot]);
+
+  useEffect(() => {
+    if (route.kind !== "device") {
+      return;
+    }
+    if (!snapshot) {
+      return;
+    }
+    const dev = snapshot.devices.find((d) => d.id === route.id);
+    if (!dev) {
+      setRoute({ kind: "presets" });
+      setStatus("That device is no longer in the controller.");
+      return;
+    }
+    if (dev.online === false) {
+      setRoute({ kind: "presets" });
+      setStatus("Device offline — use Discover or Refresh in the header. When it is online again, open it from the sidebar.");
+    }
+  }, [route, snapshot, setRoute, setStatus]);
 
   useEffect(() => {
     void GreetService.AppVersion()
@@ -473,6 +643,16 @@ export function useControllerApp() {
     };
   }, [route, loadDeviceDetail]);
 
+  useEffect(() => {
+    if (route.kind !== "dmxFixture") {
+      return;
+    }
+    const exists = dmxState.fixtures.some((fixture) => fixture.id === route.id);
+    if (!exists) {
+      setRoute({ kind: "dmxAddFixture" });
+    }
+  }, [dmxState.fixtures, route, setRoute]);
+
   const withBusy = useCallback(async (work: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -516,6 +696,175 @@ export function useControllerApp() {
       setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
     });
   }, [withBusy]);
+
+  const onCreateDMXFixture = useCallback(
+    async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
+      setBusy(true);
+      try {
+        const created = (await GreetService.CreateDMXFixture(input as never)) as DMXFixture;
+        await pullDMXState();
+        setStatus(`Fixture "${created.name}" created`);
+        setError("");
+        return created;
+      } catch (err) {
+        setError(String(err));
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pullDMXState],
+  );
+
+  const onUpdateDMXFixture = useCallback(
+    async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
+      setBusy(true);
+      try {
+        const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
+        await pullDMXState();
+        setStatus(`Fixture "${updated.name}" updated`);
+        setError("");
+        return updated;
+      } catch (err) {
+        setError(String(err));
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pullDMXState],
+  );
+
+  const onDeleteDMXFixture = useCallback(
+    async (fixtureID: string): Promise<boolean> => {
+      setBusy(true);
+      try {
+        await GreetService.DeleteDMXFixture(fixtureID);
+        await pullDMXState();
+        setRoute((r) => (r.kind === "dmxFixture" && r.id === fixtureID ? { kind: "dmxAddFixture" } : r));
+        setStatus("Fixture deleted");
+        setError("");
+        return true;
+      } catch (err) {
+        setError(String(err));
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pullDMXState],
+  );
+
+  const refreshUSBSerialDevices = useCallback(async () => {
+    setBusy(true);
+    try {
+      await pullUSBSerialDevices();
+      setStatus("USB serial devices refreshed");
+      setError("");
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [pullUSBSerialDevices]);
+
+  const onSelectUSBSerialDevice = useCallback(async (deviceID: string) => {
+    setBusy(true);
+    try {
+      const next = (await GreetService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
+      setDMXState(next);
+      setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
+      setError("");
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const clampDmxByte = useCallback((v: number) => {
+    const n = Math.round(v);
+    return Math.max(0, Math.min(255, n));
+  }, []);
+
+  const pullDMXLiveStatus = useCallback(async () => {
+    try {
+      const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+      setDmxLiveStatus(st);
+    } catch {
+      setDmxLiveStatus(null);
+    }
+  }, []);
+
+  const flushDmxLivePatch = useCallback(async () => {
+    const m = dmxLivePendingRef.current;
+    if (m.size === 0) {
+      return;
+    }
+    dmxLivePendingRef.current = new Map();
+    const updates = Array.from(m.entries()).map(
+      ([address, value]) => new DMXOutputUpdate({ address, value }),
+    );
+    try {
+      await GreetService.ApplyDMXLivePatch(updates);
+      await pullDMXLiveStatus();
+    } catch (err) {
+      setError(String(err));
+      await pullDMXLiveStatus();
+    }
+  }, [pullDMXLiveStatus, setError]);
+
+  const queueDmxLivePatch = useCallback(
+    (entries: Array<{ address: number; value: number }>) => {
+      for (const e of entries) {
+        if (e.address >= 1 && e.address <= 512) {
+          dmxLivePendingRef.current.set(e.address, clampDmxByte(e.value));
+        }
+      }
+      if (dmxLiveFlushTimerRef.current !== undefined) {
+        window.clearTimeout(dmxLiveFlushTimerRef.current);
+      }
+      dmxLiveFlushTimerRef.current = window.setTimeout(() => {
+        dmxLiveFlushTimerRef.current = undefined;
+        void flushDmxLivePatch();
+      }, 45);
+    },
+    [clampDmxByte, flushDmxLivePatch],
+  );
+
+  const startDMXLiveOutput = useCallback(
+    async (fixtureID: string) => {
+      setBusy(true);
+      try {
+        await GreetService.StartDMXLive(fixtureID);
+        setError("");
+        setStatus("DMX live output started");
+        await pullDMXLiveStatus();
+        return true;
+      } catch (err) {
+        setError(String(err));
+        await pullDMXLiveStatus();
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pullDMXLiveStatus, setBusy, setError, setStatus],
+  );
+
+  const stopDMXLiveOutput = useCallback(async () => {
+    if (dmxLiveFlushTimerRef.current !== undefined) {
+      window.clearTimeout(dmxLiveFlushTimerRef.current);
+      dmxLiveFlushTimerRef.current = undefined;
+    }
+    dmxLivePendingRef.current.clear();
+    try {
+      await GreetService.StopDMXLive();
+    } catch {
+      /* ignore */
+    }
+    await pullDMXLiveStatus();
+  }, [pullDMXLiveStatus]);
 
   const onDismissError = useCallback(() => {
     setError("");
@@ -878,6 +1227,9 @@ export function useControllerApp() {
     busy,
     discovering,
     currentVersion,
+    dmxState,
+    dmxLiveStatus,
+    usbSerialDevices,
     route,
     setRoute,
     deviceDetail,
@@ -908,7 +1260,10 @@ export function useControllerApp() {
     setEditingDeviceName,
     devices,
     selectedDevice,
+    selectedFixture,
     pullSnapshot,
+    pullDMXState,
+    pullUSBSerialDevices,
     onSaveSettings,
     onApplyNetwork,
     onDiscoverNow,
@@ -924,6 +1279,15 @@ export function useControllerApp() {
     applyWarmWhitePreset,
     applyColdWhitePreset,
     applyNamedColorPreset,
+    onCreateDMXFixture,
+    onUpdateDMXFixture,
+    onDeleteDMXFixture,
+    refreshUSBSerialDevices,
+    onSelectUSBSerialDevice,
+    pullDMXLiveStatus,
+    queueDmxLivePatch,
+    startDMXLiveOutput,
+    stopDMXLiveOutput,
     onDismissError,
   };
 }
@@ -1027,4 +1391,3 @@ function isPatchSatisfiedByState(state: JSONMap, patch: JSONMap): boolean {
   }
   return true;
 }
-

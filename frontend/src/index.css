@@ -48,7 +48,18 @@
 
 
 
+.btn-active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
 @layer components {
+
+  .touch-pan-scroll {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 
 
   .status {

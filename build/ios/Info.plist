@@ -7,9 +7,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.example.goldbuslight</string>
     <key>CFBundleName</key>
-    <string>My Product</string>
+    <string>Goldbus</string>
     <key>CFBundleDisplayName</key>
-    <string>My Product</string>
+    <string>Goldbus</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

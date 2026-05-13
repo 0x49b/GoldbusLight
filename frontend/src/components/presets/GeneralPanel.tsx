@@ -1,6 +1,6 @@
 import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
-import * as GreetService from "../../../bindings/changeme/greetservice";
+import * as GreetService from "../../../bindings/goldbus/goldbuslightservice";
 import {readNumber} from "../../lib/json";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,

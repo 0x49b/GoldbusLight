@@ -40,7 +40,7 @@ export function EffectPickerModal({
                     <DialogTitle className="text-sm">Effect</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
-                    <div className="max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
+                    <div className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
                             aria-label="Effects"
@@ -53,7 +53,7 @@ export function EffectPickerModal({
                                     size="xs"
                                     variant={idx === selectedIndex ? "secondary" : "ghost"}
                                     className={cn(
-                                        "mb-1 block h-auto w-full flex-col gap-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
+                                        "mb-1 flex h-auto w-full flex-row flex-wrap items-baseline justify-start gap-x-1 gap-y-0 break-inside-avoid px-1.5 py-1.5 text-left font-normal whitespace-normal",
                                         idx === selectedIndex && "font-medium"
                                     )}
                                     disabled={disabled}
@@ -62,10 +62,10 @@ export function EffectPickerModal({
                                         onClose();
                                     }}
                                 >
-                                    <span className="font-mono text-[10px] leading-none opacity-60">
-                                        {idx}
+                                    <span className="shrink-0 font-mono text-[10px] leading-snug opacity-60">
+                                        {idx}:
                                     </span>
-                                    <span className="break-words text-[11px] leading-snug" title={name}>
+                                    <span className="min-w-0 flex-1 break-words text-[11px] leading-snug" title={name}>
                                         {name}
                                     </span>
                                 </Button>

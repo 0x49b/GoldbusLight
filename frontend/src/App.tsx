@@ -1,4 +1,6 @@
 import type {ReactNode} from "react";
+import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
+import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "./components/device/DeviceDetailView";
 import {AppShell} from "./components/layout/AppShell";
 import {GeneralPanel} from "./components/presets/GeneralPanel";
@@ -52,6 +54,33 @@ function App() {
                 onApplyNetwork={app.onApplyNetwork}
                 onUnignoreDevice={app.onUnignoreDevice}
                 currentVersion={app.currentVersion}
+                dmxState={app.dmxState}
+                usbSerialDevices={app.usbSerialDevices}
+                onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
+                onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
+            />
+        );
+    } else if (app.route.kind === "dmxUniverse") {
+        main = <DMXUniverseView/>;
+    } else if (app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") {
+        main = (
+            <DMXFixtureEditorView
+                fixture={app.selectedFixture}
+                busy={app.busy}
+                onCreate={app.onCreateDMXFixture}
+                onUpdate={app.onUpdateDMXFixture}
+                onDelete={app.onDeleteDMXFixture}
+                onOpenFixture={(fixtureID) => app.setRoute({kind: "dmxFixture", id: fixtureID})}
+                dmxState={app.dmxState}
+                usbSerialDevices={app.usbSerialDevices}
+                dmxLiveStatus={app.dmxLiveStatus}
+                setRoute={app.setRoute}
+                pullDMXLiveStatus={app.pullDMXLiveStatus}
+                queueDmxLivePatch={app.queueDmxLivePatch}
+                startDMXLiveOutput={app.startDMXLiveOutput}
+                stopDMXLiveOutput={app.stopDMXLiveOutput}
+                onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
+                onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
             />
         );
     } else {
@@ -104,6 +133,7 @@ function App() {
                 route={app.route}
                 setRoute={app.setRoute}
                 devices={app.devices}
+                dmxFixtures={app.dmxState.fixtures}
                 error={app.error}
                 onDismissError={app.onDismissError}
             >

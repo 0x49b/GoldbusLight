@@ -6,6 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goldbus/internal/discovery"
+	"goldbus/internal/dmx"
+	"goldbus/internal/network"
+	serial2 "goldbus/internal/serial"
+	"goldbus/internal/wledhttp"
 	"log"
 	"net"
 	"net/http"
@@ -17,13 +22,13 @@ import (
 	"time"
 
 	"github.com/grandcat/zeroconf"
-
-	"changeme/internal/wledhttp"
+	"go.bug.st/serial"
 )
 
 const (
 	defaultStateFileName    = "state.json"
 	generalTabStateFileName = "general-tab-state.json"
+	dmxStateFileName        = "dmx.json"
 	simulatedWLEDDeviceID   = "sim:wled"
 
 	// WLED hardware commonly uses 2.4 GHz–only Wi‑Fi; the controller AP must stay on that band.
@@ -141,6 +146,53 @@ type GeneralTabState struct {
 	IX  int    `json:"ix"`
 }
 
+type DMXFixtureType string
+
+const (
+	DMXFixtureTypeMovingHead DMXFixtureType = "movingHead"
+)
+
+type DMXChannel struct {
+	Channel    int            `json:"channel"`
+	Type       string         `json:"type"`
+	Properties map[string]any `json:"properties,omitempty"`
+}
+
+type MovingHeadConfig struct {
+	MaxPan  int `json:"maxPan"`
+	MaxTilt int `json:"maxTilt"`
+}
+
+type DMXFixture struct {
+	ID         string           `json:"id"`
+	Type       DMXFixtureType   `json:"type"`
+	Brand      string           `json:"brand"`
+	Name       string           `json:"name"`
+	DMXAddress int              `json:"dmxAddress"`
+	MovingHead MovingHeadConfig `json:"movingHead"`
+	Channels   []DMXChannel     `json:"channels"`
+	CreatedAt  time.Time        `json:"createdAt"`
+	UpdatedAt  time.Time        `json:"updatedAt"`
+}
+
+type DMXState struct {
+	Fixtures            []DMXFixture `json:"fixtures"`
+	SelectedUSBDeviceID string       `json:"selectedUSBDeviceId"`
+}
+
+type USBSerialDevice = serial2.USBSerialDevice
+
+type UpsertDMXFixtureInput struct {
+	ID         string         `json:"id,omitempty"`
+	Type       DMXFixtureType `json:"type"`
+	Brand      string         `json:"brand"`
+	Name       string         `json:"name"`
+	DMXAddress int            `json:"dmxAddress"`
+	MaxPan     int            `json:"maxPan"`
+	MaxTilt    int            `json:"maxTilt"`
+	Channels   []DMXChannel   `json:"channels"`
+}
+
 type ControllerCapabilities struct {
 	// NetworkBackendID identifies which integration is active (e.g. "nmcli", "darwin", "netsh", "stub").
 	NetworkBackendID string `json:"networkBackendId"`
@@ -169,12 +221,7 @@ type NetworkApplyResult struct {
 	Steps    []NetworkCommandResult `json:"steps"`
 }
 
-type discoveredDevice struct {
-	Name    string
-	Host    string
-	Address string
-	Port    int
-}
+type discoveredDevice = discovery.DiscoveredDevice
 
 type StatePersistenceManager struct {
 	path string
@@ -182,6 +229,11 @@ type StatePersistenceManager struct {
 }
 
 type GeneralTabStatePersistenceManager struct {
+	path string
+	mu   sync.Mutex
+}
+
+type DMXPersistenceManager struct {
 	path string
 	mu   sync.Mutex
 }
@@ -204,6 +256,16 @@ func NewGeneralTabStatePersistenceManager() *GeneralTabStatePersistenceManager {
 	}
 	return &GeneralTabStatePersistenceManager{
 		path: filepath.Join(cfgDir, "wled-controller", generalTabStateFileName),
+	}
+}
+
+func NewDMXPersistenceManager() *DMXPersistenceManager {
+	cfgDir, err := os.UserConfigDir()
+	if err != nil || cfgDir == "" {
+		return &DMXPersistenceManager{path: filepath.Join(".", dmxStateFileName)}
+	}
+	return &DMXPersistenceManager{
+		path: filepath.Join(cfgDir, "wled-controller", dmxStateFileName),
 	}
 }
 
@@ -232,6 +294,41 @@ func (s *GeneralTabStatePersistenceManager) Save(st GeneralTabState) error {
 		return err
 	}
 	payload, err := json.MarshalIndent(clampGeneralTabState(st), "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, payload, 0o600)
+}
+
+func (s *DMXPersistenceManager) Path() string {
+	return s.path
+}
+
+func (s *DMXPersistenceManager) Load() (DMXState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	def := defaultDMXState()
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return def, nil
+		}
+		return def, err
+	}
+	var st DMXState
+	if err := json.Unmarshal(data, &st); err != nil {
+		return def, err
+	}
+	return normalizeDMXState(st), nil
+}
+
+func (s *DMXPersistenceManager) Save(st DMXState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(normalizeDMXState(st), "", "  ")
 	if err != nil {
 		return err
 	}
@@ -300,35 +397,58 @@ func (s *StatePersistenceManager) Save(state persistentState) error {
 
 type NetworkManager struct {
 	logger  *log.Logger
-	backend networkBackend
+	backend network.Backend
 }
 
 func NewNetworkManager(logger *log.Logger) *NetworkManager {
 	return &NetworkManager{
 		logger:  logger,
-		backend: selectNetworkBackend(logger),
+		backend: network.SelectNetworkBackend(logger),
 	}
 }
 
 func (n *NetworkManager) controllerCapabilities() ControllerCapabilities {
 	b := n.backend
-	nmcli := b.id() == "nmcli" && b.available()
+	nmcli := b.ID() == "nmcli" && b.Available()
 	reason := ""
-	if !b.available() {
-		reason = b.unavailableHint()
+	if !b.Available() {
+		reason = b.UnavailableHint()
 	}
 	return ControllerCapabilities{
-		NetworkBackendID:            b.id(),
-		NetworkBackendLabel:         b.label(),
-		NetworkControlAvailable:     b.available(),
-		NetworkCliName:              b.primaryCLI(),
+		NetworkBackendID:            b.ID(),
+		NetworkBackendLabel:         b.Label(),
+		NetworkControlAvailable:     b.Available(),
+		NetworkCliName:              b.PrimaryCLI(),
 		NetworkCliUnavailableReason: reason,
 		NmcliAvailable:              nmcli,
 	}
 }
 
 func (n *NetworkManager) Apply(ctx context.Context, settings ControllerSettings) NetworkApplyResult {
-	return n.backend.apply(ctx, settings)
+	raw := n.backend.Apply(ctx, network.ControllerSettings{
+		AccessPoint: network.AccessPointSettings{
+			Enabled:       settings.AccessPoint.Enabled,
+			Connection:    settings.AccessPoint.Connection,
+			InterfaceName: settings.AccessPoint.InterfaceName,
+			SSID:          settings.AccessPoint.SSID,
+			Password:      settings.AccessPoint.Password,
+			Channel:       settings.AccessPoint.Channel,
+		},
+	})
+	steps := make([]NetworkCommandResult, 0, len(raw.Steps))
+	for _, step := range raw.Steps {
+		steps = append(steps, NetworkCommandResult{
+			Command: step.Command,
+			Output:  step.Output,
+			Success: step.Success,
+			Error:   step.Error,
+		})
+	}
+	return NetworkApplyResult{
+		DryRun:   raw.DryRun,
+		Warnings: slices.Clone(raw.Warnings),
+		Steps:    steps,
+	}
 }
 
 type DiscoveryEngine struct {
@@ -337,6 +457,27 @@ type DiscoveryEngine struct {
 
 func NewDiscoveryEngine(logger *log.Logger) *DiscoveryEngine {
 	return &DiscoveryEngine{logger: logger}
+}
+
+func toDiscoverySettings(s DiscoverySettings) discovery.Settings {
+	return discovery.Settings{
+		Enabled:        s.Enabled,
+		ServiceTypes:   slices.Clone(s.ServiceTypes),
+		QueryTimeoutMS: s.QueryTimeoutMS,
+		BindInterface:  s.BindInterface,
+		PassiveBrowse:  s.PassiveBrowse,
+		SubnetProbe:    s.SubnetProbe,
+	}
+}
+
+func toDiscoveryControllerSettings(s ControllerSettings) discovery.ControllerSettings {
+	return discovery.ControllerSettings{
+		Discovery: toDiscoverySettings(s.Discovery),
+		AccessPoint: discovery.AccessPointSettings{
+			Enabled:       s.AccessPoint.Enabled,
+			InterfaceName: s.AccessPoint.InterfaceName,
+		},
+	}
 }
 
 type WLEDDeviceDetail struct {
@@ -580,6 +721,7 @@ type WLEDController struct {
 	logger                *log.Logger
 	persistence           *StatePersistenceManager
 	generalTabPersistence *GeneralTabStatePersistenceManager
+	dmxPersistence        *DMXPersistenceManager
 	network               *NetworkManager
 	discovery             *DiscoveryEngine
 	wled                  *WLEDEngine
@@ -588,12 +730,23 @@ type WLEDController struct {
 	settings        ControllerSettings
 	devices         map[string]WLEDDevice
 	generalTabState GeneralTabState
+	dmxState        DMXState
 	updated         time.Time
 
 	probeMu     sync.Mutex
 	probeRecent map[string]time.Time
 
 	cancel context.CancelFunc
+
+	dmxLiveMu         sync.Mutex
+	dmxLivePort       serial.Port
+	dmxLiveCancel     context.CancelFunc
+	dmxLiveWG         sync.WaitGroup
+	dmxLiveBuf        [512]byte
+	dmxLiveErr        string
+	dmxLivePath       string
+	dmxLiveDeviceName string
+	dmxLiveFixID      string
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -604,12 +757,14 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		logger:                logger,
 		persistence:           NewStatePersistenceManager(),
 		generalTabPersistence: NewGeneralTabStatePersistenceManager(),
+		dmxPersistence:        NewDMXPersistenceManager(),
 		network:               NewNetworkManager(logger),
 		discovery:             NewDiscoveryEngine(logger),
 		wled:                  NewWLEDEngine(),
 		settings:              DefaultControllerSettings(),
 		devices:               map[string]WLEDDevice{},
 		generalTabState:       defaultGeneralTabState(),
+		dmxState:              defaultDMXState(),
 		updated:               time.Now(),
 	}
 }
@@ -733,14 +888,30 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		c.logger.Printf("general tab state load failed, using defaults: %v", err)
 		generalTab = defaultGeneralTabState()
 	}
+	dmxState, err := c.dmxPersistence.Load()
+	if err != nil {
+		c.logger.Printf("dmx state load failed, using defaults: %v", err)
+		dmxState = defaultDMXState()
+	}
+
+	normDMX := normalizeDMXState(dmxState)
+	oldUSB := strings.TrimSpace(normDMX.SelectedUSBDeviceID)
+	normDMX.SelectedUSBDeviceID = dmx.CanonicalizePersistedDMXUSBSelectionID(oldUSB)
 
 	c.mu.Lock()
 	c.settings = mergeWithDefaults(loaded.Settings)
 	c.devices = loaded.Devices
 	c.generalTabState = clampGeneralTabState(generalTab)
+	c.dmxState = normDMX
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
+
+	if normDMX.SelectedUSBDeviceID != oldUSB && normDMX.SelectedUSBDeviceID != "" {
+		if err := c.persistDMX(); err != nil {
+			c.logger.Printf("dmx: persist migrated usb selection: %v", err)
+		}
+	}
 
 	runCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
@@ -756,11 +927,15 @@ func (c *WLEDController) Start(ctx context.Context) error {
 }
 
 func (c *WLEDController) Stop() {
+	c.StopDMXLive()
 	if c.cancel != nil {
 		c.cancel()
 	}
 	if err := c.persist(); err != nil {
 		c.logger.Printf("persist during shutdown failed: %v", err)
+	}
+	if err := c.persistDMX(); err != nil {
+		c.logger.Printf("persist dmx during shutdown failed: %v", err)
 	}
 }
 
@@ -818,10 +993,11 @@ func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) 
 		return nil, fmt.Errorf("discovery is disabled in settings")
 	}
 
-	iface := resolveDiscoveryNetInterface(c.logger, full)
-	found, err := c.discovery.DiscoverOnce(ctx, DiscoveryRunParams{
-		Settings:  settings,
+	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(full))
+	found, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
+		Settings:  toDiscoverySettings(settings),
 		BindIface: iface,
+		Logger:    c.logger,
 	})
 	if err != nil {
 		return nil, err
@@ -1126,9 +1302,284 @@ func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string
 	return c.persist()
 }
 
+func (c *WLEDController) GetDMXState() DMXState {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return cloneDMXState(c.dmxState)
+}
+
+func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
+	fixture, err := buildDMXFixtureForCreate(input)
+	if err != nil {
+		return DMXFixture{}, err
+	}
+	c.mu.Lock()
+	c.dmxState.Fixtures = append(c.dmxState.Fixtures, fixture)
+	c.dmxState = normalizeDMXState(c.dmxState)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	if err := c.persistDMX(); err != nil {
+		return DMXFixture{}, err
+	}
+	return fixture, nil
+}
+
+func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
+	id := strings.TrimSpace(input.ID)
+	if id == "" {
+		return DMXFixture{}, fmt.Errorf("fixture id is required")
+	}
+	c.mu.Lock()
+	idx := -1
+	for i := range c.dmxState.Fixtures {
+		if c.dmxState.Fixtures[i].ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		c.mu.Unlock()
+		return DMXFixture{}, fmt.Errorf("unknown fixture: %s", id)
+	}
+	updated, err := buildDMXFixtureForUpdate(c.dmxState.Fixtures[idx], input)
+	if err != nil {
+		c.mu.Unlock()
+		return DMXFixture{}, err
+	}
+	c.dmxState.Fixtures[idx] = updated
+	c.dmxState = normalizeDMXState(c.dmxState)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	if err := c.persistDMX(); err != nil {
+		return DMXFixture{}, err
+	}
+	return updated, nil
+}
+
+func (c *WLEDController) DeleteDMXFixture(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("fixture id is required")
+	}
+	c.mu.Lock()
+	next := make([]DMXFixture, 0, len(c.dmxState.Fixtures))
+	found := false
+	for _, fixture := range c.dmxState.Fixtures {
+		if fixture.ID == id {
+			found = true
+			continue
+		}
+		next = append(next, fixture)
+	}
+	if !found {
+		c.mu.Unlock()
+		return fmt.Errorf("unknown fixture: %s", id)
+	}
+	c.dmxState.Fixtures = next
+	c.dmxState = normalizeDMXState(c.dmxState)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persistDMX()
+}
+
+func (c *WLEDController) ListUSBSerialDevices() []USBSerialDevice {
+	return serial2.ListUSBSerialDevices()
+}
+
+func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID != "" {
+		dev, ok := dmx.PickUSBSerialDevice(deviceID, serial2.ListUSBSerialDevices())
+		if !ok {
+			return fmt.Errorf("selected usb serial device is not currently attached: %s", deviceID)
+		}
+		deviceID = dev.ID
+	}
+	c.mu.Lock()
+	c.dmxState.SelectedUSBDeviceID = deviceID
+	c.dmxState = normalizeDMXState(c.dmxState)
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persistDMX()
+}
+
+const dmxLiveFrameHz = 44
+
+func (c *WLEDController) resolveSelectedUSBPath() (string, error) {
+	c.mu.RLock()
+	deviceID := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
+	c.mu.RUnlock()
+	if deviceID == "" {
+		return "", fmt.Errorf("no USB DMX device selected; choose one in Settings")
+	}
+	dev, ok := dmx.PickUSBSerialDevice(deviceID, serial2.ListUSBSerialDevices())
+	if !ok {
+		return "", fmt.Errorf("selected USB serial device is not currently attached")
+	}
+	if strings.TrimSpace(dev.Path) == "" {
+		return "", fmt.Errorf("selected USB device has no path")
+	}
+	return dev.Path, nil
+}
+
+func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
+	for _, dev := range serial2.ListUSBSerialDevices() {
+		pw := serial2.SerialPortForDMXWrite(strings.TrimSpace(dev.Path))
+		if pw != openPath && strings.TrimSpace(dev.Path) != openPath {
+			continue
+		}
+		if n := strings.TrimSpace(dev.Name); n != "" {
+			return n
+		}
+		if n := strings.TrimSpace(dev.Description); n != "" {
+			return n
+		}
+	}
+	if openPath != "" {
+		return filepath.Base(openPath)
+	}
+	return ""
+}
+
+// StartDMXLive opens the configured USB serial port and streams a DMX universe.
+func (c *WLEDController) StartDMXLive(fixtureID string) error {
+	path, err := c.resolveSelectedUSBPath()
+	if err != nil {
+		return err
+	}
+	rawPath := path
+	path = serial2.SerialPortForDMXWrite(path)
+	if path != rawPath {
+		c.logger.Printf("dmx live: using %s for transmit (configured path was %s)", path, rawPath)
+	}
+
+	mode := &serial.Mode{BaudRate: 250000, DataBits: 8, Parity: serial.NoParity, StopBits: serial.TwoStopBits}
+
+	c.dmxLiveMu.Lock()
+	if c.dmxLivePort != nil {
+		c.dmxLiveMu.Unlock()
+		return fmt.Errorf("DMX live output is already running")
+	}
+	port, err := serial.Open(path, mode)
+	if err != nil {
+		c.dmxLiveErr = err.Error()
+		c.dmxLiveDeviceName = ""
+		c.dmxLiveMu.Unlock()
+		return fmt.Errorf("open serial port: %w", err)
+	}
+	_ = port.SetReadTimeout(50 * time.Millisecond)
+
+	for i := range c.dmxLiveBuf {
+		c.dmxLiveBuf[i] = 0
+	}
+	c.dmxLiveErr = ""
+	c.dmxLivePath = path
+	c.dmxLiveDeviceName = c.dmxLiveUSBDisplayName(path)
+	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c.dmxLiveCancel = cancel
+	c.dmxLivePort = port
+
+	c.dmxLiveWG.Add(1)
+	go c.dmxLiveSendLoop(ctx, port)
+	c.dmxLiveMu.Unlock()
+
+	c.logger.Printf("dmx live: started on %s", path)
+	return nil
+}
+
+func (c *WLEDController) dmxLiveSendLoop(ctx context.Context, port serial.Port) {
+	defer c.dmxLiveWG.Done()
+	frameInterval := time.Second / dmxLiveFrameHz
+	ticker := time.NewTicker(frameInterval)
+	defer ticker.Stop()
+
+	frame := make([]byte, 513)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.dmxLiveMu.Lock()
+			copy(frame[1:], c.dmxLiveBuf[:])
+			c.dmxLiveMu.Unlock()
+
+			frame[0] = 0
+			if _, err := port.Write(frame); err != nil {
+				c.logger.Printf("dmx live: write: %v", err)
+				c.dmxLiveMu.Lock()
+				c.dmxLiveErr = err.Error()
+				c.dmxLiveMu.Unlock()
+			}
+		}
+	}
+}
+
+// StopDMXLive stops streaming and closes the serial port.
+func (c *WLEDController) StopDMXLive() {
+	c.dmxLiveMu.Lock()
+	cancel := c.dmxLiveCancel
+	port := c.dmxLivePort
+	c.dmxLiveCancel = nil
+	c.dmxLivePort = nil
+	c.dmxLivePath = ""
+	c.dmxLiveDeviceName = ""
+	c.dmxLiveFixID = ""
+	c.dmxLiveMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	c.dmxLiveWG.Wait()
+
+	if port != nil {
+		_ = port.Close()
+		c.logger.Printf("dmx live: stopped")
+	}
+}
+
+// ApplyDMXLivePatch merges channel updates into the live universe buffer.
+func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
+	c.dmxLiveMu.Lock()
+	defer c.dmxLiveMu.Unlock()
+	if c.dmxLivePort == nil {
+		return fmt.Errorf("DMX live output is not running")
+	}
+	for _, u := range updates {
+		addr := u.Address
+		if addr < 1 || addr > 512 {
+			continue
+		}
+		v := u.Value
+		if v < 0 {
+			v = 0
+		}
+		if v > 255 {
+			v = 255
+		}
+		c.dmxLiveBuf[addr-1] = byte(v)
+	}
+	return nil
+}
+
+// GetDMXLiveStatus returns connection metadata for the UI.
+func (c *WLEDController) GetDMXLiveStatus() dmx.DMXLiveStatus {
+	c.dmxLiveMu.Lock()
+	defer c.dmxLiveMu.Unlock()
+	return dmx.DMXLiveStatus{
+		Connected:  c.dmxLivePort != nil,
+		Error:      c.dmxLiveErr,
+		DevicePath: c.dmxLivePath,
+		DeviceName: c.dmxLiveDeviceName,
+		FixtureID:  c.dmxLiveFixID,
+	}
+}
+
 func (c *WLEDController) consumeInspectThrottle(candidate discoveredDevice) bool {
 	const ttl = 8 * time.Second
-	key := probeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
+	key := discovery.ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
 	c.probeMu.Lock()
 	defer c.probeMu.Unlock()
 	if c.probeRecent == nil {
@@ -1204,7 +1655,7 @@ func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
 			settings := c.settings
 			c.mu.RUnlock()
 
-			sig := discoveryBrowseSignature(settings)
+			sig := discovery.DiscoveryBrowseSignature(toDiscoveryControllerSettings(settings))
 			if sig == "" {
 				stopWorkers()
 				lastSig = ""
@@ -1219,8 +1670,8 @@ func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
 			activeCancel = cancel
 			lastSig = sig
 
-			iface := resolveDiscoveryNetInterface(c.logger, settings)
-			for _, svc := range serviceTypesOrDefault(settings.Discovery.ServiceTypes) {
+			iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
+			for _, svc := range discovery.ServiceTypesOrDefault(settings.Discovery.ServiceTypes) {
 				svc := svc
 				workers.Add(1)
 				go func() {
@@ -1233,7 +1684,7 @@ func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
 }
 
 func (c *WLEDController) zeroconfBrowseService(ctx context.Context, iface *net.Interface, svc string) {
-	opts := zeroconfClientOptions(iface)
+	opts := discovery.ZeroconfClientOptions(iface)
 	resolver, err := zeroconf.NewResolver(opts...)
 	if err != nil {
 		c.logger.Printf("zeroconf resolver %s: %v", svc, err)
@@ -1255,8 +1706,8 @@ func (c *WLEDController) zeroconfBrowseService(ctx context.Context, iface *net.I
 			if ent == nil {
 				continue
 			}
-			candidate := discoveredFromZeroconf(ent)
-			if !isWLEDCandidate(svc, candidate) {
+			candidate := discovery.DiscoveredFromZeroconf(ent)
+			if !discovery.IsWLEDCandidate(svc, candidate) {
 				continue
 			}
 			c.maybeProcessDiscovered(ctx, candidate, true)
@@ -1287,11 +1738,11 @@ func (c *WLEDController) subnetProbeOnce(ctx context.Context) {
 	if !disc.Enabled || !disc.SubnetProbe || !settings.AccessPoint.Enabled {
 		return
 	}
-	iface := resolveDiscoveryNetInterface(c.logger, settings)
+	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
 	if iface == nil {
 		return
 	}
-	targets := ipv4ProbeTargets(iface)
+	targets := discovery.IPv4ProbeTargets(iface)
 	if len(targets) == 0 {
 		return
 	}
@@ -1342,10 +1793,11 @@ func (c *WLEDController) discoverAndProvision(ctx context.Context) {
 		return
 	}
 
-	iface := resolveDiscoveryNetInterface(c.logger, fullSettings)
-	devices, err := c.discovery.DiscoverOnce(ctx, DiscoveryRunParams{
-		Settings:  discoverySettings,
+	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(fullSettings))
+	devices, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
+		Settings:  toDiscoverySettings(discoverySettings),
 		BindIface: iface,
+		Logger:    c.logger,
 	})
 	if err != nil {
 		c.logger.Printf("discovery failed: %v", err)
@@ -1438,6 +1890,9 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 		case <-ticker.C:
 			if err := c.persist(); err != nil {
 				c.logger.Printf("periodic persist failed: %v", err)
+			}
+			if err := c.persistDMX(); err != nil {
+				c.logger.Printf("periodic dmx persist failed: %v", err)
 			}
 		}
 	}
@@ -1566,11 +2021,45 @@ func (c *WLEDController) persist() error {
 	return c.persistence.Save(state)
 }
 
+func (c *WLEDController) persistDMX() error {
+	c.mu.RLock()
+	state := cloneDMXState(c.dmxState)
+	c.mu.RUnlock()
+	return c.dmxPersistence.Save(state)
+}
+
 func cloneDeviceMap(in map[string]WLEDDevice) map[string]WLEDDevice {
 	out := make(map[string]WLEDDevice, len(in))
 	for key, value := range in {
 		out[key] = value
 	}
+	return out
+}
+
+func cloneDMXState(in DMXState) DMXState {
+	out := DMXState{
+		Fixtures:            make([]DMXFixture, 0, len(in.Fixtures)),
+		SelectedUSBDeviceID: strings.TrimSpace(in.SelectedUSBDeviceID),
+	}
+	for _, fixture := range in.Fixtures {
+		cp := fixture
+		cp.Brand = strings.TrimSpace(cp.Brand)
+		cp.Name = strings.TrimSpace(cp.Name)
+		if cp.Channels == nil {
+			cp.Channels = []DMXChannel{}
+		} else {
+			cp.Channels = append([]DMXChannel(nil), cp.Channels...)
+		}
+		out.Fixtures = append(out.Fixtures, cp)
+	}
+	slices.SortFunc(out.Fixtures, func(a, b DMXFixture) int {
+		nameA := strings.ToLower(strings.TrimSpace(a.Name))
+		nameB := strings.ToLower(strings.TrimSpace(b.Name))
+		if cmp := strings.Compare(nameA, nameB); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
 	return out
 }
 
@@ -1737,6 +2226,200 @@ func stringifyAnySlice(items []any) []string {
 		}
 	}
 	return out
+}
+
+func defaultDMXState() DMXState {
+	return DMXState{
+		Fixtures:            []DMXFixture{},
+		SelectedUSBDeviceID: "",
+	}
+}
+
+func normalizeDMXState(st DMXState) DMXState {
+	normalized := cloneDMXState(st)
+	for i := range normalized.Fixtures {
+		normalized.Fixtures[i].Type = normalizeFixtureType(normalized.Fixtures[i].Type)
+		addr := normalized.Fixtures[i].DMXAddress
+		if addr < 1 || addr > 512 {
+			addr = 1
+		}
+		normalized.Fixtures[i].DMXAddress = addr
+		normalized.Fixtures[i].Channels = sanitizeDMXChannels(normalized.Fixtures[i].DMXAddress, normalized.Fixtures[i].Channels)
+	}
+	return normalized
+}
+
+func normalizeFixtureType(t DMXFixtureType) DMXFixtureType {
+	switch t {
+	case DMXFixtureTypeMovingHead:
+		return t
+	default:
+		return DMXFixtureTypeMovingHead
+	}
+}
+
+func sanitizeDMXChannels(dmxAddress int, in []DMXChannel) []DMXChannel {
+	addr := dmxAddress
+	if addr < 1 || addr > 512 {
+		addr = 1
+	}
+	maxOff := 512 - addr + 1
+	if len(in) == 0 {
+		return []DMXChannel{defaultDMXChannel()}
+	}
+	out := make([]DMXChannel, 0, len(in))
+	used := make(map[int]struct{}, len(in))
+	for _, ch := range in {
+		n := ch.Channel
+		if n < 1 || n > maxOff {
+			continue
+		}
+		if _, ok := used[n]; ok {
+			continue
+		}
+		used[n] = struct{}{}
+		out = append(out, DMXChannel{
+			Channel:    n,
+			Type:       normalizeDMXChannelType(ch.Type),
+			Properties: sanitizeDMXChannelProperties(ch.Properties),
+		})
+	}
+	if len(out) == 0 {
+		out = append(out, defaultDMXChannel())
+	}
+	slices.SortFunc(out, func(a, b DMXChannel) int {
+		if a.Channel < b.Channel {
+			return -1
+		}
+		if a.Channel > b.Channel {
+			return 1
+		}
+		return strings.Compare(strings.ToLower(a.Type), strings.ToLower(b.Type))
+	})
+	return out
+}
+
+func buildDMXFixtureForCreate(input UpsertDMXFixtureInput) (DMXFixture, error) {
+	base := DMXFixture{
+		ID:        fmt.Sprintf("fixture-%d", time.Now().UnixNano()),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	return buildDMXFixtureForUpdate(base, input)
+}
+
+func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput) (DMXFixture, error) {
+	fixtureType := normalizeFixtureType(input.Type)
+	brand := strings.TrimSpace(input.Brand)
+	name := strings.TrimSpace(input.Name)
+	if brand == "" {
+		return DMXFixture{}, fmt.Errorf("fixture brand is required")
+	}
+	if name == "" {
+		return DMXFixture{}, fmt.Errorf("fixture name is required")
+	}
+	if input.MaxPan < 0 || input.MaxPan > 720 {
+		return DMXFixture{}, fmt.Errorf("max pan must be between 0 and 720")
+	}
+	if input.MaxTilt < 0 || input.MaxTilt > 360 {
+		return DMXFixture{}, fmt.Errorf("max tilt must be between 0 and 360")
+	}
+	addr := input.DMXAddress
+	if addr < 1 {
+		if existing.DMXAddress >= 1 && existing.DMXAddress <= 512 {
+			addr = existing.DMXAddress
+		} else {
+			addr = 1
+		}
+	}
+	if addr < 1 || addr > 512 {
+		return DMXFixture{}, fmt.Errorf("dmx address must be between 1 and 512")
+	}
+	channels, err := validateDMXChannels(addr, input.Channels)
+	if err != nil {
+		return DMXFixture{}, err
+	}
+	fixture := existing
+	if fixture.ID == "" {
+		fixture.ID = fmt.Sprintf("fixture-%d", time.Now().UnixNano())
+	}
+	if fixture.CreatedAt.IsZero() {
+		fixture.CreatedAt = time.Now()
+	}
+	fixture.UpdatedAt = time.Now()
+	fixture.Type = fixtureType
+	fixture.Brand = brand
+	fixture.Name = name
+	fixture.DMXAddress = addr
+	fixture.MovingHead = MovingHeadConfig{
+		MaxPan:  input.MaxPan,
+		MaxTilt: input.MaxTilt,
+	}
+	fixture.Channels = channels
+	return fixture, nil
+}
+
+func validateDMXChannels(dmxAddress int, channels []DMXChannel) ([]DMXChannel, error) {
+	if len(channels) == 0 {
+		return nil, fmt.Errorf("at least one DMX channel is required")
+	}
+	if len(channels) > 1024 {
+		return nil, fmt.Errorf("too many channels")
+	}
+	used := make(map[int]struct{}, len(channels))
+	out := make([]DMXChannel, 0, len(channels))
+	maxOff := 512 - dmxAddress + 1
+	for _, ch := range channels {
+		if ch.Channel < 1 || ch.Channel > maxOff {
+			return nil, fmt.Errorf("channel offset %d must be between 1 and %d for dmx address %d", ch.Channel, maxOff, dmxAddress)
+		}
+		if _, exists := used[ch.Channel]; exists {
+			return nil, fmt.Errorf("channel offset %d is duplicated", ch.Channel)
+		}
+		used[ch.Channel] = struct{}{}
+		out = append(out, DMXChannel{
+			Channel:    ch.Channel,
+			Type:       normalizeDMXChannelType(ch.Type),
+			Properties: sanitizeDMXChannelProperties(ch.Properties),
+		})
+	}
+	slices.SortFunc(out, func(a, b DMXChannel) int {
+		if a.Channel < b.Channel {
+			return -1
+		}
+		if a.Channel > b.Channel {
+			return 1
+		}
+		return 0
+	})
+	return out, nil
+}
+
+func defaultDMXChannel() DMXChannel {
+	return DMXChannel{
+		Channel: 1,
+		Type:    "pan",
+		Properties: map[string]any{
+			"min": 0,
+			"max": 255,
+		},
+	}
+}
+
+func normalizeDMXChannelType(v string) string {
+	t := strings.TrimSpace(v)
+	if t == "" {
+		return "custom"
+	}
+	return t
+}
+
+func sanitizeDMXChannelProperties(in map[string]any) map[string]any {
+	props := cloneJSONMap(in)
+	if props == nil {
+		props = map[string]any{}
+	}
+	return props
 }
 
 func defaultGeneralTabState() GeneralTabState {

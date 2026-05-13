@@ -8,7 +8,7 @@ info:
   companyName: "Goldbus" # The name of the company
   productName: "Goldbus Light Controller" # The name of the application
   productIdentifier: "ch.goldbus.goldbuslightcontroller" # The unique product identifier
-  description: "This Software controlls the Lights connected by WLED in the Goldbus" # The application description
+  description: "This Software controls the Lights connected by WLED in the Goldbus" # The application description
   copyright: "(c) 2026, Goldbus" # Copyright text
   comments: "-" # Comments
   version: "0.0.1" # The application version

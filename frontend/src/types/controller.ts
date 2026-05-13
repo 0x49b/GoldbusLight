@@ -101,7 +101,101 @@ export type WLEDDeviceDetail = {
   port: number;
 };
 
+export type DMXFixtureType = "movingHead";
+
+export type DMXChannel = {
+  channel: number;
+  type: DMXChannelType;
+  properties?: JSONMap;
+};
+
+export type DMXChannelType =
+  | "pan"
+  | "panFine"
+  | "tilt"
+  | "tiltFine"
+  | "infinitePan"
+  | "infiniteTilt"
+  | "movementSpeed"
+  | "dimmer"
+  | "dimmerFine"
+  | "colorComponent"
+  | "colorWheel"
+  | "colorTemperature"
+  | "colorTemperatureFine"
+  | "greenSaturation"
+  | "greenSaturationFine"
+  | "xfadeToColor"
+  | "xfadeToColorFine"
+  | "goboWheel"
+  | "goboIndexing"
+  | "goboIndexingFine"
+  | "goboRotation"
+  | "goboRotationFine"
+  | "goboShake"
+  | "shutterStrobe"
+  | "focus"
+  | "focusFine"
+  | "zoom"
+  | "zoomFine"
+  | "iris"
+  | "irisFine"
+  | "frost"
+  | "frostFine"
+  | "prism"
+  | "prismIndexing"
+  | "prismIndexingFine"
+  | "prismRotation"
+  | "onOff"
+  | "lamp"
+  | "fog"
+  | "command"
+  | "operatingMode"
+  | "custom";
+
+export type DMXFixture = {
+  id: string;
+  type: DMXFixtureType;
+  brand: string;
+  name: string;
+  /** DMX start address (1–512). Channel rows use offsets from this address (universe slot = address + offset − 1). */
+  dmxAddress: number;
+  movingHead: {
+    maxPan: number;
+    maxTilt: number;
+  };
+  channels: DMXChannel[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DMXState = {
+  fixtures: DMXFixture[];
+  selectedUSBDeviceId: string;
+};
+
+export type USBSerialDevice = {
+  id: string;
+  path: string;
+  name: string;
+  description?: string;
+};
+
+export type UpsertDMXFixtureInput = {
+  id?: string;
+  type: DMXFixtureType;
+  brand: string;
+  name: string;
+  dmxAddress: number;
+  maxPan: number;
+  maxTilt: number;
+  channels: DMXChannel[];
+};
+
 export type DetailRoute =
   | { kind: "presets" }
   | { kind: "settings" }
-  | { kind: "device"; id: string };
+  | { kind: "device"; id: string }
+  | { kind: "dmxUniverse" }
+  | { kind: "dmxAddFixture" }
+  | { kind: "dmxFixture"; id: string };
