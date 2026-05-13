@@ -1,11 +1,32 @@
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import {Separator} from "@/components/ui/separator";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import {cn} from "@/lib/utils";
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {ArrowDownRight, ArrowUpRight, Minus, RotateCcw, RotateCw, Triangle, Zap} from "lucide-react";
+import {useCallback, useEffect, useMemo, useState, type ReactNode} from "react";
 import {PiPlus, PiTrash} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 import type {
@@ -91,6 +112,8 @@ const DMX_CHANNEL_TYPES: DMXChannelType[] = [
 const ENTRY_FIRST_TYPES = new Set<DMXChannelType>([
     "colorWheel",
     "goboWheel",
+    "goboRotation",
+    "goboRotationFine",
     "infinitePan",
     "infiniteTilt",
     "movementSpeed",
@@ -109,6 +132,182 @@ type SlotEntry = {
     goboName?: string;
     goboImage?: string;
 };
+
+type GoboCatalogEntry = {
+    code: string;
+    name: string;
+    image: string;
+};
+
+function clamp255(n: number): number {
+    return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+function slotColorToPickerValue(color: string | undefined): string {
+    if (!color || typeof color !== "string") {
+        return "#888888";
+    }
+    const s = color.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(s)) {
+        return s.toLowerCase();
+    }
+    if (/^#[0-9A-Fa-f]{3}$/.test(s)) {
+        const r = s[1];
+        const g = s[2];
+        const b = s[3];
+        return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+    }
+    return "#888888";
+}
+
+/** Conic spectrum for rainbow / scroll-style color wheel slots. */
+const RAINBOW_SWATCH_CONIC =
+    "conic-gradient(from 0deg, hsl(0,100%,55%), hsl(45,100%,52%), hsl(90,100%,48%), hsl(135,100%,48%), hsl(180,100%,50%), hsl(225,100%,52%), hsl(270,100%,55%), hsl(315,100%,55%), hsl(360,100%,55%))";
+
+function isRainbowColorSlot(slot: Pick<SlotEntry, "label" | "mode">): boolean {
+    const label = (slot.label ?? "").toLowerCase();
+    const mode = (slot.mode ?? "").toLowerCase();
+    return label.includes("rainbow") || mode === "rainbow" || mode === "scroll";
+}
+
+function isRainbowModeExplicit(slot: Pick<SlotEntry, "mode">): boolean {
+    const m = (slot.mode ?? "").toLowerCase();
+    return m === "rainbow" || m === "scroll";
+}
+
+const SHUTTER_MODE_OPTIONS: ReadonlyArray<{value: string; label: string}> = [
+    {value: "closed", label: "Shutter Closed"},
+    {value: "open", label: "Shutter Open"},
+    {value: "strobe", label: "Strobe"},
+    {value: "pulse", label: "Pulse Alternating"},
+    {value: "randomStrobe", label: "Random Strobe"},
+];
+
+function shutterSelectValue(mode: string | undefined): string {
+    const m = mode ?? "";
+    return SHUTTER_MODE_OPTIONS.some((o) => o.value === m) ? m : "open";
+}
+
+function ShutterStateGlyph({mode}: {mode?: string}) {
+    const m = (mode ?? "").toLowerCase();
+    if (m === "closed") {
+        return <div className="size-6 shrink-0 rounded-full bg-foreground" aria-hidden/>;
+    }
+    if (m === "open") {
+        return (
+            <div
+                className="size-6 shrink-0 rounded-full border-2 border-foreground bg-background"
+                aria-hidden
+            />
+        );
+    }
+    if (m === "strobe" || m === "randomstrobe") {
+        return <Zap className="size-6 shrink-0 text-foreground" strokeWidth={2.25} aria-hidden/>;
+    }
+    if (m === "pulse") {
+        return (
+            <Triangle
+                className="size-6 shrink-0 fill-foreground text-foreground"
+                strokeWidth={1.5}
+                aria-hidden
+            />
+        );
+    }
+    return (
+        <div
+            className="size-6 shrink-0 rounded-full border border-dashed border-muted-foreground"
+            aria-hidden
+        />
+    );
+}
+
+type MotionStateOption = {
+    id: string;
+    label: string;
+    mode: string;
+    direction?: string;
+};
+
+const MOTION_STATE_OPTIONS: MotionStateOption[] = [
+    {id: "tracking", label: "Tracking", mode: "tracking"},
+    {id: "vector", label: "Vector", mode: "vector"},
+    {
+        id: "blackout_pt",
+        label: "Blackout During Pan/Tilt Movement",
+        mode: "blackout_pt",
+    },
+    {
+        id: "blackout_wheel",
+        label: "Blackout During Wheel Movement",
+        mode: "blackout_wheel",
+    },
+    {id: "slow_cw", label: "Slow CW", mode: "slow", direction: "cw"},
+    {id: "fast_cw", label: "Fast CW", mode: "fast", direction: "cw"},
+    {id: "stop", label: "Stop", mode: "stop", direction: "stop"},
+    {id: "slow_ccw", label: "Slow CCW", mode: "slow", direction: "ccw"},
+    {id: "fast_ccw", label: "Fast CCW", mode: "fast", direction: "ccw"},
+];
+
+const MOTION_TABLE_TYPES = new Set<DMXChannelType>([
+    "movementSpeed",
+    "infinitePan",
+    "infiniteTilt",
+    "goboRotation",
+    "goboRotationFine",
+]);
+
+function motionStatePresetId(slot: Pick<SlotEntry, "mode" | "direction">): string {
+    const m = (slot.mode ?? "").toLowerCase();
+    const d = (slot.direction ?? "").toLowerCase();
+    if (m === "tracking") {
+        return "tracking";
+    }
+    if (m === "vector") {
+        return "vector";
+    }
+    if (m === "blackout_pt" || m === "blackoutpantilt") {
+        return "blackout_pt";
+    }
+    if (m === "blackout_wheel" || m === "blackoutwheel") {
+        return "blackout_wheel";
+    }
+    if (m === "slow" && d === "cw") {
+        return "slow_cw";
+    }
+    if (m === "fast" && d === "cw") {
+        return "fast_cw";
+    }
+    if (m === "stop" || d === "stop") {
+        return "stop";
+    }
+    if (m === "slow" && d === "ccw") {
+        return "slow_ccw";
+    }
+    if (m === "fast" && d === "ccw") {
+        return "fast_ccw";
+    }
+    return "slow_cw";
+}
+
+function parseGoboCatalog(data: unknown): GoboCatalogEntry[] {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+    const out: GoboCatalogEntry[] = [];
+    for (const item of data) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+            continue;
+        }
+        const o = item as Record<string, unknown>;
+        const code = typeof o.code === "string" ? o.code : "";
+        const name = typeof o.name === "string" ? o.name : "";
+        const image = typeof o.image === "string" ? o.image : "";
+        if (code && name && image) {
+            out.push({code, name, image});
+        }
+    }
+    return out;
+}
 
 function defaultPropsForType(type: DMXChannelType): JSONMap {
     if (ENTRY_FIRST_TYPES.has(type)) {
@@ -138,15 +337,17 @@ function defaultPropsForType(type: DMXChannelType): JSONMap {
             case "shutterStrobe":
                 return {
                     entries: [
-                        {from: 0, to: 31, label: "Closed", mode: "closed"},
-                        {from: 32, to: 63, label: "Open", mode: "open"},
+                        {from: 0, to: 31, label: "Shutter Closed", mode: "closed"},
+                        {from: 32, to: 63, label: "Shutter Open", mode: "open"},
                         {from: 64, to: 95, label: "Strobe", mode: "strobe"},
-                        {from: 96, to: 127, label: "Pulse", mode: "pulse"},
+                        {from: 96, to: 127, label: "Pulse Alternating", mode: "pulse"},
                     ],
                 };
             case "infinitePan":
             case "infiniteTilt":
             case "movementSpeed":
+            case "goboRotation":
+            case "goboRotationFine":
                 return {
                     entries: [
                         {
@@ -195,7 +396,7 @@ function defaultPropsForType(type: DMXChannelType): JSONMap {
                 return {entries: [{from: 0, to: 255, label: "Slot A"}]};
         }
     }
-    return {min: 0, max: 255};
+    return {min: 1, max: 255};
 }
 
 function cloneChannels(from: DMXChannel[]): DMXChannel[] {
@@ -207,7 +408,7 @@ function cloneChannels(from: DMXChannel[]): DMXChannel[] {
 }
 
 function defaultInitialChannels(): DMXChannel[] {
-    return [{channel: 1, type: "pan", properties: {min: 0, max: 255}}];
+    return [{channel: 1, type: "pan", properties: {min: 1, max: 255}}];
 }
 
 function parseEntries(props: JSONMap | undefined): SlotEntry[] {
@@ -288,6 +489,61 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             void props.pullDMXLiveStatus();
         }
     }, [pageMode, props.fixture?.id, props.pullDMXLiveStatus]);
+
+    const [goboCatalog, setGoboCatalog] = useState<GoboCatalogEntry[] | null>(null);
+    const [goboCatalogError, setGoboCatalogError] = useState<string | null>(null);
+    const [goboPickerTarget, setGoboPickerTarget] = useState<{ channelIdx: number; slotIdx: number } | null>(
+        null,
+    );
+    const [goboCatalogFilter, setGoboCatalogFilter] = useState("");
+    useEffect(() => {
+        let cancelled = false;
+        setGoboCatalogError(null);
+        (async () => {
+            try {
+                const res = await fetch("/gobos/catalog.json");
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const data: unknown = await res.json();
+                if (cancelled) {
+                    return;
+                }
+                setGoboCatalog(parseGoboCatalog(data));
+            } catch (e) {
+                if (!cancelled) {
+                    setGoboCatalogError(e instanceof Error ? e.message : "Failed to load gobo catalog");
+                    setGoboCatalog([]);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!goboPickerTarget) {
+            setGoboCatalogFilter("");
+        }
+    }, [goboPickerTarget]);
+
+    const goboCatalogShown = useMemo(() => {
+        if (!goboCatalog || goboCatalog.length === 0) {
+            return [];
+        }
+        const q = goboCatalogFilter.trim().toLowerCase();
+        if (!q) {
+            return goboCatalog.slice(0, 400);
+        }
+        return goboCatalog
+            .filter(
+                (e) =>
+                    e.code.toLowerCase().includes(q) ||
+                    e.name.toLowerCase().includes(q),
+            )
+            .slice(0, 500);
+    }, [goboCatalog, goboCatalogFilter]);
 
     const slotBudget = useMemo(() => maxChannelOffset(address), [address]);
 
@@ -535,7 +791,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     typeof propsMap.min === "number" ? propsMap.min : Number(propsMap.min) || 0;
                                 const maxV =
                                     typeof propsMap.max === "number" ? propsMap.max : Number(propsMap.max) || 255;
-                                const goboExtras = ch.type === "goboWheel";
 
                                 return (
                                     <div
@@ -543,7 +798,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         className="rounded-lg border bg-muted/20 p-3 shadow-sm"
                                     >
                                         <div className="flex flex-wrap items-end gap-2">
-                                            <div className="grid w-[88px] gap-1">
+                                            <div className="grid w-[88px] shrink-0 gap-1">
                                                 <Label className="text-xs">Offset</Label>
                                                 <Input
                                                     type="number"
@@ -559,7 +814,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                     }}
                                                 />
                                             </div>
-                                            <div className="min-w-[200px] flex-1 grid gap-1">
+                                            <div className="min-w-0 flex-1 basis-[200px] grid gap-1">
                                                 <Label className="text-xs">Function</Label>
                                                 <NativeSelect
                                                     value={ch.type}
@@ -579,6 +834,40 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                     ))}
                                                 </NativeSelect>
                                             </div>
+                                            <ButtonGroup className="ml-auto shrink-0">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={!slotMode ? "secondary" : "outline"}
+                                                    onClick={() => {
+                                                        replaceChannelAt(originalIdx, {
+                                                            ...ch,
+                                                            properties: {min: minV, max: maxV},
+                                                        });
+                                                    }}
+                                                >
+                                                    Linear range
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={slotMode ? "secondary" : "outline"}
+                                                    onClick={() => {
+                                                        const nextEntries =
+                                                            slots.length > 0
+                                                                ? slots
+                                                                : [{from: 0, to: 255, label: "Slot 1"}];
+                                                        replaceChannelAt(originalIdx, {
+                                                            ...ch,
+                                                            properties: {
+                                                                entries: nextEntries.map((s) => ({...s})),
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    Discrete slots
+                                                </Button>
+                                            </ButtonGroup>
                                             <Button
                                                 type="button"
                                                 size="icon"
@@ -594,81 +883,1204 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
                                         <Separator className="my-3"/>
 
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={!slotMode ? "secondary" : "outline"}
-                                                onClick={() => {
-                                                    replaceChannelAt(originalIdx, {
-                                                        ...ch,
-                                                        properties: {min: minV, max: maxV},
-                                                    });
-                                                }}
-                                            >
-                                                Linear range
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={slotMode ? "secondary" : "outline"}
-                                                onClick={() => {
-                                                    const nextEntries =
-                                                        slots.length > 0
-                                                            ? slots
-                                                            : [{from: 0, to: 255, label: "Slot 1"}];
-                                                    replaceChannelAt(originalIdx, {
-                                                        ...ch,
-                                                        properties: {
-                                                            entries: nextEntries.map((s) => ({...s})),
-                                                        },
-                                                    });
-                                                }}
-                                            >
-                                                Discrete slots
-                                            </Button>
-                                        </div>
-
                                         {!slotMode ? (
-                                            <div className="mt-3 grid max-w-md grid-cols-2 gap-2">
-                                                <div className="grid gap-1">
-                                                    <Label className="text-xs">Min DMX</Label>
-                                                    <Input
-                                                        type="number"
-                                                        min={0}
-                                                        max={255}
-                                                        value={minV}
-                                                        onChange={(e) => {
-                                                            const v = Math.round(Number(e.target.value) || 0);
-                                                            updateChannelAt(originalIdx, {
-                                                                properties: {
-                                                                    ...propsMap,
-                                                                    min: Math.max(0, Math.min(255, v)),
-                                                                    max: maxV,
-                                                                },
-                                                            });
-                                                        }}
-                                                    />
+                                            !(maxV === 255 && (minV === 0 || minV === 1)) ? (
+                                            <div className="mt-3 max-w-md">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-xs">Min DMX</Label>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={255}
+                                                            value={minV}
+                                                            onChange={(e) => {
+                                                                const v = Math.round(Number(e.target.value) || 0);
+                                                                updateChannelAt(originalIdx, {
+                                                                    properties: {
+                                                                        ...propsMap,
+                                                                        min: Math.max(0, Math.min(255, v)),
+                                                                        max: maxV,
+                                                                    },
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-xs">Max DMX</Label>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={255}
+                                                            value={maxV}
+                                                            onChange={(e) => {
+                                                                const v = Math.round(Number(e.target.value) || 255);
+                                                                updateChannelAt(originalIdx, {
+                                                                    properties: {
+                                                                        ...propsMap,
+                                                                        min: minV,
+                                                                        max: Math.max(0, Math.min(255, v)),
+                                                                    },
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="grid gap-1">
-                                                    <Label className="text-xs">Max DMX</Label>
-                                                    <Input
-                                                        type="number"
-                                                        min={0}
-                                                        max={255}
-                                                        value={maxV}
-                                                        onChange={(e) => {
-                                                            const v = Math.round(Number(e.target.value) || 255);
-                                                            updateChannelAt(originalIdx, {
-                                                                properties: {
-                                                                    ...propsMap,
-                                                                    min: minV,
-                                                                    max: Math.max(0, Math.min(255, v)),
-                                                                },
-                                                            });
-                                                        }}
-                                                    />
-                                                </div>
+                                            </div>
+                                            ) : null
+                                        ) : ch.type === "colorWheel" ? (
+                                            <div className="mt-3 space-y-2">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                                Range
+                                                            </TableHead>
+                                                            <TableHead className="text-muted-foreground">Color</TableHead>
+                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                                Speed
+                                                            </TableHead>
+                                                            <TableHead className="w-12"/>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {slots.map((slot, si) => (
+                                                            <TableRow key={si}>
+                                                                <TableCell className="align-middle">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 w-14 px-1"
+                                                                            min={0}
+                                                                            max={255}
+                                                                            value={slot.from}
+                                                                            onChange={(e) => {
+                                                                                const v = Math.round(
+                                                                                    Number(e.target.value) || 0,
+                                                                                );
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    from: Math.max(0, Math.min(255, v)),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        <span className="text-muted-foreground">–</span>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 w-14 px-1"
+                                                                            min={0}
+                                                                            max={255}
+                                                                            value={slot.to}
+                                                                            onChange={(e) => {
+                                                                                const v = Math.round(
+                                                                                    Number(e.target.value) || 0,
+                                                                                );
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    to: Math.max(0, Math.min(255, v)),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="align-middle">
+                                                                    <div className="flex min-w-0 items-center gap-2">
+                                                                        <Popover>
+                                                                            <PopoverTrigger asChild>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="relative size-8 shrink-0 overflow-hidden rounded-full border-2 border-border shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
+                                                                                    title="Pick color"
+                                                                                >
+                                                                                    {isRainbowColorSlot(slot) ? (
+                                                                                        <span
+                                                                                            aria-hidden
+                                                                                            className="absolute inset-0 rounded-full"
+                                                                                            style={{
+                                                                                                background: RAINBOW_SWATCH_CONIC,
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <span
+                                                                                            aria-hidden
+                                                                                            className="absolute inset-0 rounded-full"
+                                                                                            style={{
+                                                                                                backgroundColor:
+                                                                                                    slotColorToPickerValue(
+                                                                                                        slot.color,
+                                                                                                    ),
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                    {slot.direction === "cw" ? (
+                                                                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                                                                            <RotateCw
+                                                                                                className="size-3.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+                                                                                                strokeWidth={2.5}
+                                                                                                aria-hidden
+                                                                                            />
+                                                                                        </span>
+                                                                                    ) : slot.direction === "ccw" ? (
+                                                                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                                                                            <RotateCcw
+                                                                                                className="size-3.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+                                                                                                strokeWidth={2.5}
+                                                                                                aria-hidden
+                                                                                            />
+                                                                                        </span>
+                                                                                    ) : null}
+                                                                                </button>
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-64">
+                                                                                <div className="grid gap-2">
+                                                                                    <Label className="text-xs">Color</Label>
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant={
+                                                                                            isRainbowModeExplicit(slot)
+                                                                                                ? "secondary"
+                                                                                                : "outline"
+                                                                                        }
+                                                                                        className="h-auto min-h-10 w-full justify-start gap-2 py-2"
+                                                                                        onClick={() => {
+                                                                                            const next = [...slots];
+                                                                                            next[si] = {
+                                                                                                ...slot,
+                                                                                                mode: "rainbow",
+                                                                                            };
+                                                                                            updateChannelAt(originalIdx, {
+                                                                                                properties: {
+                                                                                                    ...propsMap,
+                                                                                                    entries: next,
+                                                                                                },
+                                                                                            });
+                                                                                        }}
+                                                                                    >
+                                                                                        <span
+                                                                                            aria-hidden
+                                                                                            className="size-6 shrink-0 rounded-full border border-border shadow-inner"
+                                                                                            style={{
+                                                                                                background: RAINBOW_SWATCH_CONIC,
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-left text-sm font-medium leading-tight">
+                                                                                            Rainbow
+                                                                                        </span>
+                                                                                    </Button>
+                                                                                    <input
+                                                                                        type="color"
+                                                                                        className="h-10 w-full cursor-pointer rounded border bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                                                                                        disabled={isRainbowModeExplicit(slot)}
+                                                                                        value={slotColorToPickerValue(
+                                                                                            slot.color,
+                                                                                        )}
+                                                                                        onChange={(e) => {
+                                                                                            const next = [...slots];
+                                                                                            const wasRainbow =
+                                                                                                slot.mode === "rainbow" ||
+                                                                                                slot.mode === "scroll";
+                                                                                            next[si] = {
+                                                                                                ...slot,
+                                                                                                color: e.target.value,
+                                                                                                ...(wasRainbow
+                                                                                                    ? {mode: undefined}
+                                                                                                    : {}),
+                                                                                            };
+                                                                                            updateChannelAt(originalIdx, {
+                                                                                                properties: {
+                                                                                                    ...propsMap,
+                                                                                                    entries: next,
+                                                                                                },
+                                                                                            });
+                                                                                        }}
+                                                                                    />
+                                                                                    <Input
+                                                                                        className="font-mono text-xs"
+                                                                                        placeholder="#rrggbb"
+                                                                                        disabled={isRainbowModeExplicit(slot)}
+                                                                                        value={slot.color ?? ""}
+                                                                                        onChange={(e) => {
+                                                                                            const next = [...slots];
+                                                                                            const wasRainbow =
+                                                                                                slot.mode === "rainbow" ||
+                                                                                                slot.mode === "scroll";
+                                                                                            next[si] = {
+                                                                                                ...slot,
+                                                                                                color: e.target.value,
+                                                                                                ...(wasRainbow
+                                                                                                    ? {mode: undefined}
+                                                                                                    : {}),
+                                                                                            };
+                                                                                            updateChannelAt(originalIdx, {
+                                                                                                properties: {
+                                                                                                    ...propsMap,
+                                                                                                    entries: next,
+                                                                                                },
+                                                                                            });
+                                                                                        }}
+                                                                                    />
+                                                                                    {isRainbowModeExplicit(slot) ? (
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="ghost"
+                                                                                            size="sm"
+                                                                                            className="h-8 text-xs"
+                                                                                            onClick={() => {
+                                                                                                const next = [...slots];
+                                                                                                next[si] = {
+                                                                                                    ...slot,
+                                                                                                    mode: undefined,
+                                                                                                };
+                                                                                                updateChannelAt(originalIdx, {
+                                                                                                    properties: {
+                                                                                                        ...propsMap,
+                                                                                                        entries: next,
+                                                                                                    },
+                                                                                                });
+                                                                                            }}
+                                                                                            title="Clears rainbow mode so you can edit hex again"
+                                                                                        >
+                                                                                            Solid color
+                                                                                        </Button>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                            </PopoverContent>
+                                                                        </Popover>
+                                                                        <Input
+                                                                            className="h-8 min-w-0 flex-1"
+                                                                            value={slot.label}
+                                                                            onChange={(e) => {
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    label: e.target.value,
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right align-middle">
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        <NativeSelect
+                                                                            className="h-8 max-w-[5.5rem] text-xs"
+                                                                            value={slot.direction ?? "none"}
+                                                                            onChange={(e) => {
+                                                                                const v = e.target.value;
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    direction:
+                                                                                        v === "none" ? undefined : v,
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <NativeSelectOption value="none">—</NativeSelectOption>
+                                                                            <NativeSelectOption value="cw">CW</NativeSelectOption>
+                                                                            <NativeSelectOption value="ccw">CCW</NativeSelectOption>
+                                                                        </NativeSelect>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="icon-sm"
+                                                                            className="size-8"
+                                                                            onClick={() => {
+                                                                                const next = [...slots];
+                                                                                const base = slot.numeric ?? 0;
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    numeric: clamp255(base - 1),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            −
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="icon-sm"
+                                                                            className="size-8"
+                                                                            onClick={() => {
+                                                                                const next = [...slots];
+                                                                                const base = slot.numeric ?? 0;
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    numeric: clamp255(base + 1),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            +
+                                                                        </Button>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right align-middle">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        title="Remove slot"
+                                                                        onClick={() => {
+                                                                            const next = slots.filter((_, j) => j !== si);
+                                                                            if (next.length === 0) {
+                                                                                replaceChannelAt(originalIdx, {
+                                                                                    ...ch,
+                                                                                    properties: {
+                                                                                        min: 1,
+                                                                                        max: 255,
+                                                                                    },
+                                                                                });
+                                                                                return;
+                                                                            }
+                                                                            updateChannelAt(originalIdx, {
+                                                                                properties: {
+                                                                                    ...propsMap,
+                                                                                    entries: next,
+                                                                                },
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <PiTrash className="size-4"/>
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        const last = slots[slots.length - 1];
+                                                        const start = last ? Math.min(255, last.to + 1) : 0;
+                                                        const next = [
+                                                            ...slots,
+                                                            {
+                                                                from: start,
+                                                                to: Math.min(255, start + 15),
+                                                                label: `Slot ${slots.length + 1}`,
+                                                                color: "#888888",
+                                                            },
+                                                        ];
+                                                        updateChannelAt(originalIdx, {
+                                                            properties: {
+                                                                ...propsMap,
+                                                                entries: next,
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    Add property
+                                                </Button>
+                                            </div>
+                                        ) : ch.type === "goboWheel" ? (
+                                            <div className="mt-3 space-y-2">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                                Range
+                                                            </TableHead>
+                                                            <TableHead className="text-muted-foreground">Gobo</TableHead>
+                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                                Speed
+                                                            </TableHead>
+                                                            <TableHead className="w-12"/>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {slots.map((slot, si) => (
+                                                            <TableRow key={si}>
+                                                                <TableCell className="align-middle">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 w-14 px-1"
+                                                                            min={0}
+                                                                            max={255}
+                                                                            value={slot.from}
+                                                                            onChange={(e) => {
+                                                                                const v = Math.round(
+                                                                                    Number(e.target.value) || 0,
+                                                                                );
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    from: Math.max(0, Math.min(255, v)),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        <span className="text-muted-foreground">–</span>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 w-14 px-1"
+                                                                            min={0}
+                                                                            max={255}
+                                                                            value={slot.to}
+                                                                            onChange={(e) => {
+                                                                                const v = Math.round(
+                                                                                    Number(e.target.value) || 0,
+                                                                                );
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    to: Math.max(0, Math.min(255, v)),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="align-middle">
+                                                                    <div className="flex min-w-0 items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
+                                                                            title="Choose gobo"
+                                                                            onClick={() =>
+                                                                                setGoboPickerTarget({
+                                                                                    channelIdx: originalIdx,
+                                                                                    slotIdx: si,
+                                                                                })
+                                                                            }
+                                                                        >
+                                                                            {slot.goboImage ? (
+                                                                                <img
+                                                                                    src={slot.goboImage}
+                                                                                    alt=""
+                                                                                    className="size-full object-cover"
+                                                                                />
+                                                                            ) : (
+                                                                                <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                                                                                    ∅
+                                                                                </span>
+                                                                            )}
+                                                                        </button>
+                                                                        <Input
+                                                                            className="h-8 min-w-0 flex-1"
+                                                                            value={slot.label}
+                                                                            onChange={(e) => {
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    label: e.target.value,
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right align-middle">
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        <NativeSelect
+                                                                            className="h-8 max-w-[5.5rem] text-xs"
+                                                                            value={slot.direction ?? "none"}
+                                                                            onChange={(e) => {
+                                                                                const v = e.target.value;
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    direction:
+                                                                                        v === "none" ? undefined : v,
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <NativeSelectOption value="none">—</NativeSelectOption>
+                                                                            <NativeSelectOption value="cw">CW</NativeSelectOption>
+                                                                            <NativeSelectOption value="ccw">CCW</NativeSelectOption>
+                                                                        </NativeSelect>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="icon-sm"
+                                                                            className="size-8"
+                                                                            onClick={() => {
+                                                                                const next = [...slots];
+                                                                                const base = slot.numeric ?? 0;
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    numeric: clamp255(base - 1),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            −
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="icon-sm"
+                                                                            className="size-8"
+                                                                            onClick={() => {
+                                                                                const next = [...slots];
+                                                                                const base = slot.numeric ?? 0;
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    numeric: clamp255(base + 1),
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            +
+                                                                        </Button>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right align-middle">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        title="Remove slot"
+                                                                        onClick={() => {
+                                                                            const next = slots.filter((_, j) => j !== si);
+                                                                            if (next.length === 0) {
+                                                                                replaceChannelAt(originalIdx, {
+                                                                                    ...ch,
+                                                                                    properties: {
+                                                                                        min: 1,
+                                                                                        max: 255,
+                                                                                    },
+                                                                                });
+                                                                                return;
+                                                                            }
+                                                                            updateChannelAt(originalIdx, {
+                                                                                properties: {
+                                                                                    ...propsMap,
+                                                                                    entries: next,
+                                                                                },
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <PiTrash className="size-4"/>
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        const last = slots[slots.length - 1];
+                                                        const start = last ? Math.min(255, last.to + 1) : 0;
+                                                        const next = [
+                                                            ...slots,
+                                                            {
+                                                                from: start,
+                                                                to: Math.min(255, start + 15),
+                                                                label: `Slot ${slots.length + 1}`,
+                                                                goboIdentifier: "",
+                                                                goboName: "",
+                                                                goboImage: "",
+                                                            },
+                                                        ];
+                                                        updateChannelAt(originalIdx, {
+                                                            properties: {
+                                                                ...propsMap,
+                                                                entries: next,
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    Add property
+                                                </Button>
+                                            </div>
+                                        ) : ch.type === "shutterStrobe" ? (
+                                            <div className="mt-3 space-y-2">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                                Range
+                                                            </TableHead>
+                                                            <TableHead className="text-muted-foreground">State</TableHead>
+                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                                Speed
+                                                            </TableHead>
+                                                            <TableHead className="w-12"/>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {slots.map((slot, si) => {
+                                                            const sm = (slot.mode ?? "").toLowerCase();
+                                                            const speedExtra =
+                                                                sm === "strobe" || sm === "randomstrobe" ? (
+                                                                    <span
+                                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
+                                                                        title="Speed ramp"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <ArrowUpRight
+                                                                            className="size-4"
+                                                                            strokeWidth={2.5}
+                                                                        />
+                                                                    </span>
+                                                                ) : sm === "pulse" ? (
+                                                                    <span
+                                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
+                                                                        title="Pulse width"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <Minus className="size-4" strokeWidth={2.5}/>
+                                                                    </span>
+                                                                ) : null;
+                                                            return (
+                                                                <TableRow key={si}>
+                                                                    <TableCell className="align-middle">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Input
+                                                                                type="number"
+                                                                                className="h-8 w-14 px-1"
+                                                                                min={0}
+                                                                                max={255}
+                                                                                value={slot.from}
+                                                                                onChange={(e) => {
+                                                                                    const v = Math.round(
+                                                                                        Number(e.target.value) || 0,
+                                                                                    );
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        from: Math.max(
+                                                                                            0,
+                                                                                            Math.min(255, v),
+                                                                                        ),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                            <span className="text-muted-foreground">
+                                                                                –
+                                                                            </span>
+                                                                            <Input
+                                                                                type="number"
+                                                                                className="h-8 w-14 px-1"
+                                                                                min={0}
+                                                                                max={255}
+                                                                                value={slot.to}
+                                                                                onChange={(e) => {
+                                                                                    const v = Math.round(
+                                                                                        Number(e.target.value) || 0,
+                                                                                    );
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        to: Math.max(0, Math.min(255, v)),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="align-middle">
+                                                                        <div className="flex min-w-0 items-center gap-2">
+                                                                            <ShutterStateGlyph mode={slot.mode}/>
+                                                                            <NativeSelect
+                                                                                className="h-8 min-w-0 flex-1 text-sm"
+                                                                                value={shutterSelectValue(slot.mode)}
+                                                                                onChange={(e) => {
+                                                                                    const v = e.target.value;
+                                                                                    const preset =
+                                                                                        SHUTTER_MODE_OPTIONS.find(
+                                                                                            (o) => o.value === v,
+                                                                                        );
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        mode: v,
+                                                                                        label:
+                                                                                            preset?.label ?? slot.label,
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                {SHUTTER_MODE_OPTIONS.map((o) => (
+                                                                                    <NativeSelectOption
+                                                                                        key={o.value}
+                                                                                        value={o.value}
+                                                                                    >
+                                                                                        {o.label}
+                                                                                    </NativeSelectOption>
+                                                                                ))}
+                                                                            </NativeSelect>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right align-middle">
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            {speedExtra}
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="icon-sm"
+                                                                                className="size-8"
+                                                                                onClick={() => {
+                                                                                    const next = [...slots];
+                                                                                    const base = slot.numeric ?? 0;
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        numeric: clamp255(base - 1),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                −
+                                                                            </Button>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="icon-sm"
+                                                                                className="size-8"
+                                                                                onClick={() => {
+                                                                                    const next = [...slots];
+                                                                                    const base = slot.numeric ?? 0;
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        numeric: clamp255(base + 1),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                +
+                                                                            </Button>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right align-middle">
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            title="Remove slot"
+                                                                            onClick={() => {
+                                                                                const next = slots.filter(
+                                                                                    (_, j) => j !== si,
+                                                                                );
+                                                                                if (next.length === 0) {
+                                                                                    replaceChannelAt(originalIdx, {
+                                                                                        ...ch,
+                                                                                        properties: {
+                                                                                            min: 1,
+                                                                                            max: 255,
+                                                                                        },
+                                                                                    });
+                                                                                    return;
+                                                                                }
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <PiTrash className="size-4"/>
+                                                                        </Button>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        const last = slots[slots.length - 1];
+                                                        const start = last ? Math.min(255, last.to + 1) : 0;
+                                                        const next = [
+                                                            ...slots,
+                                                            {
+                                                                from: start,
+                                                                to: Math.min(255, start + 15),
+                                                                label: "Shutter Open",
+                                                                mode: "open",
+                                                            },
+                                                        ];
+                                                        updateChannelAt(originalIdx, {
+                                                            properties: {
+                                                                ...propsMap,
+                                                                entries: next,
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    Add property
+                                                </Button>
+                                            </div>
+                                        ) : MOTION_TABLE_TYPES.has(ch.type) ? (
+                                            <div className="mt-3 space-y-2">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                                Range
+                                                            </TableHead>
+                                                            <TableHead className="text-muted-foreground">State</TableHead>
+                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                                Speed
+                                                            </TableHead>
+                                                            <TableHead className="w-12"/>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {slots.map((slot, si) => {
+                                                            const m = (slot.mode ?? "").toLowerCase();
+                                                            const d = (slot.direction ?? "").toLowerCase();
+                                                            let speedChip: ReactNode = null;
+                                                            if (m === "vector") {
+                                                                speedChip = (
+                                                                    <span
+                                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
+                                                                        title="Vector"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <ArrowDownRight
+                                                                            className="size-4"
+                                                                            strokeWidth={2.5}
+                                                                        />
+                                                                    </span>
+                                                                );
+                                                            } else if (
+                                                                (m === "slow" || m === "fast") &&
+                                                                d === "cw"
+                                                            ) {
+                                                                speedChip = (
+                                                                    <span
+                                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
+                                                                        title="Clockwise"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <RotateCw
+                                                                            className="size-4"
+                                                                            strokeWidth={2.5}
+                                                                        />
+                                                                    </span>
+                                                                );
+                                                            } else if (
+                                                                (m === "slow" || m === "fast") &&
+                                                                d === "ccw"
+                                                            ) {
+                                                                speedChip = (
+                                                                    <span
+                                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
+                                                                        title="Counter-clockwise"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <RotateCcw
+                                                                            className="size-4"
+                                                                            strokeWidth={2.5}
+                                                                        />
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <TableRow key={si}>
+                                                                    <TableCell className="align-middle">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Input
+                                                                                type="number"
+                                                                                className="h-8 w-14 px-1"
+                                                                                min={0}
+                                                                                max={255}
+                                                                                value={slot.from}
+                                                                                onChange={(e) => {
+                                                                                    const v = Math.round(
+                                                                                        Number(e.target.value) || 0,
+                                                                                    );
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        from: Math.max(
+                                                                                            0,
+                                                                                            Math.min(255, v),
+                                                                                        ),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                            <span className="text-muted-foreground">
+                                                                                –
+                                                                            </span>
+                                                                            <Input
+                                                                                type="number"
+                                                                                className="h-8 w-14 px-1"
+                                                                                min={0}
+                                                                                max={255}
+                                                                                value={slot.to}
+                                                                                onChange={(e) => {
+                                                                                    const v = Math.round(
+                                                                                        Number(e.target.value) || 0,
+                                                                                    );
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        to: Math.max(0, Math.min(255, v)),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="align-middle">
+                                                                        <NativeSelect
+                                                                            className="h-8 w-full min-w-0 text-sm"
+                                                                            value={motionStatePresetId(slot)}
+                                                                            onChange={(e) => {
+                                                                                const id = e.target.value;
+                                                                                const opt = MOTION_STATE_OPTIONS.find(
+                                                                                    (o) => o.id === id,
+                                                                                );
+                                                                                if (!opt) {
+                                                                                    return;
+                                                                                }
+                                                                                const next = [...slots];
+                                                                                next[si] = {
+                                                                                    ...slot,
+                                                                                    label: opt.label,
+                                                                                    mode: opt.mode,
+                                                                                    direction: opt.direction,
+                                                                                };
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            {MOTION_STATE_OPTIONS.map((o) => (
+                                                                                <NativeSelectOption
+                                                                                    key={o.id}
+                                                                                    value={o.id}
+                                                                                >
+                                                                                    {o.label}
+                                                                                </NativeSelectOption>
+                                                                            ))}
+                                                                        </NativeSelect>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right align-middle">
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            {speedChip}
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="icon-sm"
+                                                                                className="size-8"
+                                                                                onClick={() => {
+                                                                                    const next = [...slots];
+                                                                                    const base = slot.numeric ?? 0;
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        numeric: clamp255(base - 1),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                −
+                                                                            </Button>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="icon-sm"
+                                                                                className="size-8"
+                                                                                onClick={() => {
+                                                                                    const next = [...slots];
+                                                                                    const base = slot.numeric ?? 0;
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        numeric: clamp255(base + 1),
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                +
+                                                                            </Button>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right align-middle">
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            title="Remove slot"
+                                                                            onClick={() => {
+                                                                                const next = slots.filter(
+                                                                                    (_, j) => j !== si,
+                                                                                );
+                                                                                if (next.length === 0) {
+                                                                                    replaceChannelAt(originalIdx, {
+                                                                                        ...ch,
+                                                                                        properties: {
+                                                                                            min: 1,
+                                                                                            max: 255,
+                                                                                        },
+                                                                                    });
+                                                                                    return;
+                                                                                }
+                                                                                updateChannelAt(originalIdx, {
+                                                                                    properties: {
+                                                                                        ...propsMap,
+                                                                                        entries: next,
+                                                                                    },
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <PiTrash className="size-4"/>
+                                                                        </Button>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        const last = slots[slots.length - 1];
+                                                        const start = last ? Math.min(255, last.to + 1) : 0;
+                                                        const next = [
+                                                            ...slots,
+                                                            {
+                                                                from: start,
+                                                                to: Math.min(255, start + 15),
+                                                                label: "Slow CW",
+                                                                mode: "slow",
+                                                                direction: "cw",
+                                                                numeric: 0,
+                                                            },
+                                                        ];
+                                                        updateChannelAt(originalIdx, {
+                                                            properties: {
+                                                                ...propsMap,
+                                                                entries: next,
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    Add property
+                                                </Button>
                                             </div>
                                         ) : (
                                             <div className="mt-3 space-y-2">
@@ -677,9 +2089,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         key={si}
                                                         className={cn(
                                                             "grid gap-2 rounded-md border bg-background p-2",
-                                                            goboExtras
-                                                                ? "sm:grid-cols-[repeat(6,minmax(0,1fr))_auto]"
-                                                                : "sm:grid-cols-[88px_88px_1fr_auto]",
+                                                            "sm:grid-cols-[88px_88px_1fr_auto]",
                                                         )}
                                                     >
                                                         <div className="grid gap-1">
@@ -694,7 +2104,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     const next = [...slots];
                                                                     next[si] = {
                                                                         ...slot,
-                                                                        from: Math.max(0, Math.min(255, v))
+                                                                        from: Math.max(0, Math.min(255, v)),
                                                                     };
                                                                     updateChannelAt(originalIdx, {
                                                                         properties: {
@@ -717,7 +2127,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     const next = [...slots];
                                                                     next[si] = {
                                                                         ...slot,
-                                                                        to: Math.max(0, Math.min(255, v))
+                                                                        to: Math.max(0, Math.min(255, v)),
                                                                     };
                                                                     updateChannelAt(originalIdx, {
                                                                         properties: {
@@ -728,8 +2138,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 }}
                                                             />
                                                         </div>
-                                                        <div
-                                                            className={cn("grid gap-1", goboExtras && "sm:col-span-2")}>
+                                                        <div className="grid gap-1">
                                                             <Label className="text-xs">Label</Label>
                                                             <Input
                                                                 value={slot.label}
@@ -737,7 +2146,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     const next = [...slots];
                                                                     next[si] = {
                                                                         ...slot,
-                                                                        label: e.target.value
+                                                                        label: e.target.value,
                                                                     };
                                                                     updateChannelAt(originalIdx, {
                                                                         properties: {
@@ -748,52 +2157,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 }}
                                                             />
                                                         </div>
-                                                        {goboExtras && (
-                                                            <>
-                                                                <div className="grid gap-1">
-                                                                    <Label className="text-xs">Gobo
-                                                                        code</Label>
-                                                                    <Input
-                                                                        value={slot.goboIdentifier ?? ""}
-                                                                        placeholder="e.g. 76501"
-                                                                        onChange={(e) => {
-                                                                            const next = [...slots];
-                                                                            next[si] = {
-                                                                                ...slot,
-                                                                                goboIdentifier: e.target.value
-                                                                            };
-                                                                            updateChannelAt(originalIdx, {
-                                                                                properties: {
-                                                                                    ...propsMap,
-                                                                                    entries: next,
-                                                                                },
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                                <div className="grid gap-1">
-                                                                    <Label className="text-xs">Image
-                                                                        path</Label>
-                                                                    <Input
-                                                                        value={slot.goboImage ?? ""}
-                                                                        placeholder="/gobos/images/76501.jpg"
-                                                                        onChange={(e) => {
-                                                                            const next = [...slots];
-                                                                            next[si] = {
-                                                                                ...slot,
-                                                                                goboImage: e.target.value
-                                                                            };
-                                                                            updateChannelAt(originalIdx, {
-                                                                                properties: {
-                                                                                    ...propsMap,
-                                                                                    entries: next,
-                                                                                },
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            </>
-                                                        )}
                                                         <div className="flex items-end justify-end">
                                                             <Button
                                                                 type="button"
@@ -806,8 +2169,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         replaceChannelAt(originalIdx, {
                                                                             ...ch,
                                                                             properties: {
-                                                                                min: 0,
-                                                                                max: 255
+                                                                                min: 1,
+                                                                                max: 255,
                                                                             },
                                                                         });
                                                                         return;
@@ -838,13 +2201,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 from: start,
                                                                 to: Math.min(255, start + 15),
                                                                 label: `Slot ${slots.length + 1}`,
-                                                                ...(goboExtras
-                                                                    ? {
-                                                                        goboIdentifier: "",
-                                                                        goboName: "",
-                                                                        goboImage: ""
-                                                                    }
-                                                                    : {}),
                                                             },
                                                         ];
                                                         updateChannelAt(originalIdx, {
@@ -855,8 +2211,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4"
-                                                            aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
                                                     Add slot
                                                 </Button>
                                             </div>
@@ -864,6 +2219,104 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     </div>
                                 );
                             })}
+
+                            <Dialog
+                                open={goboPickerTarget !== null}
+                                onOpenChange={(open) => {
+                                    if (!open) {
+                                        setGoboPickerTarget(null);
+                                    }
+                                }}
+                            >
+                                <DialogContent
+                                    showCloseButton
+                                    className="flex max-h-[88vh] w-full max-w-[min(42rem,calc(100%-2rem))] flex-col gap-3 sm:max-w-2xl"
+                                >
+                                    <DialogHeader>
+                                        <DialogTitle>Choose gobo</DialogTitle>
+                                        <DialogDescription>
+                                            Filter by Rosco code or name. Images load from the local catalog.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <Input
+                                        placeholder="Filter…"
+                                        value={goboCatalogFilter}
+                                        onChange={(e) => setGoboCatalogFilter(e.target.value)}
+                                        autoComplete="off"
+                                    />
+                                    {goboCatalog === null ? (
+                                        <p className="text-sm text-muted-foreground">Loading catalog…</p>
+                                    ) : goboCatalogError ? (
+                                        <p className="text-sm text-destructive">{goboCatalogError}</p>
+                                    ) : goboCatalog.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">No catalog entries found.</p>
+                                    ) : (
+                                        <>
+                                            <div className="max-h-[min(60vh,520px)] overflow-y-auto rounded-md border p-2">
+                                                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                                                    {goboCatalogShown.map((entry) => (
+                                                        <button
+                                                            key={entry.code}
+                                                            type="button"
+                                                            className="flex flex-col items-center gap-1 rounded-lg border bg-background p-2 text-left text-xs transition-colors hover:bg-muted/80"
+                                                            onClick={() => {
+                                                                const t = goboPickerTarget;
+                                                                if (!t) {
+                                                                    return;
+                                                                }
+                                                                const {channelIdx, slotIdx} = t;
+                                                                setChannels((prev) =>
+                                                                    prev.map((c, i) => {
+                                                                        if (i !== channelIdx) {
+                                                                            return c;
+                                                                        }
+                                                                        const pm = (c.properties ?? {}) as JSONMap;
+                                                                        const sl = parseEntries(pm);
+                                                                        const next = [...sl];
+                                                                        if (!next[slotIdx]) {
+                                                                            return c;
+                                                                        }
+                                                                        next[slotIdx] = {
+                                                                            ...next[slotIdx],
+                                                                            goboIdentifier: entry.code,
+                                                                            goboName: entry.name,
+                                                                            goboImage: entry.image,
+                                                                            label: entry.name,
+                                                                        };
+                                                                        return {
+                                                                            ...c,
+                                                                            properties: {
+                                                                                ...pm,
+                                                                                entries: next,
+                                                                            },
+                                                                        };
+                                                                    }),
+                                                                );
+                                                                setGoboPickerTarget(null);
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={entry.image}
+                                                                alt=""
+                                                                className="size-14 rounded-full object-cover ring-1 ring-border"
+                                                                loading="lazy"
+                                                            />
+                                                            <span className="line-clamp-2 w-full text-center font-mono text-[10px] leading-tight">
+                                                                {entry.code}
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {goboCatalogFilter === "" && goboCatalog.length > 400 ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Showing the first 400 gobos — type in the filter to narrow the list.
+                                                </p>
+                                            ) : null}
+                                        </>
+                                    )}
+                                </DialogContent>
+                            </Dialog>
 
                             {saveHint && <p className="text-sm text-destructive">{saveHint}</p>}
                         </CardContent>
