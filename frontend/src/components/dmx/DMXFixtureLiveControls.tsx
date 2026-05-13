@@ -143,10 +143,10 @@ export function DMXFixtureLiveControls({
         <div className="space-y-4">
             <Card>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-base">USB DMX output</CardTitle>
+                    <CardTitle className="text-base">DMX output</CardTitle>
                     <CardDescription>
-                        Start streaming to the USB-DMX interface selected in Settings, then use the
-                        controls below.
+                        Start streaming to the active DMX transport from Settings (USB or Art-Net),
+                        then use the controls below.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-2">
@@ -181,8 +181,8 @@ export function DMXFixtureLiveControls({
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Live controls</CardTitle>
                         <CardDescription>
-                            Values map through your fixture definition to DMX addresses. Connect USB
-                            DMX to stream changes.
+                            Values map through your fixture definition to DMX addresses and stream
+                            through the active transport.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">

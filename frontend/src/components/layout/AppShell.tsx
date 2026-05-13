@@ -36,6 +36,8 @@ export type AppShellProps = {
     setRoute: Dispatch<SetStateAction<DetailRoute>>;
     devices: WLEDDevice[];
     dmxFixtures: DMXFixture[];
+    wledEnabled: boolean;
+    dmxEnabled: boolean;
     error: string;
     onDismissError: () => void;
     children: ReactNode;
@@ -51,6 +53,8 @@ export function AppShell({
                              setRoute,
                              devices,
                              dmxFixtures,
+                             wledEnabled,
+                             dmxEnabled,
                              error,
                              onDismissError,
                              children,
@@ -67,143 +71,151 @@ export function AppShell({
                 </SidebarHeader>
                 <SidebarContent>
 
-                    <div className="px-2 pt-2">
-                        <span
-                            className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
-                            WLED
-                        </span>
-                    </div>
-                    <SidebarGroup>
-                        <SidebarMenu>
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    type="button"
-                                    isActive={route.kind === "presets"}
-                                    className={cn(
-                                        route.kind === "presets" &&
-                                        "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
-                                    )}
-                                    onClick={() => setRoute({kind: "presets"})}
-                                >
-                                    <PiSquaresFour className="size-4 shrink-0" aria-hidden/>
-                                    <span className="min-w-0 flex-1 truncate">General</span>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroup>
-
-                    <SidebarGroup>
-                        <SidebarGroupLabel>Devices</SidebarGroupLabel>
-                        <SidebarMenu>
-                            {devices.map((dev) => (
-                                <SidebarMenuItem key={dev.id} className="mb-2">
-                                    <SidebarMenuButton
-                                        type="button"
-                                        disabled={!dev.online}
-                                        title={
-                                            dev.online
-                                                ? undefined
-                                                : "Offline — use Discover or Refresh in the header. When the device is reachable again, you can open its page."
-                                        }
-                                        isActive={route.kind === "device" && route.id === dev.id}
-                                        className={cn(
-                                            route.kind === "device" &&
-                                            route.id === dev.id &&
-                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
-                                            !dev.online && "opacity-60 cursor-not-allowed",
-                                        )}
-                                        aria-label={
-                                            dev.online
-                                                ? `${dev.name} (online)`
-                                                : `${dev.name} (offline, unavailable until refreshed)`
-                                        }
-                                        onClick={() => {
-                                            if (!dev.online) {
-                                                return;
-                                            }
-                                            setRoute({kind: "device", id: dev.id});
-                                        }}
-                                    >
-                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">{dev.name}</span>
-                                        <span
+                    {wledEnabled && (
+                        <>
+                            <div className="px-2 pt-2">
+                                <span
+                                    className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
+                                    WLED
+                                </span>
+                            </div>
+                            <SidebarGroup>
+                                <SidebarMenu>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            type="button"
+                                            isActive={route.kind === "presets"}
                                             className={cn(
-                                                "status status-sm shrink-0",
-                                                dev.online ? "status-success" : "status-neutral"
+                                                route.kind === "presets" &&
+                                                "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
                                             )}
-                                            aria-hidden
-                                        />
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroup>
+                                            onClick={() => setRoute({kind: "presets"})}
+                                        >
+                                            <PiSquaresFour className="size-4 shrink-0" aria-hidden/>
+                                            <span className="min-w-0 flex-1 truncate">General</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </SidebarMenu>
+                            </SidebarGroup>
 
-                    <div className="px-2 pt-2">
-                        <span
-                            className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
-                            DMX
-                        </span>
-                    </div>
+                            <SidebarGroup>
+                                <SidebarGroupLabel>Devices</SidebarGroupLabel>
+                                <SidebarMenu>
+                                    {devices.map((dev) => (
+                                        <SidebarMenuItem key={dev.id} className="mb-2">
+                                            <SidebarMenuButton
+                                                type="button"
+                                                disabled={!dev.online}
+                                                title={
+                                                    dev.online
+                                                        ? undefined
+                                                        : "Offline — use Discover or Refresh in the header. When the device is reachable again, you can open its page."
+                                                }
+                                                isActive={route.kind === "device" && route.id === dev.id}
+                                                className={cn(
+                                                    route.kind === "device" &&
+                                                    route.id === dev.id &&
+                                                    "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
+                                                    !dev.online && "opacity-60 cursor-not-allowed",
+                                                )}
+                                                aria-label={
+                                                    dev.online
+                                                        ? `${dev.name} (online)`
+                                                        : `${dev.name} (offline, unavailable until refreshed)`
+                                                }
+                                                onClick={() => {
+                                                    if (!dev.online) {
+                                                        return;
+                                                    }
+                                                    setRoute({kind: "device", id: dev.id});
+                                                }}
+                                            >
+                                                <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                                <span className="min-w-0 flex-1 truncate">{dev.name}</span>
+                                                <span
+                                                    className={cn(
+                                                        "status status-sm shrink-0",
+                                                        dev.online ? "status-success" : "status-neutral"
+                                                    )}
+                                                    aria-hidden
+                                                />
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    ))}
+                                </SidebarMenu>
+                            </SidebarGroup>
+                        </>
+                    )}
 
-                    <SidebarGroup className="py-1">
-                        <SidebarGroupLabel>Universe</SidebarGroupLabel>
-                        <SidebarMenu>
-                            <SidebarMenuItem className="mb-2">
-                                <SidebarMenuButton
+                    {dmxEnabled && (
+                        <>
+                            <div className="px-2 pt-2">
+                                <span
+                                    className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
+                                    DMX
+                                </span>
+                            </div>
+
+                            <SidebarGroup className="py-1">
+                                <SidebarGroupLabel>Universe</SidebarGroupLabel>
+                                <SidebarMenu>
+                                    <SidebarMenuItem className="mb-2">
+                                        <SidebarMenuButton
+                                            type="button"
+                                            isActive={route.kind === "dmxUniverse"}
+                                            className={cn(
+                                                route.kind === "dmxUniverse" &&
+                                                "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                            )}
+                                            onClick={() => setRoute({kind: "dmxUniverse"})}
+                                        >
+                                            <PiPlanet className="size-4 shrink-0" aria-hidden/>
+                                            <span className="min-w-0 flex-1 truncate">Universe</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </SidebarMenu>
+                            </SidebarGroup>
+
+                            <SidebarGroup>
+                                <SidebarGroupLabel>DMX Devices</SidebarGroupLabel>
+                                <SidebarGroupAction
                                     type="button"
-                                    isActive={route.kind === "dmxUniverse"}
+                                    aria-label="Create new DMX device"
+                                    title="Create new DMX device"
+                                    onClick={() => setRoute({kind: "dmxAddFixture"})}
                                     className={cn(
-                                        route.kind === "dmxUniverse" &&
-                                        "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                        route.kind === "dmxAddFixture" &&
+                                        "bg-sidebar-accent text-sidebar-accent-foreground"
                                     )}
-                                    onClick={() => setRoute({kind: "dmxUniverse"})}
                                 >
-                                    <PiPlanet className="size-4 shrink-0" aria-hidden/>
-                                    <span className="min-w-0 flex-1 truncate">Universe</span>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroup>
-
-                    <SidebarGroup>
-                        <SidebarGroupLabel>DMX Devices</SidebarGroupLabel>
-                        <SidebarGroupAction
-                            type="button"
-                            aria-label="Create new DMX device"
-                            title="Create new DMX device"
-                            onClick={() => setRoute({kind: "dmxAddFixture"})}
-                            className={cn(
-                                route.kind === "dmxAddFixture" &&
-                                "bg-sidebar-accent text-sidebar-accent-foreground"
-                            )}
-                        >
-                            <PiPlus aria-hidden/>
-                        </SidebarGroupAction>
-                        <SidebarMenu>
-                            {dmxFixtures.map((fixture) => (
-                                <SidebarMenuItem key={fixture.id} className="mb-2">
-                                    <SidebarMenuButton
-                                        type="button"
-                                        isActive={route.kind === "dmxFixture" && route.id === fixture.id}
-                                        className={cn(
-                                            route.kind === "dmxFixture" &&
-                                            route.id === fixture.id &&
-                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
-                                        )}
-                                        onClick={() => setRoute({
-                                            kind: "dmxFixture",
-                                            id: fixture.id
-                                        })}
-                                    >
-                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span
-                                            className="min-w-0 flex-1 truncate">{fixture.name}</span>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroup>
+                                    <PiPlus aria-hidden/>
+                                </SidebarGroupAction>
+                                <SidebarMenu>
+                                    {dmxFixtures.map((fixture) => (
+                                        <SidebarMenuItem key={fixture.id} className="mb-2">
+                                            <SidebarMenuButton
+                                                type="button"
+                                                isActive={route.kind === "dmxFixture" && route.id === fixture.id}
+                                                className={cn(
+                                                    route.kind === "dmxFixture" &&
+                                                    route.id === fixture.id &&
+                                                    "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                                )}
+                                                onClick={() => setRoute({
+                                                    kind: "dmxFixture",
+                                                    id: fixture.id
+                                                })}
+                                            >
+                                                <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                                <span
+                                                    className="min-w-0 flex-1 truncate">{fixture.name}</span>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    ))}
+                                </SidebarMenu>
+                            </SidebarGroup>
+                        </>
+                    )}
                 </SidebarContent>
 
                 <SidebarFooter>
@@ -231,16 +243,18 @@ export function AppShell({
                 <header
                     className="shrink-0 border-b px-4 py-3 flex flex-wrap items-center justify-between gap-2 min-w-0">
                     <div className="flex flex-row gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={onDiscoverNow}
-                            disabled={busy}
-                            className="basis-24"
-                        >
-                            <PiBinoculars/>
-                            Discover
-                        </Button>
+                        {wledEnabled && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={onDiscoverNow}
+                                disabled={busy}
+                                className="basis-24"
+                            >
+                                <PiBinoculars/>
+                                Discover
+                            </Button>
+                        )}
                         <Button
                             size="sm"
                             variant="outline"

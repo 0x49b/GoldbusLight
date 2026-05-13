@@ -680,7 +680,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     ) : null}
                 </div>
                 <Button type="button" variant="outline" size="sm"
-                        onClick={() => props.setRoute({kind: "presets"})} disabled={props.busy}>
+                        onClick={() => props.setRoute({kind: "dmxUniverse"})} disabled={props.busy}>
                     Back
                 </Button>
             </div>

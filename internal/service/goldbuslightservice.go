@@ -94,6 +94,9 @@ func (g *GoldbusLightService) SetGlobalState(state map[string]any) (map[string]s
 	if err != nil {
 		return nil, err
 	}
+	if !controller.Snapshot().Settings.WLED.Enabled {
+		return nil, fmt.Errorf("wled component is disabled in settings")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
