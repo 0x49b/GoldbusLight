@@ -4,6 +4,7 @@ import {
     PiBinoculars,
     PiGearSix,
     PiLightbulb,
+    PiPlanet,
     PiPlus,
     PiSquaresFour,
 } from "react-icons/pi";
@@ -86,15 +87,30 @@ export function AppShell({
                                 <SidebarMenuItem key={dev.id} className="mb-2">
                                     <SidebarMenuButton
                                         type="button"
+                                        disabled={!dev.online}
+                                        title={
+                                            dev.online
+                                                ? undefined
+                                                : "Offline — use Discover or Refresh in the header. When the device is reachable again, you can open its page."
+                                        }
                                         isActive={route.kind === "device" && route.id === dev.id}
                                         className={cn(
                                             route.kind === "device" &&
                                             route.id === dev.id &&
-                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
+                                            !dev.online && "opacity-60 cursor-not-allowed",
                                         )}
-
-                                        aria-label={`${dev.name} (${dev.online ? "Online" : "Offline"})`}
-                                        onClick={() => setRoute({kind: "device", id: dev.id})}
+                                        aria-label={
+                                            dev.online
+                                                ? `${dev.name} (online)`
+                                                : `${dev.name} (offline, unavailable until refreshed)`
+                                        }
+                                        onClick={() => {
+                                            if (!dev.online) {
+                                                return;
+                                            }
+                                            setRoute({ kind: "device", id: dev.id });
+                                        }}
                                     >
                                         <PiLightbulb className="size-4 shrink-0" aria-hidden/>
                                         <span className="min-w-0 flex-1 truncate">{dev.name}</span>
@@ -110,12 +126,39 @@ export function AppShell({
                             ))}
                         </SidebarMenu>
                     </SidebarGroup>
+
+                    <div className="px-2 pt-2 pb-1">
+                        <span className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
+                            DMX
+                        </span>
+                    </div>
+
+                    <SidebarGroup className="py-1">
+                        <SidebarGroupLabel>Universe</SidebarGroupLabel>
+                        <SidebarMenu>
+                            <SidebarMenuItem className="mb-2">
+                                <SidebarMenuButton
+                                    type="button"
+                                    isActive={route.kind === "dmxUniverse"}
+                                    className={cn(
+                                        route.kind === "dmxUniverse" &&
+                                        "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                    )}
+                                    onClick={() => setRoute({kind: "dmxUniverse"})}
+                                >
+                                    <PiPlanet className="size-4 shrink-0" aria-hidden/>
+                                    <span className="min-w-0 flex-1 truncate">Universe</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroup>
+
                     <SidebarGroup>
                         <SidebarGroupLabel>DMX Devices</SidebarGroupLabel>
                         <SidebarGroupAction
                             type="button"
-                            aria-label="Add new DMX device"
-                            title="Add new DMX device"
+                            aria-label="Create new DMX device"
+                            title="Create new DMX device"
                             onClick={() => setRoute({kind: "dmxAddFixture"})}
                             className={cn(
                                 route.kind === "dmxAddFixture" &&

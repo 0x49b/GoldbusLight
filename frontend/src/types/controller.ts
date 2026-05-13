@@ -196,5 +196,6 @@ export type DetailRoute =
   | { kind: "presets" }
   | { kind: "settings" }
   | { kind: "device"; id: string }
+  | { kind: "dmxUniverse" }
   | { kind: "dmxAddFixture" }
   | { kind: "dmxFixture"; id: string };

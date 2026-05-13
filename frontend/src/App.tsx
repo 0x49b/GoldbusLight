@@ -1,5 +1,6 @@
 import type {ReactNode} from "react";
 import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
+import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "./components/device/DeviceDetailView";
 import {AppShell} from "./components/layout/AppShell";
 import {GeneralPanel} from "./components/presets/GeneralPanel";
@@ -59,6 +60,8 @@ function App() {
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
             />
         );
+    } else if (app.route.kind === "dmxUniverse") {
+        main = <DMXUniverseView/>;
     } else if (app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") {
         main = (
             <DMXFixtureEditorView

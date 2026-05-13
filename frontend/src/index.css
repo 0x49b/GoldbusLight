@@ -48,6 +48,11 @@
 
 
 
+.btn-active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
 @layer components {
 
   .touch-pan-scroll {

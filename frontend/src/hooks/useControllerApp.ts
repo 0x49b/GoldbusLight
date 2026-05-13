@@ -35,6 +35,9 @@ const DEVICE_DETAIL_MAX_TRIES = 5;
 const DEVICE_DETAIL_TRY_MS = 10_000;
 const DEVICE_DETAIL_RETRY_DELAY_MS = 400;
 
+/** Background snapshot poll to pick up devices coming back online (matches header Refresh data). */
+const BACKGROUND_SNAPSHOT_POLL_MS = 30_000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -376,9 +379,28 @@ export function useControllerApp() {
       void pullSnapshot().catch((err: unknown) => {
         setError(String(err));
       });
-    }, 8000);
+    }, BACKGROUND_SNAPSHOT_POLL_MS);
     return () => window.clearInterval(timer);
   }, [pullSnapshot]);
+
+  useEffect(() => {
+    if (route.kind !== "device") {
+      return;
+    }
+    if (!snapshot) {
+      return;
+    }
+    const dev = snapshot.devices.find((d) => d.id === route.id);
+    if (!dev) {
+      setRoute({ kind: "presets" });
+      setStatus("That device is no longer in the controller.");
+      return;
+    }
+    if (dev.online === false) {
+      setRoute({ kind: "presets" });
+      setStatus("Device offline — use Discover or Refresh in the header. When it is online again, open it from the sidebar.");
+    }
+  }, [route, snapshot, setRoute, setStatus]);
 
   useEffect(() => {
     void GreetService.AppVersion()
