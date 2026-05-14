@@ -2409,6 +2409,9 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.DMX.ArtNet.RefreshHz = defaults.DMX.ArtNet.RefreshHz
 	}
 	clampArtNetSettings(&out.DMX.ArtNet)
+	if !out.WLED.Enabled {
+		out.AccessPoint.Enabled = false
+	}
 	// Clear legacy v2 fields before persistence.
 	out.Discovery = DiscoverySettings{}
 	out.Provisioning = ProvisioningSettings{}

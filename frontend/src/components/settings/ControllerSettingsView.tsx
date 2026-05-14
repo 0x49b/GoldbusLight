@@ -74,9 +74,6 @@ export function ControllerSettingsView({
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Controller settings</h2>
                 <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={onApplyNetwork} disabled={busy}>
-                        <PiWifiHigh/> Apply network settings
-                    </Button>
                     <Button size="sm" onClick={onSaveSettings} disabled={busy}>
                         <PiFloppyDisk/> Save settings
                     </Button>
@@ -140,7 +137,11 @@ export function ControllerSettingsView({
                                     checked={settings.wled.enabled}
                                     onCheckedChange={(checked) => setSettings({
                                         ...settings,
-                                        wled: {...settings.wled, enabled: checked}
+                                        wled: {...settings.wled, enabled: checked},
+                                        accessPoint: {
+                                            ...settings.accessPoint,
+                                            enabled: checked ? settings.accessPoint.enabled : false
+                                        }
                                     })}
                                     disabled={busy}
                                 />
@@ -155,8 +156,16 @@ export function ControllerSettingsView({
                     </Card>
 
                     <Card className="w-full max-w-none">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
                             <CardTitle>Access point</CardTitle>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={onApplyNetwork}
+                                disabled={wledControlsDisabled}
+                            >
+                                <PiWifiHigh/> Apply network settings
+                            </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <label className="flex items-center gap-3">
@@ -171,6 +180,11 @@ export function ControllerSettingsView({
                                 />
                                 <Label htmlFor="enable-ap">Enable local access point</Label>
                             </label>
+                            {!settings.wled.enabled && (
+                                <p className="text-xs text-muted-foreground">
+                                    Access point is forced off while WLED component is disabled.
+                                </p>
+                            )}
 
                             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                 <Field>
