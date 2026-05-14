@@ -276,6 +276,13 @@ export function useControllerApp() {
     const dmxLivePendingRef = useRef<Map<number, number>>(new Map());
     const dmxLiveFlushTimerRef = useRef<number | undefined>(undefined);
     const [dmxLiveStatus, setDmxLiveStatus] = useState<DMXLiveStatus | null>(null);
+    const settingsEditLockUntilRef = useRef(0);
+
+    const markSettingsInteraction = useCallback((holdMs = 5000) => {
+        const now = Date.now();
+        const until = now + Math.max(250, holdMs);
+        settingsEditLockUntilRef.current = Math.max(settingsEditLockUntilRef.current, until);
+    }, []);
 
     const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
 
@@ -290,6 +297,24 @@ export function useControllerApp() {
         }
         return dmxState.fixtures.find((fixture) => fixture.id === route.id);
     }, [dmxState.fixtures, route]);
+
+    const wledEnabled = settings?.wled.enabled ?? true;
+    const dmxEnabled = settings?.dmx.enabled ?? true;
+
+    useEffect(() => {
+        if (!settings) {
+            return;
+        }
+        setRoute((prev) => {
+            if (!settings.wled.enabled && (prev.kind === "presets" || prev.kind === "device")) {
+                return {kind: "settings"};
+            }
+            if (!settings.dmx.enabled && (prev.kind === "dmxUniverse" || prev.kind === "dmxAddFixture" || prev.kind === "dmxFixture")) {
+                return {kind: "settings"};
+            }
+            return prev;
+        });
+    }, [setRoute, settings]);
 
     useEffect(() => {
         if (route.kind !== "device" || !selectedDevice) {
@@ -320,11 +345,14 @@ export function useControllerApp() {
     }, []);
 
     const pullSnapshot = useCallback(async () => {
-        const next = (await GreetService.GetControllerSnapshot()) as ControllerSnapshot;
+        const next = (await GreetService.GetControllerSnapshot()) as unknown as ControllerSnapshot;
         setSnapshot(next);
-        setSettings(next.settings);
-        setStatePayloadText(prettyJSON(next.settings.provisioning.defaultStatePayload ?? {}));
-        setConfigPatchText(prettyJSON(next.settings.provisioning.defaultConfigPatch ?? {}));
+        const settingsEditingActive = Date.now() < settingsEditLockUntilRef.current;
+        if (!settingsEditingActive) {
+            setSettings(next.settings);
+            setStatePayloadText(prettyJSON(next.settings.wled.provisioning.defaultStatePayload ?? {}));
+            setConfigPatchText(prettyJSON(next.settings.wled.provisioning.defaultConfigPatch ?? {}));
+        }
         setStatus(`Updated ${new Date(next.updatedAt).toLocaleTimeString()}`);
         setError("");
         const gst = (next as ControllerSnapshot & {
@@ -672,30 +700,55 @@ export function useControllerApp() {
         }
     }, []);
 
-    const onSaveSettings = useCallback(() => {
-        if (!settings) {
-            return;
+    const ensureWLEDEnabled = useCallback((): boolean => {
+        if ((settings?.wled.enabled ?? true) === false) {
+            setError("WLED component is disabled in Settings.");
+            return false;
         }
-        void withBusy(async () => {
-            const statePayload = parseJSONMap(statePayloadText);
-            const configPatch = parseJSONMap(configPatchText);
+        return true;
+    }, [settings?.wled.enabled, setError]);
+
+    const ensureDMXEnabled = useCallback((): boolean => {
+        if ((settings?.dmx.enabled ?? true) === false) {
+            setError("DMX component is disabled in Settings.");
+            return false;
+        }
+        return true;
+    }, [settings?.dmx.enabled, setError]);
+
+    const onSaveSettings = useCallback(async (): Promise<boolean> => {
+        const latest = useControllerStore.getState();
+        const latestSettings = latest.settings;
+        if (!latestSettings) {
+            return false;
+        }
+        try {
+            const statePayload = parseJSONMap(latest.statePayloadText);
+            const configPatch = parseJSONMap(latest.configPatchText);
 
             const merged: ControllerSettings = {
-                ...settings,
-                provisioning: {
-                    ...settings.provisioning,
-                    defaultStatePayload: statePayload,
-                    defaultConfigPatch: configPatch,
+                ...latestSettings,
+                wled: {
+                    ...latestSettings.wled,
+                    provisioning: {
+                        ...latestSettings.wled.provisioning,
+                        defaultStatePayload: statePayload,
+                        defaultConfigPatch: configPatch,
+                    },
                 },
             };
 
-            const saved = (await GreetService.SaveControllerSettings(merged)) as ControllerSnapshot;
+            const saved = (await GreetService.SaveControllerSettings(merged as never)) as unknown as ControllerSnapshot;
             setSnapshot(saved);
             setSettings(saved.settings);
             setStatus("Settings saved");
             setError("");
-        });
-    }, [configPatchText, settings, statePayloadText, withBusy]);
+            return true;
+        } catch (err) {
+            setError(String(err));
+            return false;
+        }
+    }, []);
 
     const onApplyNetwork = useCallback(() => {
         void withBusy(async () => {
@@ -707,6 +760,9 @@ export function useControllerApp() {
 
     const onCreateDMXFixture = useCallback(
         async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
+            if (!ensureDMXEnabled()) {
+                return null;
+            }
             setBusy(true);
             try {
                 const created = (await GreetService.CreateDMXFixture(input as never)) as DMXFixture;
@@ -721,11 +777,14 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [pullDMXState],
+        [ensureDMXEnabled, pullDMXState],
     );
 
     const onUpdateDMXFixture = useCallback(
         async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
+            if (!ensureDMXEnabled()) {
+                return null;
+            }
             setBusy(true);
             try {
                 const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
@@ -740,11 +799,14 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [pullDMXState],
+        [ensureDMXEnabled, pullDMXState],
     );
 
     const onDeleteDMXFixture = useCallback(
         async (fixtureID: string): Promise<boolean> => {
+            if (!ensureDMXEnabled()) {
+                return false;
+            }
             setBusy(true);
             try {
                 await GreetService.DeleteDMXFixture(fixtureID);
@@ -760,10 +822,13 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [pullDMXState],
+        [ensureDMXEnabled, pullDMXState],
     );
 
     const refreshUSBSerialDevices = useCallback(async () => {
+        if (!ensureDMXEnabled()) {
+            return;
+        }
         setBusy(true);
         try {
             await pullUSBSerialDevices();
@@ -774,9 +839,12 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, [pullUSBSerialDevices]);
+    }, [ensureDMXEnabled, pullUSBSerialDevices]);
 
     const onSelectUSBSerialDevice = useCallback(async (deviceID: string) => {
+        if (!ensureDMXEnabled()) {
+            return;
+        }
         setBusy(true);
         try {
             const next = (await GreetService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
@@ -788,7 +856,7 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, []);
+    }, [ensureDMXEnabled]);
 
     const clampDmxByte = useCallback((v: number) => {
         const n = Math.round(v);
@@ -842,6 +910,9 @@ export function useControllerApp() {
 
     const startDMXLiveOutput = useCallback(
         async (fixtureID: string) => {
+            if (!ensureDMXEnabled()) {
+                return false;
+            }
             setBusy(true);
             try {
                 await GreetService.StartDMXLive(fixtureID);
@@ -857,7 +928,7 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [pullDMXLiveStatus, setBusy, setError, setStatus],
+        [ensureDMXEnabled, pullDMXLiveStatus, setBusy, setError, setStatus],
     );
 
     const stopDMXLiveOutput = useCallback(async () => {
@@ -879,6 +950,9 @@ export function useControllerApp() {
     }, []);
 
     const onDiscoverNow = useCallback(() => {
+        if (!ensureWLEDEnabled()) {
+            return;
+        }
         setDiscovering(true);
         void withBusy(async () => {
             try {
@@ -889,10 +963,13 @@ export function useControllerApp() {
                 setDiscovering(false);
             }
         });
-    }, [pullSnapshot, withBusy]);
+    }, [ensureWLEDEnabled, pullSnapshot, withBusy]);
 
     const onSetGlobalState = useCallback(
         (state: JSONMap, label: string, options?: { background?: boolean }) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             const background = options?.background === true;
             const run = async () => {
                 const result = await GreetService.SetGlobalState(state);
@@ -907,11 +984,14 @@ export function useControllerApp() {
             }
             void withBusy(run);
         },
-        [pullSnapshot, withBusy],
+        [ensureWLEDEnabled, pullSnapshot, withBusy],
     );
 
     const onRefreshDevice = useCallback(
         (deviceID: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             deviceDetailOpSeqRef.current += 1;
             void withBusy(async () => {
                 setDeviceDetailReloading(true);
@@ -922,7 +1002,7 @@ export function useControllerApp() {
                         setDeviceDetailFetchAttempt(attempt);
                         const p = GreetService.RefreshDevice(deviceID);
                         try {
-                            refreshed = (await awaitCancellableWithTimeout(p, DEVICE_DETAIL_TRY_MS)) as ControllerSnapshot;
+                            refreshed = (await awaitCancellableWithTimeout(p, DEVICE_DETAIL_TRY_MS)) as unknown as ControllerSnapshot;
                             lastErr = null;
                             break;
                         } catch (e) {
@@ -964,13 +1044,16 @@ export function useControllerApp() {
                 }
             });
         },
-        [loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
     );
 
     const onProvisionDevice = useCallback(
         (deviceID: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             void withBusy(async () => {
-                const updated = (await GreetService.ProvisionDevice(deviceID)) as ControllerSnapshot;
+                const updated = (await GreetService.ProvisionDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setStatus(`Device provisioned`);
@@ -979,26 +1062,32 @@ export function useControllerApp() {
                 }
             });
         },
-        [loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
     );
 
     const onRemoveDevice = useCallback(
         (deviceID: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             void withBusy(async () => {
-                const updated = (await GreetService.RemoveDevice(deviceID)) as ControllerSnapshot;
+                const updated = (await GreetService.RemoveDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setStatus(`Device removed`);
                 setRoute({kind: "presets"});
             });
         },
-        [withBusy],
+        [ensureWLEDEnabled, withBusy],
     );
 
     const onIgnoreDevice = useCallback(
         (deviceID: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             void withBusy(async () => {
-                const updated = (await GreetService.SetDeviceIgnored(deviceID, true)) as ControllerSnapshot;
+                const updated = (await GreetService.SetDeviceIgnored(deviceID, true)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 try {
@@ -1011,13 +1100,16 @@ export function useControllerApp() {
                 setRoute((r) => (r.kind === "device" && r.id === deviceID ? {kind: "presets"} : r));
             });
         },
-        [withBusy],
+        [ensureWLEDEnabled, withBusy],
     );
 
     const onUnignoreDevice = useCallback(
         (deviceID: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             void withBusy(async () => {
-                const updated = (await GreetService.SetDeviceIgnored(deviceID, false)) as ControllerSnapshot;
+                const updated = (await GreetService.SetDeviceIgnored(deviceID, false)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 try {
@@ -1029,11 +1121,14 @@ export function useControllerApp() {
                 setStatus("Device restored from ignored list");
             });
         },
-        [withBusy],
+        [ensureWLEDEnabled, withBusy],
     );
 
     const onSetDeviceState = useCallback(
         (deviceID: string, state: JSONMap, options?: { skipFollowupDetailReload?: boolean }) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             const skipFollowupDetailReload = options?.skipFollowupDetailReload ?? false;
             if (typeof state.on === "boolean") {
                 deviceAutoApplyBlockedForPowerOffRef.current = !state.on;
@@ -1064,7 +1159,7 @@ export function useControllerApp() {
                 setError(String(err));
             });
         },
-        [loadDeviceDetail, pullSnapshot, route],
+        [ensureWLEDEnabled, loadDeviceDetail, pullSnapshot, route],
     );
 
     useEffect(() => {
@@ -1150,8 +1245,11 @@ export function useControllerApp() {
 
     const onRenameDevice = useCallback(
         (deviceID: string, name: string) => {
+            if (!ensureWLEDEnabled()) {
+                return;
+            }
             void withBusy(async () => {
-                const updated = (await GreetService.RenameDevice(deviceID, name)) as ControllerSnapshot;
+                const updated = (await GreetService.RenameDevice(deviceID, name)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setEditingDeviceName(false);
@@ -1162,7 +1260,7 @@ export function useControllerApp() {
                 }
             });
         },
-        [loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
     );
 
     const onToggleOneDevice = useCallback(
@@ -1234,6 +1332,8 @@ export function useControllerApp() {
         setGeneralIx,
         busy,
         discovering,
+        wledEnabled,
+        dmxEnabled,
         currentVersion,
         dmxState,
         dmxLiveStatus,
@@ -1270,6 +1370,7 @@ export function useControllerApp() {
         selectedDevice,
         selectedFixture,
         pullSnapshot,
+        markSettingsInteraction,
         pullDMXState,
         pullUSBSerialDevices,
         onSaveSettings,

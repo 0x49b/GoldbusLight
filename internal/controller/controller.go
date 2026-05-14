@@ -67,11 +67,37 @@ type TestingSettings struct {
 	SimulateWLED bool `json:"simulateWled"`
 }
 
-type ControllerSettings struct {
-	AccessPoint  AccessPointSettings  `json:"accessPoint"`
+type WLEDSettings struct {
+	Enabled      bool                 `json:"enabled"`
 	Discovery    DiscoverySettings    `json:"discovery"`
 	Provisioning ProvisioningSettings `json:"provisioning"`
 	Testing      TestingSettings      `json:"testing"`
+}
+
+type ArtNetSettings struct {
+	Enabled    bool   `json:"enabled"`
+	TargetHost string `json:"targetHost"`
+	Port       int    `json:"port"`
+	Net        int    `json:"net"`
+	Subnet     int    `json:"subnet"`
+	Universe   int    `json:"universe"`
+	RefreshHz  int    `json:"refreshHz"`
+}
+
+type DMXSettings struct {
+	Enabled bool           `json:"enabled"`
+	ArtNet  ArtNetSettings `json:"artNet"`
+}
+
+type ControllerSettings struct {
+	AccessPoint AccessPointSettings `json:"accessPoint"`
+	WLED        WLEDSettings        `json:"wled"`
+	DMX         DMXSettings         `json:"dmx"`
+
+	// Legacy flattened settings kept for migration from persisted v2 state.
+	Discovery    DiscoverySettings    `json:"discovery,omitempty"`
+	Provisioning ProvisioningSettings `json:"provisioning,omitempty"`
+	Testing      TestingSettings      `json:"testing,omitempty"`
 }
 
 type WLEDDevice struct {
@@ -90,7 +116,7 @@ type WLEDDevice struct {
 }
 
 func isSimulatedWLED(device WLEDDevice, settings ControllerSettings) bool {
-	return settings.Testing.SimulateWLED && device.ID == simulatedWLEDDeviceID
+	return settings.WLED.Enabled && settings.WLED.Testing.SimulateWLED && device.ID == simulatedWLEDDeviceID
 }
 
 func newSimulatedWLEDDevice() WLEDDevice {
@@ -125,7 +151,7 @@ type persistentState struct {
 	Devices  map[string]WLEDDevice `json:"devices"`
 }
 
-const persistentStateVersion = 2
+const persistentStateVersion = 3
 
 type ControllerSnapshot struct {
 	Settings        ControllerSettings     `json:"settings"`
@@ -362,16 +388,28 @@ func (s *StatePersistenceManager) Load() (persistentState, error) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return defaultState, err
 	}
-	if state.Settings.AccessPoint.SSID == "" {
-		state.Settings = mergeWithDefaults(state.Settings)
-	}
 	if state.Version < 2 {
 		state.Settings.Discovery.PassiveBrowse = true
 		if state.Settings.Discovery.PollIntervalSecondsWhenApEnabled <= 0 {
 			state.Settings.Discovery.PollIntervalSecondsWhenApEnabled = 5
 		}
-		state.Version = persistentStateVersion
+		state.Version = 2
 	}
+	if state.Version < 3 {
+		if len(state.Settings.WLED.Discovery.ServiceTypes) == 0 && len(state.Settings.Discovery.ServiceTypes) > 0 {
+			state.Settings.WLED.Discovery = state.Settings.Discovery
+		}
+		if state.Settings.WLED.Provisioning.DefaultStatePayload == nil && state.Settings.Provisioning.DefaultStatePayload != nil {
+			state.Settings.WLED.Provisioning = state.Settings.Provisioning
+		}
+		if !state.Settings.WLED.Testing.SimulateWLED && state.Settings.Testing.SimulateWLED {
+			state.Settings.WLED.Testing = state.Settings.Testing
+		}
+		state.Settings.WLED.Enabled = true
+		state.Settings.DMX.Enabled = true
+		state.Version = 3
+	}
+	state.Settings = mergeWithDefaults(state.Settings)
 	if state.Devices == nil {
 		state.Devices = map[string]WLEDDevice{}
 	}
@@ -471,8 +509,12 @@ func toDiscoverySettings(s DiscoverySettings) discovery.Settings {
 }
 
 func toDiscoveryControllerSettings(s ControllerSettings) discovery.ControllerSettings {
+	disc := toDiscoverySettings(s.WLED.Discovery)
+	if !s.WLED.Enabled {
+		disc.Enabled = false
+	}
 	return discovery.ControllerSettings{
-		Discovery: toDiscoverySettings(s.Discovery),
+		Discovery: disc,
 		AccessPoint: discovery.AccessPointSettings{
 			Enabled:       s.AccessPoint.Enabled,
 			InterfaceName: s.AccessPoint.InterfaceName,
@@ -738,15 +780,20 @@ type WLEDController struct {
 
 	cancel context.CancelFunc
 
-	dmxLiveMu         sync.Mutex
-	dmxLivePort       serial.Port
-	dmxLiveCancel     context.CancelFunc
-	dmxLiveWG         sync.WaitGroup
-	dmxLiveBuf        [512]byte
-	dmxLiveErr        string
-	dmxLivePath       string
-	dmxLiveDeviceName string
-	dmxLiveFixID      string
+	dmxLiveMu        sync.Mutex
+	dmxLiveWG        sync.WaitGroup
+	dmxLiveRunning   bool
+	dmxLiveBuf       [512]byte
+	dmxLiveErr       string
+	dmxLiveFixID     string
+	dmxLiveUSBFrames chan [512]byte
+	dmxLiveUSBPath   string
+	dmxLiveUSBName   string
+	dmxLiveArtFrames chan [512]byte
+	dmxLiveArtPath   string
+	dmxLiveArtName   string
+	dmxLiveArtTarget string
+	dmxLiveArtHz     int
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -770,7 +817,7 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 }
 
 func (c *WLEDController) syncSimulatedDeviceLocked() {
-	if c.settings.Testing.SimulateWLED {
+	if c.settings.WLED.Enabled && c.settings.WLED.Testing.SimulateWLED {
 		base := newSimulatedWLEDDevice()
 		if existing, ok := c.devices[simulatedWLEDDeviceID]; ok {
 			if strings.TrimSpace(existing.Name) != "" {
@@ -944,11 +991,13 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 	defer c.mu.RUnlock()
 
 	devices := make([]WLEDDevice, 0, len(c.devices))
-	for _, device := range c.devices {
-		if device.Ignored {
-			continue
+	if c.settings.WLED.Enabled {
+		for _, device := range c.devices {
+			if device.Ignored {
+				continue
+			}
+			devices = append(devices, device)
 		}
-		devices = append(devices, device)
 	}
 	slices.SortFunc(devices, func(a, b WLEDDevice) int {
 		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
@@ -965,11 +1014,17 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 }
 
 func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
+	merged := mergeWithDefaults(settings)
 	c.mu.Lock()
-	c.settings = mergeWithDefaults(settings)
+	c.settings = merged
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
+	if !merged.DMX.Enabled {
+		c.StopDMXLive()
+	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
+		c.logger.Printf("dmx live reconcile after settings save: %v", err)
+	}
 	return c.persist()
 }
 
@@ -983,19 +1038,31 @@ func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
 	return result
 }
 
+func (c *WLEDController) wledEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.settings.WLED.Enabled
+}
+
+func (c *WLEDController) dmxEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.settings.DMX.Enabled
+}
+
 func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) {
 	c.mu.RLock()
-	settings := c.settings.Discovery
+	wledSettings := c.settings.WLED
 	full := c.settings
-	enabled := settings.Enabled
+	enabled := wledSettings.Enabled && wledSettings.Discovery.Enabled
 	c.mu.RUnlock()
 	if !enabled {
-		return nil, fmt.Errorf("discovery is disabled in settings")
+		return nil, fmt.Errorf("wled discovery is disabled in settings")
 	}
 
 	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(full))
 	found, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
-		Settings:  toDiscoverySettings(settings),
+		Settings:  toDiscoverySettings(wledSettings.Discovery),
 		BindIface: iface,
 		Logger:    c.logger,
 	})
@@ -1010,6 +1077,9 @@ func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) 
 }
 
 func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, state map[string]any) error {
+	if !c.wledEnabled() {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	c.mu.RLock()
 	device, ok := c.devices[deviceID]
 	c.mu.RUnlock()
@@ -1047,6 +1117,9 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 }
 
 func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]any) map[string]string {
+	if !c.wledEnabled() {
+		return map[string]string{}
+	}
 	c.mu.RLock()
 	devices := make([]WLEDDevice, 0, len(c.devices))
 	for _, d := range c.devices {
@@ -1098,8 +1171,11 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) error {
 	c.mu.RLock()
 	device, ok := c.devices[deviceID]
-	settings := c.settings.Provisioning
+	settings := c.settings.WLED
 	c.mu.RUnlock()
+	if !settings.Enabled {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	if !ok {
 		return fmt.Errorf("unknown device: %s", deviceID)
 	}
@@ -1107,7 +1183,7 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 		return fmt.Errorf("device is ignored: %s", deviceID)
 	}
 
-	if err := c.provisionWLED(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err != nil {
+	if err := c.provisionWLED(ctx, device, settings.Provisioning.DefaultConfigPatch, settings.Provisioning.DefaultStatePayload); err != nil {
 		return err
 	}
 
@@ -1115,7 +1191,7 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 	device.Provisioned = true
 	device.Online = true
 	device.LastSeen = time.Now()
-	device.LastState = mergeStateIntoLastState(device.LastState, settings.DefaultStatePayload)
+	device.LastState = mergeStateIntoLastState(device.LastState, settings.Provisioning.DefaultStatePayload)
 	c.devices[deviceID] = device
 	c.updated = time.Now()
 	c.mu.Unlock()
@@ -1124,6 +1200,9 @@ func (c *WLEDController) ProvisionDevice(ctx context.Context, deviceID string) e
 }
 
 func (c *WLEDController) RefreshDevice(ctx context.Context, deviceID string) error {
+	if !c.wledEnabled() {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	c.mu.RLock()
 	device, ok := c.devices[deviceID]
 	c.mu.RUnlock()
@@ -1172,6 +1251,7 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 	port := device.Port
 	online := device.Online
 	ignored := device.Ignored
+	wledEnabled := c.settings.WLED.Enabled
 	c.mu.RUnlock()
 
 	effectiveAddr := wledhttp.HostForHTTP(device.Host, addr)
@@ -1181,6 +1261,11 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 		Address:   effectiveAddr,
 		Port:      port,
 		LastState: lastCopy,
+	}
+	if !wledEnabled {
+		detail.Online = false
+		detail.Error = "wled component is disabled in settings"
+		return detail
 	}
 	if !ok {
 		detail.Error = fmt.Sprintf("unknown device: %s", deviceID)
@@ -1222,6 +1307,9 @@ func (c *WLEDController) GetDeviceDetail(ctx context.Context, deviceID string) W
 }
 
 func (c *WLEDController) RemoveDevice(deviceID string) error {
+	if !c.wledEnabled() {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	c.mu.Lock()
 	delete(c.devices, deviceID)
 	c.syncSimulatedDeviceLocked()
@@ -1231,6 +1319,9 @@ func (c *WLEDController) RemoveDevice(deviceID string) error {
 }
 
 func (c *WLEDController) IgnoredDevices() []WLEDDevice {
+	if !c.wledEnabled() {
+		return []WLEDDevice{}
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := make([]WLEDDevice, 0)
@@ -1246,6 +1337,9 @@ func (c *WLEDController) IgnoredDevices() []WLEDDevice {
 }
 
 func (c *WLEDController) SetDeviceIgnored(deviceID string, ignored bool) error {
+	if !c.wledEnabled() {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	c.mu.Lock()
 	device, ok := c.devices[deviceID]
 	if !ok {
@@ -1268,6 +1362,9 @@ func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string
 	device, ok := c.devices[deviceID]
 	settings := c.settings
 	c.mu.RUnlock()
+	if !settings.WLED.Enabled {
+		return fmt.Errorf("wled component is disabled in settings")
+	}
 	if !ok {
 		return fmt.Errorf("unknown device: %s", deviceID)
 	}
@@ -1309,6 +1406,9 @@ func (c *WLEDController) GetDMXState() DMXState {
 }
 
 func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
+	if !c.dmxEnabled() {
+		return DMXFixture{}, fmt.Errorf("dmx component is disabled in settings")
+	}
 	fixture, err := buildDMXFixtureForCreate(input)
 	if err != nil {
 		return DMXFixture{}, err
@@ -1325,6 +1425,9 @@ func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 }
 
 func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
+	if !c.dmxEnabled() {
+		return DMXFixture{}, fmt.Errorf("dmx component is disabled in settings")
+	}
 	id := strings.TrimSpace(input.ID)
 	if id == "" {
 		return DMXFixture{}, fmt.Errorf("fixture id is required")
@@ -1357,6 +1460,9 @@ func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 }
 
 func (c *WLEDController) DeleteDMXFixture(id string) error {
+	if !c.dmxEnabled() {
+		return fmt.Errorf("dmx component is disabled in settings")
+	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("fixture id is required")
@@ -1387,6 +1493,9 @@ func (c *WLEDController) ListUSBSerialDevices() []USBSerialDevice {
 }
 
 func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
+	if !c.dmxEnabled() {
+		return fmt.Errorf("dmx component is disabled in settings")
+	}
 	deviceID = strings.TrimSpace(deviceID)
 	if deviceID != "" {
 		dev, ok := dmx.PickUSBSerialDevice(deviceID, serial2.ListUSBSerialDevices())
@@ -1400,10 +1509,17 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 	c.dmxState = normalizeDMXState(c.dmxState)
 	c.updated = time.Now()
 	c.mu.Unlock()
-	return c.persistDMX()
+	if err := c.persistDMX(); err != nil {
+		return err
+	}
+	if err := c.reconcileDMXLiveAdapters(); err != nil {
+		return err
+	}
+	return nil
 }
 
 const dmxLiveFrameHz = 44
+const dmxAdapterQueueDepth = 2
 
 func (c *WLEDController) resolveSelectedUSBPath() (string, error) {
 	c.mu.RLock()
@@ -1441,110 +1557,322 @@ func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
 	return ""
 }
 
-// StartDMXLive opens the configured USB serial port and streams a DMX universe.
+// StartDMXLive starts DMX output workers and opens adapter channels.
 func (c *WLEDController) StartDMXLive(fixtureID string) error {
+	c.mu.RLock()
+	dmxSettings := c.settings.DMX
+	c.mu.RUnlock()
+	if !dmxSettings.Enabled {
+		return fmt.Errorf("dmx component is disabled in settings")
+	}
+
+	c.dmxLiveMu.Lock()
+	if c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		return fmt.Errorf("DMX live output is already running")
+	}
+	c.dmxLiveRunning = true
+	c.dmxLiveErr = ""
+	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
+	for i := range c.dmxLiveBuf {
+		c.dmxLiveBuf[i] = 0
+	}
+	c.dmxLiveMu.Unlock()
+
+	reconcileErr := c.reconcileDMXLiveAdapters()
+	c.dmxLiveMu.Lock()
+	hasAdapter := c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil
+	c.dmxLiveMu.Unlock()
+	if !hasAdapter {
+		c.StopDMXLive()
+		if reconcileErr != nil {
+			return reconcileErr
+		}
+		return fmt.Errorf("no active DMX adapters; select USB and/or enable Art-Net")
+	}
+	if reconcileErr != nil {
+		c.logger.Printf("dmx live: started with partial adapters: %v", reconcileErr)
+	}
+	return nil
+}
+
+func queueLatestDMXFrame(ch chan [512]byte, frame [512]byte) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- frame:
+		return
+	default:
+	}
+	select {
+	case <-ch:
+	default:
+	}
+	select {
+	case ch <- frame:
+	default:
+	}
+}
+
+func (c *WLEDController) setDMXLiveError(msg string) {
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return
+	}
+	c.dmxLiveMu.Lock()
+	c.dmxLiveErr = msg
+	c.dmxLiveMu.Unlock()
+}
+
+func (c *WLEDController) stopDMXUSBAdapterLocked() {
+	if c.dmxLiveUSBFrames != nil {
+		close(c.dmxLiveUSBFrames)
+		c.dmxLiveUSBFrames = nil
+	}
+	c.dmxLiveUSBPath = ""
+	c.dmxLiveUSBName = ""
+}
+
+func (c *WLEDController) stopDMXArtNetAdapterLocked() {
+	if c.dmxLiveArtFrames != nil {
+		close(c.dmxLiveArtFrames)
+		c.dmxLiveArtFrames = nil
+	}
+	c.dmxLiveArtPath = ""
+	c.dmxLiveArtName = ""
+	c.dmxLiveArtTarget = ""
+	c.dmxLiveArtHz = 0
+}
+
+func (c *WLEDController) startDMXUSBAdapter() error {
 	path, err := c.resolveSelectedUSBPath()
 	if err != nil {
 		return err
 	}
 	rawPath := path
 	path = serial2.SerialPortForDMXWrite(path)
-	if path != rawPath {
-		c.logger.Printf("dmx live: using %s for transmit (configured path was %s)", path, rawPath)
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		return nil
 	}
+	if c.dmxLiveUSBFrames != nil && c.dmxLiveUSBPath == path {
+		c.dmxLiveMu.Unlock()
+		return nil
+	}
+	c.dmxLiveMu.Unlock()
 
 	mode := &serial.Mode{BaudRate: 250000, DataBits: 8, Parity: serial.NoParity, StopBits: serial.TwoStopBits}
-
-	c.dmxLiveMu.Lock()
-	if c.dmxLivePort != nil {
-		c.dmxLiveMu.Unlock()
-		return fmt.Errorf("DMX live output is already running")
-	}
 	port, err := serial.Open(path, mode)
 	if err != nil {
-		c.dmxLiveErr = err.Error()
-		c.dmxLiveDeviceName = ""
-		c.dmxLiveMu.Unlock()
 		return fmt.Errorf("open serial port: %w", err)
 	}
 	_ = port.SetReadTimeout(50 * time.Millisecond)
 
-	for i := range c.dmxLiveBuf {
-		c.dmxLiveBuf[i] = 0
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		_ = port.Close()
+		return nil
 	}
-	c.dmxLiveErr = ""
-	c.dmxLivePath = path
-	c.dmxLiveDeviceName = c.dmxLiveUSBDisplayName(path)
-	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c.dmxLiveCancel = cancel
-	c.dmxLivePort = port
-
+	c.stopDMXUSBAdapterLocked()
+	frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+	c.dmxLiveUSBFrames = frameCh
+	c.dmxLiveUSBPath = path
+	c.dmxLiveUSBName = c.dmxLiveUSBDisplayName(path)
+	seed := c.dmxLiveBuf
 	c.dmxLiveWG.Add(1)
-	go c.dmxLiveSendLoop(ctx, port)
+	go c.dmxLiveUSBWorker(frameCh, port, path)
+	queueLatestDMXFrame(frameCh, seed)
 	c.dmxLiveMu.Unlock()
 
-	c.logger.Printf("dmx live: started on %s", path)
+	if path != rawPath {
+		c.logger.Printf("dmx live: using %s for usb transmit (configured path was %s)", path, rawPath)
+	}
+	c.logger.Printf("dmx live: usb adapter started on %s", path)
 	return nil
 }
 
-func (c *WLEDController) dmxLiveSendLoop(ctx context.Context, port serial.Port) {
+func (c *WLEDController) startDMXArtNetAdapter(settings ArtNetSettings) error {
+	clampArtNetSettings(&settings)
+	target := net.JoinHostPort(settings.TargetHost, fmt.Sprintf("%d", settings.Port))
+	remote, err := net.ResolveUDPAddr("udp", target)
+	if err != nil {
+		return fmt.Errorf("resolve art-net target: %w", err)
+	}
+	conn, err := net.DialUDP("udp", nil, remote)
+	if err != nil {
+		return fmt.Errorf("open art-net socket: %w", err)
+	}
+	path := fmt.Sprintf("artnet://%s/net-%d/subnet-%d/universe-%d", remote.String(), settings.Net, settings.Subnet, settings.Universe)
+	name := fmt.Sprintf("Art-Net %s (N%d S%d U%d)", remote.String(), settings.Net, settings.Subnet, settings.Universe)
+	hz := settings.RefreshHz
+	if hz <= 0 {
+		hz = dmxLiveFrameHz
+	}
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		_ = conn.Close()
+		return nil
+	}
+	if c.dmxLiveArtFrames != nil && c.dmxLiveArtPath == path && c.dmxLiveArtHz == hz {
+		c.dmxLiveMu.Unlock()
+		_ = conn.Close()
+		return nil
+	}
+	c.dmxLiveMu.Unlock()
+
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		_ = conn.Close()
+		return nil
+	}
+	c.stopDMXArtNetAdapterLocked()
+	frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+	c.dmxLiveArtFrames = frameCh
+	c.dmxLiveArtPath = path
+	c.dmxLiveArtName = name
+	c.dmxLiveArtTarget = remote.String()
+	c.dmxLiveArtHz = hz
+	seed := c.dmxLiveBuf
+	c.dmxLiveWG.Add(1)
+	go c.dmxLiveArtNetWorker(frameCh, conn, settings, remote.String())
+	queueLatestDMXFrame(frameCh, seed)
+	c.dmxLiveMu.Unlock()
+
+	c.logger.Printf("dmx live: artnet adapter started target=%s net=%d subnet=%d universe=%d hz=%d", remote.String(), settings.Net, settings.Subnet, settings.Universe, hz)
+	return nil
+}
+
+func (c *WLEDController) reconcileDMXLiveAdapters() error {
+	c.dmxLiveMu.Lock()
+	running := c.dmxLiveRunning
+	c.dmxLiveMu.Unlock()
+	if !running {
+		return nil
+	}
+
+	c.mu.RLock()
+	settings := c.settings.DMX
+	selectedUSB := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
+	c.mu.RUnlock()
+
+	var firstErr error
+
+	if !settings.Enabled || selectedUSB == "" {
+		c.dmxLiveMu.Lock()
+		c.stopDMXUSBAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	} else if err := c.startDMXUSBAdapter(); err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+		c.setDMXLiveError("usb adapter: " + err.Error())
+		c.dmxLiveMu.Lock()
+		c.stopDMXUSBAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	}
+
+	if !settings.Enabled || !settings.ArtNet.Enabled {
+		c.dmxLiveMu.Lock()
+		c.stopDMXArtNetAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	} else if err := c.startDMXArtNetAdapter(settings.ArtNet); err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+		c.setDMXLiveError("artnet adapter: " + err.Error())
+		c.dmxLiveMu.Lock()
+		c.stopDMXArtNetAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	}
+
+	return firstErr
+}
+
+func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string) {
 	defer c.dmxLiveWG.Done()
+	defer func() { _ = port.Close() }()
 	frameInterval := time.Second / dmxLiveFrameHz
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
 
 	frame := make([]byte, 513)
-
+	frame[0] = 0
+	var latest [512]byte
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
 		case <-ticker.C:
-			c.dmxLiveMu.Lock()
-			copy(frame[1:], c.dmxLiveBuf[:])
-			c.dmxLiveMu.Unlock()
-
-			frame[0] = 0
+			copy(frame[1:], latest[:])
 			if _, err := port.Write(frame); err != nil {
-				c.logger.Printf("dmx live: write: %v", err)
-				c.dmxLiveMu.Lock()
-				c.dmxLiveErr = err.Error()
-				c.dmxLiveMu.Unlock()
+				c.logger.Printf("dmx usb write (%s): %v", path, err)
+				c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
 			}
 		}
 	}
 }
 
-// StopDMXLive stops streaming and closes the serial port.
-func (c *WLEDController) StopDMXLive() {
-	c.dmxLiveMu.Lock()
-	cancel := c.dmxLiveCancel
-	port := c.dmxLivePort
-	c.dmxLiveCancel = nil
-	c.dmxLivePort = nil
-	c.dmxLivePath = ""
-	c.dmxLiveDeviceName = ""
-	c.dmxLiveFixID = ""
-	c.dmxLiveMu.Unlock()
-
-	if cancel != nil {
-		cancel()
+func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net.UDPConn, settings ArtNetSettings, target string) {
+	defer c.dmxLiveWG.Done()
+	defer func() { _ = conn.Close() }()
+	hz := settings.RefreshHz
+	if hz <= 0 {
+		hz = dmxLiveFrameHz
 	}
-	c.dmxLiveWG.Wait()
+	ticker := time.NewTicker(time.Second / time.Duration(hz))
+	defer ticker.Stop()
 
-	if port != nil {
-		_ = port.Close()
-		c.logger.Printf("dmx live: stopped")
+	var latest [512]byte
+	var seq byte = 1
+	for {
+		select {
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
+		case <-ticker.C:
+			packet := dmx.BuildArtDMXPacket(latest, seq, settings.Net, settings.Subnet, settings.Universe)
+			if _, err := conn.Write(packet); err != nil {
+				c.logger.Printf("dmx artnet write (%s): %v", target, err)
+				c.setDMXLiveError(fmt.Sprintf("artnet write (%s): %v", target, err))
+			}
+			seq++
+			if seq == 0 {
+				seq = 1
+			}
+		}
 	}
 }
 
-// ApplyDMXLivePatch merges channel updates into the live universe buffer.
+// StopDMXLive stops streaming and closes all adapter channels.
+func (c *WLEDController) StopDMXLive() {
+	c.dmxLiveMu.Lock()
+	c.stopDMXUSBAdapterLocked()
+	c.stopDMXArtNetAdapterLocked()
+	c.dmxLiveRunning = false
+	c.dmxLiveErr = ""
+	c.dmxLiveFixID = ""
+	c.dmxLiveMu.Unlock()
+	c.dmxLiveWG.Wait()
+}
+
+// ApplyDMXLivePatch merges channel updates and asynchronously fans out the latest frame to active adapters.
 func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
+	if !c.dmxEnabled() {
+		return fmt.Errorf("dmx component is disabled in settings")
+	}
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
-	if c.dmxLivePort == nil {
+	if !c.dmxLiveRunning || (c.dmxLiveUSBFrames == nil && c.dmxLiveArtFrames == nil) {
 		return fmt.Errorf("DMX live output is not running")
 	}
 	for _, u := range updates {
@@ -1561,18 +1889,42 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 		}
 		c.dmxLiveBuf[addr-1] = byte(v)
 	}
+	frame := c.dmxLiveBuf
+	queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
+	queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
 	return nil
 }
 
 // GetDMXLiveStatus returns connection metadata for the UI.
 func (c *WLEDController) GetDMXLiveStatus() dmx.DMXLiveStatus {
+	if !c.dmxEnabled() {
+		return dmx.DMXLiveStatus{
+			Connected: false,
+			Error:     "dmx component is disabled in settings",
+		}
+	}
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
+
+	paths := make([]string, 0, 2)
+	names := make([]string, 0, 2)
+	if c.dmxLiveUSBPath != "" {
+		paths = append(paths, c.dmxLiveUSBPath)
+	}
+	if c.dmxLiveArtPath != "" {
+		paths = append(paths, c.dmxLiveArtPath)
+	}
+	if c.dmxLiveUSBName != "" {
+		names = append(names, c.dmxLiveUSBName)
+	}
+	if c.dmxLiveArtName != "" {
+		names = append(names, c.dmxLiveArtName)
+	}
 	return dmx.DMXLiveStatus{
-		Connected:  c.dmxLivePort != nil,
+		Connected:  c.dmxLiveRunning && (c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil),
 		Error:      c.dmxLiveErr,
-		DevicePath: c.dmxLivePath,
-		DeviceName: c.dmxLiveDeviceName,
+		DevicePath: strings.Join(paths, " | "),
+		DeviceName: strings.Join(names, " | "),
 		FixtureID:  c.dmxLiveFixID,
 	}
 }
@@ -1610,7 +1962,7 @@ func (c *WLEDController) maybeProcessDiscovered(ctx context.Context, candidate d
 func (c *WLEDController) effectiveDiscoveryInterval() time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	base := c.settings.Discovery.IntervalSeconds
+	base := c.settings.WLED.Discovery.IntervalSeconds
 	if base <= 0 {
 		base = 15
 	}
@@ -1618,7 +1970,7 @@ func (c *WLEDController) effectiveDiscoveryInterval() time.Duration {
 	if !c.settings.AccessPoint.Enabled {
 		return d
 	}
-	fast := c.settings.Discovery.PollIntervalSecondsWhenApEnabled
+	fast := c.settings.WLED.Discovery.PollIntervalSecondsWhenApEnabled
 	if fast <= 0 {
 		return d
 	}
@@ -1671,7 +2023,7 @@ func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
 			lastSig = sig
 
 			iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
-			for _, svc := range discovery.ServiceTypesOrDefault(settings.Discovery.ServiceTypes) {
+			for _, svc := range discovery.ServiceTypesOrDefault(settings.WLED.Discovery.ServiceTypes) {
 				svc := svc
 				workers.Add(1)
 				go func() {
@@ -1734,8 +2086,8 @@ func (c *WLEDController) subnetProbeOnce(ctx context.Context) {
 	c.mu.RLock()
 	settings := c.settings
 	c.mu.RUnlock()
-	disc := settings.Discovery
-	if !disc.Enabled || !disc.SubnetProbe || !settings.AccessPoint.Enabled {
+	disc := settings.WLED.Discovery
+	if !settings.WLED.Enabled || !disc.Enabled || !disc.SubnetProbe || !settings.AccessPoint.Enabled {
 		return
 	}
 	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
@@ -1786,16 +2138,16 @@ func (c *WLEDController) discoveryLoop(ctx context.Context) {
 
 func (c *WLEDController) discoverAndProvision(ctx context.Context) {
 	c.mu.RLock()
-	discoverySettings := c.settings.Discovery
+	wledSettings := c.settings.WLED
 	fullSettings := c.settings
 	c.mu.RUnlock()
-	if !discoverySettings.Enabled {
+	if !wledSettings.Enabled || !wledSettings.Discovery.Enabled {
 		return
 	}
 
 	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(fullSettings))
 	devices, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
-		Settings:  toDiscoverySettings(discoverySettings),
+		Settings:  toDiscoverySettings(wledSettings.Discovery),
 		BindIface: iface,
 		Logger:    c.logger,
 	})
@@ -1812,6 +2164,9 @@ func (c *WLEDController) discoverAndProvision(ctx context.Context) {
 }
 
 func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candidate discoveredDevice) {
+	if !c.wledEnabled() {
+		return
+	}
 	device, err := c.wled.InspectDevice(ctx, candidate)
 	if err != nil {
 		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
@@ -1838,7 +2193,7 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 		}
 	}
 	c.devices[device.ID] = device
-	settings := c.settings.Provisioning
+	settings := c.settings.WLED.Provisioning
 	c.updated = time.Now()
 	c.mu.Unlock()
 
@@ -1899,6 +2254,9 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 }
 
 func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
+	if !c.wledEnabled() {
+		return
+	}
 	select {
 	case <-time.After(2 * time.Second):
 	case <-ctx.Done():
@@ -1963,6 +2321,9 @@ func (c *WLEDController) healthLoop(ctx context.Context) {
 }
 
 func (c *WLEDController) checkKnownDevices(ctx context.Context) {
+	if !c.wledEnabled() {
+		return
+	}
 	c.mu.RLock()
 	devices := make([]WLEDDevice, 0, len(c.devices))
 	for _, device := range c.devices {
@@ -2073,20 +2434,38 @@ func DefaultControllerSettings() ControllerSettings {
 			Password:      "wled-control",
 			Channel:       6,
 		},
-		Discovery: DiscoverySettings{
-			Enabled:                          true,
-			ServiceTypes:                     []string{"_wled._tcp", "_http._tcp"},
-			IntervalSeconds:                  15,
-			QueryTimeoutMS:                   2000,
-			BindInterface:                    "",
-			PassiveBrowse:                    true,
-			SubnetProbe:                      false,
-			PollIntervalSecondsWhenApEnabled: 5,
+		WLED: WLEDSettings{
+			Enabled: true,
+			Discovery: DiscoverySettings{
+				Enabled:                          true,
+				ServiceTypes:                     []string{"_wled._tcp", "_http._tcp"},
+				IntervalSeconds:                  15,
+				QueryTimeoutMS:                   2000,
+				BindInterface:                    "",
+				PassiveBrowse:                    true,
+				SubnetProbe:                      false,
+				PollIntervalSecondsWhenApEnabled: 5,
+			},
+			Provisioning: ProvisioningSettings{
+				AutoProvision:       false,
+				DefaultStatePayload: map[string]any{"on": true, "bri": 180},
+				DefaultConfigPatch:  map[string]any{},
+			},
+			Testing: TestingSettings{
+				SimulateWLED: false,
+			},
 		},
-		Provisioning: ProvisioningSettings{
-			AutoProvision:       false,
-			DefaultStatePayload: map[string]any{"on": true, "bri": 180},
-			DefaultConfigPatch:  map[string]any{},
+		DMX: DMXSettings{
+			Enabled: true,
+			ArtNet: ArtNetSettings{
+				Enabled:    false,
+				TargetHost: "255.255.255.255",
+				Port:       6454,
+				Net:        0,
+				Subnet:     0,
+				Universe:   0,
+				RefreshHz:  dmxLiveFrameHz,
+			},
 		},
 	}
 }
@@ -2094,6 +2473,37 @@ func DefaultControllerSettings() ControllerSettings {
 func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	defaults := DefaultControllerSettings()
 	out := in
+
+	if len(out.WLED.Discovery.ServiceTypes) == 0 && len(out.Discovery.ServiceTypes) > 0 {
+		out.WLED.Discovery = out.Discovery
+	}
+	if out.WLED.Provisioning.DefaultStatePayload == nil && out.Provisioning.DefaultStatePayload != nil {
+		out.WLED.Provisioning = out.Provisioning
+	}
+	if !out.WLED.Testing.SimulateWLED && out.Testing.SimulateWLED {
+		out.WLED.Testing = out.Testing
+	}
+	hasWLEDConfig := out.WLED.Enabled ||
+		len(out.WLED.Discovery.ServiceTypes) > 0 ||
+		out.WLED.Discovery.IntervalSeconds > 0 ||
+		out.WLED.Discovery.QueryTimeoutMS > 0 ||
+		out.WLED.Provisioning.DefaultStatePayload != nil ||
+		out.WLED.Provisioning.DefaultConfigPatch != nil ||
+		out.WLED.Testing.SimulateWLED
+	if !hasWLEDConfig {
+		out.WLED.Enabled = defaults.WLED.Enabled
+	}
+	hasDMXConfig := out.DMX.Enabled ||
+		out.DMX.ArtNet.Enabled ||
+		strings.TrimSpace(out.DMX.ArtNet.TargetHost) != "" ||
+		out.DMX.ArtNet.Port > 0 ||
+		out.DMX.ArtNet.Net > 0 ||
+		out.DMX.ArtNet.Subnet > 0 ||
+		out.DMX.ArtNet.Universe > 0 ||
+		out.DMX.ArtNet.RefreshHz > 0
+	if !hasDMXConfig {
+		out.DMX.Enabled = defaults.DMX.Enabled
+	}
 
 	if out.AccessPoint.Connection == "" {
 		out.AccessPoint.Connection = defaults.AccessPoint.Connection
@@ -2111,24 +2521,41 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.AccessPoint.Channel = defaults.AccessPoint.Channel
 	}
 	clampAccessPointTo24GHz(&out.AccessPoint)
-	if len(out.Discovery.ServiceTypes) == 0 {
-		out.Discovery.ServiceTypes = defaults.Discovery.ServiceTypes
+	if len(out.WLED.Discovery.ServiceTypes) == 0 {
+		out.WLED.Discovery.ServiceTypes = slices.Clone(defaults.WLED.Discovery.ServiceTypes)
 	}
-	if out.Discovery.IntervalSeconds <= 0 {
-		out.Discovery.IntervalSeconds = defaults.Discovery.IntervalSeconds
+	if out.WLED.Discovery.IntervalSeconds <= 0 {
+		out.WLED.Discovery.IntervalSeconds = defaults.WLED.Discovery.IntervalSeconds
 	}
-	if out.Discovery.QueryTimeoutMS <= 0 {
-		out.Discovery.QueryTimeoutMS = defaults.Discovery.QueryTimeoutMS
+	if out.WLED.Discovery.QueryTimeoutMS <= 0 {
+		out.WLED.Discovery.QueryTimeoutMS = defaults.WLED.Discovery.QueryTimeoutMS
 	}
-	if out.Discovery.PollIntervalSecondsWhenApEnabled < 0 {
-		out.Discovery.PollIntervalSecondsWhenApEnabled = defaults.Discovery.PollIntervalSecondsWhenApEnabled
+	if out.WLED.Discovery.PollIntervalSecondsWhenApEnabled < 0 {
+		out.WLED.Discovery.PollIntervalSecondsWhenApEnabled = defaults.WLED.Discovery.PollIntervalSecondsWhenApEnabled
 	}
-	if out.Provisioning.DefaultStatePayload == nil {
-		out.Provisioning.DefaultStatePayload = defaults.Provisioning.DefaultStatePayload
+	if out.WLED.Provisioning.DefaultStatePayload == nil {
+		out.WLED.Provisioning.DefaultStatePayload = cloneJSONMap(defaults.WLED.Provisioning.DefaultStatePayload)
 	}
-	if out.Provisioning.DefaultConfigPatch == nil {
-		out.Provisioning.DefaultConfigPatch = defaults.Provisioning.DefaultConfigPatch
+	if out.WLED.Provisioning.DefaultConfigPatch == nil {
+		out.WLED.Provisioning.DefaultConfigPatch = cloneJSONMap(defaults.WLED.Provisioning.DefaultConfigPatch)
 	}
+	if strings.TrimSpace(out.DMX.ArtNet.TargetHost) == "" {
+		out.DMX.ArtNet.TargetHost = defaults.DMX.ArtNet.TargetHost
+	}
+	if out.DMX.ArtNet.Port <= 0 {
+		out.DMX.ArtNet.Port = defaults.DMX.ArtNet.Port
+	}
+	if out.DMX.ArtNet.RefreshHz <= 0 {
+		out.DMX.ArtNet.RefreshHz = defaults.DMX.ArtNet.RefreshHz
+	}
+	clampArtNetSettings(&out.DMX.ArtNet)
+	if !out.WLED.Enabled {
+		out.AccessPoint.Enabled = false
+	}
+	// Clear legacy v2 fields before persistence.
+	out.Discovery = DiscoverySettings{}
+	out.Provisioning = ProvisioningSettings{}
+	out.Testing = TestingSettings{}
 	return out
 }
 
@@ -2140,6 +2567,42 @@ func clampAccessPointTo24GHz(ap *AccessPointSettings) {
 	}
 	if ap.Channel < ap24MinChannel || ap.Channel > ap24MaxChannel {
 		ap.Channel = defaultAP24Channel
+	}
+}
+
+func clampArtNetSettings(art *ArtNetSettings) {
+	if art == nil {
+		return
+	}
+	if strings.TrimSpace(art.TargetHost) == "" {
+		art.TargetHost = "255.255.255.255"
+	}
+	if art.Port <= 0 || art.Port > 65535 {
+		art.Port = 6454
+	}
+	if art.Net < 0 {
+		art.Net = 0
+	}
+	if art.Net > 127 {
+		art.Net = 127
+	}
+	if art.Subnet < 0 {
+		art.Subnet = 0
+	}
+	if art.Subnet > 15 {
+		art.Subnet = 15
+	}
+	if art.Universe < 0 {
+		art.Universe = 0
+	}
+	if art.Universe > 15 {
+		art.Universe = 15
+	}
+	if art.RefreshHz <= 0 {
+		art.RefreshHz = dmxLiveFrameHz
+	}
+	if art.RefreshHz > 50 {
+		art.RefreshHz = 50
 	}
 }
 

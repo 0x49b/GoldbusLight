@@ -30,11 +30,32 @@ export type TestingSettings = {
     simulateWled: boolean;
 };
 
-export type ControllerSettings = {
-    accessPoint: AccessPointSettings;
+export type WLEDSettings = {
+    enabled: boolean;
     discovery: DiscoverySettings;
     provisioning: ProvisioningSettings;
     testing: TestingSettings;
+};
+
+export type ArtNetSettings = {
+    enabled: boolean;
+    targetHost: string;
+    port: number;
+    net: number;
+    subnet: number;
+    universe: number;
+    refreshHz: number;
+};
+
+export type DMXSettings = {
+    enabled: boolean;
+    artNet: ArtNetSettings;
+};
+
+export type ControllerSettings = {
+    accessPoint: AccessPointSettings;
+    wled: WLEDSettings;
+    dmx: DMXSettings;
 };
 
 export type WLEDDevice = {

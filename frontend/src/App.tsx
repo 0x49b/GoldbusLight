@@ -13,7 +13,7 @@ function App() {
     const app = useControllerApp();
 
     let main: ReactNode = null;
-    if (app.route.kind === "presets") {
+    if (app.route.kind === "presets" && app.wledEnabled) {
         main = (
             <GeneralPanel
                 devices={app.devices}
@@ -51,6 +51,7 @@ function App() {
                 ignoredDevices={app.ignoredDevices}
                 busy={app.busy}
                 onSaveSettings={app.onSaveSettings}
+                onSettingsInteraction={app.markSettingsInteraction}
                 onApplyNetwork={app.onApplyNetwork}
                 onUnignoreDevice={app.onUnignoreDevice}
                 currentVersion={app.currentVersion}
@@ -60,7 +61,7 @@ function App() {
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
             />
         );
-    } else if (app.route.kind === "dmxUniverse") {
+    } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {
         main = (
             <DMXUniverseView
                 fixtures={app.dmxState.fixtures}
@@ -69,7 +70,7 @@ function App() {
                 setRoute={app.setRoute}
             />
         );
-    } else if (app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") {
+    } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {
         main = (
             <DMXFixtureEditorView
                 fixture={app.selectedFixture}
@@ -90,7 +91,7 @@ function App() {
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
             />
         );
-    } else {
+    } else if (app.route.kind === "device" && app.wledEnabled) {
         main = (
             <DeviceDetailView
                 device={app.selectedDevice}
@@ -128,6 +129,12 @@ function App() {
                 onRenameDevice={app.onRenameDevice}
             />
         );
+    } else {
+        main = (
+            <div className="rounded border bg-card p-4 text-sm text-muted-foreground">
+                This page is disabled by current component settings. Open Settings to enable it.
+            </div>
+        );
     }
 
     return (
@@ -141,6 +148,8 @@ function App() {
                 setRoute={app.setRoute}
                 devices={app.devices}
                 dmxFixtures={app.dmxState.fixtures}
+                wledEnabled={app.wledEnabled}
+                dmxEnabled={app.dmxEnabled}
                 error={app.error}
                 onDismissError={app.onDismissError}
             >
