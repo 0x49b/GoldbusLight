@@ -1,6 +1,6 @@
-import type {Dispatch, SetStateAction} from "react";
+import {useCallback, useEffect, useRef, type Dispatch, type SetStateAction} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
-import {PiFloppyDisk, PiWifiHigh} from "react-icons/pi";
+import {PiWifiHigh} from "react-icons/pi";
 import type {
     ControllerSettings,
     ControllerSnapshot,
@@ -31,7 +31,7 @@ export type ControllerSettingsViewProps = {
     setConfigPatchText: Dispatch<SetStateAction<string>>;
     ignoredDevices: WLEDDevice[];
     busy: boolean;
-    onSaveSettings: () => void;
+    onSaveSettings: () => Promise<boolean>;
     onApplyNetwork: () => void;
     onUnignoreDevice: (deviceId: string) => void;
     currentVersion: string;
@@ -68,16 +68,84 @@ export function ControllerSettingsView({
     const wledControlsDisabled = busy || !settings.wled.enabled;
     const dmxControlsDisabled = busy || !settings.dmx.enabled;
     const artNetFieldsDisabled = dmxControlsDisabled || !settings.dmx.artNet.enabled;
+    const saveTimerRef = useRef<number | null>(null);
+    const AUTOSAVE_IDLE_MS = 2000;
+
+    const flushAutosaveNow = useCallback(() => {
+        if (saveTimerRef.current != null) {
+            window.clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        void onSaveSettings();
+    }, [onSaveSettings]);
+
+    const scheduleAutosave = useCallback(() => {
+        if (saveTimerRef.current != null) {
+            window.clearTimeout(saveTimerRef.current);
+        }
+        saveTimerRef.current = window.setTimeout(() => {
+            saveTimerRef.current = null;
+            void onSaveSettings();
+        }, AUTOSAVE_IDLE_MS);
+    }, [onSaveSettings]);
+
+    const updateSettings = useCallback(
+        (
+            updater: ControllerSettings | ((previous: ControllerSettings | null) => ControllerSettings | null),
+            mode: "debounced" | "immediate" = "debounced",
+        ) => {
+            setSettings(updater);
+            if (mode === "immediate") {
+                flushAutosaveNow();
+                return;
+            }
+            scheduleAutosave();
+        },
+        [flushAutosaveNow, scheduleAutosave, setSettings],
+    );
+
+    const updateStatePayloadText = useCallback((text: string) => {
+        setStatePayloadText(text);
+        scheduleAutosave();
+    }, [scheduleAutosave, setStatePayloadText]);
+
+    const updateConfigPatchText = useCallback((text: string) => {
+        setConfigPatchText(text);
+        scheduleAutosave();
+    }, [scheduleAutosave, setConfigPatchText]);
+
+    const disableAccessPointNow = useCallback(async () => {
+        setSettings((previous) => {
+            if (!previous) {
+                return previous;
+            }
+            return {
+                ...previous,
+                accessPoint: {
+                    ...previous.accessPoint,
+                    enabled: false,
+                },
+            };
+        });
+        const saved = await onSaveSettings();
+        if (saved) {
+            onApplyNetwork();
+        }
+    }, [onApplyNetwork, onSaveSettings, setSettings]);
+
+    useEffect(() => {
+        return () => {
+            if (saveTimerRef.current != null) {
+                window.clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div className="space-y-5 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Controller settings</h2>
-                <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={onSaveSettings} disabled={busy}>
-                        <PiFloppyDisk/> Save settings
-                    </Button>
-                </div>
             </div>
 
             <Tabs defaultValue="general" className="w-full">
@@ -135,14 +203,14 @@ export function ControllerSettingsView({
                             <label className="flex items-center gap-3">
                                 <Switch
                                     checked={settings.wled.enabled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         wled: {...settings.wled, enabled: checked},
                                         accessPoint: {
                                             ...settings.accessPoint,
                                             enabled: checked ? settings.accessPoint.enabled : false
                                         }
-                                    })}
+                                    }, "immediate")}
                                     disabled={busy}
                                 />
                                 <span>Enable WLED component</span>
@@ -172,14 +240,25 @@ export function ControllerSettingsView({
                                 <Switch
                                     id="enable-ap"
                                     checked={settings.accessPoint.enabled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         accessPoint: {...settings.accessPoint, enabled: checked}
-                                    })}
+                                    }, "immediate")}
                                     disabled={wledControlsDisabled}
                                 />
                                 <Label htmlFor="enable-ap">Enable local access point</Label>
                             </label>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => void disableAccessPointNow()}
+                                    disabled={wledControlsDisabled || !settings.accessPoint.enabled}
+                                >
+                                    Disable AP now (save + apply)
+                                </Button>
+                            </div>
                             {!settings.wled.enabled && (
                                 <p className="text-xs text-muted-foreground">
                                     Access point is forced off while WLED component is disabled.
@@ -193,10 +272,11 @@ export function ControllerSettingsView({
                                         id="ap-connection-name"
                                         type="text"
                                         value={settings.accessPoint.connection}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             accessPoint: {...settings.accessPoint, connection: e.target.value}
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={wledControlsDisabled}
                                     />
                                 </Field>
@@ -207,10 +287,11 @@ export function ControllerSettingsView({
                                         id="ap-interface"
                                         type="text"
                                         value={settings.accessPoint.interfaceName}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             accessPoint: {...settings.accessPoint, interfaceName: e.target.value}
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={wledControlsDisabled}
                                     />
                                 </Field>
@@ -221,10 +302,11 @@ export function ControllerSettingsView({
                                         id="ap-ssid"
                                         type="text"
                                         value={settings.accessPoint.ssid}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             accessPoint: {...settings.accessPoint, ssid: e.target.value}
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={wledControlsDisabled}
                                     />
                                 </Field>
@@ -235,10 +317,11 @@ export function ControllerSettingsView({
                                         id="ap-password"
                                         type="text"
                                         value={settings.accessPoint.password}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             accessPoint: {...settings.accessPoint, password: e.target.value}
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={wledControlsDisabled}
                                     />
                                 </Field>
@@ -249,13 +332,14 @@ export function ControllerSettingsView({
                                         id="ap-channel"
                                         type="number"
                                         value={settings.accessPoint.channel}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             accessPoint: {
                                                 ...settings.accessPoint,
                                                 channel: readNumber(e.target.value, 6)
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={wledControlsDisabled}
                                     />
                                 </Field>
@@ -271,13 +355,13 @@ export function ControllerSettingsView({
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
                                 <Switch
                                     checked={settings.wled.discovery.enabled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         wled: {
                                             ...settings.wled,
                                             discovery: {...settings.wled.discovery, enabled: checked}
                                         }
-                                    })}
+                                    }, "immediate")}
                                     disabled={wledControlsDisabled}
                                 />
                                 <span>Enable mDNS discovery loop</span>
@@ -286,13 +370,13 @@ export function ControllerSettingsView({
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
                                 <Switch
                                     checked={settings.wled.testing.simulateWled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         wled: {
                                             ...settings.wled,
                                             testing: {...settings.wled.testing, simulateWled: checked}
                                         }
-                                    })}
+                                    }, "immediate")}
                                     disabled={wledControlsDisabled}
                                 />
                                 <span>Simulate WLED device (testing)</span>
@@ -307,7 +391,7 @@ export function ControllerSettingsView({
                                     type="number"
                                     min={2}
                                     value={settings.wled.discovery.intervalSeconds}
-                                    onChange={(e) => setSettings({
+                                    onChange={(e) => updateSettings({
                                         ...settings,
                                         wled: {
                                             ...settings.wled,
@@ -317,6 +401,7 @@ export function ControllerSettingsView({
                                             }
                                         }
                                     })}
+                                    onBlur={flushAutosaveNow}
                                     placeholder="Interval (s)"
                                     disabled={wledControlsDisabled}
                                 />
@@ -325,7 +410,7 @@ export function ControllerSettingsView({
                                     type="number"
                                     min={500}
                                     value={settings.wled.discovery.queryTimeoutMs}
-                                    onChange={(e) => setSettings({
+                                    onChange={(e) => updateSettings({
                                         ...settings,
                                         wled: {
                                             ...settings.wled,
@@ -335,6 +420,7 @@ export function ControllerSettingsView({
                                             }
                                         }
                                     })}
+                                    onBlur={flushAutosaveNow}
                                     placeholder="Query timeout ms"
                                     disabled={wledControlsDisabled}
                                 />
@@ -344,7 +430,7 @@ export function ControllerSettingsView({
                                 className="h-8"
                                 placeholder="Service types (comma separated)"
                                 value={settings.wled.discovery.serviceTypes.join(",")}
-                                onChange={(e) => setSettings({
+                                onChange={(e) => updateSettings({
                                     ...settings,
                                     wled: {
                                         ...settings.wled,
@@ -354,19 +440,20 @@ export function ControllerSettingsView({
                                         }
                                     }
                                 })}
+                                onBlur={flushAutosaveNow}
                                 disabled={wledControlsDisabled}
                             />
 
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
                                 <Switch
                                     checked={settings.wled.provisioning.autoProvision}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         wled: {
                                             ...settings.wled,
                                             provisioning: {...settings.wled.provisioning, autoProvision: checked}
                                         }
-                                    })}
+                                    }, "immediate")}
                                     disabled={wledControlsDisabled}
                                 />
                                 <span>Auto-provision newly discovered devices</span>
@@ -377,7 +464,8 @@ export function ControllerSettingsView({
                                 <Textarea
                                     className="h-24 w-full font-mono text-xs"
                                     value={statePayloadText}
-                                    onChange={(e) => setStatePayloadText(e.target.value)}
+                                    onChange={(e) => updateStatePayloadText(e.target.value)}
+                                    onBlur={flushAutosaveNow}
                                     disabled={wledControlsDisabled}
                                 />
                             </div>
@@ -387,7 +475,8 @@ export function ControllerSettingsView({
                                 <Textarea
                                     className="h-24 w-full font-mono text-xs"
                                     value={configPatchText}
-                                    onChange={(e) => setConfigPatchText(e.target.value)}
+                                    onChange={(e) => updateConfigPatchText(e.target.value)}
+                                    onBlur={flushAutosaveNow}
                                     disabled={wledControlsDisabled}
                                 />
                             </div>
@@ -445,10 +534,10 @@ export function ControllerSettingsView({
                             <label className="flex items-center gap-3">
                                 <Switch
                                     checked={settings.dmx.enabled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         dmx: {...settings.dmx, enabled: checked}
-                                    })}
+                                    }, "immediate")}
                                     disabled={busy}
                                 />
                                 <span>Enable DMX component</span>
@@ -509,13 +598,13 @@ export function ControllerSettingsView({
                             <label className="flex items-center gap-3">
                                 <Switch
                                     checked={settings.dmx.artNet.enabled}
-                                    onCheckedChange={(checked) => setSettings({
+                                    onCheckedChange={(checked) => updateSettings({
                                         ...settings,
                                         dmx: {
                                             ...settings.dmx,
                                             artNet: {...settings.dmx.artNet, enabled: checked}
                                         }
-                                    })}
+                                    }, "immediate")}
                                     disabled={dmxControlsDisabled}
                                 />
                                 <span>Enable Art-Net transport</span>
@@ -531,13 +620,14 @@ export function ControllerSettingsView({
                                     <Input
                                         id="artnet-target"
                                         value={settings.dmx.artNet.targetHost}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, targetHost: e.target.value}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>
@@ -549,13 +639,14 @@ export function ControllerSettingsView({
                                         min={1}
                                         max={65535}
                                         value={settings.dmx.artNet.port}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, port: readNumber(e.target.value, 6454)}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>
@@ -567,13 +658,14 @@ export function ControllerSettingsView({
                                         min={0}
                                         max={127}
                                         value={settings.dmx.artNet.net}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, net: readNumber(e.target.value, 0)}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>
@@ -585,13 +677,14 @@ export function ControllerSettingsView({
                                         min={0}
                                         max={15}
                                         value={settings.dmx.artNet.subnet}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, subnet: readNumber(e.target.value, 0)}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>
@@ -603,13 +696,14 @@ export function ControllerSettingsView({
                                         min={0}
                                         max={15}
                                         value={settings.dmx.artNet.universe}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, universe: readNumber(e.target.value, 0)}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>
@@ -621,13 +715,14 @@ export function ControllerSettingsView({
                                         min={1}
                                         max={50}
                                         value={settings.dmx.artNet.refreshHz}
-                                        onChange={(e) => setSettings({
+                                        onChange={(e) => updateSettings({
                                             ...settings,
                                             dmx: {
                                                 ...settings.dmx,
                                                 artNet: {...settings.dmx.artNet, refreshHz: readNumber(e.target.value, 44)}
                                             }
                                         })}
+                                        onBlur={flushAutosaveNow}
                                         disabled={artNetFieldsDisabled}
                                     />
                                 </Field>

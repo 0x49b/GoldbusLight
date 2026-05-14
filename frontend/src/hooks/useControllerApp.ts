@@ -706,23 +706,25 @@ export function useControllerApp() {
         return true;
     }, [settings?.dmx.enabled, setError]);
 
-    const onSaveSettings = useCallback(() => {
-        if (!settings) {
-            return;
+    const onSaveSettings = useCallback(async (): Promise<boolean> => {
+        const latest = useControllerStore.getState();
+        const latestSettings = latest.settings;
+        if (!latestSettings) {
+            return false;
         }
-        void withBusy(async () => {
-            const statePayload = parseJSONMap(statePayloadText);
-            const configPatch = parseJSONMap(configPatchText);
+        try {
+            const statePayload = parseJSONMap(latest.statePayloadText);
+            const configPatch = parseJSONMap(latest.configPatchText);
 
             const merged: ControllerSettings = {
-                ...settings,
+                ...latestSettings,
                 wled: {
-                    ...settings.wled,
+                    ...latestSettings.wled,
                     provisioning: {
-                        ...settings.wled.provisioning,
-                    defaultStatePayload: statePayload,
-                    defaultConfigPatch: configPatch,
-                },
+                        ...latestSettings.wled.provisioning,
+                        defaultStatePayload: statePayload,
+                        defaultConfigPatch: configPatch,
+                    },
                 },
             };
 
@@ -731,8 +733,12 @@ export function useControllerApp() {
             setSettings(saved.settings);
             setStatus("Settings saved");
             setError("");
-        });
-    }, [configPatchText, settings, statePayloadText, withBusy]);
+            return true;
+        } catch (err) {
+            setError(String(err));
+            return false;
+        }
+    }, []);
 
     const onApplyNetwork = useCallback(() => {
         void withBusy(async () => {
