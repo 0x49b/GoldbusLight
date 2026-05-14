@@ -220,3 +220,13 @@ export type DetailRoute =
     | { kind: "dmxUniverse" }
     | { kind: "dmxAddFixture" }
     | { kind: "dmxFixture"; id: string };
+
+export type ConsoleEntry = {
+    id: number;
+    timestamp: string;
+    transport: string;
+    direction: string;
+    target: string;
+    summary: string;
+    detail?: string;
+};

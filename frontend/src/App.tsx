@@ -59,6 +59,10 @@ function App() {
                 usbSerialDevices={app.usbSerialDevices}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
+                onDiscoverNow={app.onDiscoverNow}
+                onRefreshSnapshot={app.pullSnapshot}
+                consoleEntries={app.consoleEntries}
+                onClearConsole={app.onClearConsole}
             />
         );
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {
@@ -141,9 +145,6 @@ function App() {
         <>
             <AppShell
                 status={app.status}
-                busy={app.busy}
-                onDiscoverNow={app.onDiscoverNow}
-                onRefreshSnapshot={app.pullSnapshot}
                 route={app.route}
                 setRoute={app.setRoute}
                 devices={app.devices}
