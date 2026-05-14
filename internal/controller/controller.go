@@ -780,18 +780,20 @@ type WLEDController struct {
 
 	cancel context.CancelFunc
 
-	dmxLiveMu         sync.Mutex
-	dmxLivePort       serial.Port
-	dmxLiveArtNetConn *net.UDPConn
-	dmxLiveCancel     context.CancelFunc
-	dmxLiveWG         sync.WaitGroup
-	dmxLiveBuf        [512]byte
-	dmxLiveErr        string
-	dmxLiveTransport  string
-	dmxLivePath       string
-	dmxLiveTarget     string
-	dmxLiveDeviceName string
-	dmxLiveFixID      string
+	dmxLiveMu        sync.Mutex
+	dmxLiveWG        sync.WaitGroup
+	dmxLiveRunning   bool
+	dmxLiveBuf       [512]byte
+	dmxLiveErr       string
+	dmxLiveFixID     string
+	dmxLiveUSBFrames chan [512]byte
+	dmxLiveUSBPath   string
+	dmxLiveUSBName   string
+	dmxLiveArtFrames chan [512]byte
+	dmxLiveArtPath   string
+	dmxLiveArtName   string
+	dmxLiveArtTarget string
+	dmxLiveArtHz     int
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1020,6 +1022,8 @@ func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 	c.mu.Unlock()
 	if !merged.DMX.Enabled {
 		c.StopDMXLive()
+	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
+		c.logger.Printf("dmx live reconcile after settings save: %v", err)
 	}
 	return c.persist()
 }
@@ -1505,10 +1509,17 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 	c.dmxState = normalizeDMXState(c.dmxState)
 	c.updated = time.Now()
 	c.mu.Unlock()
-	return c.persistDMX()
+	if err := c.persistDMX(); err != nil {
+		return err
+	}
+	if err := c.reconcileDMXLiveAdapters(); err != nil {
+		return err
+	}
+	return nil
 }
 
 const dmxLiveFrameHz = 44
+const dmxAdapterQueueDepth = 2
 
 func (c *WLEDController) resolveSelectedUSBPath() (string, error) {
 	c.mu.RLock()
@@ -1546,7 +1557,7 @@ func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
 	return ""
 }
 
-// StartDMXLive opens the configured DMX output and streams a DMX universe.
+// StartDMXLive starts DMX output workers and opens adapter channels.
 func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	c.mu.RLock()
 	dmxSettings := c.settings.DMX
@@ -1554,62 +1565,136 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	if !dmxSettings.Enabled {
 		return fmt.Errorf("dmx component is disabled in settings")
 	}
-	if dmxSettings.ArtNet.Enabled {
-		return c.startDMXLiveArtNet(fixtureID, dmxSettings.ArtNet)
+
+	c.dmxLiveMu.Lock()
+	if c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		return fmt.Errorf("DMX live output is already running")
 	}
-	return c.startDMXLiveUSB(fixtureID)
+	c.dmxLiveRunning = true
+	c.dmxLiveErr = ""
+	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
+	for i := range c.dmxLiveBuf {
+		c.dmxLiveBuf[i] = 0
+	}
+	c.dmxLiveMu.Unlock()
+
+	reconcileErr := c.reconcileDMXLiveAdapters()
+	c.dmxLiveMu.Lock()
+	hasAdapter := c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil
+	c.dmxLiveMu.Unlock()
+	if !hasAdapter {
+		c.StopDMXLive()
+		if reconcileErr != nil {
+			return reconcileErr
+		}
+		return fmt.Errorf("no active DMX adapters; select USB and/or enable Art-Net")
+	}
+	if reconcileErr != nil {
+		c.logger.Printf("dmx live: started with partial adapters: %v", reconcileErr)
+	}
+	return nil
 }
 
-func (c *WLEDController) startDMXLiveUSB(fixtureID string) error {
+func queueLatestDMXFrame(ch chan [512]byte, frame [512]byte) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- frame:
+		return
+	default:
+	}
+	select {
+	case <-ch:
+	default:
+	}
+	select {
+	case ch <- frame:
+	default:
+	}
+}
+
+func (c *WLEDController) setDMXLiveError(msg string) {
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return
+	}
+	c.dmxLiveMu.Lock()
+	c.dmxLiveErr = msg
+	c.dmxLiveMu.Unlock()
+}
+
+func (c *WLEDController) stopDMXUSBAdapterLocked() {
+	if c.dmxLiveUSBFrames != nil {
+		close(c.dmxLiveUSBFrames)
+		c.dmxLiveUSBFrames = nil
+	}
+	c.dmxLiveUSBPath = ""
+	c.dmxLiveUSBName = ""
+}
+
+func (c *WLEDController) stopDMXArtNetAdapterLocked() {
+	if c.dmxLiveArtFrames != nil {
+		close(c.dmxLiveArtFrames)
+		c.dmxLiveArtFrames = nil
+	}
+	c.dmxLiveArtPath = ""
+	c.dmxLiveArtName = ""
+	c.dmxLiveArtTarget = ""
+	c.dmxLiveArtHz = 0
+}
+
+func (c *WLEDController) startDMXUSBAdapter() error {
 	path, err := c.resolveSelectedUSBPath()
 	if err != nil {
 		return err
 	}
 	rawPath := path
 	path = serial2.SerialPortForDMXWrite(path)
-	if path != rawPath {
-		c.logger.Printf("dmx live: using %s for transmit (configured path was %s)", path, rawPath)
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		return nil
 	}
+	if c.dmxLiveUSBFrames != nil && c.dmxLiveUSBPath == path {
+		c.dmxLiveMu.Unlock()
+		return nil
+	}
+	c.dmxLiveMu.Unlock()
 
 	mode := &serial.Mode{BaudRate: 250000, DataBits: 8, Parity: serial.NoParity, StopBits: serial.TwoStopBits}
-
-	c.dmxLiveMu.Lock()
-	if c.dmxLivePort != nil || c.dmxLiveArtNetConn != nil {
-		c.dmxLiveMu.Unlock()
-		return fmt.Errorf("DMX live output is already running")
-	}
 	port, err := serial.Open(path, mode)
 	if err != nil {
-		c.dmxLiveErr = err.Error()
-		c.dmxLiveDeviceName = ""
-		c.dmxLiveMu.Unlock()
 		return fmt.Errorf("open serial port: %w", err)
 	}
 	_ = port.SetReadTimeout(50 * time.Millisecond)
 
-	for i := range c.dmxLiveBuf {
-		c.dmxLiveBuf[i] = 0
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		_ = port.Close()
+		return nil
 	}
-	c.dmxLiveErr = ""
-	c.dmxLiveTransport = "usb"
-	c.dmxLivePath = path
-	c.dmxLiveTarget = ""
-	c.dmxLiveDeviceName = c.dmxLiveUSBDisplayName(path)
-	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c.dmxLiveCancel = cancel
-	c.dmxLivePort = port
-
+	c.stopDMXUSBAdapterLocked()
+	frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+	c.dmxLiveUSBFrames = frameCh
+	c.dmxLiveUSBPath = path
+	c.dmxLiveUSBName = c.dmxLiveUSBDisplayName(path)
+	seed := c.dmxLiveBuf
 	c.dmxLiveWG.Add(1)
-	go c.dmxLiveSendLoop(ctx, port)
+	go c.dmxLiveUSBWorker(frameCh, port, path)
+	queueLatestDMXFrame(frameCh, seed)
 	c.dmxLiveMu.Unlock()
 
-	c.logger.Printf("dmx live: started on %s", path)
+	if path != rawPath {
+		c.logger.Printf("dmx live: using %s for usb transmit (configured path was %s)", path, rawPath)
+	}
+	c.logger.Printf("dmx live: usb adapter started on %s", path)
 	return nil
 }
 
-func (c *WLEDController) startDMXLiveArtNet(fixtureID string, settings ArtNetSettings) error {
+func (c *WLEDController) startDMXArtNetAdapter(settings ArtNetSettings) error {
 	clampArtNetSettings(&settings)
 	target := net.JoinHostPort(settings.TargetHost, fmt.Sprintf("%d", settings.Port))
 	remote, err := net.ResolveUDPAddr("udp", target)
@@ -1620,65 +1705,124 @@ func (c *WLEDController) startDMXLiveArtNet(fixtureID string, settings ArtNetSet
 	if err != nil {
 		return fmt.Errorf("open art-net socket: %w", err)
 	}
-
+	path := fmt.Sprintf("artnet://%s/net-%d/subnet-%d/universe-%d", remote.String(), settings.Net, settings.Subnet, settings.Universe)
+	name := fmt.Sprintf("Art-Net %s (N%d S%d U%d)", remote.String(), settings.Net, settings.Subnet, settings.Universe)
+	hz := settings.RefreshHz
+	if hz <= 0 {
+		hz = dmxLiveFrameHz
+	}
 	c.dmxLiveMu.Lock()
-	if c.dmxLivePort != nil || c.dmxLiveArtNetConn != nil {
+	if !c.dmxLiveRunning {
 		c.dmxLiveMu.Unlock()
 		_ = conn.Close()
-		return fmt.Errorf("DMX live output is already running")
+		return nil
 	}
-	for i := range c.dmxLiveBuf {
-		c.dmxLiveBuf[i] = 0
+	if c.dmxLiveArtFrames != nil && c.dmxLiveArtPath == path && c.dmxLiveArtHz == hz {
+		c.dmxLiveMu.Unlock()
+		_ = conn.Close()
+		return nil
 	}
-	c.dmxLiveErr = ""
-	c.dmxLiveTransport = "artnet"
-	c.dmxLivePath = fmt.Sprintf("artnet://%s/net-%d/subnet-%d/universe-%d", remote.String(), settings.Net, settings.Subnet, settings.Universe)
-	c.dmxLiveTarget = remote.String()
-	c.dmxLiveDeviceName = fmt.Sprintf("Art-Net %s (N%d S%d U%d)", remote.String(), settings.Net, settings.Subnet, settings.Universe)
-	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c.dmxLiveCancel = cancel
-	c.dmxLiveArtNetConn = conn
-
-	c.dmxLiveWG.Add(1)
-	go c.dmxLiveArtNetSendLoop(ctx, conn, settings)
 	c.dmxLiveMu.Unlock()
 
-	c.logger.Printf("dmx live: started Art-Net output to %s (net=%d subnet=%d universe=%d)", remote.String(), settings.Net, settings.Subnet, settings.Universe)
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning {
+		c.dmxLiveMu.Unlock()
+		_ = conn.Close()
+		return nil
+	}
+	c.stopDMXArtNetAdapterLocked()
+	frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+	c.dmxLiveArtFrames = frameCh
+	c.dmxLiveArtPath = path
+	c.dmxLiveArtName = name
+	c.dmxLiveArtTarget = remote.String()
+	c.dmxLiveArtHz = hz
+	seed := c.dmxLiveBuf
+	c.dmxLiveWG.Add(1)
+	go c.dmxLiveArtNetWorker(frameCh, conn, settings, remote.String())
+	queueLatestDMXFrame(frameCh, seed)
+	c.dmxLiveMu.Unlock()
+
+	c.logger.Printf("dmx live: artnet adapter started target=%s net=%d subnet=%d universe=%d hz=%d", remote.String(), settings.Net, settings.Subnet, settings.Universe, hz)
 	return nil
 }
 
-func (c *WLEDController) dmxLiveSendLoop(ctx context.Context, port serial.Port) {
+func (c *WLEDController) reconcileDMXLiveAdapters() error {
+	c.dmxLiveMu.Lock()
+	running := c.dmxLiveRunning
+	c.dmxLiveMu.Unlock()
+	if !running {
+		return nil
+	}
+
+	c.mu.RLock()
+	settings := c.settings.DMX
+	selectedUSB := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
+	c.mu.RUnlock()
+
+	var firstErr error
+
+	if !settings.Enabled || selectedUSB == "" {
+		c.dmxLiveMu.Lock()
+		c.stopDMXUSBAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	} else if err := c.startDMXUSBAdapter(); err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+		c.setDMXLiveError("usb adapter: " + err.Error())
+		c.dmxLiveMu.Lock()
+		c.stopDMXUSBAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	}
+
+	if !settings.Enabled || !settings.ArtNet.Enabled {
+		c.dmxLiveMu.Lock()
+		c.stopDMXArtNetAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	} else if err := c.startDMXArtNetAdapter(settings.ArtNet); err != nil {
+		if firstErr == nil {
+			firstErr = err
+		}
+		c.setDMXLiveError("artnet adapter: " + err.Error())
+		c.dmxLiveMu.Lock()
+		c.stopDMXArtNetAdapterLocked()
+		c.dmxLiveMu.Unlock()
+	}
+
+	return firstErr
+}
+
+func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string) {
 	defer c.dmxLiveWG.Done()
+	defer func() { _ = port.Close() }()
 	frameInterval := time.Second / dmxLiveFrameHz
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
 
 	frame := make([]byte, 513)
-
+	frame[0] = 0
+	var latest [512]byte
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
 		case <-ticker.C:
-			c.dmxLiveMu.Lock()
-			copy(frame[1:], c.dmxLiveBuf[:])
-			c.dmxLiveMu.Unlock()
-
-			frame[0] = 0
+			copy(frame[1:], latest[:])
 			if _, err := port.Write(frame); err != nil {
-				c.logger.Printf("dmx live: write: %v", err)
-				c.dmxLiveMu.Lock()
-				c.dmxLiveErr = err.Error()
-				c.dmxLiveMu.Unlock()
+				c.logger.Printf("dmx usb write (%s): %v", path, err)
+				c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
 			}
 		}
 	}
 }
 
-func (c *WLEDController) dmxLiveArtNetSendLoop(ctx context.Context, conn *net.UDPConn, settings ArtNetSettings) {
+func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net.UDPConn, settings ArtNetSettings, target string) {
 	defer c.dmxLiveWG.Done()
+	defer func() { _ = conn.Close() }()
 	hz := settings.RefreshHz
 	if hz <= 0 {
 		hz = dmxLiveFrameHz
@@ -1686,23 +1830,20 @@ func (c *WLEDController) dmxLiveArtNetSendLoop(ctx context.Context, conn *net.UD
 	ticker := time.NewTicker(time.Second / time.Duration(hz))
 	defer ticker.Stop()
 
-	var universe [512]byte
+	var latest [512]byte
 	var seq byte = 1
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
 		case <-ticker.C:
-			c.dmxLiveMu.Lock()
-			copy(universe[:], c.dmxLiveBuf[:])
-			c.dmxLiveMu.Unlock()
-
-			packet := dmx.BuildArtDMXPacket(universe, seq, settings.Net, settings.Subnet, settings.Universe)
+			packet := dmx.BuildArtDMXPacket(latest, seq, settings.Net, settings.Subnet, settings.Universe)
 			if _, err := conn.Write(packet); err != nil {
-				c.logger.Printf("dmx live artnet: write: %v", err)
-				c.dmxLiveMu.Lock()
-				c.dmxLiveErr = err.Error()
-				c.dmxLiveMu.Unlock()
+				c.logger.Printf("dmx artnet write (%s): %v", target, err)
+				c.setDMXLiveError(fmt.Sprintf("artnet write (%s): %v", target, err))
 			}
 			seq++
 			if seq == 0 {
@@ -1712,45 +1853,26 @@ func (c *WLEDController) dmxLiveArtNetSendLoop(ctx context.Context, conn *net.UD
 	}
 }
 
-// StopDMXLive stops streaming and closes the active DMX output transport.
+// StopDMXLive stops streaming and closes all adapter channels.
 func (c *WLEDController) StopDMXLive() {
 	c.dmxLiveMu.Lock()
-	cancel := c.dmxLiveCancel
-	port := c.dmxLivePort
-	artNetConn := c.dmxLiveArtNetConn
-	c.dmxLiveCancel = nil
-	c.dmxLivePort = nil
-	c.dmxLiveArtNetConn = nil
-	c.dmxLiveTransport = ""
-	c.dmxLivePath = ""
-	c.dmxLiveTarget = ""
-	c.dmxLiveDeviceName = ""
+	c.stopDMXUSBAdapterLocked()
+	c.stopDMXArtNetAdapterLocked()
+	c.dmxLiveRunning = false
+	c.dmxLiveErr = ""
 	c.dmxLiveFixID = ""
 	c.dmxLiveMu.Unlock()
-
-	if cancel != nil {
-		cancel()
-	}
 	c.dmxLiveWG.Wait()
-
-	if port != nil {
-		_ = port.Close()
-		c.logger.Printf("dmx live: stopped")
-	}
-	if artNetConn != nil {
-		_ = artNetConn.Close()
-		c.logger.Printf("dmx live: stopped Art-Net output")
-	}
 }
 
-// ApplyDMXLivePatch merges channel updates into the live universe buffer.
+// ApplyDMXLivePatch merges channel updates and asynchronously fans out the latest frame to active adapters.
 func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
 	if !c.dmxEnabled() {
 		return fmt.Errorf("dmx component is disabled in settings")
 	}
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
-	if c.dmxLivePort == nil && c.dmxLiveArtNetConn == nil {
+	if !c.dmxLiveRunning || (c.dmxLiveUSBFrames == nil && c.dmxLiveArtFrames == nil) {
 		return fmt.Errorf("DMX live output is not running")
 	}
 	for _, u := range updates {
@@ -1767,6 +1889,9 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 		}
 		c.dmxLiveBuf[addr-1] = byte(v)
 	}
+	frame := c.dmxLiveBuf
+	queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
+	queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
 	return nil
 }
 
@@ -1780,11 +1905,26 @@ func (c *WLEDController) GetDMXLiveStatus() dmx.DMXLiveStatus {
 	}
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
+
+	paths := make([]string, 0, 2)
+	names := make([]string, 0, 2)
+	if c.dmxLiveUSBPath != "" {
+		paths = append(paths, c.dmxLiveUSBPath)
+	}
+	if c.dmxLiveArtPath != "" {
+		paths = append(paths, c.dmxLiveArtPath)
+	}
+	if c.dmxLiveUSBName != "" {
+		names = append(names, c.dmxLiveUSBName)
+	}
+	if c.dmxLiveArtName != "" {
+		names = append(names, c.dmxLiveArtName)
+	}
 	return dmx.DMXLiveStatus{
-		Connected:  c.dmxLivePort != nil || c.dmxLiveArtNetConn != nil,
+		Connected:  c.dmxLiveRunning && (c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil),
 		Error:      c.dmxLiveErr,
-		DevicePath: c.dmxLivePath,
-		DeviceName: c.dmxLiveDeviceName,
+		DevicePath: strings.Join(paths, " | "),
+		DeviceName: strings.Join(names, " | "),
 		FixtureID:  c.dmxLiveFixID,
 	}
 }
