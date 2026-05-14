@@ -6,14 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goldbus/internal/console"
 	"goldbus/internal/discovery"
 	"goldbus/internal/dmx"
 	"goldbus/internal/network"
 	serial2 "goldbus/internal/serial"
+	wledpkg "goldbus/internal/wled"
 	"goldbus/internal/wledhttp"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -535,228 +536,15 @@ type WLEDDeviceDetail struct {
 	Port      int            `json:"port"`
 }
 
-type WLEDEngine struct {
-	client *http.Client
-}
-
-func NewWLEDEngine() *WLEDEngine {
-	return &WLEDEngine{
-		client: &http.Client{Timeout: 4 * time.Second},
+// toEngineDevice projects a controller-level WLEDDevice down to the minimal
+// handle the wled engine needs to perform HTTP.
+func toEngineDevice(d WLEDDevice) wledpkg.Device {
+	return wledpkg.Device{
+		ID:      d.ID,
+		Host:    d.Host,
+		Address: d.Address,
+		Port:    d.Port,
 	}
-}
-
-func (w *WLEDEngine) InspectDevice(ctx context.Context, device discoveredDevice) (WLEDDevice, error) {
-	base := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
-	var payload struct {
-		Info struct {
-			Name string `json:"name"`
-			Mac  string `json:"mac"`
-			Ver  string `json:"ver"`
-		} `json:"info"`
-		State map[string]any `json:"state"`
-	}
-	if err := w.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload); err != nil {
-		return WLEDDevice{}, err
-	}
-
-	id := strings.TrimSpace(payload.Info.Mac)
-	if id == "" {
-		id = fmt.Sprintf("%s:%d", device.Address, device.Port)
-	}
-	name := strings.TrimSpace(payload.Info.Name)
-	if name == "" {
-		name = strings.TrimSuffix(device.Host, ".")
-	}
-	if name == "" {
-		name = device.Address
-	}
-
-	info := map[string]any{
-		"version": payload.Info.Ver,
-	}
-	for k, v := range payload.State {
-		if k == "bri" || k == "on" {
-			info[k] = v
-		}
-	}
-
-	lastState := make(map[string]any, len(payload.State))
-	for k, v := range payload.State {
-		lastState[k] = v
-	}
-
-	return WLEDDevice{
-		ID:          id,
-		Name:        name,
-		Host:        device.Host,
-		Address:     device.Address,
-		Port:        device.Port,
-		LastSeen:    time.Now(),
-		Online:      true,
-		Provisioned: false,
-		Info:        info,
-		LastState:   lastState,
-	}, nil
-}
-
-func (w *WLEDEngine) GetState(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	var payload map[string]any
-	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/state", nil, &payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
-func (w *WLEDEngine) ProvisionDevice(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
-	// Reachability check via cfg endpoint (documented at kno.wled.ge).
-	var cfg map[string]any
-	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/cfg", nil, &cfg); err != nil {
-		return err
-	}
-	if len(cfgPatch) > 0 {
-		if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/cfg", cfgPatch, nil); err != nil {
-			return err
-		}
-	}
-	if len(initialState) > 0 {
-		if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/state", initialState, nil); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w *WLEDEngine) ApplyState(ctx context.Context, device WLEDDevice, state map[string]any) error {
-	return w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/state", state, nil)
-}
-
-func (w *WLEDEngine) GetFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	var payload map[string]any
-	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json", nil, &payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
-func (w *WLEDEngine) GetConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
-	var payload map[string]any
-	if err := w.requestJSONWithDeviceFallback(ctx, device, http.MethodGet, "/json/cfg", nil, &payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
-// ApplyCfgPatch POSTs a partial cfg object (see WLED JSON API /json/cfg).
-func (w *WLEDEngine) ApplyCfgPatch(ctx context.Context, device WLEDDevice, patch map[string]any) error {
-	return w.requestJSONWithDeviceFallback(ctx, device, http.MethodPost, "/json/cfg", patch, nil)
-}
-
-func (w *WLEDEngine) ApplyStateToAll(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
-	results := make(map[string]string, len(devices))
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, device := range devices {
-		device := device
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := w.ApplyState(ctx, device, state)
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				results[device.ID] = err.Error()
-				return
-			}
-			results[device.ID] = "ok"
-		}()
-	}
-	wg.Wait()
-	return results
-}
-
-func (w *WLEDEngine) requestJSON(ctx context.Context, method, endpoint string, payload any, out any) error {
-	var body *bytes.Reader
-	if payload != nil {
-		encoded, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(encoded)
-	} else {
-		body = bytes.NewReader(nil)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := w.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, endpoint)
-	}
-	if out == nil {
-		return nil
-	}
-	err = json.NewDecoder(resp.Body).Decode(out)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (w *WLEDEngine) requestJSONWithDeviceFallback(ctx context.Context, device WLEDDevice, method, apiPath string, payload any, out any) error {
-	primaryBase := wledhttp.BaseHTTPURL(device.Host, device.Address, device.Port)
-	primaryEndpoint := primaryBase + apiPath
-	primaryHost := wledhttp.HostForHTTP(device.Host, device.Address)
-	fallbackHost := strings.TrimSpace(device.Address)
-
-	// .local resolution can intermittently stall and consume most timeout budget.
-	// Prefer direct IP first for hot paths and detail reads when an address is known.
-	ipFirstAllowed := (method == http.MethodPost && apiPath == "/json/state") ||
-		(method == http.MethodGet && (apiPath == "/json" || apiPath == "/json/cfg" || apiPath == "/json/state"))
-	if ipFirstAllowed && fallbackHost != "" && !strings.EqualFold(primaryHost, fallbackHost) {
-		fastEndpoint := "http://" + net.JoinHostPort(fallbackHost, fmt.Sprintf("%d", device.Port)) + apiPath
-		if err := w.requestJSON(ctx, method, fastEndpoint, payload, out); err == nil {
-			return nil
-		}
-		// If IP-first fails, continue with existing strategy below.
-	}
-
-	err := w.requestJSON(ctx, method, primaryEndpoint, payload, out)
-	if err == nil {
-		return nil
-	}
-	if fallbackHost == "" || strings.EqualFold(primaryHost, fallbackHost) {
-		return err
-	}
-	if !shouldRetryWithAddressFallback(err) {
-		return err
-	}
-	fallbackBase := "http://" + net.JoinHostPort(fallbackHost, fmt.Sprintf("%d", device.Port))
-	fallbackEndpoint := fallbackBase + apiPath
-	if fallbackErr := w.requestJSON(ctx, method, fallbackEndpoint, payload, out); fallbackErr != nil {
-		return fallbackErr
-	}
-	return nil
-}
-
-func shouldRetryWithAddressFallback(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "deadline exceeded") || strings.Contains(msg, "timeout") {
-		return true
-	}
-	var netErr net.Error
-	return errors.As(err, &netErr)
 }
 
 type WLEDController struct {
@@ -766,7 +554,8 @@ type WLEDController struct {
 	dmxPersistence        *DMXPersistenceManager
 	network               *NetworkManager
 	discovery             *DiscoveryEngine
-	wled                  *WLEDEngine
+	wled                  *wledpkg.Engine
+	console               *console.Bus
 
 	mu              sync.RWMutex
 	settings        ControllerSettings
@@ -778,7 +567,8 @@ type WLEDController struct {
 	probeMu     sync.Mutex
 	probeRecent map[string]time.Time
 
-	cancel context.CancelFunc
+	rootCtx context.Context
+	cancel  context.CancelFunc
 
 	dmxLiveMu        sync.Mutex
 	dmxLiveWG        sync.WaitGroup
@@ -800,6 +590,7 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 	if logger == nil {
 		logger = log.Default()
 	}
+	bus := console.NewBus(500)
 	return &WLEDController{
 		logger:                logger,
 		persistence:           NewStatePersistenceManager(),
@@ -807,13 +598,20 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		dmxPersistence:        NewDMXPersistenceManager(),
 		network:               NewNetworkManager(logger),
 		discovery:             NewDiscoveryEngine(logger),
-		wled:                  NewWLEDEngine(),
+		wled:                  wledpkg.NewEngine(logger, bus),
+		console:               bus,
 		settings:              DefaultControllerSettings(),
 		devices:               map[string]WLEDDevice{},
 		generalTabState:       defaultGeneralTabState(),
 		dmxState:              defaultDMXState(),
 		updated:               time.Now(),
 	}
+}
+
+// Console exposes the live transport console bus so the UI service can query
+// recent entries.
+func (c *WLEDController) Console() *console.Bus {
+	return c.console
 }
 
 func (c *WLEDController) syncSimulatedDeviceLocked() {
@@ -844,10 +642,12 @@ func (c *WLEDController) applyWLEDState(ctx context.Context, device WLEDDevice, 
 	settings := c.settings
 	c.mu.RUnlock()
 	if isSimulatedWLED(device, settings) {
+		if c.console != nil {
+			c.console.Info(console.TransportWLED, device.ID, "simulated device — state applied locally")
+		}
 		return nil
 	}
-	err := c.wled.ApplyState(ctx, device, state)
-	return err
+	return c.wled.ApplyState(ctx, toEngineDevice(device), state)
 }
 
 func (c *WLEDController) applyStateToAllDevices(ctx context.Context, devices []WLEDDevice, state map[string]any) map[string]string {
@@ -885,7 +685,7 @@ func (c *WLEDController) getWLEDState(ctx context.Context, device WLEDDevice) (m
 		}
 		return out, nil
 	}
-	return c.wled.GetState(ctx, device)
+	return c.wled.GetState(ctx, toEngineDevice(device))
 }
 
 func (c *WLEDController) getWLEDFullJSON(ctx context.Context, device WLEDDevice) (map[string]any, error) {
@@ -896,7 +696,7 @@ func (c *WLEDController) getWLEDFullJSON(ctx context.Context, device WLEDDevice)
 	if isSimulatedWLED(device, settings) && ok {
 		return buildSimulatedFullJSON(latest), nil
 	}
-	return c.wled.GetFullJSON(ctx, device)
+	return c.wled.GetFullJSON(ctx, toEngineDevice(device))
 }
 
 func (c *WLEDController) getWLEDConfig(ctx context.Context, device WLEDDevice) (map[string]any, error) {
@@ -906,7 +706,7 @@ func (c *WLEDController) getWLEDConfig(ctx context.Context, device WLEDDevice) (
 	if isSimulatedWLED(device, settings) {
 		return map[string]any{}, nil
 	}
-	return c.wled.GetConfig(ctx, device)
+	return c.wled.GetConfig(ctx, toEngineDevice(device))
 }
 
 func (c *WLEDController) provisionWLED(ctx context.Context, device WLEDDevice, cfgPatch map[string]any, initialState map[string]any) error {
@@ -916,7 +716,7 @@ func (c *WLEDController) provisionWLED(ctx context.Context, device WLEDDevice, c
 	if isSimulatedWLED(device, settings) {
 		return nil
 	}
-	return c.wled.ProvisionDevice(ctx, device, cfgPatch, initialState)
+	return c.wled.Provision(ctx, toEngineDevice(device), cfgPatch, initialState)
 }
 
 func (c *WLEDController) Start(ctx context.Context) error {
@@ -962,6 +762,17 @@ func (c *WLEDController) Start(ctx context.Context) error {
 
 	runCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
+	c.rootCtx = runCtx
+
+	// Start the WLED transport engine only when the component is enabled in
+	// settings. The engine owns a goroutine + channels and is rebooted on
+	// toggle via SaveSettings.
+	c.mu.RLock()
+	wledEnabled := c.settings.WLED.Enabled
+	c.mu.RUnlock()
+	if wledEnabled {
+		c.wled.Start(runCtx)
+	}
 
 	go c.discoveryLoop(runCtx)
 	go c.discoveryBrowseLoop(runCtx)
@@ -975,6 +786,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 
 func (c *WLEDController) Stop() {
 	c.StopDMXLive()
+	c.wled.Stop()
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -1016,10 +828,26 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 	merged := mergeWithDefaults(settings)
 	c.mu.Lock()
+	wledWas := c.settings.WLED.Enabled
 	c.settings = merged
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
+
+	// Mirror WLED toggle onto the engine lifecycle: start it when the user
+	// enables WLED, stop and close its channels when they disable it.
+	wledNow := merged.WLED.Enabled
+	switch {
+	case wledNow && !wledWas:
+		ctx := c.rootCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		c.wled.Start(ctx)
+	case !wledNow && wledWas:
+		c.wled.Stop()
+	}
+
 	if !merged.DMX.Enabled {
 		c.StopDMXLive()
 	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
@@ -1383,7 +1211,7 @@ func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string
 	}
 
 	patch := map[string]any{"id": map[string]any{"name": name}}
-	if err := c.wled.ApplyCfgPatch(ctx, device, patch); err != nil {
+	if err := c.wled.ApplyCfgPatch(ctx, toEngineDevice(device), patch); err != nil {
 		return err
 	}
 	c.mu.Lock()
@@ -1691,6 +1519,9 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 		c.logger.Printf("dmx live: using %s for usb transmit (configured path was %s)", path, rawPath)
 	}
 	c.logger.Printf("dmx live: usb adapter started on %s", path)
+	if c.console != nil {
+		c.console.Info(console.TransportUSBDMX, path, fmt.Sprintf("USB DMX adapter started @ %dHz", dmxLiveFrameHz))
+	}
 	return nil
 }
 
@@ -1744,6 +1575,10 @@ func (c *WLEDController) startDMXArtNetAdapter(settings ArtNetSettings) error {
 	c.dmxLiveMu.Unlock()
 
 	c.logger.Printf("dmx live: artnet adapter started target=%s net=%d subnet=%d universe=%d hz=%d", remote.String(), settings.Net, settings.Subnet, settings.Universe, hz)
+	if c.console != nil {
+		c.console.Info(console.TransportArtNet, remote.String(),
+			fmt.Sprintf("Art-Net adapter started net=%d subnet=%d universe=%d hz=%d", settings.Net, settings.Subnet, settings.Universe, hz))
+	}
 	return nil
 }
 
@@ -1796,9 +1631,19 @@ func (c *WLEDController) reconcileDMXLiveAdapters() error {
 func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string) {
 	defer c.dmxLiveWG.Done()
 	defer func() { _ = port.Close() }()
+	defer func() {
+		if c.console != nil {
+			c.console.Info(console.TransportUSBDMX, path, "USB DMX worker stopped")
+		}
+	}()
 	frameInterval := time.Second / dmxLiveFrameHz
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
+
+	// Throttle console publishes to one summary per second per worker;
+	// emitting at the 44Hz frame rate would drown the console.
+	const consoleInterval = time.Second
+	var lastConsoleAt time.Time
 
 	frame := make([]byte, 513)
 	frame[0] = 0
@@ -1815,6 +1660,19 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 			if _, err := port.Write(frame); err != nil {
 				c.logger.Printf("dmx usb write (%s): %v", path, err)
 				c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
+				if c.console != nil {
+					c.console.Error(console.TransportUSBDMX, path, "USB write failed", err.Error())
+				}
+				continue
+			}
+			if c.console != nil {
+				now := time.Now()
+				if now.Sub(lastConsoleAt) >= consoleInterval {
+					lastConsoleAt = now
+					c.console.Out(console.TransportUSBDMX, path,
+						fmt.Sprintf("DMX frame sent (%dHz, 513 bytes)", dmxLiveFrameHz),
+						dmxFrameSummary(latest))
+				}
 			}
 		}
 	}
@@ -1823,12 +1681,20 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net.UDPConn, settings ArtNetSettings, target string) {
 	defer c.dmxLiveWG.Done()
 	defer func() { _ = conn.Close() }()
+	defer func() {
+		if c.console != nil {
+			c.console.Info(console.TransportArtNet, target, "Art-Net worker stopped")
+		}
+	}()
 	hz := settings.RefreshHz
 	if hz <= 0 {
 		hz = dmxLiveFrameHz
 	}
 	ticker := time.NewTicker(time.Second / time.Duration(hz))
 	defer ticker.Stop()
+
+	const consoleInterval = time.Second
+	var lastConsoleAt time.Time
 
 	var latest [512]byte
 	var seq byte = 1
@@ -1844,6 +1710,17 @@ func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net
 			if _, err := conn.Write(packet); err != nil {
 				c.logger.Printf("dmx artnet write (%s): %v", target, err)
 				c.setDMXLiveError(fmt.Sprintf("artnet write (%s): %v", target, err))
+				if c.console != nil {
+					c.console.Error(console.TransportArtNet, target, "Art-Net write failed", err.Error())
+				}
+			} else if c.console != nil {
+				now := time.Now()
+				if now.Sub(lastConsoleAt) >= consoleInterval {
+					lastConsoleAt = now
+					c.console.Out(console.TransportArtNet, target,
+						fmt.Sprintf("ArtDmx seq=%d net=%d subnet=%d universe=%d (%d bytes)", seq, settings.Net, settings.Subnet, settings.Universe, len(packet)),
+						dmxFrameSummary(latest))
+				}
 			}
 			seq++
 			if seq == 0 {
@@ -1851,6 +1728,16 @@ func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net
 			}
 		}
 	}
+}
+
+// dmxFrameSummary returns the first 16 channels for the console detail line.
+func dmxFrameSummary(frame [512]byte) string {
+	const previewLen = 16
+	parts := make([]string, 0, previewLen)
+	for i := 0; i < previewLen; i++ {
+		parts = append(parts, fmt.Sprintf("%d", frame[i]))
+	}
+	return "ch1-" + fmt.Sprintf("%d=[%s]", previewLen, strings.Join(parts, ","))
 }
 
 // StopDMXLive stops streaming and closes all adapter channels.
@@ -2167,10 +2054,27 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 	if !c.wledEnabled() {
 		return
 	}
-	device, err := c.wled.InspectDevice(ctx, candidate)
+	engineDev := wledpkg.Device{
+		Host:    candidate.Host,
+		Address: candidate.Address,
+		Port:    candidate.Port,
+	}
+	res, err := c.wled.Inspect(ctx, engineDev)
 	if err != nil {
 		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
 		return
+	}
+	device := WLEDDevice{
+		ID:          res.ID,
+		Name:        res.Name,
+		Host:        candidate.Host,
+		Address:     candidate.Address,
+		Port:        candidate.Port,
+		LastSeen:    time.Now(),
+		Online:      true,
+		Provisioned: false,
+		Info:        res.Info,
+		LastState:   cloneJSONMap(res.State),
 	}
 
 	c.mu.RLock()
