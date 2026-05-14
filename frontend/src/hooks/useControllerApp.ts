@@ -276,6 +276,13 @@ export function useControllerApp() {
     const dmxLivePendingRef = useRef<Map<number, number>>(new Map());
     const dmxLiveFlushTimerRef = useRef<number | undefined>(undefined);
     const [dmxLiveStatus, setDmxLiveStatus] = useState<DMXLiveStatus | null>(null);
+    const settingsEditLockUntilRef = useRef(0);
+
+    const markSettingsInteraction = useCallback((holdMs = 5000) => {
+        const now = Date.now();
+        const until = now + Math.max(250, holdMs);
+        settingsEditLockUntilRef.current = Math.max(settingsEditLockUntilRef.current, until);
+    }, []);
 
     const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
 
@@ -340,9 +347,12 @@ export function useControllerApp() {
     const pullSnapshot = useCallback(async () => {
         const next = (await GreetService.GetControllerSnapshot()) as unknown as ControllerSnapshot;
         setSnapshot(next);
-        setSettings(next.settings);
-        setStatePayloadText(prettyJSON(next.settings.wled.provisioning.defaultStatePayload ?? {}));
-        setConfigPatchText(prettyJSON(next.settings.wled.provisioning.defaultConfigPatch ?? {}));
+        const settingsEditingActive = Date.now() < settingsEditLockUntilRef.current;
+        if (!settingsEditingActive) {
+            setSettings(next.settings);
+            setStatePayloadText(prettyJSON(next.settings.wled.provisioning.defaultStatePayload ?? {}));
+            setConfigPatchText(prettyJSON(next.settings.wled.provisioning.defaultConfigPatch ?? {}));
+        }
         setStatus(`Updated ${new Date(next.updatedAt).toLocaleTimeString()}`);
         setError("");
         const gst = (next as ControllerSnapshot & {
@@ -1360,6 +1370,7 @@ export function useControllerApp() {
         selectedDevice,
         selectedFixture,
         pullSnapshot,
+        markSettingsInteraction,
         pullDMXState,
         pullUSBSerialDevices,
         onSaveSettings,

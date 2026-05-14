@@ -51,6 +51,7 @@ function App() {
                 ignoredDevices={app.ignoredDevices}
                 busy={app.busy}
                 onSaveSettings={app.onSaveSettings}
+                onSettingsInteraction={app.markSettingsInteraction}
                 onApplyNetwork={app.onApplyNetwork}
                 onUnignoreDevice={app.onUnignoreDevice}
                 currentVersion={app.currentVersion}

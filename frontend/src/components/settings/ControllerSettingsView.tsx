@@ -32,6 +32,7 @@ export type ControllerSettingsViewProps = {
     ignoredDevices: WLEDDevice[];
     busy: boolean;
     onSaveSettings: () => Promise<boolean>;
+    onSettingsInteraction: (holdMs?: number) => void;
     onApplyNetwork: () => void;
     onUnignoreDevice: (deviceId: string) => void;
     currentVersion: string;
@@ -53,6 +54,7 @@ export function ControllerSettingsView({
                                            ignoredDevices,
                                            busy,
                                            onSaveSettings,
+                                           onSettingsInteraction,
                                            onApplyNetwork,
                                            onUnignoreDevice,
                                            currentVersion,
@@ -72,14 +74,16 @@ export function ControllerSettingsView({
     const AUTOSAVE_IDLE_MS = 2000;
 
     const flushAutosaveNow = useCallback(() => {
+        onSettingsInteraction(3000);
         if (saveTimerRef.current != null) {
             window.clearTimeout(saveTimerRef.current);
             saveTimerRef.current = null;
         }
         void onSaveSettings();
-    }, [onSaveSettings]);
+    }, [onSaveSettings, onSettingsInteraction]);
 
     const scheduleAutosave = useCallback(() => {
+        onSettingsInteraction(5000);
         if (saveTimerRef.current != null) {
             window.clearTimeout(saveTimerRef.current);
         }
@@ -87,7 +91,7 @@ export function ControllerSettingsView({
             saveTimerRef.current = null;
             void onSaveSettings();
         }, AUTOSAVE_IDLE_MS);
-    }, [onSaveSettings]);
+    }, [onSaveSettings, onSettingsInteraction]);
 
     const updateSettings = useCallback(
         (
