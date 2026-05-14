@@ -93,101 +93,6 @@ export function ControllerSettingsView({
                 <TabsContent value="general" className="space-y-5">
                     <Card className="w-full max-w-none">
                         <CardHeader>
-                            <CardTitle>Access point</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    id="enable-ap"
-                                    checked={settings.accessPoint.enabled}
-                                    onCheckedChange={(checked) => setSettings({
-                                        ...settings,
-                                        accessPoint: {...settings.accessPoint, enabled: checked}
-                                    })}
-                                    disabled={busy}
-                                />
-                                <Label htmlFor="enable-ap">Enable local access point</Label>
-                            </label>
-
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                <Field>
-                                    <FieldLabel htmlFor="ap-connection-name">AP connection name</FieldLabel>
-                                    <Input
-                                        id="ap-connection-name"
-                                        type="text"
-                                        value={settings.accessPoint.connection}
-                                        onChange={(e) => setSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, connection: e.target.value}
-                                        })}
-                                        disabled={busy}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-interface">AP interface</FieldLabel>
-                                    <Input
-                                        id="ap-interface"
-                                        type="text"
-                                        value={settings.accessPoint.interfaceName}
-                                        onChange={(e) => setSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, interfaceName: e.target.value}
-                                        })}
-                                        disabled={busy}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-ssid">AP SSID</FieldLabel>
-                                    <Input
-                                        id="ap-ssid"
-                                        type="text"
-                                        value={settings.accessPoint.ssid}
-                                        onChange={(e) => setSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, ssid: e.target.value}
-                                        })}
-                                        disabled={busy}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-password">AP password</FieldLabel>
-                                    <Input
-                                        id="ap-password"
-                                        type="text"
-                                        value={settings.accessPoint.password}
-                                        onChange={(e) => setSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, password: e.target.value}
-                                        })}
-                                        disabled={busy}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-channel">Channel</FieldLabel>
-                                    <Input
-                                        id="ap-channel"
-                                        type="number"
-                                        value={settings.accessPoint.channel}
-                                        onChange={(e) => setSettings({
-                                            ...settings,
-                                            accessPoint: {
-                                                ...settings.accessPoint,
-                                                channel: readNumber(e.target.value, 6)
-                                            }
-                                        })}
-                                        disabled={busy}
-                                    />
-                                </Field>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
                             <CardTitle className="text-sm font-semibold">Application version</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
@@ -246,6 +151,101 @@ export function ControllerSettingsView({
                                     WLED routes, menu entries, discovery, and device actions are disabled while this is off.
                                 </p>
                             )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="w-full max-w-none">
+                        <CardHeader>
+                            <CardTitle>Access point</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <label className="flex items-center gap-3">
+                                <Switch
+                                    id="enable-ap"
+                                    checked={settings.accessPoint.enabled}
+                                    onCheckedChange={(checked) => setSettings({
+                                        ...settings,
+                                        accessPoint: {...settings.accessPoint, enabled: checked}
+                                    })}
+                                    disabled={wledControlsDisabled}
+                                />
+                                <Label htmlFor="enable-ap">Enable local access point</Label>
+                            </label>
+
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                <Field>
+                                    <FieldLabel htmlFor="ap-connection-name">AP connection name</FieldLabel>
+                                    <Input
+                                        id="ap-connection-name"
+                                        type="text"
+                                        value={settings.accessPoint.connection}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            accessPoint: {...settings.accessPoint, connection: e.target.value}
+                                        })}
+                                        disabled={wledControlsDisabled}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <FieldLabel htmlFor="ap-interface">AP interface</FieldLabel>
+                                    <Input
+                                        id="ap-interface"
+                                        type="text"
+                                        value={settings.accessPoint.interfaceName}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            accessPoint: {...settings.accessPoint, interfaceName: e.target.value}
+                                        })}
+                                        disabled={wledControlsDisabled}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <FieldLabel htmlFor="ap-ssid">AP SSID</FieldLabel>
+                                    <Input
+                                        id="ap-ssid"
+                                        type="text"
+                                        value={settings.accessPoint.ssid}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            accessPoint: {...settings.accessPoint, ssid: e.target.value}
+                                        })}
+                                        disabled={wledControlsDisabled}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <FieldLabel htmlFor="ap-password">AP password</FieldLabel>
+                                    <Input
+                                        id="ap-password"
+                                        type="text"
+                                        value={settings.accessPoint.password}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            accessPoint: {...settings.accessPoint, password: e.target.value}
+                                        })}
+                                        disabled={wledControlsDisabled}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <FieldLabel htmlFor="ap-channel">Channel</FieldLabel>
+                                    <Input
+                                        id="ap-channel"
+                                        type="number"
+                                        value={settings.accessPoint.channel}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            accessPoint: {
+                                                ...settings.accessPoint,
+                                                channel: readNumber(e.target.value, 6)
+                                            }
+                                        })}
+                                        disabled={wledControlsDisabled}
+                                    />
+                                </Field>
+                            </div>
                         </CardContent>
                     </Card>
 
