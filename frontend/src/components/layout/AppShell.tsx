@@ -1,7 +1,5 @@
 import type {Dispatch, ReactNode, SetStateAction} from "react";
 import {
-    PiArrowsClockwise,
-    PiBinoculars,
     PiGearSix,
     PiLightbulb,
     PiPlanet,
@@ -29,9 +27,6 @@ import {cn} from "@/lib/utils";
 
 export type AppShellProps = {
     status: string;
-    busy: boolean;
-    onDiscoverNow: () => void;
-    onRefreshSnapshot: () => void;
     route: DetailRoute;
     setRoute: Dispatch<SetStateAction<DetailRoute>>;
     devices: WLEDDevice[];
@@ -46,9 +41,6 @@ export type AppShellProps = {
 
 export function AppShell({
                              status,
-                             busy,
-                             onDiscoverNow,
-                             onRefreshSnapshot,
                              route,
                              setRoute,
                              devices,
@@ -109,7 +101,7 @@ export function AppShell({
                                                 title={
                                                     dev.online
                                                         ? undefined
-                                                        : "Offline — use Discover or Refresh in the header. When the device is reachable again, you can open its page."
+                                                        : "Offline — use Discover or Refresh on the WLED settings tab. When the device is reachable again, you can open its page."
                                                 }
                                                 isActive={route.kind === "device" && route.id === dev.id}
                                                 className={cn(
@@ -240,34 +232,6 @@ export function AppShell({
             </Sidebar>
 
             <SidebarInset className="min-h-screen min-w-0">
-                <header
-                    className="shrink-0 border-b px-4 py-3 flex flex-wrap items-center justify-between gap-2 min-w-0">
-                    <div className="flex flex-row gap-2">
-                        {wledEnabled && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={onDiscoverNow}
-                                disabled={busy}
-                                className="basis-24"
-                            >
-                                <PiBinoculars/>
-                                Discover
-                            </Button>
-                        )}
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="basis-24"
-                            onClick={() => void onRefreshSnapshot()}
-                            disabled={busy}
-                        >
-                            <PiArrowsClockwise/>
-                            Refresh
-                        </Button>
-                    </div>
-                </header>
-
                 <main
                     className="touch-pan-scroll flex-1 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
                     {error && (
