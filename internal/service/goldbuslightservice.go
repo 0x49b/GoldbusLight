@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"goldbus"
+	"goldbus/internal/console"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
 	"time"
@@ -257,6 +258,35 @@ func (g *GoldbusLightService) GetDMXLiveStatus() (dmx.DMXLiveStatus, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) dmx.DMXLiveStatus {
 		return c.GetDMXLiveStatus()
 	})
+}
+
+// ListConsoleEntries returns transport console entries with ID greater than
+// afterID, capped at limit. Used by the Settings → Console tab.
+func (g *GoldbusLightService) ListConsoleEntries(afterID int64, limit int) ([]console.Entry, error) {
+	controller, err := g.requireController()
+	if err != nil {
+		return nil, err
+	}
+	bus := controller.Console()
+	if bus == nil {
+		return []console.Entry{}, nil
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	return bus.List(afterID, limit), nil
+}
+
+// ClearConsoleEntries empties the live transport console buffer.
+func (g *GoldbusLightService) ClearConsoleEntries() error {
+	controller, err := g.requireController()
+	if err != nil {
+		return err
+	}
+	if bus := controller.Console(); bus != nil {
+		bus.Clear()
+	}
+	return nil
 }
 
 func (g *GoldbusLightService) requireController() (*ctrlpkg.WLEDController, error) {

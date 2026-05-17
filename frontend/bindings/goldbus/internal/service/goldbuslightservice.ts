@@ -7,6 +7,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as console$0 from "../console/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as controller$0 from "../controller/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -27,6 +30,10 @@ export function ApplyNetworkSettings(): $CancellablePromise<controller$0.Network
     return $Call.ByID(3615869373).then(($result: any) => {
         return $$createType0($result);
     });
+}
+
+export function ClearConsoleEntries(): $CancellablePromise<void> {
+    return $Call.ByID(1300755656);
 }
 
 export function ControllerSummary(): $CancellablePromise<string> {
@@ -87,6 +94,12 @@ export function GetIgnoredDevices(): $CancellablePromise<controller$0.WLEDDevice
 
 export function Greet(name: string): $CancellablePromise<string> {
     return $Call.ByID(1436929455, name);
+}
+
+export function ListConsoleEntries(afterID: number, limit: number): $CancellablePromise<console$0.Entry[]> {
+    return $Call.ByID(3101953237, afterID, limit).then(($result: any) => {
+        return $$createTypeConsoleEntries($result);
+    });
 }
 
 export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSerialDevice[]> {
@@ -176,3 +189,5 @@ const $$createType8 = controller$0.WLEDDeviceDetail.createFrom;
 const $$createType9 = serial$0.USBSerialDevice.createFrom;
 const $$createType10 = $Create.Array($$createType9);
 const $$createType11 = $Create.Map($Create.Any, $Create.Any);
+const $$createTypeConsoleEntry = console$0.Entry.createFrom;
+const $$createTypeConsoleEntries = $Create.Array($$createTypeConsoleEntry);

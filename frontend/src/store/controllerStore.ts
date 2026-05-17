@@ -1,6 +1,7 @@
 import {create} from "zustand";
 import {WARM_WHITE_RGB} from "../lib/wled";
 import type {
+  ConsoleEntry,
   ControllerSettings,
   ControllerSnapshot,
   DetailRoute,
@@ -46,6 +47,8 @@ export type ControllerStoreState = {
     currentVersion: string;
     dmxState: DMXState;
     usbSerialDevices: USBSerialDevice[];
+    consoleEntries: ConsoleEntry[];
+    consoleLastId: number;
 };
 
 export type ControllerStoreActions = {
@@ -100,6 +103,8 @@ export type ControllerStoreActions = {
     setUSBSerialDevices: (
         next: USBSerialDevice[] | ((previous: USBSerialDevice[]) => USBSerialDevice[]),
     ) => void;
+    setConsoleEntries: (next: ConsoleEntry[] | ((previous: ConsoleEntry[]) => ConsoleEntry[])) => void;
+    setConsoleLastId: (next: number | ((previous: number) => number)) => void;
 };
 
 export type ControllerStore = ControllerStoreState & ControllerStoreActions;
@@ -142,6 +147,8 @@ const initialState: ControllerStoreState = {
         selectedUSBDeviceId: "",
     },
     usbSerialDevices: [],
+    consoleEntries: [],
+    consoleLastId: 0,
 };
 
 function apply<T>(previous: T, next: T | ((previous: T) => T)): T {
@@ -189,4 +196,6 @@ export const useControllerStore = create<ControllerStore>((set) => ({
     setCurrentVersion: (next) => set((s) => ({currentVersion: apply(s.currentVersion, next)})),
     setDMXState: (next) => set((s) => ({dmxState: apply(s.dmxState, next)})),
     setUSBSerialDevices: (next) => set((s) => ({usbSerialDevices: apply(s.usbSerialDevices, next)})),
+    setConsoleEntries: (next) => set((s) => ({consoleEntries: apply(s.consoleEntries, next)})),
+    setConsoleLastId: (next) => set((s) => ({consoleLastId: apply(s.consoleLastId, next)})),
 }));

@@ -19,6 +19,7 @@ import {
   warmWhiteState,
 } from "../lib/wled";
 import type {
+  ConsoleEntry,
   ControllerSettings,
   ControllerSnapshot,
   DMXFixture,
@@ -37,6 +38,11 @@ const DEVICE_DETAIL_RETRY_DELAY_MS = 400;
 
 /** Background snapshot poll to pick up devices coming back online (matches header Refresh data). */
 const BACKGROUND_SNAPSHOT_POLL_MS = 30_000;
+
+/** Live console poll interval. */
+const CONSOLE_POLL_MS = 750;
+/** Max console entries kept in the UI ring buffer. */
+const CONSOLE_MAX_ENTRIES = 500;
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -129,6 +135,8 @@ export function useControllerApp() {
         currentVersion,
         dmxState,
         usbSerialDevices,
+        consoleEntries,
+        consoleLastId,
         setSnapshot,
         setSettings,
         setApplyResult,
@@ -163,6 +171,8 @@ export function useControllerApp() {
         setCurrentVersion,
         setDMXState,
         setUSBSerialDevices,
+        setConsoleEntries,
+        setConsoleLastId,
     } = useControllerStore(
         useShallow((s) => ({
             snapshot: s.snapshot,
@@ -199,6 +209,8 @@ export function useControllerApp() {
             currentVersion: s.currentVersion,
             dmxState: s.dmxState,
             usbSerialDevices: s.usbSerialDevices,
+            consoleEntries: s.consoleEntries,
+            consoleLastId: s.consoleLastId,
             setSnapshot: s.setSnapshot,
             setSettings: s.setSettings,
             setApplyResult: s.setApplyResult,
@@ -233,6 +245,8 @@ export function useControllerApp() {
             setCurrentVersion: s.setCurrentVersion,
             setDMXState: s.setDMXState,
             setUSBSerialDevices: s.setUSBSerialDevices,
+            setConsoleEntries: s.setConsoleEntries,
+            setConsoleLastId: s.setConsoleLastId,
         })),
     );
 
@@ -417,6 +431,48 @@ export function useControllerApp() {
         }, BACKGROUND_SNAPSHOT_POLL_MS);
         return () => window.clearInterval(timer);
     }, [pullSnapshot]);
+
+    const pullConsoleEntries = useCallback(async () => {
+        const latest = useControllerStore.getState();
+        const afterID = latest.consoleLastId;
+        try {
+            const next = (await GreetService.ListConsoleEntries(afterID, 200)) as ConsoleEntry[];
+            if (!Array.isArray(next) || next.length === 0) {
+                return;
+            }
+            let maxID = afterID;
+            for (const entry of next) {
+                if (entry.id > maxID) {
+                    maxID = entry.id;
+                }
+            }
+            setConsoleEntries((prev) => {
+                const combined = prev.concat(next);
+                if (combined.length <= CONSOLE_MAX_ENTRIES) {
+                    return combined;
+                }
+                return combined.slice(combined.length - CONSOLE_MAX_ENTRIES);
+            });
+            setConsoleLastId(maxID);
+        } catch {
+            /* ignore transient errors */
+        }
+    }, [setConsoleEntries, setConsoleLastId]);
+
+    useEffect(() => {
+        void pullConsoleEntries();
+        const timer = window.setInterval(() => {
+            void pullConsoleEntries();
+        }, CONSOLE_POLL_MS);
+        return () => window.clearInterval(timer);
+    }, [pullConsoleEntries]);
+
+    const onClearConsole = useCallback(() => {
+        setConsoleEntries([]);
+        void GreetService.ClearConsoleEntries().catch(() => {
+            /* ignore */
+        });
+    }, [setConsoleEntries]);
 
     useEffect(() => {
         if (route.kind !== "device") {
@@ -1398,6 +1454,9 @@ export function useControllerApp() {
         startDMXLiveOutput,
         stopDMXLiveOutput,
         onDismissError,
+        consoleEntries,
+        consoleLastId,
+        onClearConsole,
     };
 }
 
