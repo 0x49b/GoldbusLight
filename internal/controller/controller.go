@@ -31,6 +31,9 @@ const (
 	generalTabStateFileName = "general-tab-state.json"
 	dmxStateFileName        = "dmx.json"
 	simulatedWLEDDeviceID   = "sim:wled"
+	simulatedUSBDMXDeviceID = "sim:usb-dmx512"
+	simulatedUSBDMXPath     = "sim://usb-dmx512"
+	simulatedUSBDMXName     = "Simulated USB-DMX512"
 
 	// WLED hardware commonly uses 2.4 GHz–only Wi‑Fi; the controller AP must stay on that band.
 	ap24MinChannel     = 1
@@ -85,9 +88,15 @@ type ArtNetSettings struct {
 	RefreshHz  int    `json:"refreshHz"`
 }
 
+type DMXTestingSettings struct {
+	SimulateUSBDMX bool `json:"simulateUsbDmx"`
+	SimulateArtNet bool `json:"simulateArtNet"`
+}
+
 type DMXSettings struct {
-	Enabled bool           `json:"enabled"`
-	ArtNet  ArtNetSettings `json:"artNet"`
+	Enabled bool               `json:"enabled"`
+	ArtNet  ArtNetSettings     `json:"artNet"`
+	Testing DMXTestingSettings `json:"testing"`
 }
 
 type ControllerSettings struct {
@@ -1181,6 +1190,33 @@ func (c *WLEDController) SetDeviceIgnored(deviceID string, ignored bool) error {
 	return c.persist()
 }
 
+func simulatedUSBDMXDevice() serial2.USBSerialDevice {
+	return serial2.USBSerialDevice{
+		ID:          simulatedUSBDMXDeviceID,
+		Path:        simulatedUSBDMXPath,
+		Name:        simulatedUSBDMXName,
+		Description: "In-process USB DMX simulator",
+	}
+}
+
+func (c *WLEDController) listUSBSerialDevicesWithSimulators() []serial2.USBSerialDevice {
+	devices := serial2.ListUSBSerialDevices()
+	c.mu.RLock()
+	simUSB := c.settings.DMX.Testing.SimulateUSBDMX
+	c.mu.RUnlock()
+	if simUSB {
+		devices = append(devices, simulatedUSBDMXDevice())
+	}
+	slices.SortFunc(devices, func(a, b serial2.USBSerialDevice) int {
+		nameCmp := strings.Compare(strings.ToLower(strings.TrimSpace(a.Name)), strings.ToLower(strings.TrimSpace(b.Name)))
+		if nameCmp != 0 {
+			return nameCmp
+		}
+		return strings.Compare(strings.ToLower(strings.TrimSpace(a.ID)), strings.ToLower(strings.TrimSpace(b.ID)))
+	})
+	return devices
+}
+
 func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -1317,7 +1353,7 @@ func (c *WLEDController) DeleteDMXFixture(id string) error {
 }
 
 func (c *WLEDController) ListUSBSerialDevices() []USBSerialDevice {
-	return serial2.ListUSBSerialDevices()
+	return c.listUSBSerialDevicesWithSimulators()
 }
 
 func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
@@ -1326,7 +1362,7 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 	}
 	deviceID = strings.TrimSpace(deviceID)
 	if deviceID != "" {
-		dev, ok := dmx.PickUSBSerialDevice(deviceID, serial2.ListUSBSerialDevices())
+		dev, ok := dmx.PickUSBSerialDevice(deviceID, c.listUSBSerialDevicesWithSimulators())
 		if !ok {
 			return fmt.Errorf("selected usb serial device is not currently attached: %s", deviceID)
 		}
@@ -1349,21 +1385,21 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 const dmxLiveFrameHz = 44
 const dmxAdapterQueueDepth = 2
 
-func (c *WLEDController) resolveSelectedUSBPath() (string, error) {
+func (c *WLEDController) resolveSelectedUSBDevice() (serial2.USBSerialDevice, error) {
 	c.mu.RLock()
 	deviceID := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
 	c.mu.RUnlock()
 	if deviceID == "" {
-		return "", fmt.Errorf("no USB DMX device selected; choose one in Settings")
+		return serial2.USBSerialDevice{}, fmt.Errorf("no USB DMX device selected; choose one in Settings")
 	}
-	dev, ok := dmx.PickUSBSerialDevice(deviceID, serial2.ListUSBSerialDevices())
+	dev, ok := dmx.PickUSBSerialDevice(deviceID, c.listUSBSerialDevicesWithSimulators())
 	if !ok {
-		return "", fmt.Errorf("selected USB serial device is not currently attached")
+		return serial2.USBSerialDevice{}, fmt.Errorf("selected USB serial device is not currently attached")
 	}
 	if strings.TrimSpace(dev.Path) == "" {
-		return "", fmt.Errorf("selected USB device has no path")
+		return serial2.USBSerialDevice{}, fmt.Errorf("selected USB device has no path")
 	}
-	return dev.Path, nil
+	return dev, nil
 }
 
 func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
@@ -1474,10 +1510,38 @@ func (c *WLEDController) stopDMXArtNetAdapterLocked() {
 }
 
 func (c *WLEDController) startDMXUSBAdapter() error {
-	path, err := c.resolveSelectedUSBPath()
+	dev, err := c.resolveSelectedUSBDevice()
 	if err != nil {
 		return err
 	}
+	if strings.TrimSpace(dev.ID) == simulatedUSBDMXDeviceID {
+		c.dmxLiveMu.Lock()
+		if !c.dmxLiveRunning {
+			c.dmxLiveMu.Unlock()
+			return nil
+		}
+		if c.dmxLiveUSBFrames != nil && c.dmxLiveUSBPath == simulatedUSBDMXPath {
+			c.dmxLiveMu.Unlock()
+			return nil
+		}
+		c.stopDMXUSBAdapterLocked()
+		frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+		c.dmxLiveUSBFrames = frameCh
+		c.dmxLiveUSBPath = simulatedUSBDMXPath
+		c.dmxLiveUSBName = simulatedUSBDMXName
+		seed := c.dmxLiveBuf
+		c.dmxLiveWG.Add(1)
+		go c.dmxLiveUSBSimulatorWorker(frameCh, simulatedUSBDMXPath)
+		queueLatestDMXFrame(frameCh, seed)
+		c.dmxLiveMu.Unlock()
+
+		c.logger.Printf("dmx live: usb simulator adapter started")
+		if c.console != nil {
+			c.console.Info(console.TransportUSBDMX, simulatedUSBDMXPath, fmt.Sprintf("USB DMX simulator started @ %dHz", dmxLiveFrameHz))
+		}
+		return nil
+	}
+	path := strings.TrimSpace(dev.Path)
 	rawPath := path
 	path = serial2.SerialPortForDMXWrite(path)
 	c.dmxLiveMu.Lock()
@@ -1527,6 +1591,45 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 
 func (c *WLEDController) startDMXArtNetAdapter(settings ArtNetSettings) error {
 	clampArtNetSettings(&settings)
+	c.mu.RLock()
+	simulated := c.settings.DMX.Testing.SimulateArtNet
+	c.mu.RUnlock()
+	if simulated {
+		path := fmt.Sprintf("sim://artnet/net-%d/subnet-%d/universe-%d", settings.Net, settings.Subnet, settings.Universe)
+		name := fmt.Sprintf("Simulated Art-Net (N%d S%d U%d)", settings.Net, settings.Subnet, settings.Universe)
+		hz := settings.RefreshHz
+		if hz <= 0 {
+			hz = dmxLiveFrameHz
+		}
+		c.dmxLiveMu.Lock()
+		if !c.dmxLiveRunning {
+			c.dmxLiveMu.Unlock()
+			return nil
+		}
+		if c.dmxLiveArtFrames != nil && c.dmxLiveArtPath == path && c.dmxLiveArtHz == hz {
+			c.dmxLiveMu.Unlock()
+			return nil
+		}
+		c.stopDMXArtNetAdapterLocked()
+		frameCh := make(chan [512]byte, dmxAdapterQueueDepth)
+		c.dmxLiveArtFrames = frameCh
+		c.dmxLiveArtPath = path
+		c.dmxLiveArtName = name
+		c.dmxLiveArtTarget = path
+		c.dmxLiveArtHz = hz
+		seed := c.dmxLiveBuf
+		c.dmxLiveWG.Add(1)
+		go c.dmxLiveArtNetSimulatorWorker(frameCh, settings, path)
+		queueLatestDMXFrame(frameCh, seed)
+		c.dmxLiveMu.Unlock()
+
+		c.logger.Printf("dmx live: artnet simulator adapter started net=%d subnet=%d universe=%d hz=%d", settings.Net, settings.Subnet, settings.Universe, hz)
+		if c.console != nil {
+			c.console.Info(console.TransportArtNet, path,
+				fmt.Sprintf("Art-Net simulator started net=%d subnet=%d universe=%d hz=%d", settings.Net, settings.Subnet, settings.Universe, hz))
+		}
+		return nil
+	}
 	target := net.JoinHostPort(settings.TargetHost, fmt.Sprintf("%d", settings.Port))
 	remote, err := net.ResolveUDPAddr("udp", target)
 	if err != nil {
@@ -1665,15 +1768,42 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 				}
 				continue
 			}
+			frameSummary := dmxFrameSummary(latest)
 			if c.console != nil {
 				now := time.Now()
 				if now.Sub(lastConsoleAt) >= consoleInterval {
 					lastConsoleAt = now
+					c.logger.Printf("dmx live: usb frame sent path=%s hz=%d %s", path, dmxLiveFrameHz, frameSummary)
 					c.console.Out(console.TransportUSBDMX, path,
 						fmt.Sprintf("DMX frame sent (%dHz, 513 bytes)", dmxLiveFrameHz),
-						dmxFrameSummary(latest))
+						frameSummary)
 				}
 			}
+		}
+	}
+}
+
+func (c *WLEDController) dmxLiveUSBSimulatorWorker(frameCh <-chan [512]byte, path string) {
+	defer c.dmxLiveWG.Done()
+	defer func() {
+		if c.console != nil {
+			c.console.Info(console.TransportUSBDMX, path, "USB DMX simulator worker stopped")
+		}
+	}()
+	hz := dmxLiveFrameHz
+	ticker := time.NewTicker(time.Second / time.Duration(hz))
+	defer ticker.Stop()
+
+	var latest [512]byte
+	for {
+		select {
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
+		case <-ticker.C:
+			_ = latest
 		}
 	}
 }
@@ -1717,15 +1847,46 @@ func (c *WLEDController) dmxLiveArtNetWorker(frameCh <-chan [512]byte, conn *net
 				now := time.Now()
 				if now.Sub(lastConsoleAt) >= consoleInterval {
 					lastConsoleAt = now
+					frameSummary := dmxFrameSummary(latest)
+					c.logger.Printf("dmx live: artnet frame sent target=%s seq=%d net=%d subnet=%d universe=%d hz=%d %s",
+						target, seq, settings.Net, settings.Subnet, settings.Universe, hz, frameSummary)
 					c.console.Out(console.TransportArtNet, target,
 						fmt.Sprintf("ArtDmx seq=%d net=%d subnet=%d universe=%d (%d bytes)", seq, settings.Net, settings.Subnet, settings.Universe, len(packet)),
-						dmxFrameSummary(latest))
+						frameSummary)
 				}
 			}
 			seq++
 			if seq == 0 {
 				seq = 1
 			}
+		}
+	}
+}
+
+func (c *WLEDController) dmxLiveArtNetSimulatorWorker(frameCh <-chan [512]byte, settings ArtNetSettings, target string) {
+	defer c.dmxLiveWG.Done()
+	defer func() {
+		if c.console != nil {
+			c.console.Info(console.TransportArtNet, target, "Art-Net simulator worker stopped")
+		}
+	}()
+	hz := settings.RefreshHz
+	if hz <= 0 {
+		hz = dmxLiveFrameHz
+	}
+	ticker := time.NewTicker(time.Second / time.Duration(hz))
+	defer ticker.Stop()
+
+	var latest [512]byte
+	for {
+		select {
+		case next, ok := <-frameCh:
+			if !ok {
+				return
+			}
+			latest = next
+		case <-ticker.C:
+			_ = latest
 		}
 	}
 }
@@ -2370,6 +2531,10 @@ func DefaultControllerSettings() ControllerSettings {
 				Universe:   0,
 				RefreshHz:  dmxLiveFrameHz,
 			},
+			Testing: DMXTestingSettings{
+				SimulateUSBDMX: false,
+				SimulateArtNet: false,
+			},
 		},
 	}
 }
@@ -2404,7 +2569,9 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.DMX.ArtNet.Net > 0 ||
 		out.DMX.ArtNet.Subnet > 0 ||
 		out.DMX.ArtNet.Universe > 0 ||
-		out.DMX.ArtNet.RefreshHz > 0
+		out.DMX.ArtNet.RefreshHz > 0 ||
+		out.DMX.Testing.SimulateUSBDMX ||
+		out.DMX.Testing.SimulateArtNet
 	if !hasDMXConfig {
 		out.DMX.Enabled = defaults.DMX.Enabled
 	}

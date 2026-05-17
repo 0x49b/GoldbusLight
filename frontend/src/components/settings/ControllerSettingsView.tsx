@@ -587,6 +587,41 @@ export function ControllerSettingsView({
                                     DMX pages and menu entries are hidden, and live USB/Art-Net output is disconnected.
                                 </p>
                             )}
+
+                            <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                                <p className="text-xs font-medium text-muted-foreground">DMX simulator interfaces</p>
+                                <label className="flex items-center gap-3">
+                                    <Switch
+                                        checked={settings.dmx.testing.simulateUsbDmx}
+                                        onCheckedChange={(checked) => updateSettings({
+                                            ...settings,
+                                            dmx: {
+                                                ...settings.dmx,
+                                                testing: {...settings.dmx.testing, simulateUsbDmx: checked}
+                                            }
+                                        }, "immediate")}
+                                        disabled={dmxControlsDisabled}
+                                    />
+                                    <span>Simulate USB-DMX512 interface</span>
+                                </label>
+                                <label className="flex items-center gap-3">
+                                    <Switch
+                                        checked={settings.dmx.testing.simulateArtNet}
+                                        onCheckedChange={(checked) => updateSettings({
+                                            ...settings,
+                                            dmx: {
+                                                ...settings.dmx,
+                                                testing: {...settings.dmx.testing, simulateArtNet: checked}
+                                            }
+                                        }, "immediate")}
+                                        disabled={dmxControlsDisabled}
+                                    />
+                                    <span>Simulate Art-Net interface</span>
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                    Simulated interfaces run in-process workers so DMX live output can be tested without hardware.
+                                </p>
+                            </div>
                         </CardContent>
                     </Card>
 
