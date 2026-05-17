@@ -3,12 +3,14 @@
 
 export {
     AccessPointSettings,
+    ArtNetSettings,
     ControllerCapabilities,
     ControllerSettings,
     ControllerSnapshot,
     DMXChannel,
     DMXFixture,
     DMXFixtureType,
+    DMXSettings,
     DMXState,
     DiscoverySettings,
     GeneralTabState,
@@ -20,5 +22,6 @@ export {
     USBSerialDevice,
     UpsertDMXFixtureInput,
     WLEDDevice,
-    WLEDDeviceDetail
+    WLEDDeviceDetail,
+    WLEDSettings
 } from "./models.js";
