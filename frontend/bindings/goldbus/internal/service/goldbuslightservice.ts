@@ -32,6 +32,9 @@ export function ApplyNetworkSettings(): $CancellablePromise<controller$0.Network
     });
 }
 
+/**
+ * ClearConsoleEntries empties the live transport console buffer.
+ */
 export function ClearConsoleEntries(): $CancellablePromise<void> {
     return $Call.ByID(1300755656);
 }
@@ -96,15 +99,19 @@ export function Greet(name: string): $CancellablePromise<string> {
     return $Call.ByID(1436929455, name);
 }
 
+/**
+ * ListConsoleEntries returns transport console entries with ID greater than
+ * afterID, capped at limit. Used by the Settings → Console tab.
+ */
 export function ListConsoleEntries(afterID: number, limit: number): $CancellablePromise<console$0.Entry[]> {
     return $Call.ByID(3101953237, afterID, limit).then(($result: any) => {
-        return $$createTypeConsoleEntries($result);
+        return $$createType10($result);
     });
 }
 
 export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSerialDevice[]> {
     return $Call.ByID(147791315).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType12($result);
     });
 }
 
@@ -152,7 +159,7 @@ export function SetDeviceState(deviceID: string, state: { [_ in string]?: any })
 
 export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
     return $Call.ByID(918662134, state).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType13($result);
     });
 }
 
@@ -186,8 +193,8 @@ const $$createType5 = controller$0.ControllerSnapshot.createFrom;
 const $$createType6 = dmx$0.DMXLiveStatus.createFrom;
 const $$createType7 = controller$0.DMXState.createFrom;
 const $$createType8 = controller$0.WLEDDeviceDetail.createFrom;
-const $$createType9 = serial$0.USBSerialDevice.createFrom;
+const $$createType9 = console$0.Entry.createFrom;
 const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $Create.Map($Create.Any, $Create.Any);
-const $$createTypeConsoleEntry = console$0.Entry.createFrom;
-const $$createTypeConsoleEntries = $Create.Array($$createTypeConsoleEntry);
+const $$createType11 = serial$0.USBSerialDevice.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = $Create.Map($Create.Any, $Create.Any);
