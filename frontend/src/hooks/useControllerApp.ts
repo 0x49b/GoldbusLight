@@ -875,6 +875,15 @@ export function useControllerApp() {
             setBusy(true);
             try {
                 const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
+                if (dmxLiveStatus?.connected && dmxLiveStatus.fixtureId === updated.id) {
+                    await GreetService.StartDMXLive(updated.id);
+                    try {
+                        const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                        setDmxLiveStatus(st);
+                    } catch {
+                        setDmxLiveStatus(null);
+                    }
+                }
                 await pullDMXState();
                 setStatus(`Fixture "${updated.name}" updated`);
                 setError("");
@@ -886,7 +895,7 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [ensureDMXEnabled, pullDMXState],
+        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, ensureDMXEnabled, pullDMXState],
     );
 
     const onReaddressDMXFixtures = useCallback(
@@ -924,6 +933,15 @@ export function useControllerApp() {
                 }
 
                 if (changed > 0) {
+                    if (dmxLiveStatus?.connected && dmxLiveStatus.fixtureId && normalized.has(dmxLiveStatus.fixtureId)) {
+                        await GreetService.StartDMXLive(dmxLiveStatus.fixtureId);
+                        try {
+                            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                            setDmxLiveStatus(st);
+                        } catch {
+                            setDmxLiveStatus(null);
+                        }
+                    }
                     await pullDMXState();
                     setStatus(successLabel ?? `Readdressed ${changed} fixture${changed === 1 ? "" : "s"}`);
                     setError("");
@@ -939,7 +957,7 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [dmxState.fixtures, ensureDMXEnabled, pullDMXState],
+        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, dmxState.fixtures, ensureDMXEnabled, pullDMXState],
     );
 
     const onDeleteDMXFixture = useCallback(

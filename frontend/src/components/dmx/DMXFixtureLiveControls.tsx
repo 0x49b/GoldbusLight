@@ -11,7 +11,6 @@ import {
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Label} from "@/components/ui/label";
-import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Separator} from "@/components/ui/separator";
 import {Slider} from "@/components/ui/slider";
 import {cn} from "@/lib/utils";
@@ -23,9 +22,6 @@ type DMXFixtureLiveControlsProps = {
     busy: boolean;
     liveStatus: DMXLiveStatus | null;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
-    startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
-    stopDMXLiveOutput: () => Promise<void>;
-    pullDMXLiveStatus: () => Promise<void>;
 };
 
 function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
@@ -36,11 +32,11 @@ function allChannelsOfType(channels: DMXFixture["channels"], type: DMXChannelTyp
     return channels.filter((c) => c.type === type);
 }
 
-const SHUTTER_OPTIONS: { value: DMXLiveShutterMode; label: string }[] = [
-    {value: "open", label: "Open"},
-    {value: "closed", label: "Closed"},
-    {value: "strobe", label: "Strobe"},
-    {value: "pulse", label: "Pulse"},
+const SHUTTER_OPTIONS: { value: DMXLiveShutterMode; label: string; symbol: string }[] = [
+    {value: "open", label: "Open", symbol: "●"},
+    {value: "closed", label: "Closed", symbol: "○"},
+    {value: "strobe", label: "Strobe", symbol: "⚡"},
+    {value: "pulse", label: "Pulse", symbol: "▲"},
 ];
 
 export function DMXFixtureLiveControls({
@@ -48,9 +44,6 @@ export function DMXFixtureLiveControls({
                                            busy,
                                            liveStatus,
                                            queueDmxLivePatch,
-                                           startDMXLiveOutput,
-                                           stopDMXLiveOutput,
-                                           pullDMXLiveStatus,
                                        }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState());
@@ -114,16 +107,6 @@ export function DMXFixtureLiveControls({
         setLiveState((s) => ({...s, ...partial}));
     }, []);
 
-    const onStart = useCallback(async () => {
-        await startDMXLiveOutput(fixture.id);
-        await pullDMXLiveStatus();
-    }, [fixture.id, pullDMXLiveStatus, startDMXLiveOutput]);
-
-    const onStop = useCallback(async () => {
-        await stopDMXLiveOutput();
-        await pullDMXLiveStatus();
-    }, [pullDMXLiveStatus, stopDMXLiveOutput]);
-
     const sliderDisabled = busy || !connected;
     const noneConfigured =
         !hasPan &&
@@ -141,33 +124,6 @@ export function DMXFixtureLiveControls({
 
     return (
         <div className="space-y-4">
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-base">DMX output</CardTitle>
-                    <CardDescription>
-                        Start streaming to the active DMX transport from Settings (USB or Art-Net),
-                        then use the controls below.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" onClick={() => void onStart()}
-                            disabled={busy || connected}>
-                        Start live
-                    </Button>
-                    <Button type="button" size="sm" variant="destructive"
-                            onClick={() => void onStop()} disabled={busy || !connected}>
-                        Stop live
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-            {connected
-                ? `Connected${liveStatus?.deviceName ? ` (${liveStatus.deviceName})` : ""}`
-                : "Disconnected"}
-          </span>
-                    {liveStatus?.error ? (
-                        <span className="text-sm text-destructive">{liveStatus.error}</span>
-                    ) : null}
-                </CardContent>
-            </Card>
 
             {noneConfigured ? (
                 <Card>
@@ -180,10 +136,6 @@ export function DMXFixtureLiveControls({
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Live controls</CardTitle>
-                        <CardDescription>
-                            Values map through your fixture definition to DMX addresses and stream
-                            through the active transport.
-                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">
                         {(hasPan || hasTilt || hasDimmer || hasMovementSpeed) && (
@@ -350,19 +302,39 @@ export function DMXFixtureLiveControls({
                                         {hasShutter && (
                                             <div className="space-y-2 md:col-span-2">
                                                 <Label>Shutter / strobe</Label>
-                                                <NativeSelect
-                                                    value={liveState.shutter}
-                                                    onChange={(e) => patchState({shutter: e.target.value as DMXLiveShutterMode})}
-                                                    disabled={sliderDisabled}
-                                                    className="max-w-xs"
+                                                <div
+                                                    className={cn(
+                                                        "grid w-full max-w-md grid-cols-2 overflow-hidden rounded-lg border border-border",
+                                                        sliderDisabled && "pointer-events-none opacity-60",
+                                                    )}
+                                                    role="group"
+                                                    aria-label="Shutter and strobe modes"
                                                 >
-                                                    {SHUTTER_OPTIONS.map((o) => (
-                                                        <NativeSelectOption key={o.value}
-                                                                            value={o.value}>
-                                                            {o.label}
-                                                        </NativeSelectOption>
-                                                    ))}
-                                                </NativeSelect>
+                                                    {SHUTTER_OPTIONS.map((o, idx) => {
+                                                        const active = liveState.shutter === o.value;
+                                                        return (
+                                                            <button
+                                                                key={o.value}
+                                                                type="button"
+                                                                onClick={() => patchState({shutter: o.value})}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold transition-colors",
+                                                                    idx % 2 === 0 && "border-r border-border",
+                                                                    idx < 2 && "border-b border-border",
+                                                                    active
+                                                                        ? "bg-primary text-primary-foreground ring-1 ring-primary/80"
+                                                                        : "bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                                                                )}
+                                                                aria-pressed={active}
+                                                                disabled={sliderDisabled}
+                                                            >
+                                                                <span className="text-base leading-none"
+                                                                      aria-hidden>{o.symbol}</span>
+                                                                <span>{o.label}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         )}
                                         {hasFocus && (

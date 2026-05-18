@@ -13,6 +13,12 @@ import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
 import {Separator} from "@/components/ui/separator";
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
     Table,
     TableBody,
     TableCell,
@@ -25,6 +31,7 @@ import {
     ArrowDownRight,
     ArrowUpRight,
     Minus,
+    MoreHorizontal,
     RotateCcw,
     RotateCw,
     Triangle,
@@ -515,6 +522,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const isCurrentFixtureLive =
+        props.fixture != null &&
+        props.dmxLiveStatus?.connected === true &&
+        props.dmxLiveStatus.fixtureId === props.fixture.id;
+    const actionGroupDisabled = props.busy || isCurrentFixtureLive;
 
     useEffect(() => {
         if (props.fixture) {
@@ -748,6 +760,18 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             props.onOpenFixture(created.id);
         }
     };
+    const handleToggleLive = async () => {
+        if (!props.fixture || props.busy) {
+            return;
+        }
+        if (isCurrentFixtureLive) {
+            await props.stopDMXLiveOutput();
+            await props.pullDMXLiveStatus();
+            return;
+        }
+        await props.startDMXLiveOutput(props.fixture.id);
+        await props.pullDMXLiveStatus();
+    };
 
     return (
         <div className="space-y-4">
@@ -784,21 +808,52 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={handleSave} disabled={props.busy} size="sm">
-                        Save
-                    </Button>
                     {props.fixture && (
-                        <Button type="button" variant="secondary" onClick={handleClone}
-                                disabled={props.busy} size="sm">
-                            Clone
+                        <Button
+                            type="button"
+                            variant={isCurrentFixtureLive ? "destructive" : "secondary"}
+                            size="sm"
+                            onClick={() => void handleToggleLive()}
+                            disabled={props.busy}
+                        >
+                            {isCurrentFixtureLive ? "Stop live" : "Start live"}
                         </Button>
                     )}
-                    {props.fixture && (
-                        <Button type="button" variant="destructive" onClick={() => setDeleteConfirmOpen(true)}
-                                disabled={props.busy} size="sm">
-                            Delete
+                    <ButtonGroup className={cn(actionGroupDisabled && "opacity-60")}>
+                        <Button onClick={handleSave} disabled={actionGroupDisabled} size="sm" variant="outline">
+                            Save
                         </Button>
-                    )}
+                        {props.fixture && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon-sm"
+                                        aria-label="More actions"
+                                        disabled={actionGroupDisabled}
+                                    >
+                                        <MoreHorizontal className="size-4"/>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem
+                                        disabled={actionGroupDisabled}
+                                        onClick={() => void handleClone()}
+                                    >
+                                        Clone
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        disabled={actionGroupDisabled}
+                                        onClick={() => setDeleteConfirmOpen(true)}
+                                    >
+                                        Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </ButtonGroup>
                 </div>
             </div>
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -836,9 +891,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     busy={props.busy}
                     liveStatus={props.dmxLiveStatus}
                     queueDmxLivePatch={props.queueDmxLivePatch}
-                    startDMXLiveOutput={props.startDMXLiveOutput}
-                    stopDMXLiveOutput={props.stopDMXLiveOutput}
-                    pullDMXLiveStatus={props.pullDMXLiveStatus}
                 />
             ) : (
                 <>
