@@ -1,18 +1,24 @@
+import {useEffect, useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
-import type {DMXFixture, DMXPartyConfig, DMXPartyState} from "../../types/controller";
+import type {
+    DMXFixture,
+    DMXPartyAudioInputDevice,
+    DMXPartyAudioSourcePreset,
+    DMXPartyConfig,
+    DMXPartyState,
+} from "../../types/controller";
+import {formatPartyTimestamp, listUSBMicDevices, pickLoopbackDevice, pickUSBMicDevice} from "../../lib/dmxPartyAudio";
 
 type DMXPartyPanelProps = {
     fixtures: DMXFixture[];
     party: DMXPartyState;
     busy: boolean;
     liveConnected: boolean;
-    audioInputDevices: MediaDeviceInfo[];
-    audioCapturing: boolean;
+    audioInputDevices: DMXPartyAudioInputDevice[];
+    onRefreshAudioDevices: () => Promise<void>;
     onUpdateConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
     onStart: () => Promise<boolean>;
     onStop: () => Promise<void>;
-    onStartAudioCapture: (deviceId?: string) => Promise<boolean>;
-    onStopAudioCapture: () => void;
 };
 
 function normalizePercent(v: number): number {
@@ -22,24 +28,79 @@ function normalizePercent(v: number): number {
     return Math.max(0, Math.min(100, Math.round(v)));
 }
 
+function inferAudioSourcePreset(config: DMXPartyConfig, devices: DMXPartyAudioInputDevice[]): DMXPartyAudioSourcePreset {
+    const deviceId = config.audioInputDeviceId || "";
+    if (!deviceId) {
+        return "mic";
+    }
+    const match = devices.find((device) => device.id === deviceId);
+    if (match?.isLoopback) {
+        return "loopback";
+    }
+    if (match?.isUSB) {
+        return "usbMic";
+    }
+    return "custom";
+}
+
 export function DMXPartyPanel({
     fixtures,
     party,
     busy,
     liveConnected,
     audioInputDevices,
-    audioCapturing,
+    onRefreshAudioDevices,
     onUpdateConfig,
     onStart,
     onStop,
-    onStartAudioCapture,
-    onStopAudioCapture,
 }: DMXPartyPanelProps) {
     const config = party.config;
     const running = party.status.running;
     const mode = config.mode || "auto";
     const selectedFixtureIDs = new Set(config.fixtureIds ?? []);
     const allSelected = fixtures.length > 0 && fixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
+
+    const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
+        inferAudioSourcePreset(config, audioInputDevices),
+    );
+
+    useEffect(() => {
+        setAudioSourcePreset(inferAudioSourcePreset(config, audioInputDevices));
+    }, [config.audioInputDeviceId, audioInputDevices]);
+
+    useEffect(() => {
+        if (mode === "audio") {
+            void onRefreshAudioDevices();
+        }
+    }, [mode, onRefreshAudioDevices]);
+
+    const loopbackDevices = useMemo(
+        () => audioInputDevices.filter((device) => device.isLoopback),
+        [audioInputDevices],
+    );
+    const usbMicDevices = useMemo(
+        () => listUSBMicDevices(audioInputDevices),
+        [audioInputDevices],
+    );
+
+    const applyAudioPreset = async (preset: DMXPartyAudioSourcePreset) => {
+        setAudioSourcePreset(preset);
+        if (preset === "mic") {
+            const builtin = audioInputDevices.find((device) => device.isBuiltin && device.isDefault)
+                ?? audioInputDevices.find((device) => device.isBuiltin);
+            await onUpdateConfig({audioInputDeviceId: builtin?.id ?? ""});
+            return;
+        }
+        if (preset === "usbMic") {
+            const usbMic = pickUSBMicDevice(audioInputDevices);
+            await onUpdateConfig({audioInputDeviceId: usbMic?.id ?? ""});
+            return;
+        }
+        if (preset === "loopback") {
+            const loopback = pickLoopbackDevice(audioInputDevices);
+            await onUpdateConfig({audioInputDeviceId: loopback?.id ?? ""});
+        }
+    };
 
     const setSlider = (field: "intensity" | "speed" | "colorVariation" | "audioSensitivity", raw: number) => {
         void onUpdateConfig({[field]: normalizePercent(raw)});
@@ -113,6 +174,18 @@ export function DMXPartyPanel({
                 </div>
             </div>
 
+            {running && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
+                    {mode === "audio" && (
+                        <span>Last audio: {formatPartyTimestamp(party.status.lastAudioAt)}</span>
+                    )}
+                    {party.status.partyBlocksManualPatch && (
+                        <span>Manual live patches blocked on party channels</span>
+                    )}
+                </div>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-3">
                 <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
                     <span className="font-medium">Mode</span>
@@ -136,47 +209,116 @@ export function DMXPartyPanel({
             </div>
 
             {mode === "audio" && (
-                <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-2">
-                    <label className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                        <span className="font-medium">Input device</span>
-                        <select
-                            className="rounded-md border bg-background px-2 py-1 text-sm"
-                            value={config.audioInputDeviceId || ""}
+                <div className="mt-3 space-y-2 rounded-md border bg-muted/30 p-2">
+                    <div className="flex flex-wrap items-end gap-2">
+                        <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
+                            <span className="font-medium">Source preset</span>
+                            <select
+                                className="rounded-md border bg-background px-2 py-1 text-sm"
+                                value={audioSourcePreset}
+                                disabled={busy}
+                                onChange={(event) => {
+                                    const preset = event.target.value as DMXPartyAudioSourcePreset;
+                                    void applyAudioPreset(preset);
+                                }}
+                            >
+                                <option value="mic">Built-in microphone</option>
+                                <option value="usbMic">USB microphone</option>
+                                <option value="loopback">Loopback / line-in</option>
+                                <option value="custom">Custom device</option>
+                            </select>
+                        </label>
+
+                        {audioSourcePreset === "usbMic" && (
+                            <label className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                                <span className="font-medium">USB microphone</span>
+                                <select
+                                    className="rounded-md border bg-background px-2 py-1 text-sm"
+                                    value={config.audioInputDeviceId || ""}
+                                    disabled={busy || usbMicDevices.length === 0}
+                                    onChange={(event) => {
+                                        void onUpdateConfig({audioInputDeviceId: event.target.value});
+                                    }}
+                                >
+                                    {usbMicDevices.length === 0 ? (
+                                        <option value="">No USB microphone found</option>
+                                    ) : (
+                                        usbMicDevices.map((device) => (
+                                            <option key={device.id} value={device.id}>
+                                                {device.name || `USB mic ${device.id.slice(0, 6)}`}
+                                                {device.isDefault ? " (system default)" : ""}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                            </label>
+                        )}
+
+                        {audioSourcePreset === "custom" && (
+                            <label className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                                <span className="font-medium">Input device</span>
+                                <select
+                                    className="rounded-md border bg-background px-2 py-1 text-sm"
+                                    value={config.audioInputDeviceId || ""}
+                                    disabled={busy}
+                                    onChange={(event) => {
+                                        void onUpdateConfig({audioInputDeviceId: event.target.value});
+                                    }}
+                                >
+                                    <option value="">Default input</option>
+                                    {audioInputDevices.map((device) => (
+                                        <option key={device.id} value={device.id}>
+                                            {device.name || `Audio input ${device.id.slice(0, 6)}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
                             disabled={busy}
-                            onChange={(event) => {
-                                const nextDeviceID = event.target.value;
-                                void onUpdateConfig({audioInputDeviceId: nextDeviceID});
-                                if (audioCapturing) {
-                                    void onStartAudioCapture(nextDeviceID || undefined);
-                                }
-                            }}
+                            onClick={() => void onRefreshAudioDevices()}
                         >
-                            <option value="">Default input</option>
-                            {audioInputDevices.map((device) => (
-                                <option key={device.deviceId} value={device.deviceId}>
-                                    {device.label || `Audio input ${device.deviceId.slice(0, 6)}`}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant={audioCapturing ? "destructive" : "outline"}
-                        disabled={busy}
-                        onClick={() => {
-                            if (audioCapturing) {
-                                onStopAudioCapture();
-                            } else {
-                                void onStartAudioCapture(config.audioInputDeviceId || undefined);
-                            }
-                        }}
-                    >
-                        {audioCapturing ? "Stop capture" : "Start capture"}
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                        Level {(party.audio.level * 100).toFixed(0)}% · Beat {(party.audio.beat * 100).toFixed(0)}%
-                    </span>
+                            Refresh devices
+                        </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                            Capture: {party.status.audioCapturing ? "active (native)" : running ? "starting…" : "starts with Party"}
+                        </span>
+                        <span>Level {(party.audio.level * 100).toFixed(0)}%</span>
+                        <span>Bass {(party.audio.bass * 100).toFixed(0)}%</span>
+                        <span>Mid {(party.audio.mid * 100).toFixed(0)}%</span>
+                        <span>Treble {(party.audio.treble * 100).toFixed(0)}%</span>
+                        <span>Beat {(party.audio.beat * 100).toFixed(0)}%</span>
+                    </div>
+
+                    {audioSourcePreset === "usbMic" && usbMicDevices.length === 0 && (
+                        <p className="text-xs text-amber-600">
+                            No USB microphone detected. Plug in your USB mic, then click Refresh devices.
+                        </p>
+                    )}
+                    {audioSourcePreset === "loopback" && loopbackDevices.length === 0 && (
+                        <p className="text-xs text-amber-600">
+                            No loopback device found. Install a virtual audio cable (BlackHole on macOS, VB-Audio or
+                            Stereo Mix on Windows) and refresh devices.
+                        </p>
+                    )}
+                    {audioInputDevices.length === 0 && (
+                        <p className="text-xs text-amber-600">No audio input devices were found.</p>
+                    )}
+                    {party.status.audioNoSignal && (
+                        <p className="text-xs text-amber-600">
+                            No signal detected. Check input volume, routing, or loopback setup.
+                        </p>
+                    )}
+                    {party.status.audioCaptureError ? (
+                        <p className="text-xs text-destructive">{party.status.audioCaptureError}</p>
+                    ) : null}
                 </div>
             )}
 

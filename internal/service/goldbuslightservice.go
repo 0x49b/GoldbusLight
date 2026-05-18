@@ -241,9 +241,9 @@ func (g *GoldbusLightService) StopDMXParty() {
 	})
 }
 
-func (g *GoldbusLightService) PushDMXPartyAudioFeatures(features ctrlpkg.DMXPartyAudioFeatures) (ctrlpkg.DMXPartyState, error) {
-	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXPartyState, error) {
-		return c.PushDMXPartyAudioFeatures(features)
+func (g *GoldbusLightService) ListDMXPartyAudioInputDevices() ([]ctrlpkg.DMXPartyAudioInputDevice, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) ([]ctrlpkg.DMXPartyAudioInputDevice, error) {
+		return c.ListDMXPartyAudioInputDevices()
 	})
 }
 

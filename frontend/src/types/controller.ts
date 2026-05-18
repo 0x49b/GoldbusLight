@@ -234,6 +234,15 @@ export type DMXPartyAudioFeatures = {
     deviceId?: string;
 };
 
+export type DMXPartyAudioInputDevice = {
+    id: string;
+    name: string;
+    isDefault: boolean;
+    isLoopback: boolean;
+    isBuiltin: boolean;
+    isUSB: boolean;
+};
+
 export type DMXPartyStatus = {
     running: boolean;
     mode: DMXPartyMode;
@@ -241,7 +250,13 @@ export type DMXPartyStatus = {
     lastFrameAt?: string;
     lastAudioAt?: string;
     audioInputDeviceId?: string;
+    partyBlocksManualPatch?: boolean;
+    audioCapturing?: boolean;
+    audioNoSignal?: boolean;
+    audioCaptureError?: string;
 };
+
+export type DMXPartyAudioSourcePreset = "mic" | "usbMic" | "loopback" | "custom";
 
 export type DMXPartyState = {
     config: DMXPartyConfig;

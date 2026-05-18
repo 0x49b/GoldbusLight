@@ -21,6 +21,7 @@ type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
     busy: boolean;
     liveStatus: DMXLiveStatus | null;
+    partyRunning: boolean;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
 };
 
@@ -43,6 +44,7 @@ export function DMXFixtureLiveControls({
                                            fixture,
                                            busy,
                                            liveStatus,
+                                           partyRunning,
                                            queueDmxLivePatch,
                                        }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
@@ -53,11 +55,11 @@ export function DMXFixtureLiveControls({
     }, [fixture.id]);
 
     useEffect(() => {
-        if (!connected) {
+        if (!connected || partyRunning) {
             return;
         }
         queueDmxLivePatch(buildDmxLivePatch(fixture, liveState));
-    }, [connected, fixture, liveState, queueDmxLivePatch]);
+    }, [connected, fixture, liveState, partyRunning, queueDmxLivePatch]);
 
     const chans = fixture.channels;
 
@@ -109,7 +111,7 @@ export function DMXFixtureLiveControls({
         setLiveState((s) => ({...s, ...partial}));
     }, []);
 
-    const sliderDisabled = busy || !connected;
+    const sliderDisabled = busy || !connected || partyRunning;
     const noneConfigured =
         !hasPan &&
         !hasTilt &&
@@ -126,6 +128,11 @@ export function DMXFixtureLiveControls({
 
     return (
         <div className="space-y-4">
+            {partyRunning && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                    Party mode controls this fixture. Stop Party to use manual live controls.
+                </div>
+            )}
 
             {noneConfigured ? (
                 <Card>

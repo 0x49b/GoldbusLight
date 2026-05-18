@@ -5,6 +5,7 @@ go 1.26.1
 require github.com/wailsapp/wails/v3 v3.0.0-alpha.91 //49.0.20251220134012-30af00528de2
 
 require (
+	github.com/gen2brain/malgo v0.11.25
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/mdns v1.0.6
 	go.bug.st/serial v1.6.4

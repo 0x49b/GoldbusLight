@@ -11,6 +11,7 @@ export {
     DMXFixture,
     DMXFixtureType,
     DMXPartyAudioFeatures,
+    DMXPartyAudioInputDevice,
     DMXPartyConfig,
     DMXPartyMode,
     DMXPartyState,

@@ -90,6 +90,7 @@ type DMXFixtureEditorViewProps = {
     stopDMXLiveOutput: () => Promise<void>;
     onRefreshUSBSerialDevices: () => Promise<void>;
     onSelectUSBSerialDevice: (deviceID: string) => Promise<void>;
+    partyRunning: boolean;
 };
 
 const DMX_CHANNEL_TYPES: DMXChannelType[] = [
@@ -911,6 +912,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     fixture={props.fixture}
                     busy={props.busy}
                     liveStatus={props.dmxLiveStatus}
+                    partyRunning={props.partyRunning}
                     queueDmxLivePatch={props.queueDmxLivePatch}
                 />
             ) : (

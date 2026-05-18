@@ -97,13 +97,11 @@ function App() {
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
                 queueDmxLivePatch={app.queueDmxLivePatch}
                 partyState={app.dmxPartyState}
-                audioInputDevices={app.audioInputDevices}
-                partyAudioCapturing={app.partyAudioCapturing}
+                partyAudioInputDevices={app.partyAudioInputDevices}
+                pullPartyAudioInputDevices={app.pullPartyAudioInputDevices}
                 setDMXPartyConfig={app.setDMXPartyConfig}
                 startDMXPartyMode={app.startDMXPartyMode}
                 stopDMXPartyMode={app.stopDMXPartyMode}
-                startPartyAudioCapture={app.startPartyAudioCapture}
-                stopPartyAudioCapture={app.stopPartyAudioCapture}
             />
         );
     } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {
@@ -125,6 +123,7 @@ function App() {
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
+                partyRunning={app.dmxPartyState?.status?.running === true}
             />
         );
     } else if (app.route.kind === "device" && app.wledEnabled) {

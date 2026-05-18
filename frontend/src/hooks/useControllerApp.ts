@@ -3,7 +3,6 @@ import {useShallow} from "zustand/shallow";
 import * as GreetService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {DMXLiveStatus, DMXOutputUpdate} from "../../bindings/goldbus/internal/dmx/models";
 import {
-    DMXPartyAudioFeatures as DMXPartyAudioFeaturesModel,
     DMXPartyConfig as DMXPartyConfigModel,
 } from "../../bindings/goldbus/internal/controller/models";
 import {useControllerStore} from "../store/controllerStore";
@@ -27,7 +26,7 @@ import type {
   ControllerSettings,
   ControllerSnapshot,
   DMXFixture,
-  DMXPartyAudioFeatures,
+  DMXPartyAudioInputDevice,
   DMXPartyConfig,
   DMXPartyMode,
   DMXPartyState,
@@ -46,7 +45,7 @@ const DEVICE_DETAIL_RETRY_DELAY_MS = 400;
 
 /** Background snapshot poll to pick up devices coming back online (matches header Refresh data). */
 const BACKGROUND_SNAPSHOT_POLL_MS = 30_000;
-const PARTY_AUDIO_PUSH_MS = 80;
+const PARTY_STATUS_POLL_MS = 1500;
 
 /** Live console poll interval. */
 const CONSOLE_POLL_MS = 750;
@@ -303,13 +302,7 @@ export function useControllerApp() {
     const dmxLivePendingRef = useRef<Map<number, number>>(new Map());
     const dmxLiveFlushTimerRef = useRef<number | undefined>(undefined);
     const [dmxLiveStatus, setDmxLiveStatus] = useState<DMXLiveStatus | null>(null);
-    const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
-    const [partyAudioCapturing, setPartyAudioCapturing] = useState(false);
-    const partyAudioStreamRef = useRef<MediaStream | null>(null);
-    const partyAudioContextRef = useRef<AudioContext | null>(null);
-    const partyAnalyserRef = useRef<AnalyserNode | null>(null);
-    const partyAudioPushTimerRef = useRef<number | undefined>(undefined);
-    const partyAudioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+    const [partyAudioInputDevices, setPartyAudioInputDevices] = useState<DMXPartyAudioInputDevice[]>([]);
     const settingsEditLockUntilRef = useRef(0);
 
     const markSettingsInteraction = useCallback((holdMs = 5000) => {
@@ -373,21 +366,27 @@ export function useControllerApp() {
         return next;
     }, []);
 
+    const pullDMXPartyState = useCallback(async () => {
+        const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+        setDMXState((prev) => ({...prev, party: state}));
+        return state;
+    }, [setDMXState]);
+
     const pullUSBSerialDevices = useCallback(async () => {
         const devices = (await GreetService.ListUSBSerialDevices()) as USBSerialDevice[];
         setUSBSerialDevices(devices);
         return devices;
     }, []);
 
-    const pullAudioInputDevices = useCallback(async () => {
-        if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) {
-            setAudioInputDevices([]);
+    const pullPartyAudioInputDevices = useCallback(async () => {
+        try {
+            const devices = (await GreetService.ListDMXPartyAudioInputDevices()) as DMXPartyAudioInputDevice[];
+            setPartyAudioInputDevices(devices);
+            return devices;
+        } catch {
+            setPartyAudioInputDevices([]);
             return [];
         }
-        const list = await navigator.mediaDevices.enumerateDevices();
-        const inputs = list.filter((d) => d.kind === "audioinput");
-        setAudioInputDevices(inputs);
-        return inputs;
     }, []);
 
     const pullSnapshot = useCallback(async () => {
@@ -451,11 +450,11 @@ export function useControllerApp() {
             setUSBSerialDevices([]);
         }
         try {
-            await pullAudioInputDevices();
+            await pullPartyAudioInputDevices();
         } catch {
-            setAudioInputDevices([]);
+            setPartyAudioInputDevices([]);
         }
-    }, [pullAudioInputDevices, pullDMXState, pullUSBSerialDevices]);
+    }, [pullDMXState, pullPartyAudioInputDevices, pullUSBSerialDevices]);
 
     useEffect(() => {
         void pullSnapshot().catch((err: unknown) => {
@@ -470,18 +469,10 @@ export function useControllerApp() {
     }, [pullSnapshot]);
 
     useEffect(() => {
-        if (typeof navigator === "undefined" || !navigator.mediaDevices) {
-            return;
-        }
-        const mediaDevices = navigator.mediaDevices;
-        const handler = () => {
-            void pullAudioInputDevices().catch(() => {
-                setAudioInputDevices([]);
-            });
-        };
-        mediaDevices.addEventListener?.("devicechange", handler);
-        return () => mediaDevices.removeEventListener?.("devicechange", handler);
-    }, [pullAudioInputDevices]);
+        void pullPartyAudioInputDevices().catch(() => {
+            setPartyAudioInputDevices([]);
+        });
+    }, [pullPartyAudioInputDevices]);
 
     const pullConsoleEntries = useCallback(async () => {
         const latest = useControllerStore.getState();
@@ -1063,42 +1054,6 @@ export function useControllerApp() {
         }
     }, [ensureDMXEnabled]);
 
-    const stopPartyAudioCapture = useCallback(() => {
-        if (partyAudioPushTimerRef.current !== undefined) {
-            window.clearInterval(partyAudioPushTimerRef.current);
-            partyAudioPushTimerRef.current = undefined;
-        }
-        if (partyAudioSourceRef.current) {
-            try {
-                partyAudioSourceRef.current.disconnect();
-            } catch {
-                /* ignore */
-            }
-            partyAudioSourceRef.current = null;
-        }
-        if (partyAnalyserRef.current) {
-            try {
-                partyAnalyserRef.current.disconnect();
-            } catch {
-                /* ignore */
-            }
-            partyAnalyserRef.current = null;
-        }
-        if (partyAudioStreamRef.current) {
-            for (const track of partyAudioStreamRef.current.getTracks()) {
-                track.stop();
-            }
-            partyAudioStreamRef.current = null;
-        }
-        if (partyAudioContextRef.current) {
-            void partyAudioContextRef.current.close().catch(() => {
-                /* ignore */
-            });
-            partyAudioContextRef.current = null;
-        }
-        setPartyAudioCapturing(false);
-    }, []);
-
     const setDMXPartyConfig = useCallback(
         async (partial: Partial<DMXPartyConfig>) => {
             if (!ensureDMXEnabled()) {
@@ -1143,7 +1098,6 @@ export function useControllerApp() {
     }, [ensureDMXEnabled, setBusy, setDMXState, setError, setStatus]);
 
     const stopDMXPartyMode = useCallback(async () => {
-        stopPartyAudioCapture();
         try {
             await GreetService.StopDMXParty();
             const state = await GreetService.GetDMXPartyState();
@@ -1151,113 +1105,22 @@ export function useControllerApp() {
         } catch {
             /* ignore */
         }
-    }, [setDMXState, stopPartyAudioCapture]);
-
-    const startPartyAudioCapture = useCallback(
-        async (deviceId?: string) => {
-            if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-                setError("Audio capture is not supported in this environment.");
-                return false;
-            }
-            stopPartyAudioCapture();
-            try {
-                const constraints: MediaStreamConstraints = {
-                    audio: deviceId
-                        ? {
-                              deviceId: {exact: deviceId},
-                              echoCancellation: false,
-                              noiseSuppression: false,
-                              autoGainControl: false,
-                          }
-                        : {
-                              echoCancellation: false,
-                              noiseSuppression: false,
-                              autoGainControl: false,
-                          },
-                    video: false,
-                };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                const AudioCtx = window.AudioContext || (window as typeof window & {webkitAudioContext?: typeof AudioContext}).webkitAudioContext;
-                if (!AudioCtx) {
-                    setError("Web Audio API is unavailable.");
-                    for (const track of stream.getTracks()) {
-                        track.stop();
-                    }
-                    return false;
-                }
-                const audioContext = new AudioCtx();
-                const analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.72;
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-
-                partyAudioStreamRef.current = stream;
-                partyAudioContextRef.current = audioContext;
-                partyAnalyserRef.current = analyser;
-                partyAudioSourceRef.current = source;
-
-                const selectedDeviceId = deviceId || dmxState.party?.config.audioInputDeviceId || "";
-                partyAudioPushTimerRef.current = window.setInterval(() => {
-                    const activeAnalyser = partyAnalyserRef.current;
-                    if (!activeAnalyser) {
-                        return;
-                    }
-                    const computed = extractPartyAudioFeatures(activeAnalyser);
-                    const payload = new DMXPartyAudioFeaturesModel({
-                        ...computed,
-                        capturedAt: new Date().toISOString(),
-                        deviceId: selectedDeviceId,
-                    });
-                    void GreetService.PushDMXPartyAudioFeatures(payload)
-                        .then((next) => {
-                            setDMXState((prev) => ({...prev, party: next as unknown as DMXPartyState}));
-                        })
-                        .catch(() => {
-                            /* ignore transient push errors */
-                        });
-                }, PARTY_AUDIO_PUSH_MS);
-                setPartyAudioCapturing(true);
-                setError("");
-                void pullAudioInputDevices().catch(() => {
-                    /* ignore */
-                });
-                return true;
-            } catch (err) {
-                setError(String(err));
-                stopPartyAudioCapture();
-                return false;
-            }
-        },
-        [dmxState.party?.config.audioInputDeviceId, pullAudioInputDevices, setDMXState, setError, stopPartyAudioCapture],
-    );
+    }, [setDMXState]);
 
     useEffect(() => {
-        return () => {
-            stopPartyAudioCapture();
-        };
-    }, [stopPartyAudioCapture]);
-
-    useEffect(() => {
-        const running = dmxPartyState?.status?.running === true;
-        const mode = dmxPartyState?.config?.mode ?? "auto";
-        if (!running || mode !== "audio") {
-            if (partyAudioCapturing) {
-                stopPartyAudioCapture();
-            }
+        if (dmxPartyState?.status?.running !== true) {
             return;
         }
-        if (!partyAudioCapturing) {
-            void startPartyAudioCapture(dmxPartyState?.config?.audioInputDeviceId || undefined);
-        }
-    }, [
-        dmxPartyState?.config?.audioInputDeviceId,
-        dmxPartyState?.config?.mode,
-        dmxPartyState?.status?.running,
-        partyAudioCapturing,
-        startPartyAudioCapture,
-        stopPartyAudioCapture,
-    ]);
+        void pullDMXPartyState().catch(() => {
+            /* ignore transient errors */
+        });
+        const timer = window.setInterval(() => {
+            void pullDMXPartyState().catch(() => {
+                /* ignore transient errors */
+            });
+        }, PARTY_STATUS_POLL_MS);
+        return () => window.clearInterval(timer);
+    }, [dmxPartyState?.status?.running, pullDMXPartyState]);
 
     const clampDmxByte = useCallback((v: number) => {
         const n = Math.round(v);
@@ -1293,6 +1156,9 @@ export function useControllerApp() {
 
     const queueDmxLivePatch = useCallback(
         (entries: Array<{ address: number; value: number }>) => {
+            if (dmxPartyState?.status?.running === true) {
+                return;
+            }
             for (const e of entries) {
                 if (e.address >= 1 && e.address <= 512) {
                     dmxLivePendingRef.current.set(e.address, clampDmxByte(e.value));
@@ -1306,7 +1172,7 @@ export function useControllerApp() {
                 void flushDmxLivePatch();
             }, 45);
         },
-        [clampDmxByte, flushDmxLivePatch],
+        [clampDmxByte, dmxPartyState?.status?.running, flushDmxLivePatch],
     );
 
     const startDMXLiveOutput = useCallback(
@@ -1342,7 +1208,6 @@ export function useControllerApp() {
     );
 
     const stopDMXLiveOutput = useCallback(async () => {
-        stopPartyAudioCapture();
         if (dmxLiveFlushTimerRef.current !== undefined) {
             window.clearTimeout(dmxLiveFlushTimerRef.current);
             dmxLiveFlushTimerRef.current = undefined;
@@ -1356,7 +1221,7 @@ export function useControllerApp() {
             /* ignore */
         }
         await pullDMXLiveStatus();
-    }, [flushDmxLivePatch, pullDMXLiveStatus, stopPartyAudioCapture]);
+    }, [flushDmxLivePatch, pullDMXLiveStatus]);
 
     const onDismissError = useCallback(() => {
         setError("");
@@ -1752,8 +1617,7 @@ export function useControllerApp() {
         dmxPartyState,
         dmxLiveStatus,
         usbSerialDevices,
-        audioInputDevices,
-        partyAudioCapturing,
+        partyAudioInputDevices,
         route,
         setRoute,
         deviceDetail,
@@ -1788,6 +1652,8 @@ export function useControllerApp() {
         pullSnapshot,
         markSettingsInteraction,
         pullDMXState,
+        pullDMXPartyState,
+        pullPartyAudioInputDevices,
         pullUSBSerialDevices,
         onSaveSettings,
         onApplyNetwork,
@@ -1813,8 +1679,6 @@ export function useControllerApp() {
         setDMXPartyConfig,
         startDMXPartyMode,
         stopDMXPartyMode,
-        startPartyAudioCapture,
-        stopPartyAudioCapture,
         pullDMXLiveStatus,
         queueDmxLivePatch,
         startDMXLiveOutput,
@@ -1947,13 +1811,6 @@ function clampPercent(v: number, fallback: number): number {
     return Math.max(0, Math.min(100, n));
 }
 
-function clampUnit(v: number): number {
-    if (!Number.isFinite(v)) {
-        return 0;
-    }
-    return Math.max(0, Math.min(1, v));
-}
-
 function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<DMXPartyConfig>): DMXPartyConfig {
     const modeRaw = partial.mode ?? base?.mode ?? "auto";
     const mode: DMXPartyMode = modeRaw === "audio" ? "audio" : "auto";
@@ -1973,48 +1830,5 @@ function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<
         colorVariation: clampPercent(partial.colorVariation ?? base?.colorVariation ?? 70, 70),
         audioSensitivity: clampPercent(partial.audioSensitivity ?? base?.audioSensitivity ?? 60, 60),
         audioInputDeviceId: (partial.audioInputDeviceId ?? base?.audioInputDeviceId ?? "").trim(),
-    };
-}
-
-function extractPartyAudioFeatures(analyser: AnalyserNode): DMXPartyAudioFeatures {
-    const fft = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(fft);
-    const wave = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(wave);
-
-    let levelSum = 0;
-    for (let i = 0; i < wave.length; i += 1) {
-        const centered = (wave[i] - 128) / 128;
-        levelSum += centered * centered;
-    }
-    const rms = Math.sqrt(levelSum / Math.max(1, wave.length));
-
-    const bassEnd = Math.max(1, Math.floor(fft.length * 0.15));
-    const midEnd = Math.max(bassEnd + 1, Math.floor(fft.length * 0.55));
-    let bass = 0;
-    let mid = 0;
-    let treble = 0;
-    for (let i = 0; i < fft.length; i += 1) {
-        const normalized = fft[i] / 255;
-        if (i < bassEnd) {
-            bass += normalized;
-        } else if (i < midEnd) {
-            mid += normalized;
-        } else {
-            treble += normalized;
-        }
-    }
-    bass /= Math.max(1, bassEnd);
-    mid /= Math.max(1, midEnd - bassEnd);
-    treble /= Math.max(1, fft.length - midEnd);
-
-    const beat = clampUnit(bass*0.65 + rms*0.35);
-    return {
-        level: clampUnit(rms * 1.6),
-        bass: clampUnit(bass),
-        mid: clampUnit(mid),
-        treble: clampUnit(treble),
-        beat,
-        capturedAt: new Date().toISOString(),
     };
 }

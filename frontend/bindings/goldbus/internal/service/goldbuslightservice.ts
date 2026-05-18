@@ -129,9 +129,15 @@ export function ListConsoleEntries(afterID: number, limit: number): $Cancellable
     });
 }
 
+export function ListDMXPartyAudioInputDevices(): $CancellablePromise<controller$0.DMXPartyAudioInputDevice[]> {
+    return $Call.ByID(4243575882).then(($result: any) => {
+        return $$createType13($result);
+    });
+}
+
 export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSerialDevice[]> {
     return $Call.ByID(147791315).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType15($result);
     });
 }
 
@@ -145,12 +151,6 @@ export function OpenDetachedConsoleWindow(): $CancellablePromise<void> {
 export function ProvisionDevice(deviceID: string): $CancellablePromise<controller$0.ControllerSnapshot> {
     return $Call.ByID(2270029467, deviceID).then(($result: any) => {
         return $$createType5($result);
-    });
-}
-
-export function PushDMXPartyAudioFeatures(features: controller$0.DMXPartyAudioFeatures): $CancellablePromise<controller$0.DMXPartyState> {
-    return $Call.ByID(2619610098, features).then(($result: any) => {
-        return $$createType7($result);
     });
 }
 
@@ -198,7 +198,7 @@ export function SetDeviceState(deviceID: string, state: { [_ in string]?: any })
 
 export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
     return $Call.ByID(918662134, state).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType16($result);
     });
 }
 
@@ -243,6 +243,8 @@ const $$createType8 = controller$0.DMXState.createFrom;
 const $$createType9 = controller$0.WLEDDeviceDetail.createFrom;
 const $$createType10 = console$0.Entry.createFrom;
 const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = serial$0.USBSerialDevice.createFrom;
+const $$createType12 = controller$0.DMXPartyAudioInputDevice.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $Create.Map($Create.Any, $Create.Any);
+const $$createType14 = serial$0.USBSerialDevice.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = $Create.Map($Create.Any, $Create.Any);

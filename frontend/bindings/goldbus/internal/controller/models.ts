@@ -431,6 +431,50 @@ export class DMXPartyAudioFeatures {
     }
 }
 
+/**
+ * DMXPartyAudioInputDevice describes a native capture device for party audio mode.
+ */
+export class DMXPartyAudioInputDevice {
+    "id": string;
+    "name": string;
+    "isDefault": boolean;
+    "isLoopback": boolean;
+    "isBuiltin": boolean;
+    "isUSB": boolean;
+
+    /** Creates a new DMXPartyAudioInputDevice instance. */
+    constructor($$source: Partial<DMXPartyAudioInputDevice> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("isDefault" in $$source)) {
+            this["isDefault"] = false;
+        }
+        if (!("isLoopback" in $$source)) {
+            this["isLoopback"] = false;
+        }
+        if (!("isBuiltin" in $$source)) {
+            this["isBuiltin"] = false;
+        }
+        if (!("isUSB" in $$source)) {
+            this["isUSB"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXPartyAudioInputDevice instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXPartyAudioInputDevice {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DMXPartyAudioInputDevice($$parsedSource as Partial<DMXPartyAudioInputDevice>);
+    }
+}
+
 export class DMXPartyConfig {
     "enabled": boolean;
     "mode": DMXPartyMode;
@@ -536,6 +580,10 @@ export class DMXPartyStatus {
     "lastFrameAt"?: time$0.Time;
     "lastAudioAt"?: time$0.Time;
     "audioInputDeviceId"?: string;
+    "partyBlocksManualPatch": boolean;
+    "audioCapturing": boolean;
+    "audioNoSignal": boolean;
+    "audioCaptureError"?: string;
 
     /** Creates a new DMXPartyStatus instance. */
     constructor($$source: Partial<DMXPartyStatus> = {}) {
@@ -544,6 +592,15 @@ export class DMXPartyStatus {
         }
         if (!("mode" in $$source)) {
             this["mode"] = DMXPartyMode.$zero;
+        }
+        if (!("partyBlocksManualPatch" in $$source)) {
+            this["partyBlocksManualPatch"] = false;
+        }
+        if (!("audioCapturing" in $$source)) {
+            this["audioCapturing"] = false;
+        }
+        if (!("audioNoSignal" in $$source)) {
+            this["audioNoSignal"] = false;
         }
 
         Object.assign(this, $$source);

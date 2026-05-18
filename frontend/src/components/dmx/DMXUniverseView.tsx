@@ -11,7 +11,7 @@ import {
     universeRange,
 } from "@/lib/dmxUniverseGrid";
 import {parseFixtureEntries} from "@/lib/dmxLiveMap";
-import type {DetailRoute, DMXFixture, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "../../types/controller";
+import type {DetailRoute, DMXFixture, DMXPartyAudioInputDevice, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "../../types/controller";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 import type {JSONMap} from "../../types/controller";
 import {PiPlus, PiWarningCircle} from "react-icons/pi";
@@ -29,13 +29,11 @@ export type DMXUniverseViewProps = {
     stopDMXLiveOutput: () => Promise<void>;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
     partyState: DMXPartyState;
-    audioInputDevices: MediaDeviceInfo[];
-    partyAudioCapturing: boolean;
+    partyAudioInputDevices: DMXPartyAudioInputDevice[];
+    pullPartyAudioInputDevices: () => Promise<DMXPartyAudioInputDevice[]>;
     setDMXPartyConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
     startDMXPartyMode: () => Promise<boolean>;
     stopDMXPartyMode: () => Promise<void>;
-    startPartyAudioCapture: (deviceId?: string) => Promise<boolean>;
-    stopPartyAudioCapture: () => void;
 };
 
 function padChannel(n: number): string {
@@ -350,13 +348,11 @@ export function DMXUniverseView({
                                     stopDMXLiveOutput,
                                     queueDmxLivePatch,
                                     partyState,
-                                    audioInputDevices,
-                                    partyAudioCapturing,
+                                    partyAudioInputDevices,
+                                    pullPartyAudioInputDevices,
                                     setDMXPartyConfig,
                                     startDMXPartyMode,
                                     stopDMXPartyMode,
-                                    startPartyAudioCapture,
-                                    stopPartyAudioCapture,
                                 }: DMXUniverseViewProps) {
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
@@ -494,13 +490,13 @@ export function DMXUniverseView({
                 party={partyState}
                 busy={busy || dropBusy}
                 liveConnected={liveConnected}
-                audioInputDevices={audioInputDevices}
-                audioCapturing={partyAudioCapturing}
+                audioInputDevices={partyAudioInputDevices}
+                onRefreshAudioDevices={async () => {
+                    await pullPartyAudioInputDevices();
+                }}
                 onUpdateConfig={setDMXPartyConfig}
                 onStart={startDMXPartyMode}
                 onStop={stopDMXPartyMode}
-                onStartAudioCapture={startPartyAudioCapture}
-                onStopAudioCapture={stopPartyAudioCapture}
             />
 
             <div

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goldbus/internal/audio"
 	"goldbus/internal/console"
 	"goldbus/internal/discovery"
 	"goldbus/internal/dmx"
@@ -238,19 +239,19 @@ type DMXFixtureType string
 
 const (
 	DMXFixtureTypeColorChanger DMXFixtureType = "colorChanger"
-	DMXFixtureTypeDimmer      DMXFixtureType = "dimmer"
-	DMXFixtureTypeEffect      DMXFixtureType = "effect"
-	DMXFixtureTypeFan         DMXFixtureType = "fan"
-	DMXFixtureTypeFlower      DMXFixtureType = "flower"
-	DMXFixtureTypeHazer       DMXFixtureType = "hazer"
-	DMXFixtureTypeLaser       DMXFixtureType = "laser"
-	DMXFixtureTypeLEDBarBeams DMXFixtureType = "ledBarBeams"
+	DMXFixtureTypeDimmer       DMXFixtureType = "dimmer"
+	DMXFixtureTypeEffect       DMXFixtureType = "effect"
+	DMXFixtureTypeFan          DMXFixtureType = "fan"
+	DMXFixtureTypeFlower       DMXFixtureType = "flower"
+	DMXFixtureTypeHazer        DMXFixtureType = "hazer"
+	DMXFixtureTypeLaser        DMXFixtureType = "laser"
+	DMXFixtureTypeLEDBarBeams  DMXFixtureType = "ledBarBeams"
 	DMXFixtureTypeLEDBarPixels DMXFixtureType = "ledBarPixels"
-	DMXFixtureTypeMovingHead  DMXFixtureType = "movingHead"
-	DMXFixtureTypeOther       DMXFixtureType = "other"
-	DMXFixtureTypeScanner     DMXFixtureType = "scanner"
-	DMXFixtureTypeSmoke       DMXFixtureType = "smoke"
-	DMXFixtureTypeStrobe      DMXFixtureType = "strobe"
+	DMXFixtureTypeMovingHead   DMXFixtureType = "movingHead"
+	DMXFixtureTypeOther        DMXFixtureType = "other"
+	DMXFixtureTypeScanner      DMXFixtureType = "scanner"
+	DMXFixtureTypeSmoke        DMXFixtureType = "smoke"
+	DMXFixtureTypeStrobe       DMXFixtureType = "strobe"
 )
 
 type DMXChannel struct {
@@ -645,24 +646,27 @@ type WLEDController struct {
 	rootCtx context.Context
 	cancel  context.CancelFunc
 
-	dmxLiveMu        sync.Mutex
-	dmxLiveWG        sync.WaitGroup
-	dmxLiveRunning   bool
-	dmxLiveBuf       [512]byte
-	dmxLiveErr       string
-	dmxLiveFixID     string
-	dmxLiveUSBFrames chan [512]byte
-	dmxLiveUSBPath   string
-	dmxLiveUSBName   string
-	dmxLiveArtFrames chan [512]byte
-	dmxLiveArtPath   string
-	dmxLiveArtName   string
-	dmxLiveArtTarget string
-	dmxLiveArtHz     int
-	dmxLivePatchLog  time.Time
-	dmxPartyRunning  bool
-	dmxPartyCancel   context.CancelFunc
-	dmxPartyWG       sync.WaitGroup
+	dmxLiveMu         sync.Mutex
+	dmxLiveWG         sync.WaitGroup
+	dmxLiveRunning    bool
+	dmxLiveBuf        [512]byte
+	dmxLiveErr        string
+	dmxLiveFixID      string
+	dmxLiveUSBFrames  chan [512]byte
+	dmxLiveUSBPath    string
+	dmxLiveUSBName    string
+	dmxLiveArtFrames  chan [512]byte
+	dmxLiveArtPath    string
+	dmxLiveArtName    string
+	dmxLiveArtTarget  string
+	dmxLiveArtHz      int
+	dmxLivePatchLog   time.Time
+	dmxPartyRunning   bool
+	dmxPartyCancel    context.CancelFunc
+	dmxPartyWG        sync.WaitGroup
+	partyOwnedAddrs   [512]bool
+	partyAudioMu      sync.Mutex
+	partyAudioCapture *audio.Capture
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1701,17 +1705,17 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 		probeRO, probeROErr := agentProbeOSOpen(attemptPath, os.O_RDONLY, 300*time.Millisecond)
 		// #region agent log
 		agentDebugLog("H6", "controller.go:startDMXUSBAdapter:beforeSerialOpen", "Opening DMX serial port", map[string]any{
-			"path":        attemptPath,
-			"rawPath":     rawPath,
-			"baud":        mode.BaudRate,
-			"attempt":     idx + 1,
+			"path":         attemptPath,
+			"rawPath":      rawPath,
+			"baud":         mode.BaudRate,
+			"attempt":      idx + 1,
 			"attemptTotal": len(attemptPaths),
-			"statExists":  statExists,
-			"statMode":    statMode,
-			"probeRW":     probeRW,
-			"probeRWErr":  probeRWErr,
-			"probeRO":     probeRO,
-			"probeROErr":  probeROErr,
+			"statExists":   statExists,
+			"statMode":     statMode,
+			"probeRW":      probeRW,
+			"probeRWErr":   probeRWErr,
+			"probeRO":      probeRO,
+			"probeROErr":   probeROErr,
 		})
 		// #endregion
 		resultCh := make(chan openResult, 1)
@@ -2171,6 +2175,9 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 	for _, u := range updates {
 		addr := u.Address
 		if addr < 1 || addr > 512 {
+			continue
+		}
+		if c.dmxPartyRunning && c.partyOwnedAddrs[addr-1] {
 			continue
 		}
 		v := u.Value
