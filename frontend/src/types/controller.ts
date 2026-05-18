@@ -197,9 +197,48 @@ export type DMXFixture = {
     updatedAt: string;
 };
 
+export type DMXPartyMode = "auto" | "audio";
+
+export type DMXPartyConfig = {
+    enabled: boolean;
+    mode: DMXPartyMode;
+    fixtureIds?: string[];
+    intensity: number;
+    speed: number;
+    colorVariation: number;
+    audioSensitivity: number;
+    audioInputDeviceId?: string;
+};
+
+export type DMXPartyAudioFeatures = {
+    level: number;
+    bass: number;
+    mid: number;
+    treble: number;
+    beat: number;
+    capturedAt?: string;
+    deviceId?: string;
+};
+
+export type DMXPartyStatus = {
+    running: boolean;
+    mode: DMXPartyMode;
+    error?: string;
+    lastFrameAt?: string;
+    lastAudioAt?: string;
+    audioInputDeviceId?: string;
+};
+
+export type DMXPartyState = {
+    config: DMXPartyConfig;
+    status: DMXPartyStatus;
+    audio: DMXPartyAudioFeatures;
+};
+
 export type DMXState = {
     fixtures: DMXFixture[];
     selectedUSBDeviceId: string;
+    party: DMXPartyState;
 };
 
 export type USBSerialDevice = {

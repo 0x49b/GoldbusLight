@@ -216,6 +216,37 @@ func (g *GoldbusLightService) GetDMXState() (ctrlpkg.DMXState, error) {
 	})
 }
 
+func (g *GoldbusLightService) GetDMXPartyState() (ctrlpkg.DMXPartyState, error) {
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.DMXPartyState {
+		return c.GetDMXPartyState()
+	})
+}
+
+func (g *GoldbusLightService) SetDMXPartyConfig(config ctrlpkg.DMXPartyConfig) (ctrlpkg.DMXPartyState, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXPartyState, error) {
+		return c.SetDMXPartyConfig(config)
+	})
+}
+
+func (g *GoldbusLightService) StartDMXParty() error {
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.StartDMXParty()
+	})
+}
+
+func (g *GoldbusLightService) StopDMXParty() {
+	_ = g.withController(func(c *ctrlpkg.WLEDController) error {
+		c.StopDMXParty()
+		return nil
+	})
+}
+
+func (g *GoldbusLightService) PushDMXPartyAudioFeatures(features ctrlpkg.DMXPartyAudioFeatures) (ctrlpkg.DMXPartyState, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXPartyState, error) {
+		return c.PushDMXPartyAudioFeatures(features)
+	})
+}
+
 func (g *GoldbusLightService) CreateDMXFixture(input ctrlpkg.UpsertDMXFixtureInput) (ctrlpkg.DMXFixture, error) {
 	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXFixture, error) {
 		return c.CreateDMXFixture(input)

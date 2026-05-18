@@ -9,7 +9,7 @@ import {
     parseFixtureEntries,
 } from "../../lib/dmxLiveMap";
 import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
 import {Slider} from "@/components/ui/slider";
@@ -99,6 +99,8 @@ export function DMXFixtureLiveControls({
     const hasZoom = Boolean(firstChannel(chans, "zoom"));
     const hasIris = Boolean(firstChannel(chans, "iris"));
     const hasFrost = Boolean(firstChannel(chans, "frost"));
+    const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
+    const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
 
     const cwMax = Math.max(0, cwEntries.length - 1);
     const msMax = Math.max(0, msEntries.length - 1);
@@ -149,7 +151,7 @@ export function DMXFixtureLiveControls({
                                             <div className="flex justify-between text-sm">
                                                 <Label>Pan</Label>
                                                 <span
-                                                    className="tabular-nums text-muted-foreground">{Math.round(liveState.pan01 * 100)}%</span>
+                                                    className="tabular-nums text-muted-foreground">{Math.round(liveState.pan01 * maxPanDeg)}°</span>
                                             </div>
                                             <Slider
                                                 min={0}
@@ -166,7 +168,7 @@ export function DMXFixtureLiveControls({
                                             <div className="flex justify-between text-sm">
                                                 <Label>Tilt</Label>
                                                 <span
-                                                    className="tabular-nums text-muted-foreground">{Math.round(liveState.tilt01 * 100)}%</span>
+                                                    className="tabular-nums text-muted-foreground">{Math.round(liveState.tilt01 * maxTiltDeg)}°</span>
                                             </div>
                                             <Slider
                                                 min={0}

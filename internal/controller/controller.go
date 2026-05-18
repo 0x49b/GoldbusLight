@@ -217,8 +217,9 @@ type DMXFixture struct {
 }
 
 type DMXState struct {
-	Fixtures            []DMXFixture `json:"fixtures"`
-	SelectedUSBDeviceID string       `json:"selectedUSBDeviceId"`
+	Fixtures            []DMXFixture  `json:"fixtures"`
+	SelectedUSBDeviceID string        `json:"selectedUSBDeviceId"`
+	Party               DMXPartyState `json:"party"`
 }
 
 type USBSerialDevice = serial2.USBSerialDevice
@@ -599,6 +600,9 @@ type WLEDController struct {
 	dmxLiveArtTarget string
 	dmxLiveArtHz     int
 	dmxLivePatchLog  time.Time
+	dmxPartyRunning  bool
+	dmxPartyCancel   context.CancelFunc
+	dmxPartyWG       sync.WaitGroup
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1941,6 +1945,7 @@ func dmxFrameSummary(frame [512]byte) string {
 
 // StopDMXLive stops streaming and closes all adapter channels.
 func (c *WLEDController) StopDMXLive() {
+	c.stopDMXPartyWithReason("")
 	c.dmxLiveMu.Lock()
 	c.stopDMXUSBAdapterLocked()
 	c.stopDMXArtNetAdapterLocked()
@@ -2019,6 +2024,25 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 		}
 	}
 	return nil
+}
+
+func (c *WLEDController) applyDMXUpdatesLocked(updates []dmx.DMXOutputUpdate) int {
+	changedCount := 0
+	for _, u := range updates {
+		addr := u.Address
+		if addr < 1 || addr > 512 {
+			continue
+		}
+		v := clampDMXByte(u.Value)
+		next := byte(v)
+		idx := addr - 1
+		if c.dmxLiveBuf[idx] == next {
+			continue
+		}
+		c.dmxLiveBuf[idx] = next
+		changedCount++
+	}
+	return changedCount
 }
 
 // GetDMXLiveStatus returns connection metadata for the UI.
@@ -2544,7 +2568,9 @@ func cloneDMXState(in DMXState) DMXState {
 	out := DMXState{
 		Fixtures:            make([]DMXFixture, 0, len(in.Fixtures)),
 		SelectedUSBDeviceID: strings.TrimSpace(in.SelectedUSBDeviceID),
+		Party:               normalizeDMXPartyState(in.Party),
 	}
+	out.Party.Config.FixtureIDs = append([]string(nil), out.Party.Config.FixtureIDs...)
 	for _, fixture := range in.Fixtures {
 		cp := fixture
 		cp.Brand = strings.TrimSpace(cp.Brand)
@@ -2862,6 +2888,7 @@ func defaultDMXState() DMXState {
 	return DMXState{
 		Fixtures:            []DMXFixture{},
 		SelectedUSBDeviceID: "",
+		Party:               defaultDMXPartyState(),
 	}
 }
 
@@ -2876,6 +2903,7 @@ func normalizeDMXState(st DMXState) DMXState {
 		normalized.Fixtures[i].DMXAddress = addr
 		normalized.Fixtures[i].Channels = sanitizeDMXChannels(normalized.Fixtures[i].DMXAddress, normalized.Fixtures[i].Channels)
 	}
+	normalized.Party = normalizeDMXPartyState(normalized.Party)
 	return normalized
 }
 

@@ -84,15 +84,21 @@ export function GetDMXLiveStatus(): $CancellablePromise<dmx$0.DMXLiveStatus> {
     });
 }
 
+export function GetDMXPartyState(): $CancellablePromise<controller$0.DMXPartyState> {
+    return $Call.ByID(360607294).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
 export function GetDMXState(): $CancellablePromise<controller$0.DMXState> {
     return $Call.ByID(2859174524).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function GetDeviceDetail(deviceID: string): $CancellablePromise<controller$0.WLEDDeviceDetail> {
     return $Call.ByID(664315657, deviceID).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
     });
 }
 
@@ -119,13 +125,13 @@ export function IsConsoleWindowDetached(): $CancellablePromise<boolean> {
  */
 export function ListConsoleEntries(afterID: number, limit: number): $CancellablePromise<console$0.Entry[]> {
     return $Call.ByID(3101953237, afterID, limit).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType11($result);
     });
 }
 
 export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSerialDevice[]> {
     return $Call.ByID(147791315).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType13($result);
     });
 }
 
@@ -139,6 +145,12 @@ export function OpenDetachedConsoleWindow(): $CancellablePromise<void> {
 export function ProvisionDevice(deviceID: string): $CancellablePromise<controller$0.ControllerSnapshot> {
     return $Call.ByID(2270029467, deviceID).then(($result: any) => {
         return $$createType5($result);
+    });
+}
+
+export function PushDMXPartyAudioFeatures(features: controller$0.DMXPartyAudioFeatures): $CancellablePromise<controller$0.DMXPartyState> {
+    return $Call.ByID(2619610098, features).then(($result: any) => {
+        return $$createType7($result);
     });
 }
 
@@ -166,6 +178,12 @@ export function SaveControllerSettings(settings: controller$0.ControllerSettings
     });
 }
 
+export function SetDMXPartyConfig(config: controller$0.DMXPartyConfig): $CancellablePromise<controller$0.DMXPartyState> {
+    return $Call.ByID(202387099, config).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
 export function SetDeviceIgnored(deviceID: string, ignored: boolean): $CancellablePromise<controller$0.ControllerSnapshot> {
     return $Call.ByID(1137278958, deviceID, ignored).then(($result: any) => {
         return $$createType5($result);
@@ -180,13 +198,13 @@ export function SetDeviceState(deviceID: string, state: { [_ in string]?: any })
 
 export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
     return $Call.ByID(918662134, state).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function SetSelectedUSBSerialDevice(deviceID: string): $CancellablePromise<controller$0.DMXState> {
     return $Call.ByID(3976246093, deviceID).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
@@ -194,8 +212,16 @@ export function StartDMXLive(fixtureID: string): $CancellablePromise<void> {
     return $Call.ByID(2961004277, fixtureID);
 }
 
+export function StartDMXParty(): $CancellablePromise<void> {
+    return $Call.ByID(4103913889);
+}
+
 export function StopDMXLive(): $CancellablePromise<void> {
     return $Call.ByID(1211112949);
+}
+
+export function StopDMXParty(): $CancellablePromise<void> {
+    return $Call.ByID(3272345249);
 }
 
 export function UpdateDMXFixture(input: controller$0.UpsertDMXFixtureInput): $CancellablePromise<controller$0.DMXFixture> {
@@ -212,10 +238,11 @@ const $$createType3 = controller$0.WLEDDevice.createFrom;
 const $$createType4 = $Create.Array($$createType3);
 const $$createType5 = controller$0.ControllerSnapshot.createFrom;
 const $$createType6 = dmx$0.DMXLiveStatus.createFrom;
-const $$createType7 = controller$0.DMXState.createFrom;
-const $$createType8 = controller$0.WLEDDeviceDetail.createFrom;
-const $$createType9 = console$0.Entry.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = serial$0.USBSerialDevice.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = $Create.Map($Create.Any, $Create.Any);
+const $$createType7 = controller$0.DMXPartyState.createFrom;
+const $$createType8 = controller$0.DMXState.createFrom;
+const $$createType9 = controller$0.WLEDDeviceDetail.createFrom;
+const $$createType10 = console$0.Entry.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = serial$0.USBSerialDevice.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = $Create.Map($Create.Any, $Create.Any);

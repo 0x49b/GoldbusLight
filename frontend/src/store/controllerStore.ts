@@ -147,6 +147,29 @@ const initialState: ControllerStoreState = {
     dmxState: {
         fixtures: [],
         selectedUSBDeviceId: "",
+        party: {
+            config: {
+                enabled: false,
+                mode: "auto",
+                fixtureIds: [],
+                intensity: 80,
+                speed: 55,
+                colorVariation: 70,
+                audioSensitivity: 60,
+                audioInputDeviceId: "",
+            },
+            status: {
+                running: false,
+                mode: "auto",
+            },
+            audio: {
+                level: 0,
+                bass: 0,
+                mid: 0,
+                treble: 0,
+                beat: 0,
+            },
+        },
     },
     usbSerialDevices: [],
     consoleEntries: [],

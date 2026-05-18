@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
+import {DMXPartyPanel} from "@/components/dmx/DMXPartyPanel";
 import {
     channelIndexToCell,
     DMX_UNIVERSE_GRID_COLS,
@@ -9,7 +10,7 @@ import {
     splitRangeIntoSegments,
     universeRange,
 } from "@/lib/dmxUniverseGrid";
-import type {DetailRoute, DMXFixture, USBSerialDevice} from "../../types/controller";
+import type {DetailRoute, DMXFixture, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "../../types/controller";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 import {PiPlus, PiWarningCircle} from "react-icons/pi";
 
@@ -24,6 +25,15 @@ export type DMXUniverseViewProps = {
     pullDMXLiveStatus: () => Promise<void>;
     startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
     stopDMXLiveOutput: () => Promise<void>;
+    queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
+    partyState: DMXPartyState;
+    audioInputDevices: MediaDeviceInfo[];
+    partyAudioCapturing: boolean;
+    setDMXPartyConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
+    startDMXPartyMode: () => Promise<boolean>;
+    stopDMXPartyMode: () => Promise<void>;
+    startPartyAudioCapture: (deviceId?: string) => Promise<boolean>;
+    stopPartyAudioCapture: () => void;
 };
 
 function padChannel(n: number): string {
@@ -71,6 +81,33 @@ type ReaddressPlan = {
     updates: Array<{ id: string; dmxAddress: number }>;
     shiftedCount: number;
 };
+
+function fixtureAddress(base: number, offset: number): number {
+    return base + offset - 1;
+}
+
+function buildAllFixturesOnPatch(fixtures: DMXFixture[]): Array<{ address: number; value: number }> {
+    const updates: Array<{ address: number; value: number }> = [];
+    for (const fixture of fixtures) {
+        const base = Number.isFinite(fixture.dmxAddress) ? Math.round(fixture.dmxAddress) : 1;
+        for (const channel of fixture.channels) {
+            const offset = Number.isFinite(channel.channel) ? Math.round(channel.channel) : 1;
+            const address = fixtureAddress(base, offset);
+            if (address < 1 || address > DMX_UNIVERSE_SLOTS) {
+                continue;
+            }
+            if (
+                channel.type === "dimmer" ||
+                channel.type === "dimmerFine" ||
+                channel.type === "onOff" ||
+                channel.type === "lamp"
+            ) {
+                updates.push({address, value: 255});
+            }
+        }
+    }
+    return updates;
+}
 
 function resolveForwardChainPush(
     fixtures: DMXFixture[],
@@ -146,6 +183,15 @@ export function DMXUniverseView({
                                     pullDMXLiveStatus,
                                     startDMXLiveOutput,
                                     stopDMXLiveOutput,
+                                    queueDmxLivePatch,
+                                    partyState,
+                                    audioInputDevices,
+                                    partyAudioCapturing,
+                                    setDMXPartyConfig,
+                                    startDMXPartyMode,
+                                    stopDMXPartyMode,
+                                    startPartyAudioCapture,
+                                    stopPartyAudioCapture,
                                 }: DMXUniverseViewProps) {
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
@@ -177,7 +223,6 @@ export function DMXUniverseView({
         return a.id.localeCompare(b.id);
     });
     const liveConnected = dmxLiveStatus?.connected === true;
-    const activeLiveFixtureId = liveConnected ? dmxLiveStatus?.fixtureId ?? null : null;
     const anyLive = liveConnected;
 
     useEffect(() => {
@@ -197,6 +242,10 @@ export function DMXUniverseView({
             return;
         }
         await startDMXLiveOutput(sortedFixtures[0].id);
+        const updates = buildAllFixturesOnPatch(sortedFixtures);
+        if (updates.length > 0) {
+            queueDmxLivePatch(updates);
+        }
         await pullDMXLiveStatus();
     };
 
@@ -271,6 +320,19 @@ export function DMXUniverseView({
                     {anyLive ? "All fixtures live: ON" : "All fixtures live: OFF"}
                 </Button>
             </div>
+            <DMXPartyPanel
+                fixtures={sortedFixtures}
+                party={partyState}
+                busy={busy || dropBusy}
+                liveConnected={liveConnected}
+                audioInputDevices={audioInputDevices}
+                audioCapturing={partyAudioCapturing}
+                onUpdateConfig={setDMXPartyConfig}
+                onStart={startDMXPartyMode}
+                onStop={stopDMXPartyMode}
+                onStartAudioCapture={startPartyAudioCapture}
+                onStopAudioCapture={stopPartyAudioCapture}
+            />
 
             <div
                 className="touch-pan-scroll min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3">
@@ -328,7 +390,7 @@ export function DMXUniverseView({
                         return segments.map((seg, segIdx) => {
                             const segStartCh = seg.row * DMX_UNIVERSE_GRID_COLS + seg.colStart + 1;
                             const showFixtureBase = segIdx === 0;
-                            const fixtureLive = activeLiveFixtureId === fx.id;
+                            const fixtureLive = liveConnected;
                             return (
                                 <button
                                     key={`${fx.id}-${seg.row}-${seg.colStart}-${seg.span}`}

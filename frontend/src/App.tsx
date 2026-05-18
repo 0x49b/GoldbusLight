@@ -95,6 +95,15 @@ function App() {
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
                 startDMXLiveOutput={app.startDMXLiveOutput}
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
+                queueDmxLivePatch={app.queueDmxLivePatch}
+                partyState={app.dmxPartyState}
+                audioInputDevices={app.audioInputDevices}
+                partyAudioCapturing={app.partyAudioCapturing}
+                setDMXPartyConfig={app.setDMXPartyConfig}
+                startDMXPartyMode={app.startDMXPartyMode}
+                stopDMXPartyMode={app.stopDMXPartyMode}
+                startPartyAudioCapture={app.startPartyAudioCapture}
+                stopPartyAudioCapture={app.stopPartyAudioCapture}
             />
         );
     } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {
