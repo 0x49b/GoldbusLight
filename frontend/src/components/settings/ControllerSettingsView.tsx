@@ -1,6 +1,16 @@
-import {useCallback, useEffect, useRef, type Dispatch, type SetStateAction} from "react";
-import {prettyJSON, readNumber} from "../../lib/json";
-import {PiArrowsClockwise, PiBinoculars, PiWifiHigh} from "react-icons/pi";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { PiArrowsClockwise, PiBinoculars, PiWifiHigh } from "react-icons/pi";
+import { prettyJSON, readNumber } from "../../lib/json";
 import type {
     ConsoleEntry,
     ControllerSettings,
@@ -10,17 +20,7 @@ import type {
     USBSerialDevice,
     WLEDDevice,
 } from "../../types/controller";
-import {Alert, AlertDescription} from "@/components/ui/alert";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Field, FieldLabel} from "@/components/ui/field";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
-import {Switch} from "@/components/ui/switch";
-import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import {Textarea} from "@/components/ui/textarea";
-import {TransportConsolePanel} from "./TransportConsolePanel";
+import { TransportConsolePanel } from "./TransportConsolePanel";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
