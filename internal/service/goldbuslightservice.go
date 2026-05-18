@@ -11,12 +11,50 @@ import (
 	"time"
 )
 
+// Service timeout constants for operations
+const (
+	TimeoutNetworkApply  = 20 * time.Second
+	TimeoutDiscovery     = 10 * time.Second
+	TimeoutDeviceOp      = 5 * time.Second
+	TimeoutDeviceDetail  = 8 * time.Second
+	TimeoutProvision     = 8 * time.Second
+)
+
 type GoldbusLightService struct {
 	controller *ctrlpkg.WLEDController
 }
 
 func NewGreetService(controller *ctrlpkg.WLEDController) *GoldbusLightService {
 	return &GoldbusLightService{controller: controller}
+}
+
+// withController executes a function with the controller if it's available
+func (g *GoldbusLightService) withController(fn func(*ctrlpkg.WLEDController) error) error {
+	controller, err := g.requireController()
+	if err != nil {
+		return err
+	}
+	return fn(controller)
+}
+
+// withControllerResult executes a function with the controller and returns a result
+func withControllerResult[T any](g *GoldbusLightService, fn func(*ctrlpkg.WLEDController) (T, error)) (T, error) {
+	var zero T
+	controller, err := g.requireController()
+	if err != nil {
+		return zero, err
+	}
+	return fn(controller)
+}
+
+// withControllerValue executes a function with the controller and returns a value without error
+func withControllerValue[T any](g *GoldbusLightService, fn func(*ctrlpkg.WLEDController) T) (T, error) {
+	var zero T
+	controller, err := g.requireController()
+	if err != nil {
+		return zero, err
+	}
+	return fn(controller), nil
 }
 
 func (g *GoldbusLightService) Greet(name string) string {
@@ -28,255 +66,198 @@ func (g *GoldbusLightService) AppVersion() string {
 }
 
 func (g *GoldbusLightService) GetControllerSnapshot() (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.ControllerSnapshot {
+		return c.Snapshot()
+	})
 }
 
 func (g *GoldbusLightService) DefaultControllerSettings() (ctrlpkg.ControllerSettings, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSettings{}, err
-	}
-	return controller.Snapshot().Settings, nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.ControllerSettings {
+		return c.Snapshot().Settings
+	})
 }
 
 func (g *GoldbusLightService) SaveControllerSettings(settings ctrlpkg.ControllerSettings) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	if err := controller.SaveSettings(settings); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.SaveSettings(settings); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) ApplyNetworkSettings() (ctrlpkg.NetworkApplyResult, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.NetworkApplyResult{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	return controller.ApplyNetwork(ctx), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.NetworkApplyResult {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutNetworkApply)
+		defer cancel()
+		return c.ApplyNetwork(ctx)
+	})
 }
 
 func (g *GoldbusLightService) DiscoverDevicesNow() ([]ctrlpkg.WLEDDevice, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return controller.DiscoverNow(ctx)
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) ([]ctrlpkg.WLEDDevice, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDiscovery)
+		defer cancel()
+		return c.DiscoverNow(ctx)
+	})
 }
 
 func (g *GoldbusLightService) SetDeviceState(deviceID string, state map[string]any) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := controller.SetDeviceState(ctx, deviceID, state); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceOp)
+		defer cancel()
+		if err := c.SetDeviceState(ctx, deviceID, state); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) SetGlobalState(state map[string]any) (map[string]string, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return nil, err
-	}
-	if !controller.Snapshot().Settings.WLED.Enabled {
-		return nil, fmt.Errorf("wled component is disabled in settings")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return controller.SetGlobalState(ctx, state), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) map[string]string {
+		if !c.Snapshot().Settings.WLED.Enabled {
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceOp)
+		defer cancel()
+		return c.SetGlobalState(ctx, state)
+	})
 }
 
 func (g *GoldbusLightService) ProvisionDevice(deviceID string) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	if err := controller.ProvisionDevice(ctx, deviceID); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutProvision)
+		defer cancel()
+		if err := c.ProvisionDevice(ctx, deviceID); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) RefreshDevice(deviceID string) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := controller.RefreshDevice(ctx, deviceID); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceOp)
+		defer cancel()
+		if err := c.RefreshDevice(ctx, deviceID); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) GetDeviceDetail(deviceID string) (ctrlpkg.WLEDDeviceDetail, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.WLEDDeviceDetail{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	return controller.GetDeviceDetail(ctx, deviceID), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.WLEDDeviceDetail {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceDetail)
+		defer cancel()
+		return c.GetDeviceDetail(ctx, deviceID)
+	})
 }
 
 func (g *GoldbusLightService) RemoveDevice(deviceID string) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-
-	if err := controller.RemoveDevice(deviceID); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.RemoveDevice(deviceID); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) GetIgnoredDevices() ([]ctrlpkg.WLEDDevice, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return nil, err
-	}
-	return controller.IgnoredDevices(), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) []ctrlpkg.WLEDDevice {
+		return c.IgnoredDevices()
+	})
 }
 
 func (g *GoldbusLightService) SetDeviceIgnored(deviceID string, ignored bool) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	if err := controller.SetDeviceIgnored(deviceID, ignored); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.SetDeviceIgnored(deviceID, ignored); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) RenameDevice(deviceID string, name string) (ctrlpkg.ControllerSnapshot, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	if err := controller.RenameDevice(ctx, deviceID, name); err != nil {
-		return ctrlpkg.ControllerSnapshot{}, err
-	}
-	return controller.Snapshot(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceDetail)
+		defer cancel()
+		if err := c.RenameDevice(ctx, deviceID, name); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) ControllerSummary() (string, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return "", err
-	}
-	snapshot := controller.Snapshot()
-	return fmt.Sprintf("Devices: %d, persistence: %s", len(snapshot.Devices), snapshot.PersistencePath), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) string {
+		snapshot := c.Snapshot()
+		return fmt.Sprintf("Devices: %d, persistence: %s", len(snapshot.Devices), snapshot.PersistencePath)
+	})
 }
 
 func (g *GoldbusLightService) GetDMXState() (ctrlpkg.DMXState, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.DMXState{}, err
-	}
-	return controller.GetDMXState(), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.DMXState {
+		return c.GetDMXState()
+	})
 }
 
 func (g *GoldbusLightService) CreateDMXFixture(input ctrlpkg.UpsertDMXFixtureInput) (ctrlpkg.DMXFixture, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.DMXFixture{}, err
-	}
-	return controller.CreateDMXFixture(input)
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXFixture, error) {
+		return c.CreateDMXFixture(input)
+	})
 }
 
 func (g *GoldbusLightService) UpdateDMXFixture(input ctrlpkg.UpsertDMXFixtureInput) (ctrlpkg.DMXFixture, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.DMXFixture{}, err
-	}
-	return controller.UpdateDMXFixture(input)
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXFixture, error) {
+		return c.UpdateDMXFixture(input)
+	})
 }
 
 func (g *GoldbusLightService) DeleteDMXFixture(id string) error {
-	controller, err := g.requireController()
-	if err != nil {
-		return err
-	}
-	return controller.DeleteDMXFixture(id)
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.DeleteDMXFixture(id)
+	})
 }
 
 func (g *GoldbusLightService) ListUSBSerialDevices() ([]ctrlpkg.USBSerialDevice, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return nil, err
-	}
-	return controller.ListUSBSerialDevices(), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) []ctrlpkg.USBSerialDevice {
+		return c.ListUSBSerialDevices()
+	})
 }
 
 func (g *GoldbusLightService) SetSelectedUSBSerialDevice(deviceID string) (ctrlpkg.DMXState, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return ctrlpkg.DMXState{}, err
-	}
-	if err := controller.SetSelectedUSBSerialDevice(deviceID); err != nil {
-		return ctrlpkg.DMXState{}, err
-	}
-	return controller.GetDMXState(), nil
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXState, error) {
+		if err := c.SetSelectedUSBSerialDevice(deviceID); err != nil {
+			return ctrlpkg.DMXState{}, err
+		}
+		return c.GetDMXState(), nil
+	})
 }
 
 func (g *GoldbusLightService) StartDMXLive(fixtureID string) error {
-	controller, err := g.requireController()
-	if err != nil {
-		return err
-	}
-	return controller.StartDMXLive(fixtureID)
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.StartDMXLive(fixtureID)
+	})
 }
 
 func (g *GoldbusLightService) StopDMXLive() {
-	controller, err := g.requireController()
-	if err != nil {
-		return
-	}
-	controller.StopDMXLive()
+	_ = g.withController(func(c *ctrlpkg.WLEDController) error {
+		c.StopDMXLive()
+		return nil
+	})
 }
 
 func (g *GoldbusLightService) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
-	controller, err := g.requireController()
-	if err != nil {
-		return err
-	}
-	return controller.ApplyDMXLivePatch(updates)
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.ApplyDMXLivePatch(updates)
+	})
 }
 
 func (g *GoldbusLightService) GetDMXLiveStatus() (dmx.DMXLiveStatus, error) {
-	controller, err := g.requireController()
-	if err != nil {
-		return dmx.DMXLiveStatus{}, err
-	}
-	return controller.GetDMXLiveStatus(), nil
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) dmx.DMXLiveStatus {
+		return c.GetDMXLiveStatus()
+	})
 }
 
 // ListConsoleEntries returns transport console entries with ID greater than
