@@ -49,6 +49,7 @@ export type ControllerStoreState = {
     usbSerialDevices: USBSerialDevice[];
     consoleEntries: ConsoleEntry[];
     consoleLastId: number;
+    consoleDetached: boolean;
 };
 
 export type ControllerStoreActions = {
@@ -105,6 +106,7 @@ export type ControllerStoreActions = {
     ) => void;
     setConsoleEntries: (next: ConsoleEntry[] | ((previous: ConsoleEntry[]) => ConsoleEntry[])) => void;
     setConsoleLastId: (next: number | ((previous: number) => number)) => void;
+    setConsoleDetached: (next: boolean | ((previous: boolean) => boolean)) => void;
 };
 
 export type ControllerStore = ControllerStoreState & ControllerStoreActions;
@@ -149,6 +151,7 @@ const initialState: ControllerStoreState = {
     usbSerialDevices: [],
     consoleEntries: [],
     consoleLastId: 0,
+    consoleDetached: false,
 };
 
 function apply<T>(previous: T, next: T | ((previous: T) => T)): T {
@@ -198,4 +201,5 @@ export const useControllerStore = create<ControllerStore>((set) => ({
     setUSBSerialDevices: (next) => set((s) => ({usbSerialDevices: apply(s.usbSerialDevices, next)})),
     setConsoleEntries: (next) => set((s) => ({consoleEntries: apply(s.consoleEntries, next)})),
     setConsoleLastId: (next) => set((s) => ({consoleLastId: apply(s.consoleLastId, next)})),
+    setConsoleDetached: (next) => set((s) => ({consoleDetached: apply(s.consoleDetached, next)})),
 }));

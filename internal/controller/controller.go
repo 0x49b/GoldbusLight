@@ -88,15 +88,20 @@ type ArtNetSettings struct {
 	RefreshHz  int    `json:"refreshHz"`
 }
 
+type USBTransportSettings struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 type DMXTestingSettings struct {
 	SimulateUSBDMX bool `json:"simulateUsbDmx"`
 	SimulateArtNet bool `json:"simulateArtNet"`
 }
 
 type DMXSettings struct {
-	Enabled bool               `json:"enabled"`
-	ArtNet  ArtNetSettings     `json:"artNet"`
-	Testing DMXTestingSettings `json:"testing"`
+	Enabled bool                 `json:"enabled"`
+	USB     USBTransportSettings `json:"usb"`
+	ArtNet  ArtNetSettings       `json:"artNet"`
+	Testing DMXTestingSettings   `json:"testing"`
 }
 
 type ControllerSettings struct {
@@ -593,6 +598,7 @@ type WLEDController struct {
 	dmxLiveArtName   string
 	dmxLiveArtTarget string
 	dmxLiveArtHz     int
+	dmxLivePatchLog  time.Time
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1383,6 +1389,7 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 }
 
 const dmxLiveFrameHz = 44
+const dmxLivePatchConsoleInterval = 400 * time.Millisecond
 const dmxAdapterQueueDepth = 2
 
 func (c *WLEDController) resolveSelectedUSBDevice() (serial2.USBSerialDevice, error) {
@@ -1452,7 +1459,7 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 		if reconcileErr != nil {
 			return reconcileErr
 		}
-		return fmt.Errorf("no active DMX adapters; select USB and/or enable Art-Net")
+		return fmt.Errorf("no active DMX adapters; enable USB transport and select USB, and/or enable Art-Net")
 	}
 	if reconcileErr != nil {
 		c.logger.Printf("dmx live: started with partial adapters: %v", reconcileErr)
@@ -1700,14 +1707,12 @@ func (c *WLEDController) reconcileDMXLiveAdapters() error {
 
 	var firstErr error
 
-	if !settings.Enabled || selectedUSB == "" {
+	if !settings.Enabled || !isDMXUSBEnabled(settings) || selectedUSB == "" {
 		c.dmxLiveMu.Lock()
 		c.stopDMXUSBAdapterLocked()
 		c.dmxLiveMu.Unlock()
 	} else if err := c.startDMXUSBAdapter(); err != nil {
-		if firstErr == nil {
-			firstErr = err
-		}
+		firstErr = err
 		c.setDMXLiveError("usb adapter: " + err.Error())
 		c.dmxLiveMu.Lock()
 		c.stopDMXUSBAdapterLocked()
@@ -1794,6 +1799,9 @@ func (c *WLEDController) dmxLiveUSBSimulatorWorker(frameCh <-chan [512]byte, pat
 	ticker := time.NewTicker(time.Second / time.Duration(hz))
 	defer ticker.Stop()
 
+	const consoleInterval = time.Second
+	var lastConsoleAt time.Time
+
 	var latest [512]byte
 	for {
 		select {
@@ -1803,7 +1811,18 @@ func (c *WLEDController) dmxLiveUSBSimulatorWorker(frameCh <-chan [512]byte, pat
 			}
 			latest = next
 		case <-ticker.C:
-			_ = latest
+			if c.console != nil {
+				now := time.Now()
+				if now.Sub(lastConsoleAt) >= consoleInterval {
+					lastConsoleAt = now
+					c.console.Out(
+						console.TransportUSBDMX,
+						path,
+						fmt.Sprintf("Simulated DMX frame sent (%dHz, 513 bytes)", hz),
+						dmxFrameSummary(latest),
+					)
+				}
+			}
 		}
 	}
 }
@@ -1877,7 +1896,11 @@ func (c *WLEDController) dmxLiveArtNetSimulatorWorker(frameCh <-chan [512]byte, 
 	ticker := time.NewTicker(time.Second / time.Duration(hz))
 	defer ticker.Stop()
 
+	const consoleInterval = time.Second
+	var lastConsoleAt time.Time
+
 	var latest [512]byte
+	var seq byte = 1
 	for {
 		select {
 		case next, ok := <-frameCh:
@@ -1886,7 +1909,22 @@ func (c *WLEDController) dmxLiveArtNetSimulatorWorker(frameCh <-chan [512]byte, 
 			}
 			latest = next
 		case <-ticker.C:
-			_ = latest
+			if c.console != nil {
+				now := time.Now()
+				if now.Sub(lastConsoleAt) >= consoleInterval {
+					lastConsoleAt = now
+					c.console.Out(
+						console.TransportArtNet,
+						target,
+						fmt.Sprintf("Simulated ArtDmx seq=%d net=%d subnet=%d universe=%d", seq, settings.Net, settings.Subnet, settings.Universe),
+						dmxFrameSummary(latest),
+					)
+				}
+			}
+			seq++
+			if seq == 0 {
+				seq = 1
+			}
 		}
 	}
 }
@@ -1923,6 +1961,9 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 	if !c.dmxLiveRunning || (c.dmxLiveUSBFrames == nil && c.dmxLiveArtFrames == nil) {
 		return fmt.Errorf("DMX live output is not running")
 	}
+	const sampleLimit = 8
+	changedCount := 0
+	samples := make([]string, 0, sampleLimit)
 	for _, u := range updates {
 		addr := u.Address
 		if addr < 1 || addr > 512 {
@@ -1935,11 +1976,48 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 		if v > 255 {
 			v = 255
 		}
-		c.dmxLiveBuf[addr-1] = byte(v)
+		next := byte(v)
+		idx := addr - 1
+		if c.dmxLiveBuf[idx] == next {
+			continue
+		}
+		c.dmxLiveBuf[idx] = next
+		changedCount++
+		if len(samples) < sampleLimit {
+			samples = append(samples, fmt.Sprintf("ch%d=%d", addr, next))
+		}
 	}
 	frame := c.dmxLiveBuf
 	queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
 	queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+	if c.console != nil && changedCount > 0 {
+		now := time.Now()
+		if now.Sub(c.dmxLivePatchLog) >= dmxLivePatchConsoleInterval {
+			c.dmxLivePatchLog = now
+			detail := strings.Join(samples, ", ")
+			if changedCount > len(samples) {
+				detail += fmt.Sprintf(", +%d more", changedCount-len(samples))
+			}
+			summary := fmt.Sprintf("Live patch applied (%d channel updates)", changedCount)
+			if c.dmxLiveUSBFrames != nil {
+				target := c.dmxLiveUSBPath
+				if target == "" {
+					target = "usb"
+				}
+				c.console.Out(console.TransportUSBDMX, target, summary, detail)
+			}
+			if c.dmxLiveArtFrames != nil {
+				target := c.dmxLiveArtTarget
+				if target == "" {
+					target = c.dmxLiveArtPath
+				}
+				if target == "" {
+					target = "artnet"
+				}
+				c.console.Out(console.TransportArtNet, target, summary, detail)
+			}
+		}
+	}
 	return nil
 }
 
@@ -2522,6 +2600,9 @@ func DefaultControllerSettings() ControllerSettings {
 		},
 		DMX: DMXSettings{
 			Enabled: true,
+			USB: USBTransportSettings{
+				Enabled: boolPtr(true),
+			},
 			ArtNet: ArtNetSettings{
 				Enabled:    false,
 				TargetHost: "255.255.255.255",
@@ -2563,6 +2644,7 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.WLED.Enabled = defaults.WLED.Enabled
 	}
 	hasDMXConfig := out.DMX.Enabled ||
+		out.DMX.USB.Enabled != nil ||
 		out.DMX.ArtNet.Enabled ||
 		strings.TrimSpace(out.DMX.ArtNet.TargetHost) != "" ||
 		out.DMX.ArtNet.Port > 0 ||
@@ -2574,6 +2656,9 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.DMX.Testing.SimulateArtNet
 	if !hasDMXConfig {
 		out.DMX.Enabled = defaults.DMX.Enabled
+	}
+	if out.DMX.USB.Enabled == nil {
+		out.DMX.USB.Enabled = boolPtr(isDMXUSBEnabled(defaults.DMX))
 	}
 
 	if out.AccessPoint.Connection == "" {
@@ -2628,6 +2713,17 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	out.Provisioning = ProvisioningSettings{}
 	out.Testing = TestingSettings{}
 	return out
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func isDMXUSBEnabled(settings DMXSettings) bool {
+	if settings.USB.Enabled == nil {
+		return true
+	}
+	return *settings.USB.Enabled
 }
 
 // clampAccessPointTo24GHz coerces the AP Wi‑Fi channel into the 2.4 GHz band (channels 1–14).

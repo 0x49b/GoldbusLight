@@ -39,6 +39,13 @@ export function ClearConsoleEntries(): $CancellablePromise<void> {
     return $Call.ByID(1300755656);
 }
 
+/**
+ * CloseDetachedConsoleWindow closes the detached Console window if open.
+ */
+export function CloseDetachedConsoleWindow(): $CancellablePromise<void> {
+    return $Call.ByID(2955751393);
+}
+
 export function ControllerSummary(): $CancellablePromise<string> {
     return $Call.ByID(3899562766);
 }
@@ -100,6 +107,13 @@ export function Greet(name: string): $CancellablePromise<string> {
 }
 
 /**
+ * IsConsoleWindowDetached reports whether the detached Console window is open.
+ */
+export function IsConsoleWindowDetached(): $CancellablePromise<boolean> {
+    return $Call.ByID(4287288425);
+}
+
+/**
  * ListConsoleEntries returns transport console entries with ID greater than
  * afterID, capped at limit. Used by the Settings → Console tab.
  */
@@ -113,6 +127,13 @@ export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSeri
     return $Call.ByID(147791315).then(($result: any) => {
         return $$createType12($result);
     });
+}
+
+/**
+ * OpenDetachedConsoleWindow opens (or focuses) the detached Console window.
+ */
+export function OpenDetachedConsoleWindow(): $CancellablePromise<void> {
+    return $Call.ByID(698290765);
 }
 
 export function ProvisionDevice(deviceID: string): $CancellablePromise<controller$0.ControllerSnapshot> {

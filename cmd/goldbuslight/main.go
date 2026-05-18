@@ -5,6 +5,7 @@ import (
 	"goldbus/internal/controller"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"goldbus"
@@ -12,6 +13,7 @@ import (
 	"goldbus/internal/service"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 func init() {
@@ -32,15 +34,10 @@ func main() {
 	}
 	defer controller.Stop()
 
-	greetService := service.NewGreetService(controller)
-
 	// 1400 x 1020
 	app := application.New(application.Options{
 		Name:        "Goldbus Light Controller",
 		Description: "Application to control 'smart' Lights in the Goldbus",
-		Services: []application.Service{
-			application.NewService(greetService),
-		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(goldbus.Dist),
 		},
@@ -61,6 +58,59 @@ func main() {
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})
+
+	var consoleWindowMu sync.Mutex
+	var consoleWindow *application.WebviewWindow
+
+	openDetachedConsoleWindow := func() error {
+		consoleWindowMu.Lock()
+		defer consoleWindowMu.Unlock()
+		if consoleWindow != nil {
+			consoleWindow.Show()
+			consoleWindow.Focus()
+			return nil
+		}
+		win := app.Window.NewWithOptions(application.WebviewWindowOptions{
+			Name:             "detached-console",
+			Title:            "Goldbus Transport Console",
+			Width:            960,
+			Height:           680,
+			BackgroundColour: application.NewRGB(255, 255, 255),
+			URL:              "/?view=console-window",
+		})
+		win.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+			consoleWindowMu.Lock()
+			if consoleWindow == win {
+				consoleWindow = nil
+			}
+			consoleWindowMu.Unlock()
+		})
+		consoleWindow = win
+		return nil
+	}
+
+	closeDetachedConsoleWindow := func() error {
+		consoleWindowMu.Lock()
+		win := consoleWindow
+		consoleWindowMu.Unlock()
+		if win != nil {
+			win.Close()
+		}
+		return nil
+	}
+
+	isDetachedConsoleWindow := func() bool {
+		consoleWindowMu.Lock()
+		defer consoleWindowMu.Unlock()
+		return consoleWindow != nil
+	}
+
+	greetService := service.NewGreetService(controller, service.ConsoleWindowCallbacks{
+		Open:       openDetachedConsoleWindow,
+		Close:      closeDetachedConsoleWindow,
+		IsDetached: isDetachedConsoleWindow,
+	})
+	app.RegisterService(application.NewService(greetService))
 
 	go func() {
 		for {

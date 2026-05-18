@@ -137,6 +137,7 @@ export function useControllerApp() {
         usbSerialDevices,
         consoleEntries,
         consoleLastId,
+        consoleDetached,
         setSnapshot,
         setSettings,
         setApplyResult,
@@ -173,6 +174,7 @@ export function useControllerApp() {
         setUSBSerialDevices,
         setConsoleEntries,
         setConsoleLastId,
+        setConsoleDetached,
     } = useControllerStore(
         useShallow((s) => ({
             snapshot: s.snapshot,
@@ -211,6 +213,7 @@ export function useControllerApp() {
             usbSerialDevices: s.usbSerialDevices,
             consoleEntries: s.consoleEntries,
             consoleLastId: s.consoleLastId,
+            consoleDetached: s.consoleDetached,
             setSnapshot: s.setSnapshot,
             setSettings: s.setSettings,
             setApplyResult: s.setApplyResult,
@@ -247,6 +250,7 @@ export function useControllerApp() {
             setUSBSerialDevices: s.setUSBSerialDevices,
             setConsoleEntries: s.setConsoleEntries,
             setConsoleLastId: s.setConsoleLastId,
+            setConsoleDetached: s.setConsoleDetached,
         })),
     );
 
@@ -459,13 +463,24 @@ export function useControllerApp() {
         }
     }, [setConsoleEntries, setConsoleLastId]);
 
+    const pullConsoleDetachedStatus = useCallback(async () => {
+        try {
+            const detached = await GreetService.IsConsoleWindowDetached();
+            setConsoleDetached(Boolean(detached));
+        } catch {
+            /* ignore transient errors */
+        }
+    }, [setConsoleDetached]);
+
     useEffect(() => {
         void pullConsoleEntries();
+        void pullConsoleDetachedStatus();
         const timer = window.setInterval(() => {
             void pullConsoleEntries();
+            void pullConsoleDetachedStatus();
         }, CONSOLE_POLL_MS);
         return () => window.clearInterval(timer);
-    }, [pullConsoleEntries]);
+    }, [pullConsoleDetachedStatus, pullConsoleEntries]);
 
     const onClearConsole = useCallback(() => {
         setConsoleEntries([]);
@@ -473,6 +488,22 @@ export function useControllerApp() {
             /* ignore */
         });
     }, [setConsoleEntries]);
+
+    const openDetachedConsoleWindow = useCallback(() => {
+        void GreetService.OpenDetachedConsoleWindow()
+            .then(() => setConsoleDetached(true))
+            .catch(() => {
+                /* ignore */
+            });
+    }, [setConsoleDetached]);
+
+    const closeDetachedConsoleWindow = useCallback(() => {
+        void GreetService.CloseDetachedConsoleWindow()
+            .then(() => setConsoleDetached(false))
+            .catch(() => {
+                /* ignore */
+            });
+    }, [setConsoleDetached]);
 
     useEffect(() => {
         if (route.kind !== "device") {
@@ -1456,7 +1487,10 @@ export function useControllerApp() {
         onDismissError,
         consoleEntries,
         consoleLastId,
+        consoleDetached,
         onClearConsole,
+        openDetachedConsoleWindow,
+        closeDetachedConsoleWindow,
     };
 }
 

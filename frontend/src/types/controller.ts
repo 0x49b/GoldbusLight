@@ -49,6 +49,9 @@ export type ArtNetSettings = {
 
 export type DMXSettings = {
     enabled: boolean;
+    usb: {
+        enabled?: boolean;
+    };
     artNet: ArtNetSettings;
     testing: {
         simulateUsbDmx: boolean;

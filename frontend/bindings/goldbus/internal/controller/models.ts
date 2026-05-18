@@ -378,15 +378,23 @@ export enum DMXFixtureType {
 
 export class DMXSettings {
     "enabled": boolean;
+    "usb": USBTransportSettings;
     "artNet": ArtNetSettings;
+    "testing": DMXTestingSettings;
 
     /** Creates a new DMXSettings instance. */
     constructor($$source: Partial<DMXSettings> = {}) {
         if (!("enabled" in $$source)) {
             this["enabled"] = false;
         }
+        if (!("usb" in $$source)) {
+            this["usb"] = (new USBTransportSettings());
+        }
         if (!("artNet" in $$source)) {
             this["artNet"] = (new ArtNetSettings());
+        }
+        if (!("testing" in $$source)) {
+            this["testing"] = (new DMXTestingSettings());
         }
 
         Object.assign(this, $$source);
@@ -397,9 +405,17 @@ export class DMXSettings {
      */
     static createFrom($$source: any = {}): DMXSettings {
         const $$createField1_0 = $$createType15;
+        const $$createField2_0 = $$createType16;
+        const $$createField3_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("usb" in $$parsedSource) {
+            $$parsedSource["usb"] = $$createField1_0($$parsedSource["usb"]);
+        }
         if ("artNet" in $$parsedSource) {
-            $$parsedSource["artNet"] = $$createField1_0($$parsedSource["artNet"]);
+            $$parsedSource["artNet"] = $$createField2_0($$parsedSource["artNet"]);
+        }
+        if ("testing" in $$parsedSource) {
+            $$parsedSource["testing"] = $$createField3_0($$parsedSource["testing"]);
         }
         return new DMXSettings($$parsedSource as Partial<DMXSettings>);
     }
@@ -425,12 +441,37 @@ export class DMXState {
      * Creates a new DMXState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXState {
-        const $$createField0_0 = $$createType17;
+        const $$createField0_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtures" in $$parsedSource) {
             $$parsedSource["fixtures"] = $$createField0_0($$parsedSource["fixtures"]);
         }
         return new DMXState($$parsedSource as Partial<DMXState>);
+    }
+}
+
+export class DMXTestingSettings {
+    "simulateUsbDmx": boolean;
+    "simulateArtNet": boolean;
+
+    /** Creates a new DMXTestingSettings instance. */
+    constructor($$source: Partial<DMXTestingSettings> = {}) {
+        if (!("simulateUsbDmx" in $$source)) {
+            this["simulateUsbDmx"] = false;
+        }
+        if (!("simulateArtNet" in $$source)) {
+            this["simulateArtNet"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXTestingSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXTestingSettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DMXTestingSettings($$parsedSource as Partial<DMXTestingSettings>);
     }
 }
 
@@ -478,7 +519,7 @@ export class DiscoverySettings {
      * Creates a new DiscoverySettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType18;
+        const $$createField1_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serviceTypes" in $$parsedSource) {
             $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
@@ -578,8 +619,8 @@ export class NetworkApplyResult {
      * Creates a new NetworkApplyResult instance from a string or object.
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
-        const $$createField1_0 = $$createType18;
-        const $$createField2_0 = $$createType20;
+        const $$createField1_0 = $$createType20;
+        const $$createField2_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -681,6 +722,24 @@ export class TestingSettings {
 
 export const USBSerialDevice = serial$0.USBSerialDevice;
 export type USBSerialDevice = serial$0.USBSerialDevice;
+
+export class USBTransportSettings {
+    "enabled"?: boolean | null;
+
+    /** Creates a new USBTransportSettings instance. */
+    constructor($$source: Partial<USBTransportSettings> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new USBTransportSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): USBTransportSettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new USBTransportSettings($$parsedSource as Partial<USBTransportSettings>);
+    }
+}
 
 export class UpsertDMXFixtureInput {
     "id"?: string;
@@ -832,8 +891,8 @@ export class WLEDDeviceDetail {
     static createFrom($$source: any = {}): WLEDDeviceDetail {
         const $$createField2_0 = $$createType11;
         const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType18;
-        const $$createField5_0 = $$createType18;
+        const $$createField4_0 = $$createType20;
+        const $$createField5_0 = $$createType20;
         const $$createField6_0 = $$createType11;
         const $$createField7_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -920,9 +979,11 @@ const $$createType11 = $Create.Map($Create.Any, $Create.Any);
 const $$createType12 = MovingHeadConfig.createFrom;
 const $$createType13 = DMXChannel.createFrom;
 const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = ArtNetSettings.createFrom;
-const $$createType16 = DMXFixture.createFrom;
-const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = $Create.Array($Create.Any);
-const $$createType19 = NetworkCommandResult.createFrom;
-const $$createType20 = $Create.Array($$createType19);
+const $$createType15 = USBTransportSettings.createFrom;
+const $$createType16 = ArtNetSettings.createFrom;
+const $$createType17 = DMXTestingSettings.createFrom;
+const $$createType18 = DMXFixture.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $Create.Array($Create.Any);
+const $$createType21 = NetworkCommandResult.createFrom;
+const $$createType22 = $Create.Array($$createType21);

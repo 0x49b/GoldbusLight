@@ -5,12 +5,27 @@ import {DeviceDetailView} from "./components/device/DeviceDetailView";
 import {AppShell} from "./components/layout/AppShell";
 import {GeneralPanel} from "./components/presets/GeneralPanel";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
+import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
 import {useControllerApp} from "./hooks/useControllerApp";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Spinner} from "@/components/ui/spinner";
 
 function App() {
     const app = useControllerApp();
+    const isDetachedConsoleWindow = new URLSearchParams(window.location.search).get("view") === "console-window";
+
+    if (isDetachedConsoleWindow) {
+        return (
+            <main className="min-h-screen p-4 bg-background">
+                <TransportConsolePanel
+                    entries={app.consoleEntries}
+                    onClear={app.onClearConsole}
+                    onToggleDetach={app.closeDetachedConsoleWindow}
+                    detached
+                />
+            </main>
+        );
+    }
 
     let main: ReactNode = null;
     if (app.route.kind === "presets" && app.wledEnabled) {
@@ -63,6 +78,8 @@ function App() {
                 onRefreshSnapshot={app.pullSnapshot}
                 consoleEntries={app.consoleEntries}
                 onClearConsole={app.onClearConsole}
+                consoleDetached={app.consoleDetached}
+                onToggleConsoleDetach={app.openDetachedConsoleWindow}
             />
         );
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {

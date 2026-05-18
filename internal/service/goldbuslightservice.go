@@ -13,19 +13,33 @@ import (
 
 // Service timeout constants for operations
 const (
-	TimeoutNetworkApply  = 20 * time.Second
-	TimeoutDiscovery     = 10 * time.Second
-	TimeoutDeviceOp      = 5 * time.Second
-	TimeoutDeviceDetail  = 8 * time.Second
-	TimeoutProvision     = 8 * time.Second
+	TimeoutNetworkApply = 20 * time.Second
+	TimeoutDiscovery    = 10 * time.Second
+	TimeoutDeviceOp     = 5 * time.Second
+	TimeoutDeviceDetail = 8 * time.Second
+	TimeoutProvision    = 8 * time.Second
 )
 
 type GoldbusLightService struct {
-	controller *ctrlpkg.WLEDController
+	controller                 *ctrlpkg.WLEDController
+	openDetachedConsoleWindow  func() error
+	closeDetachedConsoleWindow func() error
+	isConsoleWindowDetached    func() bool
 }
 
-func NewGreetService(controller *ctrlpkg.WLEDController) *GoldbusLightService {
-	return &GoldbusLightService{controller: controller}
+type ConsoleWindowCallbacks struct {
+	Open       func() error
+	Close      func() error
+	IsDetached func() bool
+}
+
+func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks) *GoldbusLightService {
+	return &GoldbusLightService{
+		controller:                 controller,
+		openDetachedConsoleWindow:  callbacks.Open,
+		closeDetachedConsoleWindow: callbacks.Close,
+		isConsoleWindowDetached:    callbacks.IsDetached,
+	}
 }
 
 // withController executes a function with the controller if it's available
@@ -287,6 +301,30 @@ func (g *GoldbusLightService) ClearConsoleEntries() error {
 		bus.Clear()
 	}
 	return nil
+}
+
+// OpenDetachedConsoleWindow opens (or focuses) the detached Console window.
+func (g *GoldbusLightService) OpenDetachedConsoleWindow() error {
+	if g.openDetachedConsoleWindow == nil {
+		return errors.New("detached console window is unavailable")
+	}
+	return g.openDetachedConsoleWindow()
+}
+
+// CloseDetachedConsoleWindow closes the detached Console window if open.
+func (g *GoldbusLightService) CloseDetachedConsoleWindow() error {
+	if g.closeDetachedConsoleWindow == nil {
+		return nil
+	}
+	return g.closeDetachedConsoleWindow()
+}
+
+// IsConsoleWindowDetached reports whether the detached Console window is open.
+func (g *GoldbusLightService) IsConsoleWindowDetached() bool {
+	if g.isConsoleWindowDetached == nil {
+		return false
+	}
+	return g.isConsoleWindowDetached()
 }
 
 func (g *GoldbusLightService) requireController() (*ctrlpkg.WLEDController, error) {

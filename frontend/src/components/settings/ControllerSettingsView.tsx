@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction} from "react";
+import {useCallback, useEffect, useRef, type Dispatch, type SetStateAction} from "react";
 import {prettyJSON, readNumber} from "../../lib/json";
 import {PiArrowsClockwise, PiBinoculars, PiWifiHigh} from "react-icons/pi";
 import type {
@@ -20,6 +20,7 @@ import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Switch} from "@/components/ui/switch";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Textarea} from "@/components/ui/textarea";
+import {TransportConsolePanel} from "./TransportConsolePanel";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -45,6 +46,8 @@ export type ControllerSettingsViewProps = {
     onRefreshSnapshot: () => void;
     consoleEntries: ConsoleEntry[];
     onClearConsole: () => void;
+    consoleDetached: boolean;
+    onToggleConsoleDetach: () => void;
 };
 
 export function ControllerSettingsView({
@@ -71,6 +74,8 @@ export function ControllerSettingsView({
                                            onRefreshSnapshot,
                                            consoleEntries,
                                            onClearConsole,
+                                           consoleDetached,
+                                           onToggleConsoleDetach,
                                        }: ControllerSettingsViewProps) {
     if (!settings) {
         return <p className="opacity-70">Loading settings…</p>;
@@ -78,6 +83,8 @@ export function ControllerSettingsView({
 
     const wledControlsDisabled = busy || !settings.wled.enabled;
     const dmxControlsDisabled = busy || !settings.dmx.enabled;
+    const usbTransportEnabled = settings.dmx.usb.enabled ?? true;
+    const usbFieldsDisabled = dmxControlsDisabled || !usbTransportEnabled;
     const artNetFieldsDisabled = dmxControlsDisabled || !settings.dmx.artNet.enabled;
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
@@ -161,12 +168,12 @@ export function ControllerSettingsView({
                 <h2 className="text-lg font-semibold">Controller settings</h2>
             </div>
 
-            <Tabs defaultValue="general">
+            <Tabs key={consoleDetached ? "console-detached" : "console-attached"} defaultValue="general">
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="wled">WLED</TabsTrigger>
                     <TabsTrigger value="dmx">DMX</TabsTrigger>
-                    <TabsTrigger value="console">Console</TabsTrigger>
+                    {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-5">
@@ -630,15 +637,29 @@ export function ControllerSettingsView({
                             <CardTitle className="text-sm font-semibold">DMX USB interface</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                            <label className="flex items-center gap-3">
+                                <Switch
+                                    checked={usbTransportEnabled}
+                                    onCheckedChange={(checked) => updateSettings({
+                                        ...settings,
+                                        dmx: {
+                                            ...settings.dmx,
+                                            usb: {...settings.dmx.usb, enabled: checked},
+                                        }
+                                    }, "immediate")}
+                                    disabled={dmxControlsDisabled}
+                                />
+                                <span>Enable USB transport</span>
+                            </label>
                             <p className="text-sm opacity-70">
-                                Select the active USB-to-DMX serial interface. Selection is saved automatically.
+                                Select the active USB-to-DMX serial interface. Selection is saved automatically and used when USB transport is enabled.
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
                                 <NativeSelect
                                     className="w-full md:w-[28rem]"
                                     value={dmxState.selectedUSBDeviceId ?? ""}
                                     onChange={(event) => onSelectUSBSerialDevice(event.target.value)}
-                                    disabled={dmxControlsDisabled}
+                                    disabled={usbFieldsDisabled}
                                 >
                                     <NativeSelectOption value="">No device selected</NativeSelectOption>
                                     {usbSerialDevices.map((device) => (
@@ -652,7 +673,7 @@ export function ControllerSettingsView({
                                     size="sm"
                                     variant="outline"
                                     onClick={onRefreshUSBSerialDevices}
-                                    disabled={dmxControlsDisabled}
+                                    disabled={usbFieldsDisabled}
                                 >
                                     Refresh USB devices
                                 </Button>
@@ -806,9 +827,16 @@ export function ControllerSettingsView({
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="console" className="space-y-5">
-                    <ConsoleTabContent entries={consoleEntries} onClear={onClearConsole}/>
-                </TabsContent>
+                {!consoleDetached && (
+                    <TabsContent value="console" className="space-y-5">
+                        <TransportConsolePanel
+                            entries={consoleEntries}
+                            onClear={onClearConsole}
+                            onToggleDetach={onToggleConsoleDetach}
+                            detached={false}
+                        />
+                    </TabsContent>
+                )}
             </Tabs>
 
             {snapshot && (
@@ -823,115 +851,3 @@ export function ControllerSettingsView({
     );
 }
 
-const TRANSPORT_LABEL: Record<string, string> = {
-    wled: "WLED",
-    "usb-dmx": "USB DMX",
-    artnet: "Art-Net",
-};
-
-const DIRECTION_BADGE_CLASS: Record<string, string> = {
-    out: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-    in: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-    info: "bg-muted text-muted-foreground",
-    error: "bg-destructive/20 text-destructive",
-};
-
-function formatConsoleTime(ts: string): string {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) {
-        return ts;
-    }
-    return d.toLocaleTimeString(undefined, {hour12: false}) + "." + String(d.getMilliseconds()).padStart(3, "0");
-}
-
-type ConsoleTabContentProps = {
-    entries: ConsoleEntry[];
-    onClear: () => void;
-};
-
-function ConsoleTabContent({entries, onClear}: ConsoleTabContentProps) {
-    const scrollRef = useRef<HTMLDivElement | null>(null);
-    const autoScrollRef = useRef<boolean>(true);
-
-    const orderedEntries = useMemo(() => {
-        return [...entries].sort((a, b) => a.id - b.id);
-    }, [entries]);
-
-    useEffect(() => {
-        if (!autoScrollRef.current) {
-            return;
-        }
-        const el = scrollRef.current;
-        if (!el) {
-            return;
-        }
-        el.scrollTop = el.scrollHeight;
-    }, [orderedEntries.length]);
-
-    const handleScroll = useCallback(() => {
-        const el = scrollRef.current;
-        if (!el) {
-            return;
-        }
-        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        autoScrollRef.current = distanceFromBottom < 32;
-    }, []);
-
-    return (
-        <Card className="w-full max-w-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
-                <CardTitle className="text-sm font-semibold">Live transport console</CardTitle>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onClear}
-                    disabled={orderedEntries.length === 0}
-                >
-                    Clear
-                </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                    Live commands sent to USB-DMX, Art-Net and WLED transports appear here as they are dispatched.
-                </p>
-                <div
-                    ref={scrollRef}
-                    onScroll={handleScroll}
-                    className="max-h-[28rem] overflow-auto rounded border bg-card font-mono text-xs"
-                >
-                    {orderedEntries.length === 0 ? (
-                        <div className="p-3 text-muted-foreground">No transport activity yet.</div>
-                    ) : (
-                        <ul className="divide-y">
-                            {orderedEntries.map((entry) => {
-                                const badgeClass = DIRECTION_BADGE_CLASS[entry.direction] ?? DIRECTION_BADGE_CLASS.info;
-                                const transportLabel = TRANSPORT_LABEL[entry.transport] ?? entry.transport;
-                                return (
-                                    <li key={entry.id} className="px-3 py-1.5 leading-relaxed">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="opacity-60">{formatConsoleTime(entry.timestamp)}</span>
-                                            <span className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${badgeClass}`}>
-                                                {entry.direction}
-                                            </span>
-                                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
-                                                {transportLabel}
-                                            </span>
-                                            {entry.target && (
-                                                <span className="opacity-80 truncate">{entry.target}</span>
-                                            )}
-                                            <span className="flex-1 break-words">{entry.summary}</span>
-                                        </div>
-                                        {entry.detail && (
-                                            <pre className="mt-1 whitespace-pre-wrap break-all text-[10px] opacity-70">{entry.detail}</pre>
-                                        )}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
