@@ -39,7 +39,54 @@ const (
 	ap24MinChannel     = 1
 	ap24MaxChannel     = 14
 	defaultAP24Channel = 6
+	agentDebugLogPath  = "/Users/florianthievent/workspace/private/GoldbusLight/.cursor/debug-9b77be.log"
+	agentDebugSession  = "9b77be"
 )
+
+func agentDebugLog(hypothesisID, location, message string, data map[string]any) {
+	entry := map[string]any{
+		"sessionId":    agentDebugSession,
+		"runId":        "usb-live-freeze-investigation",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"message":      message,
+		"data":         data,
+		"timestamp":    time.Now().UnixMilli(),
+	}
+	b, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(agentDebugLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(b, '\n'))
+}
+
+func agentProbeOSOpen(path string, flag int, timeout time.Duration) (string, string) {
+	type probeResult struct {
+		err error
+	}
+	ch := make(chan probeResult, 1)
+	go func() {
+		f, err := os.OpenFile(path, flag, 0)
+		if err == nil && f != nil {
+			_ = f.Close()
+		}
+		ch <- probeResult{err: err}
+	}()
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			return "error", res.err.Error()
+		}
+		return "ok", ""
+	case <-time.After(timeout):
+		return "timeout", ""
+	}
+}
 
 type AccessPointSettings struct {
 	Enabled       bool   `json:"enabled"`
@@ -1449,7 +1496,17 @@ func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
 func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	c.mu.RLock()
 	dmxSettings := c.settings.DMX
+	selectedUSB := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
 	c.mu.RUnlock()
+	// #region agent log
+	agentDebugLog("H1", "controller.go:StartDMXLive:entry", "StartDMXLive called", map[string]any{
+		"fixtureID":          strings.TrimSpace(fixtureID),
+		"dmxEnabled":         dmxSettings.Enabled,
+		"usbEnabled":         isDMXUSBEnabled(dmxSettings),
+		"simulateUsbEnabled": dmxSettings.Testing.SimulateUSBDMX,
+		"selectedUSB":        selectedUSB,
+	})
+	// #endregion
 	if !dmxSettings.Enabled {
 		return fmt.Errorf("dmx component is disabled in settings")
 	}
@@ -1467,10 +1524,22 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	}
 	c.dmxLiveMu.Unlock()
 
+	// #region agent log
+	agentDebugLog("H2", "controller.go:StartDMXLive:beforeReconcile", "Starting DMX adapter reconciliation", map[string]any{
+		"fixtureID": strings.TrimSpace(fixtureID),
+	})
+	// #endregion
 	reconcileErr := c.reconcileDMXLiveAdapters()
 	c.dmxLiveMu.Lock()
 	hasAdapter := c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil
 	c.dmxLiveMu.Unlock()
+	// #region agent log
+	agentDebugLog("H2", "controller.go:StartDMXLive:afterReconcile", "DMX adapter reconciliation completed", map[string]any{
+		"hasAdapter":    hasAdapter,
+		"reconcileErr":  fmt.Sprintf("%v", reconcileErr),
+		"usbPathActive": c.GetDMXLiveStatus().DevicePath,
+	})
+	// #endregion
 	if !hasAdapter {
 		c.StopDMXLive()
 		if reconcileErr != nil {
@@ -1536,8 +1605,20 @@ func (c *WLEDController) stopDMXArtNetAdapterLocked() {
 func (c *WLEDController) startDMXUSBAdapter() error {
 	dev, err := c.resolveSelectedUSBDevice()
 	if err != nil {
+		// #region agent log
+		agentDebugLog("H3", "controller.go:startDMXUSBAdapter:resolveError", "Failed to resolve selected USB DMX device", map[string]any{
+			"error": err.Error(),
+		})
+		// #endregion
 		return err
 	}
+	// #region agent log
+	agentDebugLog("H3", "controller.go:startDMXUSBAdapter:resolved", "Resolved selected USB DMX device", map[string]any{
+		"deviceID":   strings.TrimSpace(dev.ID),
+		"devicePath": strings.TrimSpace(dev.Path),
+		"deviceName": strings.TrimSpace(dev.Name),
+	})
+	// #endregion
 	if strings.TrimSpace(dev.ID) == simulatedUSBDMXDeviceID {
 		c.dmxLiveMu.Lock()
 		if !c.dmxLiveRunning {
@@ -1580,10 +1661,115 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 	c.dmxLiveMu.Unlock()
 
 	mode := &serial.Mode{BaudRate: 250000, DataBits: 8, Parity: serial.NoParity, StopBits: serial.TwoStopBits}
-	port, err := serial.Open(path, mode)
-	if err != nil {
-		return fmt.Errorf("open serial port: %w", err)
+	const openTimeout = 2 * time.Second
+	type openResult struct {
+		port serial.Port
+		err  error
 	}
+	attemptPaths := make([]string, 0, 3)
+	seenPath := make(map[string]struct{}, 3)
+	appendPath := func(candidate string) {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return
+		}
+		if _, exists := seenPath[candidate]; exists {
+			return
+		}
+		seenPath[candidate] = struct{}{}
+		attemptPaths = append(attemptPaths, candidate)
+	}
+	appendPath(path)
+	appendPath(rawPath)
+	if strings.HasPrefix(path, "/dev/cu.") {
+		appendPath("/dev/tty." + strings.TrimPrefix(path, "/dev/cu."))
+	}
+	if strings.HasPrefix(rawPath, "/dev/cu.") {
+		appendPath("/dev/tty." + strings.TrimPrefix(rawPath, "/dev/cu."))
+	}
+	var port serial.Port
+	var lastErr error
+	openedPath := ""
+	for idx, attemptPath := range attemptPaths {
+		statExists := false
+		statMode := ""
+		if info, statErr := os.Stat(attemptPath); statErr == nil {
+			statExists = true
+			statMode = info.Mode().String()
+		}
+		probeRW, probeRWErr := agentProbeOSOpen(attemptPath, os.O_RDWR, 300*time.Millisecond)
+		probeRO, probeROErr := agentProbeOSOpen(attemptPath, os.O_RDONLY, 300*time.Millisecond)
+		// #region agent log
+		agentDebugLog("H6", "controller.go:startDMXUSBAdapter:beforeSerialOpen", "Opening DMX serial port", map[string]any{
+			"path":        attemptPath,
+			"rawPath":     rawPath,
+			"baud":        mode.BaudRate,
+			"attempt":     idx + 1,
+			"attemptTotal": len(attemptPaths),
+			"statExists":  statExists,
+			"statMode":    statMode,
+			"probeRW":     probeRW,
+			"probeRWErr":  probeRWErr,
+			"probeRO":     probeRO,
+			"probeROErr":  probeROErr,
+		})
+		// #endregion
+		resultCh := make(chan openResult, 1)
+		timedOutCh := make(chan struct{})
+		go func(openPath string) {
+			p, openErr := serial.Open(openPath, mode)
+			select {
+			case <-timedOutCh:
+				if openErr == nil && p != nil {
+					_ = p.Close()
+				}
+			case resultCh <- openResult{port: p, err: openErr}:
+			}
+		}(attemptPath)
+		select {
+		case res := <-resultCh:
+			if res.err != nil {
+				lastErr = res.err
+				// #region agent log
+				agentDebugLog("H6", "controller.go:startDMXUSBAdapter:serialOpenError", "Failed to open DMX serial port", map[string]any{
+					"path":    attemptPath,
+					"error":   res.err.Error(),
+					"attempt": idx + 1,
+				})
+				// #endregion
+				continue
+			}
+			port = res.port
+			openedPath = attemptPath
+			// #region agent log
+			agentDebugLog("H6", "controller.go:startDMXUSBAdapter:serialOpenSuccess", "Opened DMX serial port", map[string]any{
+				"path":    attemptPath,
+				"attempt": idx + 1,
+			})
+			// #endregion
+		case <-time.After(openTimeout):
+			close(timedOutCh)
+			lastErr = fmt.Errorf("open serial port timed out after %dms: %s", openTimeout.Milliseconds(), attemptPath)
+			// #region agent log
+			agentDebugLog("H6", "controller.go:startDMXUSBAdapter:serialOpenTimeout", "Timed out opening DMX serial port", map[string]any{
+				"path":      attemptPath,
+				"timeoutMs": openTimeout.Milliseconds(),
+				"attempt":   idx + 1,
+			})
+			// #endregion
+			continue
+		}
+		if port != nil {
+			break
+		}
+	}
+	if port == nil {
+		if lastErr != nil {
+			return lastErr
+		}
+		return fmt.Errorf("open serial port failed: no usable path for selected adapter")
+	}
+	path = openedPath
 	_ = port.SetReadTimeout(50 * time.Millisecond)
 
 	c.dmxLiveMu.Lock()
