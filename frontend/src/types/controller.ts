@@ -268,6 +268,8 @@ export type DMXState = {
     fixtures: DMXFixture[];
     selectedUSBDeviceId: string;
     party: DMXPartyState;
+    /** Present while DMX live output (USB and/or Art-Net) is running: 512 slot values 0–255. */
+    liveUniverse?: number[];
 };
 
 export type USBSerialDevice = {

@@ -91,6 +91,7 @@ type DMXFixtureEditorViewProps = {
     onRefreshUSBSerialDevices: () => Promise<void>;
     onSelectUSBSerialDevice: (deviceID: string) => Promise<void>;
     partyRunning: boolean;
+    pullDMXState: () => Promise<unknown>;
 };
 
 const DMX_CHANNEL_TYPES: DMXChannelType[] = [
@@ -914,6 +915,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     liveStatus={props.dmxLiveStatus}
                     partyRunning={props.partyRunning}
                     queueDmxLivePatch={props.queueDmxLivePatch}
+                    liveUniverse={props.dmxState.liveUniverse}
+                    pullDMXState={props.pullDMXState}
                 />
             ) : (
                 <>
