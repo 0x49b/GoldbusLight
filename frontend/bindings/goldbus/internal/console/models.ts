@@ -5,12 +5,16 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as time$0 from "../../../time/models.js";
+
 /**
  * Entry is one row in the live transport console.
  */
 export class Entry {
     "id": number;
-    "timestamp": string;
+    "timestamp": time$0.Time;
     "transport": string;
     "direction": string;
     "target"?: string;
@@ -23,7 +27,7 @@ export class Entry {
             this["id"] = 0;
         }
         if (!("timestamp" in $$source)) {
-            this["timestamp"] = "";
+            this["timestamp"] = null;
         }
         if (!("transport" in $$source)) {
             this["transport"] = "";

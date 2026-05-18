@@ -161,7 +161,7 @@ export function ControllerSettingsView({
                 <h2 className="text-lg font-semibold">Controller settings</h2>
             </div>
 
-            <Tabs defaultValue="general" className="w-full">
+            <Tabs defaultValue="general">
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="wled">WLED</TabsTrigger>
