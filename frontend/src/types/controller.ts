@@ -50,6 +50,10 @@ export type ArtNetSettings = {
 export type DMXSettings = {
     enabled: boolean;
     artNet: ArtNetSettings;
+    testing: {
+        simulateUsbDmx: boolean;
+        simulateArtNet: boolean;
+    };
 };
 
 export type ControllerSettings = {
