@@ -183,6 +183,7 @@ function App() {
                 dmxFixtures={app.dmxState.fixtures}
                 wledEnabled={app.wledEnabled}
                 dmxEnabled={app.dmxEnabled}
+                dmxLiveStatus={app.dmxLiveStatus}
                 error={app.error}
                 onDismissError={app.onDismissError}
             >

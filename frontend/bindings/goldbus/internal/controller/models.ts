@@ -373,7 +373,20 @@ export enum DMXFixtureType {
      */
     $zero = "",
 
+    DMXFixtureTypeColorChanger = "colorChanger",
+    DMXFixtureTypeDimmer = "dimmer",
+    DMXFixtureTypeEffect = "effect",
+    DMXFixtureTypeFan = "fan",
+    DMXFixtureTypeFlower = "flower",
+    DMXFixtureTypeHazer = "hazer",
+    DMXFixtureTypeLaser = "laser",
+    DMXFixtureTypeLEDBarBeams = "ledBarBeams",
+    DMXFixtureTypeLEDBarPixels = "ledBarPixels",
     DMXFixtureTypeMovingHead = "movingHead",
+    DMXFixtureTypeOther = "other",
+    DMXFixtureTypeScanner = "scanner",
+    DMXFixtureTypeSmoke = "smoke",
+    DMXFixtureTypeStrobe = "strobe",
 };
 
 export class DMXPartyAudioFeatures {

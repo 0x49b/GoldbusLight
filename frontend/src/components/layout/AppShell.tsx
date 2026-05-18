@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
+import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 
 export type AppShellProps = {
     status: string;
@@ -33,6 +34,7 @@ export type AppShellProps = {
     dmxFixtures: DMXFixture[];
     wledEnabled: boolean;
     dmxEnabled: boolean;
+    dmxLiveStatus: DMXLiveStatus | null;
     error: string;
     onDismissError: () => void;
     children: ReactNode;
@@ -47,10 +49,13 @@ export function AppShell({
                              dmxFixtures,
                              wledEnabled,
                              dmxEnabled,
+                             dmxLiveStatus,
                              error,
                              onDismissError,
                              children,
                          }: AppShellProps) {
+    const dmxLiveConnected = dmxLiveStatus?.connected === true;
+    const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
     return (
 
         <SidebarProvider>
@@ -201,6 +206,15 @@ export function AppShell({
                                                 <PiLightbulb className="size-4 shrink-0" aria-hidden/>
                                                 <span
                                                     className="min-w-0 flex-1 truncate">{fixture.name}</span>
+                                                <span
+                                                    className={cn(
+                                                        "status status-sm shrink-0",
+                                                        dmxLiveConnected && dmxLiveFixtureId === fixture.id
+                                                            ? "status-success"
+                                                            : "status-neutral",
+                                                    )}
+                                                    aria-hidden
+                                                />
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     ))}

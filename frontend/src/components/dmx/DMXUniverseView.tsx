@@ -10,8 +10,10 @@ import {
     splitRangeIntoSegments,
     universeRange,
 } from "@/lib/dmxUniverseGrid";
+import {parseFixtureEntries} from "@/lib/dmxLiveMap";
 import type {DetailRoute, DMXFixture, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "../../types/controller";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
+import type {JSONMap} from "../../types/controller";
 import {PiPlus, PiWarningCircle} from "react-icons/pi";
 
 export type DMXUniverseViewProps = {
@@ -86,25 +88,188 @@ function fixtureAddress(base: number, offset: number): number {
     return base + offset - 1;
 }
 
-function buildAllFixturesOnPatch(fixtures: DMXFixture[]): Array<{ address: number; value: number }> {
+function clamp255(n: number): number {
+    return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+function entryMid(from: number, to: number): number {
+    return clamp255((from + to) / 2);
+}
+
+function pickEntryByKeywords(
+    entries: Array<{ from: number; to: number; mode?: string; label?: string }>,
+    keywords: string[],
+): { from: number; to: number } | null {
+    const lowered = keywords.map((k) => k.toLowerCase());
+    for (const entry of entries) {
+        const hay = `${(entry.mode ?? "").toLowerCase()} ${(entry.label ?? "").toLowerCase()}`;
+        if (lowered.some((k) => hay.includes(k))) {
+            return entry;
+        }
+    }
+    return null;
+}
+
+function controlChannelValue(channel: DMXFixture["channels"][number], on: boolean): number {
+    if (
+        channel.type === "dimmer" ||
+        channel.type === "dimmerFine" ||
+        channel.type === "onOff" ||
+        channel.type === "lamp"
+    ) {
+        // Universe toggle should force clear OFF semantics.
+        return on ? 255 : 0;
+    }
+    const props = channel.properties as JSONMap | undefined;
+    const entries = parseFixtureEntries(props);
+    if (entries.length > 0) {
+        const picked = on
+            ? pickEntryByKeywords(entries, ["open", "on", "lamp on", "full"])
+            : pickEntryByKeywords(entries, ["close", "closed", "off", "blackout", "lamp off"]);
+        if (picked) {
+            return entryMid(picked.from, picked.to);
+        }
+        return on ? entryMid(entries[0].from, entries[0].to) : entryMid(entries[entries.length - 1].from, entries[entries.length - 1].to);
+    }
+    const min = typeof props?.min === "number" ? props.min : 0;
+    const max = typeof props?.max === "number" ? props.max : 255;
+    return clamp255(on ? max : min);
+}
+
+function summarizeCustomPowerHint(channel: DMXFixture["channels"][number]): {score: number; hint: string} | null {
+    if (channel.type !== "custom") {
+        return null;
+    }
+    const props = channel.properties as JSONMap | undefined;
+    const entries = parseFixtureEntries(props);
+    const parts: string[] = [];
+    if (typeof props?.label === "string") {
+        parts.push(props.label);
+    }
+    if (typeof props?.name === "string") {
+        parts.push(props.name);
+    }
+    for (const e of entries) {
+        if (e.label) {
+            parts.push(e.label);
+        }
+        if (e.mode) {
+            parts.push(e.mode);
+        }
+    }
+    const hay = parts.join(" ").toLowerCase();
+    if (!hay) {
+        return null;
+    }
+    let score = 0;
+    if (hay.includes("dimmer") || hay.includes("intensity") || hay.includes("master")) {
+        score += 2;
+    }
+    if (hay.includes("lamp") || hay.includes("power")) {
+        score += 2;
+    }
+    if (hay.includes("on") || hay.includes("off")) {
+        score += 1;
+    }
+    if (score <= 0) {
+        return null;
+    }
+    return {score, hint: parts.slice(0, 3).join(" | ")};
+}
+
+function buildAllFixturesPowerPatch(
+    fixtures: DMXFixture[],
+    value: number,
+): Array<{ address: number; value: number }> {
+    const on = value > 0;
     const updates: Array<{ address: number; value: number }> = [];
+    let fixturesUsingFallback = 0;
+    const fixtureSummaries: Array<{
+        id: string;
+        base: number;
+        matchedTypes: string[];
+        matchedAddresses: number[];
+        matchedValues: number[];
+        customPowerHints: Array<{ address: number; score: number; hint: string }>;
+        usedFallback: boolean;
+        fallbackAddress?: number;
+        allChannelTypes: string[];
+        allChannelOffsets: number[];
+    }> = [];
     for (const fixture of fixtures) {
         const base = Number.isFinite(fixture.dmxAddress) ? Math.round(fixture.dmxAddress) : 1;
+        let matched = 0;
+        let matchedHardPower = 0;
+        const matchedTypes: string[] = [];
+        const matchedAddresses: number[] = [];
+        const matchedValues: number[] = [];
+        const customPowerHints: Array<{ address: number; score: number; hint: string }> = [];
+        let fallbackAddress: number | undefined;
         for (const channel of fixture.channels) {
             const offset = Number.isFinite(channel.channel) ? Math.round(channel.channel) : 1;
             const address = fixtureAddress(base, offset);
             if (address < 1 || address > DMX_UNIVERSE_SLOTS) {
                 continue;
             }
+            const customHint = summarizeCustomPowerHint(channel);
+            if (customHint) {
+                customPowerHints.push({address, score: customHint.score, hint: customHint.hint});
+            }
             if (
                 channel.type === "dimmer" ||
                 channel.type === "dimmerFine" ||
                 channel.type === "onOff" ||
-                channel.type === "lamp"
+                channel.type === "lamp" ||
+                channel.type === "shutterStrobe"
             ) {
-                updates.push({address, value: 255});
+                const controlValue = controlChannelValue(channel, on);
+                updates.push({address, value: controlValue});
+                matched += 1;
+                if (
+                    channel.type === "dimmer" ||
+                    channel.type === "dimmerFine" ||
+                    channel.type === "onOff" ||
+                    channel.type === "lamp"
+                ) {
+                    matchedHardPower += 1;
+                }
+                matchedTypes.push(channel.type);
+                matchedAddresses.push(address);
+                matchedValues.push(controlValue);
             }
         }
+        // If fixture lacks explicit power channels, also drive non-control channels.
+        if (matchedHardPower === 0 && fixture.channels.length > 0) {
+            fixturesUsingFallback += 1;
+            const allOffsets = fixture.channels
+                .map((ch) => (Number.isFinite(ch.channel) ? Math.round(ch.channel) : 1))
+                .filter((off) => off >= 1)
+                .sort((a, b) => a - b);
+            for (const off of allOffsets) {
+                const addr = fixtureAddress(base, off);
+                if (addr >= 1 && addr <= DMX_UNIVERSE_SLOTS) {
+                    const alreadyWritten = updates.some((u) => u.address === addr);
+                    if (!alreadyWritten) {
+                        updates.push({address: addr, value: on ? 255 : 0});
+                    }
+                }
+            }
+            if (allOffsets.length > 0) {
+                fallbackAddress = fixtureAddress(base, allOffsets[0]);
+            }
+        }
+        fixtureSummaries.push({
+            id: fixture.id,
+            base,
+            matchedTypes,
+            matchedAddresses,
+            matchedValues,
+            customPowerHints,
+            usedFallback: matchedHardPower === 0,
+            fallbackAddress,
+            allChannelTypes: fixture.channels.map((ch) => ch.type),
+            allChannelOffsets: fixture.channels.map((ch) => (Number.isFinite(ch.channel) ? Math.round(ch.channel) : 1)),
+        });
     }
     return updates;
 }
@@ -234,6 +399,10 @@ export function DMXUniverseView({
             return;
         }
         if (anyLive) {
+            const offUpdates = buildAllFixturesPowerPatch(sortedFixtures, 0);
+            if (offUpdates.length > 0) {
+                queueDmxLivePatch(offUpdates);
+            }
             await stopDMXLiveOutput();
             await pullDMXLiveStatus();
             return;
@@ -242,7 +411,7 @@ export function DMXUniverseView({
             return;
         }
         await startDMXLiveOutput(sortedFixtures[0].id);
-        const updates = buildAllFixturesOnPatch(sortedFixtures);
+        const updates = buildAllFixturesPowerPatch(sortedFixtures, 255);
         if (updates.length > 0) {
             queueDmxLivePatch(updates);
         }

@@ -1338,14 +1338,16 @@ export function useControllerApp() {
             window.clearTimeout(dmxLiveFlushTimerRef.current);
             dmxLiveFlushTimerRef.current = undefined;
         }
-        dmxLivePendingRef.current.clear();
+        if (dmxLivePendingRef.current.size > 0) {
+            await flushDmxLivePatch();
+        }
         try {
             await GreetService.StopDMXLive();
         } catch {
             /* ignore */
         }
         await pullDMXLiveStatus();
-    }, [pullDMXLiveStatus, stopPartyAudioCapture]);
+    }, [flushDmxLivePatch, pullDMXLiveStatus, stopPartyAudioCapture]);
 
     const onDismissError = useCallback(() => {
         setError("");

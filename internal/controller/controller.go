@@ -190,7 +190,20 @@ type GeneralTabState struct {
 type DMXFixtureType string
 
 const (
-	DMXFixtureTypeMovingHead DMXFixtureType = "movingHead"
+	DMXFixtureTypeColorChanger DMXFixtureType = "colorChanger"
+	DMXFixtureTypeDimmer      DMXFixtureType = "dimmer"
+	DMXFixtureTypeEffect      DMXFixtureType = "effect"
+	DMXFixtureTypeFan         DMXFixtureType = "fan"
+	DMXFixtureTypeFlower      DMXFixtureType = "flower"
+	DMXFixtureTypeHazer       DMXFixtureType = "hazer"
+	DMXFixtureTypeLaser       DMXFixtureType = "laser"
+	DMXFixtureTypeLEDBarBeams DMXFixtureType = "ledBarBeams"
+	DMXFixtureTypeLEDBarPixels DMXFixtureType = "ledBarPixels"
+	DMXFixtureTypeMovingHead  DMXFixtureType = "movingHead"
+	DMXFixtureTypeOther       DMXFixtureType = "other"
+	DMXFixtureTypeScanner     DMXFixtureType = "scanner"
+	DMXFixtureTypeSmoke       DMXFixtureType = "smoke"
+	DMXFixtureTypeStrobe      DMXFixtureType = "strobe"
 )
 
 type DMXChannel struct {
@@ -2909,7 +2922,20 @@ func normalizeDMXState(st DMXState) DMXState {
 
 func normalizeFixtureType(t DMXFixtureType) DMXFixtureType {
 	switch t {
-	case DMXFixtureTypeMovingHead:
+	case DMXFixtureTypeColorChanger,
+		DMXFixtureTypeDimmer,
+		DMXFixtureTypeEffect,
+		DMXFixtureTypeFan,
+		DMXFixtureTypeFlower,
+		DMXFixtureTypeHazer,
+		DMXFixtureTypeLaser,
+		DMXFixtureTypeLEDBarBeams,
+		DMXFixtureTypeLEDBarPixels,
+		DMXFixtureTypeMovingHead,
+		DMXFixtureTypeOther,
+		DMXFixtureTypeScanner,
+		DMXFixtureTypeSmoke,
+		DMXFixtureTypeStrobe:
 		return t
 	default:
 		return DMXFixtureTypeMovingHead

@@ -45,6 +45,7 @@ import type {
     DMXChannel,
     DMXChannelType,
     DMXFixture,
+    DMXFixtureType,
     DMXState,
     JSONMap,
     UpsertDMXFixtureInput,
@@ -54,6 +55,23 @@ import {ButtonGroup} from "../ui/button-group";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 
 type FixturePageMode = "editor" | "live";
+
+const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string }> = [
+    {value: "colorChanger", label: "Color Changer"},
+    {value: "dimmer", label: "Dimmer"},
+    {value: "effect", label: "Effect"},
+    {value: "fan", label: "Fan"},
+    {value: "flower", label: "Flower"},
+    {value: "hazer", label: "Hazer"},
+    {value: "laser", label: "Laser"},
+    {value: "ledBarBeams", label: "LED Bar (Beams)"},
+    {value: "ledBarPixels", label: "LED Bar (Pixels)"},
+    {value: "movingHead", label: "Moving Head"},
+    {value: "other", label: "Other"},
+    {value: "scanner", label: "Scanner"},
+    {value: "smoke", label: "Smoke"},
+    {value: "strobe", label: "Strobe"},
+];
 
 type DMXFixtureEditorViewProps = {
     fixture: DMXFixture | undefined;
@@ -513,6 +531,7 @@ function findNextAvailableAddress(
 }
 
 export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
+    const [fixtureType, setFixtureType] = useState<DMXFixtureType>("movingHead");
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
     const [address, setAddress] = useState(1);
@@ -530,6 +549,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
     useEffect(() => {
         if (props.fixture) {
+            setFixtureType(props.fixture.type || "movingHead");
             setName(props.fixture.name);
             setBrand(props.fixture.brand);
             setAddress(props.fixture.dmxAddress || 1);
@@ -541,6 +561,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
         setName("");
         setBrand("");
+        setFixtureType("movingHead");
         setAddress(1);
         setMaxPan(540);
         setMaxTilt(270);
@@ -692,7 +713,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
         const input: UpsertDMXFixtureInput = {
             id: props.fixture?.id,
-            type: "movingHead",
+            type: fixtureType,
             brand: trimmedBrand,
             name: trimmedName,
             dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
@@ -746,7 +767,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
 
         const input: UpsertDMXFixtureInput = {
-            type: "movingHead",
+            type: fixtureType,
             brand: trimmedBrand,
             name: `${trimmedName} Copy`,
             dmxAddress: cloneAddress,
@@ -919,7 +940,22 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     />
                                 </div>
                             </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-4 md:grid-cols-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="dmx-fixture-type">Fixture type</Label>
+                                    <NativeSelect
+                                        id="dmx-fixture-type"
+                                        value={fixtureType}
+                                        onChange={(e) => setFixtureType(e.target.value as DMXFixtureType)}
+                                        disabled={props.busy}
+                                    >
+                                        {FIXTURE_TYPE_OPTIONS.map((opt) => (
+                                            <NativeSelectOption key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="dmx-fixture-address">DMX start address</Label>
                                     <Input
@@ -930,34 +966,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         value={address}
                                         onChange={(e) => setAddress(Number(e.target.value) || 1)}
                                     />
-                                    <p className="text-xs text-muted-foreground">
-                                        Channel offsets below are relative to this address (max
-                                        offset {slotBudget}).
-                                    </p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
-                                        <Input
-                                            id="dmx-max-pan"
-                                            type="number"
-                                            min={0}
-                                            max={720}
-                                            value={maxPan}
-                                            onChange={(e) => setMaxPan(Number(e.target.value) || 0)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
-                                        <Input
-                                            id="dmx-max-tilt"
-                                            type="number"
-                                            min={0}
-                                            max={360}
-                                            value={maxTilt}
-                                            onChange={(e) => setMaxTilt(Number(e.target.value) || 0)}
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
+                                    <Input
+                                        id="dmx-max-pan"
+                                        type="number"
+                                        min={0}
+                                        max={720}
+                                        value={maxPan}
+                                        onChange={(e) => setMaxPan(Number(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
+                                    <Input
+                                        id="dmx-max-tilt"
+                                        type="number"
+                                        min={0}
+                                        max={360}
+                                        value={maxTilt}
+                                        onChange={(e) => setMaxTilt(Number(e.target.value) || 0)}
+                                    />
                                 </div>
                             </div>
                         </CardContent>
@@ -974,11 +1004,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                Map each function to a channel offset from the fixture start
-                                address. Use linear min/max for faders, or discrete
-                                slots for wheels and macros.
-                            </p>
 
                             {channelRows.map(({ch, originalIdx}) => {
                                 const propsMap = (ch.properties ?? {}) as JSONMap;

@@ -129,7 +129,21 @@ export type WLEDDeviceDetail = {
     port: number;
 };
 
-export type DMXFixtureType = "movingHead";
+export type DMXFixtureType =
+    | "colorChanger"
+    | "dimmer"
+    | "effect"
+    | "fan"
+    | "flower"
+    | "hazer"
+    | "laser"
+    | "ledBarBeams"
+    | "ledBarPixels"
+    | "movingHead"
+    | "other"
+    | "scanner"
+    | "smoke"
+    | "strobe";
 
 export type DMXChannel = {
     channel: number;
