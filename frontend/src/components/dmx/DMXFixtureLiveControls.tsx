@@ -15,6 +15,8 @@ import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Separator} from "@/components/ui/separator";
 import {Slider} from "@/components/ui/slider";
 import {cn} from "@/lib/utils";
+import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
+import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -106,8 +108,6 @@ export function DMXFixtureLiveControls({
     const hasFrost = Boolean(firstChannel(chans, "frost"));
 
     const cwMax = Math.max(0, cwEntries.length - 1);
-    const g1Max = Math.max(0, g1Entries.length - 1);
-    const g2Max = Math.max(0, g2Entries.length - 1);
     const msMax = Math.max(0, msEntries.length - 1);
 
     const patchState = useCallback((partial: Partial<DMXLiveControlState>) => {
@@ -286,12 +286,10 @@ export function DMXFixtureLiveControls({
                                                             : ""}
                           </span>
                                                 </div>
-                                                <Slider
-                                                    min={0}
-                                                    max={cwMax}
-                                                    step={1}
-                                                    value={[Math.min(liveState.colorWheelIdx, cwMax)]}
-                                                    onValueChange={([v]) => patchState({colorWheelIdx: Math.round(v ?? 0)})}
+                                                <ColorWheelSegmentControl
+                                                    entries={cwEntries}
+                                                    value={Math.min(liveState.colorWheelIdx, cwMax)}
+                                                    onChange={(idx) => patchState({colorWheelIdx: idx})}
                                                     disabled={sliderDisabled}
                                                 />
                                             </div>
@@ -308,12 +306,10 @@ export function DMXFixtureLiveControls({
                                                             : ""}
                           </span>
                                                 </div>
-                                                <Slider
-                                                    min={0}
-                                                    max={g1Max}
-                                                    step={1}
-                                                    value={[Math.min(liveState.gobo1Idx, g1Max)]}
-                                                    onValueChange={([v]) => patchState({gobo1Idx: Math.round(v ?? 0)})}
+                                                <GoboWheelSegmentControl
+                                                    entries={g1Entries}
+                                                    value={Math.min(liveState.gobo1Idx, Math.max(0, g1Entries.length - 1))}
+                                                    onChange={(idx) => patchState({gobo1Idx: idx})}
                                                     disabled={sliderDisabled}
                                                 />
                                             </div>
@@ -330,12 +326,10 @@ export function DMXFixtureLiveControls({
                                                             : ""}
                           </span>
                                                 </div>
-                                                <Slider
-                                                    min={0}
-                                                    max={g2Max}
-                                                    step={1}
-                                                    value={[Math.min(liveState.gobo2Idx, g2Max)]}
-                                                    onValueChange={([v]) => patchState({gobo2Idx: Math.round(v ?? 0)})}
+                                                <GoboWheelSegmentControl
+                                                    entries={g2Entries}
+                                                    value={Math.min(liveState.gobo2Idx, Math.max(0, g2Entries.length - 1))}
+                                                    onChange={(idx) => patchState({gobo2Idx: idx})}
                                                     disabled={sliderDisabled}
                                                 />
                                             </div>

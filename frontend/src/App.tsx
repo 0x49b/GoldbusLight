@@ -3,7 +3,7 @@ import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
 import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "./components/device/DeviceDetailView";
 import {AppShell} from "./components/layout/AppShell";
-import {GeneralPanel} from "./components/presets/GeneralPanel";
+import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
 import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
 import {useControllerApp} from "./hooks/useControllerApp";
@@ -86,9 +86,15 @@ function App() {
         main = (
             <DMXUniverseView
                 fixtures={app.dmxState.fixtures}
+                busy={app.busy}
                 selectedUSBDeviceId={app.dmxState.selectedUSBDeviceId}
                 usbSerialDevices={app.usbSerialDevices}
                 setRoute={app.setRoute}
+                onReaddressFixtures={app.onReaddressDMXFixtures}
+                dmxLiveStatus={app.dmxLiveStatus}
+                pullDMXLiveStatus={app.pullDMXLiveStatus}
+                startDMXLiveOutput={app.startDMXLiveOutput}
+                stopDMXLiveOutput={app.stopDMXLiveOutput}
             />
         );
     } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {

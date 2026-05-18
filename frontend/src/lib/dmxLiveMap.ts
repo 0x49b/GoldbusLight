@@ -32,6 +32,9 @@ type EntryRow = {
     label?: string;
     mode?: string;
     color?: string;
+    goboIdentifier?: string;
+    goboName?: string;
+    goboImage?: string;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -61,6 +64,9 @@ export function parseFixtureEntries(props: JSONMap | undefined): EntryRow[] {
             label: typeof e.label === "string" ? e.label : undefined,
             mode: typeof e.mode === "string" ? e.mode : undefined,
             color: typeof e.color === "string" ? e.color : undefined,
+            goboIdentifier: typeof e.goboIdentifier === "string" ? e.goboIdentifier : undefined,
+            goboName: typeof e.goboName === "string" ? e.goboName : undefined,
+            goboImage: typeof e.goboImage === "string" ? e.goboImage : undefined,
         });
     }
     return out;

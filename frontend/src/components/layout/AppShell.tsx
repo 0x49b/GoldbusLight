@@ -231,9 +231,9 @@ export function AppShell({
                 </SidebarFooter>
             </Sidebar>
 
-            <SidebarInset className="min-h-screen min-w-0">
+            <SidebarInset className="h-screen min-h-0 min-w-0 overflow-hidden">
                 <main
-                    className="touch-pan-scroll flex-1 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
+                    className="touch-pan-scroll flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
                     {error && (
                         <Alert
                             variant="destructive"

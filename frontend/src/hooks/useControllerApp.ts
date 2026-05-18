@@ -889,6 +889,59 @@ export function useControllerApp() {
         [ensureDMXEnabled, pullDMXState],
     );
 
+    const onReaddressDMXFixtures = useCallback(
+        async (updates: Array<{ id: string; dmxAddress: number }>, successLabel?: string): Promise<boolean> => {
+            if (!ensureDMXEnabled()) {
+                return false;
+            }
+            const normalized = new Map<string, number>();
+            for (const u of updates) {
+                if (!u?.id) {
+                    continue;
+                }
+                normalized.set(u.id, Math.max(1, Math.min(512, Math.round(u.dmxAddress) || 1)));
+            }
+            if (normalized.size === 0) {
+                if (successLabel) {
+                    setStatus(successLabel);
+                    setError("");
+                }
+                return true;
+            }
+
+            const fixturesById = new Map(dmxState.fixtures.map((fixture) => [fixture.id, fixture]));
+            setBusy(true);
+            try {
+                let changed = 0;
+                for (const [id, dmxAddress] of normalized.entries()) {
+                    const fixture = fixturesById.get(id);
+                    if (!fixture || fixture.dmxAddress === dmxAddress) {
+                        continue;
+                    }
+                    const input = fixtureToUpsertInput(fixture, dmxAddress);
+                    await GreetService.UpdateDMXFixture(input as never);
+                    changed += 1;
+                }
+
+                if (changed > 0) {
+                    await pullDMXState();
+                    setStatus(successLabel ?? `Readdressed ${changed} fixture${changed === 1 ? "" : "s"}`);
+                    setError("");
+                } else if (successLabel) {
+                    setStatus(successLabel);
+                    setError("");
+                }
+                return true;
+            } catch (err) {
+                setError(String(err));
+                return false;
+            } finally {
+                setBusy(false);
+            }
+        },
+        [dmxState.fixtures, ensureDMXEnabled, pullDMXState],
+    );
+
     const onDeleteDMXFixture = useCallback(
         async (fixtureID: string): Promise<boolean> => {
             if (!ensureDMXEnabled()) {
@@ -1477,6 +1530,7 @@ export function useControllerApp() {
         applyNamedColorPreset,
         onCreateDMXFixture,
         onUpdateDMXFixture,
+        onReaddressDMXFixtures,
         onDeleteDMXFixture,
         refreshUSBSerialDevices,
         onSelectUSBSerialDevice,
@@ -1517,6 +1571,19 @@ function buildAuthoritativePatch(form: {
                 col: [form.rgb],
             },
         ],
+    };
+}
+
+function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDMXFixtureInput {
+    return {
+        id: fixture.id,
+        type: fixture.type,
+        brand: fixture.brand,
+        name: fixture.name,
+        dmxAddress,
+        maxPan: fixture.movingHead?.maxPan ?? 540,
+        maxTilt: fixture.movingHead?.maxTilt ?? 270,
+        channels: fixture.channels,
     };
 }
 

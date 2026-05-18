@@ -1,7 +1,7 @@
 import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
-import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
-import {readNumber} from "../../lib/json";
+import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
+import {readNumber} from "@/lib/json.ts";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
     CANDLE_LIGHT_RGB,
@@ -10,27 +10,25 @@ import {
     DAYLIGHT_WHITE_RGB,
     DIRECT_SUNLIGHT_RGB,
     FROSTY_WHITE_RGB,
-    hexToRgb,
-    rgbToHex,
     SUPER_WARM_RGB,
     WARM_WHITE_RGB,
     WHITE_RGB
-} from "../../lib/wled";
-import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
-import {EffectPickerModal} from "../device/EffectPickerModal";
-import {PalettePickerModal} from "../device/PalettePickerModal";
-import {Card, CardContent} from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
-import {Badge} from "@/components/ui/badge";
-import {Slider} from "@/components/ui/slider";
+} from "@/lib/wled.ts";
+import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "@/types/controller.ts";
+import {EffectPickerModal} from "../device/EffectPickerModal.tsx";
+import {PalettePickerModal} from "../device/PalettePickerModal.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import {Button} from "@/components/ui/button.tsx";
+import {Slider} from "@/components/ui/slider.tsx";
+import {HueSlider} from "@/components/ui/hue-slider.tsx";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import {Label} from "@/components/ui/label";
-import {cn} from "@/lib/utils";
+} from "@/components/ui/dropdown-menu.tsx";
+import {Label} from "@/components/ui/label.tsx";
+import {cn} from "@/lib/utils.ts";
 
 const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
     {name: "1300K Candle Light ", rgb: CANDLE_LIGHT_RGB},
@@ -120,6 +118,7 @@ export function GeneralPanel({
             }
         })();
     }, [firstOnlineDevice?.id]);
+    const hueValue = rgbToHue(presetRgb[0], presetRgb[1], presetRgb[2]);
 
     const applyGlobalEffectPalette = (next: {
         fx?: number;
@@ -139,16 +138,22 @@ export function GeneralPanel({
         );
     };
 
+
+    const brightnessPercent = Math.round((presetBri / 255) * 100) || 0;
+
+
     return (
         <div className="space-y-6 w-full max-w-none">
             <div>
                 <h2 className="text-lg font-semibold">General</h2>
             </div>
             <Card>
-                <CardContent className="gap-4 pt-6">
-                    <p className="text-sm opacity-70 mt-1">
-                        Control all WLED devices together. Default scene is warm white.
-                    </p>
+
+                <CardHeader>
+                    <CardTitle>Color & Brightness</CardTitle>
+                </CardHeader>
+
+                <CardContent className="gap-4">
                     <div className="flex w-full min-w-0 gap-2">
                         <Button
                             type="button"
@@ -225,20 +230,20 @@ export function GeneralPanel({
                         </DropdownMenu>
                     </div>
 
-                    <h3 className="text-sm font-semibold">Color (all devices)</h3>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <label className="flex flex-col gap-1">
-                            <span className="text-xs opacity-70">Color wheel</span>
-                            <input
-                                type="color"
-                                className="h-12 w-24 cursor-pointer rounded border bg-card"
-                                value={rgbToHex(presetRgb[0], presetRgb[1], presetRgb[2])}
-                                onChange={(e) => setPresetRgb(hexToRgb(e.target.value))}
+
+                    <div className="flex flex-wrap items-center gap-4 mt-4">
+                        <label className="flex w-full min-w-50 flex-col gap-1">
+                            <span className="text-xs opacity-70">Color</span>
+                            <HueSlider
+                                value={hueValue}
+                                onChange={(nextHue) => setPresetRgb(hueToRgb(nextHue))}
                                 disabled={busy}
                             />
                         </label>
-                        <div className="flex-1 min-w-[200px] space-y-2">
-                            <Label className="text-xs">Brightness (bri)</Label>
+
+                        <label className="flex w-full min-w-50 flex-col gap-1">
+                            <span
+                                className="text-xs opacity-70">Brightness ({brightnessPercent}%)</span>
                             <Slider
                                 min={1}
                                 max={255}
@@ -246,17 +251,15 @@ export function GeneralPanel({
                                 onValueChange={(value) => setPresetBri(readNumber(value[0], 200))}
                                 disabled={busy}
                             />
-                        </div>
-                        <Badge variant="secondary" className="shrink-0">{presetBri}</Badge>
+                        </label>
                     </div>
                 </CardContent>
             </Card>
             <Card>
-                <CardContent className="gap-4 pt-6">
-                    <h3 className="text-sm font-semibold">Effect & palette (all devices)</h3>
-                    <p className="text-xs opacity-60">
-                        Apply the same effect and palette to all connected devices.
-                    </p>
+                <CardHeader>
+                    <CardTitle>Effect & palette</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label className="text-xs">Effect</Label>
@@ -291,6 +294,7 @@ export function GeneralPanel({
                             </Button>
                         </div>
                     </div>
+
                     <EffectPickerModal
                         open={effectModalOpen}
                         onClose={() => setEffectModalOpen(false)}
@@ -302,6 +306,7 @@ export function GeneralPanel({
                             applyGlobalEffectPalette({fx: idx});
                         }}
                     />
+
                     <PalettePickerModal
                         open={paletteModalOpen}
                         onClose={() => setPaletteModalOpen(false)}
@@ -313,7 +318,7 @@ export function GeneralPanel({
                             applyGlobalEffectPalette({pal: idx});
                         }}
                     />
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2 mt-3">
                         <div className="space-y-2">
                             <Label className="text-xs">Speed (sx) - {generalSx}</Label>
                             <Slider
@@ -347,4 +352,63 @@ export function GeneralPanel({
             </Card>
         </div>
     );
+}
+
+function hueToRgb(hue: number): [number, number, number] {
+    const h = ((hue % 360) + 360) % 360;
+    const c = 1;
+    const x = 1 - Math.abs(((h / 60) % 2) - 1);
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+    } else if (h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+    } else if (h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+    } else if (h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+    } else if (h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+    } else {
+        r = c;
+        g = 0;
+        b = x;
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function rgbToHue(r: number, g: number, b: number): number {
+    const rn = r / 255;
+    const gn = g / 255;
+    const bn = b / 255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+    if (delta === 0) {
+        return 0;
+    }
+    let hue = 0;
+    if (max === rn) {
+        hue = 60 * (((gn - bn) / delta) % 6);
+    } else if (max === gn) {
+        hue = 60 * (((bn - rn) / delta) + 2);
+    } else {
+        hue = 60 * (((rn - gn) / delta) + 4);
+    }
+    if (hue < 0) {
+        hue += 360;
+    }
+    return Math.round(hue);
 }

@@ -10,11 +10,7 @@ import {
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
+import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
 import {Separator} from "@/components/ui/separator";
 import {
     Table,
@@ -25,20 +21,28 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import {cn} from "@/lib/utils";
-import {ArrowDownRight, ArrowUpRight, Minus, RotateCcw, RotateCw, Triangle, Zap} from "lucide-react";
-import {useCallback, useEffect, useMemo, useState, type ReactNode} from "react";
+import {
+    ArrowDownRight,
+    ArrowUpRight,
+    Minus,
+    RotateCcw,
+    RotateCw,
+    Triangle,
+    Zap
+} from "lucide-react";
+import {type ReactNode, useCallback, useEffect, useMemo, useState} from "react";
 import {PiPlus, PiTrash} from "react-icons/pi";
-import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
+import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {
-  DetailRoute,
-  DMXChannel,
-  DMXChannelType,
-  DMXFixture,
-  DMXState,
-  JSONMap,
-  UpsertDMXFixtureInput,
-  USBSerialDevice,
-} from "../../types/controller";
+    DetailRoute,
+    DMXChannel,
+    DMXChannelType,
+    DMXFixture,
+    DMXState,
+    JSONMap,
+    UpsertDMXFixtureInput,
+    USBSerialDevice,
+} from "@/types/controller.ts";
 import {ButtonGroup} from "../ui/button-group";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 
@@ -175,7 +179,7 @@ function isRainbowModeExplicit(slot: Pick<SlotEntry, "mode">): boolean {
     return m === "rainbow" || m === "scroll";
 }
 
-const SHUTTER_MODE_OPTIONS: ReadonlyArray<{value: string; label: string}> = [
+const SHUTTER_MODE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
     {value: "closed", label: "Shutter Closed"},
     {value: "open", label: "Shutter Open"},
     {value: "strobe", label: "Strobe"},
@@ -188,7 +192,7 @@ function shutterSelectValue(mode: string | undefined): string {
     return SHUTTER_MODE_OPTIONS.some((o) => o.value === m) ? m : "open";
 }
 
-function ShutterStateGlyph({mode}: {mode?: string}) {
+function ShutterStateGlyph({mode}: { mode?: string }) {
     const m = (mode ?? "").toLowerCase();
     if (m === "closed") {
         return <div className="size-6 shrink-0 rounded-full bg-foreground" aria-hidden/>;
@@ -448,6 +452,59 @@ function maxChannelOffset(dmxAddress: number): number {
     return 512 - base + 1;
 }
 
+function channelFootprint(channels: DMXChannel[]): number {
+    if (!channels.length) {
+        return 1;
+    }
+    let maxOffset = 1;
+    for (const channel of channels) {
+        const offset = Number.isFinite(channel.channel) ? Math.round(channel.channel) : 1;
+        if (offset > maxOffset) {
+            maxOffset = offset;
+        }
+    }
+    return Math.max(1, maxOffset);
+}
+
+function fixtureFootprint(fixture: DMXFixture): number {
+    return channelFootprint(fixture.channels ?? []);
+}
+
+function rangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+    return startA <= endB && startB <= endA;
+}
+
+function findNextAvailableAddress(
+    preferredStart: number,
+    channels: DMXChannel[],
+    fixtures: DMXFixture[],
+    excludedFixtureId?: string,
+): number | null {
+    const footprint = channelFootprint(channels);
+    const minStart = 1;
+    const maxStart = 512 - footprint + 1;
+    if (maxStart < minStart) {
+        return null;
+    }
+    const candidateStart = Math.max(minStart, Math.min(maxStart, Math.round(preferredStart) || minStart));
+
+    for (let start = candidateStart; start <= maxStart; start++) {
+        const end = start + footprint - 1;
+        const overlaps = fixtures.some((fixture) => {
+            if (fixture.id === excludedFixtureId) {
+                return false;
+            }
+            const otherStart = Number.isFinite(fixture.dmxAddress) ? Math.round(fixture.dmxAddress) : 1;
+            const otherEnd = otherStart + fixtureFootprint(fixture) - 1;
+            return rangesOverlap(start, end, otherStart, otherEnd);
+        });
+        if (!overlaps) {
+            return start;
+        }
+    }
+    return null;
+}
+
 export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
@@ -456,7 +513,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [maxTilt, setMaxTilt] = useState(270);
     const [channels, setChannels] = useState<DMXChannel[]>(defaultInitialChannels);
     const [saveHint, setSaveHint] = useState<string | null>(null);
-    const [pageMode, setPageMode] = useState<FixturePageMode>("editor");
+    const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     useEffect(() => {
         if (props.fixture) {
@@ -479,10 +537,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     }, [props.fixture?.id, props.fixture?.updatedAt]);
 
     useEffect(() => {
-        if (!props.fixture) {
-            setPageMode("editor");
-        }
-    }, [props.fixture]);
+        setPageMode(props.fixture ? "live" : "editor");
+    }, [props.fixture?.id]);
 
     useEffect(() => {
         if (props.fixture && pageMode === "live") {
@@ -492,7 +548,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
     const [goboCatalog, setGoboCatalog] = useState<GoboCatalogEntry[] | null>(null);
     const [goboCatalogError, setGoboCatalogError] = useState<string | null>(null);
-    const [goboPickerTarget, setGoboPickerTarget] = useState<{ channelIdx: number; slotIdx: number } | null>(
+    const [goboPickerTarget, setGoboPickerTarget] = useState<{
+        channelIdx: number;
+        slotIdx: number
+    } | null>(
         null,
     );
     const [goboCatalogFilter, setGoboCatalogFilter] = useState("");
@@ -643,16 +702,70 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         if (ok) {
             props.setRoute({kind: "presets"});
         }
+        setDeleteConfirmOpen(false);
+    };
+
+    const handleClone = async () => {
+        if (!props.fixture) {
+            return;
+        }
+        setSaveHint(null);
+
+        const trimmedBrand = brand.trim();
+        const trimmedName = name.trim();
+        if (!trimmedBrand || !trimmedName) {
+            setSaveHint("Brand and name are required.");
+            return;
+        }
+
+        const footprint = channelFootprint(channels);
+        const sourceStart = Math.max(1, Math.min(512, Math.round(address) || 1));
+        const preferredStart = sourceStart + footprint;
+        const cloneAddress = findNextAvailableAddress(
+            preferredStart,
+            channels,
+            props.dmxState.fixtures,
+            props.fixture.id,
+        );
+
+        if (cloneAddress == null) {
+            setSaveHint("No free DMX address range available to clone this fixture.");
+            return;
+        }
+
+        const input: UpsertDMXFixtureInput = {
+            type: "movingHead",
+            brand: trimmedBrand,
+            name: `${trimmedName} Copy`,
+            dmxAddress: cloneAddress,
+            maxPan: Math.max(0, Math.round(maxPan) || 0),
+            maxTilt: Math.max(0, Math.round(maxTilt) || 0),
+            channels: cloneChannels(channels),
+        };
+
+        const created = await props.onCreate(input);
+        if (created) {
+            props.onOpenFixture(created.id);
+        }
     };
 
     return (
         <div className="space-y-4">
             <div
-                className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                className="sticky left-0 right-0 top-[-1rem] z-50 isolate -mx-4 -mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 shadow-sm md:-mx-6 md:-mt-6 md:top-[-1.5rem] md:px-6">
                 <div className="flex flex-wrap items-center gap-3">
                     {props.fixture ? (
                         <>
                             <ButtonGroup>
+                            <Button
+                                    type="button"
+                                    variant="outline"
+                                    className={pageMode === "live" ? "btn-active" : ""}
+                                    aria-pressed={pageMode === "live"}
+                                    onClick={() => setPageMode("live")}
+                                >
+                                    Live
+                                </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -662,15 +775,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 >
                                     Editor
                                 </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className={pageMode === "live" ? "btn-active" : ""}
-                                    aria-pressed={pageMode === "live"}
-                                    onClick={() => setPageMode("live")}
-                                >
-                                    Live
-                                </Button>
                             </ButtonGroup>
                         </>
                     ) : null}
@@ -679,11 +783,52 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             className="text-sm font-medium text-muted-foreground">{props.fixture.name}</span>
                     ) : null}
                 </div>
-                <Button type="button" variant="outline" size="sm"
-                        onClick={() => props.setRoute({kind: "dmxUniverse"})} disabled={props.busy}>
-                    Back
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={handleSave} disabled={props.busy} size="sm">
+                        Save
+                    </Button>
+                    {props.fixture && (
+                        <Button type="button" variant="secondary" onClick={handleClone}
+                                disabled={props.busy} size="sm">
+                            Clone
+                        </Button>
+                    )}
+                    {props.fixture && (
+                        <Button type="button" variant="destructive" onClick={() => setDeleteConfirmOpen(true)}
+                                disabled={props.busy} size="sm">
+                            Delete
+                        </Button>
+                    )}
+                </div>
             </div>
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete fixture?</DialogTitle>
+                        <DialogDescription>
+                            This action permanently deletes {props.fixture ? `"${props.fixture.name}"` : "this fixture"}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setDeleteConfirmOpen(false)}
+                            disabled={props.busy}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={props.busy}
+                        >
+                            Delete
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {props.fixture && pageMode === "live" ? (
                 <DMXFixtureLiveControls
@@ -814,7 +959,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                     }}
                                                 />
                                             </div>
-                                            <div className="min-w-0 flex-1 basis-[200px] grid gap-1">
+                                            <div
+                                                className="min-w-0 flex-1 basis-[200px] grid gap-1">
                                                 <Label className="text-xs">Function</Label>
                                                 <NativeSelect
                                                     value={ch.type}
@@ -856,7 +1002,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         const nextEntries =
                                                             slots.length > 0
                                                                 ? slots
-                                                                : [{from: 0, to: 255, label: "Slot 1"}];
+                                                                : [{
+                                                                    from: 0,
+                                                                    to: 255,
+                                                                    label: "Slot 1"
+                                                                }];
                                                         replaceChannelAt(originalIdx, {
                                                             ...ch,
                                                             properties: {
@@ -885,59 +1035,64 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
                                         {!slotMode ? (
                                             !(maxV === 255 && (minV === 0 || minV === 1)) ? (
-                                            <div className="mt-3 max-w-md">
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="grid gap-1">
-                                                        <Label className="text-xs">Min DMX</Label>
-                                                        <Input
-                                                            type="number"
-                                                            min={0}
-                                                            max={255}
-                                                            value={minV}
-                                                            onChange={(e) => {
-                                                                const v = Math.round(Number(e.target.value) || 0);
-                                                                updateChannelAt(originalIdx, {
-                                                                    properties: {
-                                                                        ...propsMap,
-                                                                        min: Math.max(0, Math.min(255, v)),
-                                                                        max: maxV,
-                                                                    },
-                                                                });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div className="grid gap-1">
-                                                        <Label className="text-xs">Max DMX</Label>
-                                                        <Input
-                                                            type="number"
-                                                            min={0}
-                                                            max={255}
-                                                            value={maxV}
-                                                            onChange={(e) => {
-                                                                const v = Math.round(Number(e.target.value) || 255);
-                                                                updateChannelAt(originalIdx, {
-                                                                    properties: {
-                                                                        ...propsMap,
-                                                                        min: minV,
-                                                                        max: Math.max(0, Math.min(255, v)),
-                                                                    },
-                                                                });
-                                                            }}
-                                                        />
+                                                <div className="mt-3 max-w-md">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div className="grid gap-1">
+                                                            <Label className="text-xs">Min
+                                                                DMX</Label>
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                max={255}
+                                                                value={minV}
+                                                                onChange={(e) => {
+                                                                    const v = Math.round(Number(e.target.value) || 0);
+                                                                    updateChannelAt(originalIdx, {
+                                                                        properties: {
+                                                                            ...propsMap,
+                                                                            min: Math.max(0, Math.min(255, v)),
+                                                                            max: maxV,
+                                                                        },
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="grid gap-1">
+                                                            <Label className="text-xs">Max
+                                                                DMX</Label>
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                max={255}
+                                                                value={maxV}
+                                                                onChange={(e) => {
+                                                                    const v = Math.round(Number(e.target.value) || 255);
+                                                                    updateChannelAt(originalIdx, {
+                                                                        properties: {
+                                                                            ...propsMap,
+                                                                            min: minV,
+                                                                            max: Math.max(0, Math.min(255, v)),
+                                                                        },
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
                                             ) : null
                                         ) : ch.type === "colorWheel" ? (
                                             <div className="mt-3 space-y-2">
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                            <TableHead
+                                                                className="w-[140px] text-muted-foreground">
                                                                 Range
                                                             </TableHead>
-                                                            <TableHead className="text-muted-foreground">Color</TableHead>
-                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                            <TableHead
+                                                                className="text-muted-foreground">Color</TableHead>
+                                                            <TableHead
+                                                                className="w-[200px] text-right text-muted-foreground">
                                                                 Speed
                                                             </TableHead>
                                                             <TableHead className="w-12"/>
@@ -947,7 +1102,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         {slots.map((slot, si) => (
                                                             <TableRow key={si}>
                                                                 <TableCell className="align-middle">
-                                                                    <div className="flex items-center gap-1">
+                                                                    <div
+                                                                        className="flex items-center gap-1">
                                                                         <Input
                                                                             type="number"
                                                                             className="h-8 w-14 px-1"
@@ -971,7 +1127,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         />
-                                                                        <span className="text-muted-foreground">–</span>
+                                                                        <span
+                                                                            className="text-muted-foreground">–</span>
                                                                         <Input
                                                                             type="number"
                                                                             className="h-8 w-14 px-1"
@@ -998,7 +1155,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell className="align-middle">
-                                                                    <div className="flex min-w-0 items-center gap-2">
+                                                                    <div
+                                                                        className="flex min-w-0 items-center gap-2">
                                                                         <Popover>
                                                                             <PopoverTrigger asChild>
                                                                                 <button
@@ -1027,7 +1185,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                         />
                                                                                     )}
                                                                                     {slot.direction === "cw" ? (
-                                                                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                                                                        <span
+                                                                                            className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                                                                             <RotateCw
                                                                                                 className="size-3.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
                                                                                                 strokeWidth={2.5}
@@ -1035,7 +1194,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                             />
                                                                                         </span>
                                                                                     ) : slot.direction === "ccw" ? (
-                                                                                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                                                                        <span
+                                                                                            className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                                                                             <RotateCcw
                                                                                                 className="size-3.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
                                                                                                 strokeWidth={2.5}
@@ -1045,9 +1205,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                     ) : null}
                                                                                 </button>
                                                                             </PopoverTrigger>
-                                                                            <PopoverContent className="w-64">
-                                                                                <div className="grid gap-2">
-                                                                                    <Label className="text-xs">Color</Label>
+                                                                            <PopoverContent
+                                                                                className="w-64">
+                                                                                <div
+                                                                                    className="grid gap-2">
+                                                                                    <Label
+                                                                                        className="text-xs">Color</Label>
                                                                                     <Button
                                                                                         type="button"
                                                                                         variant={
@@ -1077,7 +1240,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                                 background: RAINBOW_SWATCH_CONIC,
                                                                                             }}
                                                                                         />
-                                                                                        <span className="text-left text-sm font-medium leading-tight">
+                                                                                        <span
+                                                                                            className="text-left text-sm font-medium leading-tight">
                                                                                             Rainbow
                                                                                         </span>
                                                                                     </Button>
@@ -1154,7 +1318,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                             }}
                                                                                             title="Clears rainbow mode so you can edit hex again"
                                                                                         >
-                                                                                            Solid color
+                                                                                            Solid
+                                                                                            color
                                                                                         </Button>
                                                                                     ) : null}
                                                                                 </div>
@@ -1179,8 +1344,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         />
                                                                     </div>
                                                                 </TableCell>
-                                                                <TableCell className="text-right align-middle">
-                                                                    <div className="flex items-center justify-end gap-1">
+                                                                <TableCell
+                                                                    className="text-right align-middle">
+                                                                    <div
+                                                                        className="flex items-center justify-end gap-1">
                                                                         <NativeSelect
                                                                             className="h-8 max-w-[5.5rem] text-xs"
                                                                             value={slot.direction ?? "none"}
@@ -1200,9 +1367,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <NativeSelectOption value="none">—</NativeSelectOption>
-                                                                            <NativeSelectOption value="cw">CW</NativeSelectOption>
-                                                                            <NativeSelectOption value="ccw">CCW</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="none">—</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="cw">CW</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="ccw">CCW</NativeSelectOption>
                                                                         </NativeSelect>
                                                                         <Button
                                                                             type="button"
@@ -1250,7 +1420,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         </Button>
                                                                     </div>
                                                                 </TableCell>
-                                                                <TableCell className="text-right align-middle">
+                                                                <TableCell
+                                                                    className="text-right align-middle">
                                                                     <Button
                                                                         type="button"
                                                                         size="icon"
@@ -1276,7 +1447,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             });
                                                                         }}
                                                                     >
-                                                                        <PiTrash className="size-4"/>
+                                                                        <PiTrash
+                                                                            className="size-4"/>
                                                                     </Button>
                                                                 </TableCell>
                                                             </TableRow>
@@ -1307,7 +1479,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4"
+                                                            aria-hidden/>
                                                     Add property
                                                 </Button>
                                             </div>
@@ -1316,11 +1489,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                            <TableHead
+                                                                className="w-[140px] text-muted-foreground">
                                                                 Range
                                                             </TableHead>
-                                                            <TableHead className="text-muted-foreground">Gobo</TableHead>
-                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                            <TableHead
+                                                                className="text-muted-foreground">Gobo</TableHead>
+                                                            <TableHead
+                                                                className="w-[200px] text-right text-muted-foreground">
                                                                 Speed
                                                             </TableHead>
                                                             <TableHead className="w-12"/>
@@ -1330,7 +1506,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         {slots.map((slot, si) => (
                                                             <TableRow key={si}>
                                                                 <TableCell className="align-middle">
-                                                                    <div className="flex items-center gap-1">
+                                                                    <div
+                                                                        className="flex items-center gap-1">
                                                                         <Input
                                                                             type="number"
                                                                             className="h-8 w-14 px-1"
@@ -1354,7 +1531,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         />
-                                                                        <span className="text-muted-foreground">–</span>
+                                                                        <span
+                                                                            className="text-muted-foreground">–</span>
                                                                         <Input
                                                                             type="number"
                                                                             className="h-8 w-14 px-1"
@@ -1381,7 +1559,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell className="align-middle">
-                                                                    <div className="flex min-w-0 items-center gap-2">
+                                                                    <div
+                                                                        className="flex min-w-0 items-center gap-2">
                                                                         <button
                                                                             type="button"
                                                                             className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
@@ -1400,7 +1579,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                     className="size-full object-cover"
                                                                                 />
                                                                             ) : (
-                                                                                <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                                                                                <span
+                                                                                    className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
                                                                                     ∅
                                                                                 </span>
                                                                             )}
@@ -1424,8 +1604,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         />
                                                                     </div>
                                                                 </TableCell>
-                                                                <TableCell className="text-right align-middle">
-                                                                    <div className="flex items-center justify-end gap-1">
+                                                                <TableCell
+                                                                    className="text-right align-middle">
+                                                                    <div
+                                                                        className="flex items-center justify-end gap-1">
                                                                         <NativeSelect
                                                                             className="h-8 max-w-[5.5rem] text-xs"
                                                                             value={slot.direction ?? "none"}
@@ -1445,9 +1627,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <NativeSelectOption value="none">—</NativeSelectOption>
-                                                                            <NativeSelectOption value="cw">CW</NativeSelectOption>
-                                                                            <NativeSelectOption value="ccw">CCW</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="none">—</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="cw">CW</NativeSelectOption>
+                                                                            <NativeSelectOption
+                                                                                value="ccw">CCW</NativeSelectOption>
                                                                         </NativeSelect>
                                                                         <Button
                                                                             type="button"
@@ -1495,7 +1680,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         </Button>
                                                                     </div>
                                                                 </TableCell>
-                                                                <TableCell className="text-right align-middle">
+                                                                <TableCell
+                                                                    className="text-right align-middle">
                                                                     <Button
                                                                         type="button"
                                                                         size="icon"
@@ -1521,7 +1707,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             });
                                                                         }}
                                                                     >
-                                                                        <PiTrash className="size-4"/>
+                                                                        <PiTrash
+                                                                            className="size-4"/>
                                                                     </Button>
                                                                 </TableCell>
                                                             </TableRow>
@@ -1554,7 +1741,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4"
+                                                            aria-hidden/>
                                                     Add property
                                                 </Button>
                                             </div>
@@ -1563,11 +1751,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                            <TableHead
+                                                                className="w-[140px] text-muted-foreground">
                                                                 Range
                                                             </TableHead>
-                                                            <TableHead className="text-muted-foreground">State</TableHead>
-                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                            <TableHead
+                                                                className="text-muted-foreground">State</TableHead>
+                                                            <TableHead
+                                                                className="w-[200px] text-right text-muted-foreground">
                                                                 Speed
                                                             </TableHead>
                                                             <TableHead className="w-12"/>
@@ -1594,13 +1785,16 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         title="Pulse width"
                                                                         aria-hidden
                                                                     >
-                                                                        <Minus className="size-4" strokeWidth={2.5}/>
+                                                                        <Minus className="size-4"
+                                                                               strokeWidth={2.5}/>
                                                                     </span>
                                                                 ) : null;
                                                             return (
                                                                 <TableRow key={si}>
-                                                                    <TableCell className="align-middle">
-                                                                        <div className="flex items-center gap-1">
+                                                                    <TableCell
+                                                                        className="align-middle">
+                                                                        <div
+                                                                            className="flex items-center gap-1">
                                                                             <Input
                                                                                 type="number"
                                                                                 className="h-8 w-14 px-1"
@@ -1627,7 +1821,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                     });
                                                                                 }}
                                                                             />
-                                                                            <span className="text-muted-foreground">
+                                                                            <span
+                                                                                className="text-muted-foreground">
                                                                                 –
                                                                             </span>
                                                                             <Input
@@ -1655,9 +1850,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             />
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="align-middle">
-                                                                        <div className="flex min-w-0 items-center gap-2">
-                                                                            <ShutterStateGlyph mode={slot.mode}/>
+                                                                    <TableCell
+                                                                        className="align-middle">
+                                                                        <div
+                                                                            className="flex min-w-0 items-center gap-2">
+                                                                            <ShutterStateGlyph
+                                                                                mode={slot.mode}/>
                                                                             <NativeSelect
                                                                                 className="h-8 min-w-0 flex-1 text-sm"
                                                                                 value={shutterSelectValue(slot.mode)}
@@ -1693,8 +1891,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             </NativeSelect>
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="text-right align-middle">
-                                                                        <div className="flex items-center justify-end gap-1">
+                                                                    <TableCell
+                                                                        className="text-right align-middle">
+                                                                        <div
+                                                                            className="flex items-center justify-end gap-1">
                                                                             {speedExtra}
                                                                             <Button
                                                                                 type="button"
@@ -1742,7 +1942,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             </Button>
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="text-right align-middle">
+                                                                    <TableCell
+                                                                        className="text-right align-middle">
                                                                         <Button
                                                                             type="button"
                                                                             size="icon"
@@ -1770,7 +1971,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <PiTrash className="size-4"/>
+                                                                            <PiTrash
+                                                                                className="size-4"/>
                                                                         </Button>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -1802,7 +2004,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4"
+                                                            aria-hidden/>
                                                     Add property
                                                 </Button>
                                             </div>
@@ -1811,11 +2014,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <TableHead className="w-[140px] text-muted-foreground">
+                                                            <TableHead
+                                                                className="w-[140px] text-muted-foreground">
                                                                 Range
                                                             </TableHead>
-                                                            <TableHead className="text-muted-foreground">State</TableHead>
-                                                            <TableHead className="w-[200px] text-right text-muted-foreground">
+                                                            <TableHead
+                                                                className="text-muted-foreground">State</TableHead>
+                                                            <TableHead
+                                                                className="w-[200px] text-right text-muted-foreground">
                                                                 Speed
                                                             </TableHead>
                                                             <TableHead className="w-12"/>
@@ -1874,8 +2080,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                             }
                                                             return (
                                                                 <TableRow key={si}>
-                                                                    <TableCell className="align-middle">
-                                                                        <div className="flex items-center gap-1">
+                                                                    <TableCell
+                                                                        className="align-middle">
+                                                                        <div
+                                                                            className="flex items-center gap-1">
                                                                             <Input
                                                                                 type="number"
                                                                                 className="h-8 w-14 px-1"
@@ -1902,7 +2110,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                     });
                                                                                 }}
                                                                             />
-                                                                            <span className="text-muted-foreground">
+                                                                            <span
+                                                                                className="text-muted-foreground">
                                                                                 –
                                                                             </span>
                                                                             <Input
@@ -1930,7 +2139,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             />
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="align-middle">
+                                                                    <TableCell
+                                                                        className="align-middle">
                                                                         <NativeSelect
                                                                             className="h-8 w-full min-w-0 text-sm"
                                                                             value={motionStatePresetId(slot)}
@@ -1967,8 +2177,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             ))}
                                                                         </NativeSelect>
                                                                     </TableCell>
-                                                                    <TableCell className="text-right align-middle">
-                                                                        <div className="flex items-center justify-end gap-1">
+                                                                    <TableCell
+                                                                        className="text-right align-middle">
+                                                                        <div
+                                                                            className="flex items-center justify-end gap-1">
                                                                             {speedChip}
                                                                             <Button
                                                                                 type="button"
@@ -2016,7 +2228,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             </Button>
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="text-right align-middle">
+                                                                    <TableCell
+                                                                        className="text-right align-middle">
                                                                         <Button
                                                                             type="button"
                                                                             size="icon"
@@ -2044,7 +2257,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <PiTrash className="size-4"/>
+                                                                            <PiTrash
+                                                                                className="size-4"/>
                                                                         </Button>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -2078,7 +2292,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4"
+                                                            aria-hidden/>
                                                     Add property
                                                 </Button>
                                             </div>
@@ -2211,7 +2426,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         });
                                                     }}
                                                 >
-                                                    <PiPlus className="mr-1 inline size-4" aria-hidden/>
+                                                    <PiPlus className="mr-1 inline size-4"
+                                                            aria-hidden/>
                                                     Add slot
                                                 </Button>
                                             </div>
@@ -2235,7 +2451,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     <DialogHeader>
                                         <DialogTitle>Choose gobo</DialogTitle>
                                         <DialogDescription>
-                                            Filter by Rosco code or name. Images load from the local catalog.
+                                            Filter by Rosco code or name. Images load from the local
+                                            catalog.
                                         </DialogDescription>
                                     </DialogHeader>
                                     <Input
@@ -2245,15 +2462,19 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         autoComplete="off"
                                     />
                                     {goboCatalog === null ? (
-                                        <p className="text-sm text-muted-foreground">Loading catalog…</p>
+                                        <p className="text-sm text-muted-foreground">Loading
+                                            catalog…</p>
                                     ) : goboCatalogError ? (
                                         <p className="text-sm text-destructive">{goboCatalogError}</p>
                                     ) : goboCatalog.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">No catalog entries found.</p>
+                                        <p className="text-sm text-muted-foreground">No catalog
+                                            entries found.</p>
                                     ) : (
                                         <>
-                                            <div className="max-h-[min(60vh,520px)] overflow-y-auto rounded-md border p-2">
-                                                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                                            <div
+                                                className="max-h-[min(60vh,520px)] overflow-y-auto rounded-md border p-2">
+                                                <div
+                                                    className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
                                                     {goboCatalogShown.map((entry) => (
                                                         <button
                                                             key={entry.code}
@@ -2301,7 +2522,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 className="size-14 rounded-full object-cover ring-1 ring-border"
                                                                 loading="lazy"
                                                             />
-                                                            <span className="line-clamp-2 w-full text-center font-mono text-[10px] leading-tight">
+                                                            <span
+                                                                className="line-clamp-2 w-full text-center font-mono text-[10px] leading-tight">
                                                                 {entry.code}
                                                             </span>
                                                         </button>
@@ -2310,7 +2532,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             </div>
                                             {goboCatalogFilter === "" && goboCatalog.length > 400 ? (
                                                 <p className="text-xs text-muted-foreground">
-                                                    Showing the first 400 gobos — type in the filter to narrow the list.
+                                                    Showing the first 400 gobos — type in the filter
+                                                    to narrow the list.
                                                 </p>
                                             ) : null}
                                         </>
@@ -2322,19 +2545,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardContent className="flex flex-wrap gap-2 pt-6">
-                            <Button onClick={handleSave} disabled={props.busy}>
-                                Save
-                            </Button>
-                            {props.fixture && (
-                                <Button type="button" variant="destructive" onClick={handleDelete}
-                                        disabled={props.busy}>
-                                    Delete
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
                 </>
             )}
         </div>

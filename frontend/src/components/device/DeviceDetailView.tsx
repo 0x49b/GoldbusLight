@@ -9,7 +9,7 @@ import {
     PiTrash,
     PiX
 } from "react-icons/pi";
-import {prettyJSON, readNumber} from "../../lib/json";
+import {prettyJSON, readNumber} from "@/lib/json.ts";
 import {
     BLACK_LIGHT_FLUORESCENT_RGB,
     CANDLE_LIGHT_RGB,
@@ -21,12 +21,12 @@ import {
     SUPER_WARM_RGB,
     WARM_WHITE_RGB,
     WHITE_RGB
-} from "../../lib/wled";
-import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "../../types/controller";
+} from "@/lib/wled.ts";
+import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "@/types/controller.ts";
 import {EffectPickerModal} from "./EffectPickerModal";
 import {PalettePickerModal} from "./PalettePickerModal";
 import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Badge} from "@/components/ui/badge";
@@ -38,7 +38,6 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Spinner} from "@/components/ui/spinner";
 import {
     DropdownMenu,
@@ -270,17 +269,22 @@ export function DeviceDetailView({
                         <PiPower className="text-lg shrink-0"
                                  aria-hidden/> Power {powerOn === true ? "on" : powerOn === false ? "off" : "unknown"}
                     </Button>
-                    <TooltipProvider>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="outline"
-                                                                 onClick={() => onRefreshDevice(d.id)}
-                                                                 disabled={busy}><PiArrowClockwise/> Reload</Button></TooltipTrigger><TooltipContent>reload</TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
-                                                                 onClick={() => setConfirmAction("ignore")}
-                                                                 disabled={busy}><PiX/> Ignore</Button></TooltipTrigger><TooltipContent>ignore</TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button size="sm" variant="destructive"
-                                                                 onClick={() => setConfirmAction("remove")}
-                                                                 disabled={busy}><PiTrash/> Delete</Button></TooltipTrigger><TooltipContent>forget</TooltipContent></Tooltip>
-                    </TooltipProvider>
+                    <Button size="sm" variant="outline"
+                            onClick={() => onRefreshDevice(d.id)}
+                            disabled={busy}><PiArrowClockwise/>
+                        Reload
+                    </Button>
+                    <Button size="sm" variant="destructive"
+                            onClick={() => setConfirmAction("ignore")}
+                            disabled={busy}><PiX/>
+                        Ignore
+                    </Button>
+                    <Button size="sm" variant="destructive"
+                            onClick={() => setConfirmAction("remove")}
+                            disabled={busy}><PiTrash/>
+                        Delete
+                    </Button>
+
                 </div>
             </div>
             {confirmAction && (
@@ -497,9 +501,6 @@ export function DeviceDetailView({
                     <CardTitle>
                         Effect & palette
                     </CardTitle>
-                    <CardDescription>
-                        Tap to choose from the list; speed and intensity apply automatically.
-                    </CardDescription>
                 </CardHeader>
 
                 <CardContent className="gap-4">
