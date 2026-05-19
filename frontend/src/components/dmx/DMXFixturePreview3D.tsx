@@ -29,7 +29,7 @@ const DEFAULT_BEAM_COLOR = "#ffe8a0";
 const BEAM_LENGTH = 0.82;
 const BEAM_APERTURE_MIN = 0.055;
 const BEAM_APERTURE_MAX = 0.22;
-const BEAM_LOCAL_FRONT_Z = -0.22;
+const BEAM_LOCAL_LENS_Y = -0.34;
 
 function applyOpacity(root: THREE.Object3D, opacity: number) {
     root.traverse((obj) => {
@@ -60,12 +60,12 @@ function createBeamMesh(scale: number) {
         side: THREE.DoubleSide,
     });
     const geometry = new THREE.ConeGeometry(1, 1, 20, 1, true);
-    geometry.rotateX(Math.PI / 2);
-    geometry.translate(0, 0, -0.5);
+    geometry.translate(0, -0.5, 0);
 
     const beam = new THREE.Mesh(geometry, material);
-    beam.position.set(0, 0.05 / scale, BEAM_LOCAL_FRONT_Z / scale);
-    beam.scale.set(BEAM_APERTURE_MIN / scale, BEAM_APERTURE_MIN / scale, BEAM_LENGTH / scale);
+    // In this DAE the lens is on the head's lower local-Y end.
+    beam.position.set(0, BEAM_LOCAL_LENS_Y / scale, 0);
+    beam.scale.set(BEAM_APERTURE_MIN / scale, BEAM_LENGTH / scale, BEAM_APERTURE_MIN / scale);
     beam.visible = false;
     return beam;
 }
@@ -150,7 +150,7 @@ function LoadedFixture({
         const aperture = BEAM_APERTURE_MIN + focus * (BEAM_APERTURE_MAX - BEAM_APERTURE_MIN);
         const beamOpacity = 0.2 + Math.max(0, Math.min(1, intensity)) * 0.55;
         rig.beam.scale.x = aperture / rig.root.scale.x;
-        rig.beam.scale.y = aperture / rig.root.scale.y;
+        rig.beam.scale.z = aperture / rig.root.scale.z;
         rig.beam.visible = intensity > 0.03;
         rig.beam.material.opacity = beamOpacity;
         rig.beam.material.color.set(beamColor || DEFAULT_BEAM_COLOR);
