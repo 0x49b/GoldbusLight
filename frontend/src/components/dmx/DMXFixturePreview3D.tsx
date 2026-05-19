@@ -9,8 +9,27 @@ export type DMXFixturePreview3DProps = {
     variant: "movingHead" | "smoke";
     panDeg: number;
     tiltDeg: number;
+    maxPanDeg?: number;
+    maxTiltDeg?: number;
+    focus01?: number;
+    beamColor?: string;
     intensity: number;
 };
+
+type LoadedRig = {
+    root: THREE.Object3D;
+    panNode: THREE.Object3D | null;
+    tiltNode: THREE.Object3D | null;
+    panRest: THREE.Euler | null;
+    tiltRest: THREE.Euler | null;
+    beam: THREE.Mesh<THREE.ConeGeometry, THREE.MeshBasicMaterial> | null;
+};
+
+const DEFAULT_BEAM_COLOR = "#ffe8a0";
+const BEAM_LENGTH = 0.82;
+const BEAM_APERTURE_MIN = 0.055;
+const BEAM_APERTURE_MAX = 0.22;
+const BEAM_LOCAL_FRONT_Z = -0.22;
 
 function applyOpacity(root: THREE.Object3D, opacity: number) {
     root.traverse((obj) => {
@@ -27,17 +46,61 @@ function applyOpacity(root: THREE.Object3D, opacity: number) {
     });
 }
 
-function LoadedFixture({variant, panDeg, tiltDeg, intensity}: DMXFixturePreview3DProps) {
+function clamp01(value: number) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function createBeamMesh(scale: number) {
+    const material = new THREE.MeshBasicMaterial({
+        color: DEFAULT_BEAM_COLOR,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
+    const geometry = new THREE.ConeGeometry(1, 1, 20, 1, true);
+    geometry.rotateX(Math.PI / 2);
+    geometry.translate(0, 0, -0.5);
+
+    const beam = new THREE.Mesh(geometry, material);
+    beam.position.set(0, 0.05 / scale, BEAM_LOCAL_FRONT_Z / scale);
+    beam.scale.set(BEAM_APERTURE_MIN / scale, BEAM_APERTURE_MIN / scale, BEAM_LENGTH / scale);
+    beam.visible = false;
+    return beam;
+}
+
+function degToRad(deg: number) {
+    return (deg * Math.PI) / 180;
+}
+
+function LoadedFixture({
+    variant,
+    panDeg,
+    tiltDeg,
+    maxPanDeg = 0,
+    maxTiltDeg = 0,
+    focus01 = 0.5,
+    beamColor,
+    intensity,
+}: DMXFixturePreview3DProps) {
     const url = variant === "smoke" ? "/meshes/smoke.dae" : "/meshes/moving_head.dae";
     const collada = useLoader(ColladaLoader, url);
-    const pivot = useRef<Group>(null);
-    const head = useRef<Group>(null);
-    const angles = useRef({panDeg, tiltDeg});
-    angles.current = {panDeg, tiltDeg};
+    const fallbackPivot = useRef<Group>(null);
+    const fallbackHead = useRef<Group>(null);
+    const angles = useRef({panDeg, tiltDeg, maxPanDeg, maxTiltDeg});
+    angles.current = {panDeg, tiltDeg, maxPanDeg, maxTiltDeg};
 
-    const rootObj = useMemo(() => {
+    const rig = useMemo<LoadedRig>(() => {
         if (!collada) {
-            return new THREE.Group();
+            return {
+                root: new THREE.Group(),
+                panNode: null,
+                tiltNode: null,
+                panRest: null,
+                tiltRest: null,
+                beam: null,
+            };
         }
         const root = collada.scene.clone(true);
         root.traverse((obj) => {
@@ -53,44 +116,68 @@ function LoadedFixture({variant, panDeg, tiltDeg, intensity}: DMXFixturePreview3
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
         const target = variant === "smoke" ? 1.35 : 1.55;
-        root.scale.setScalar(target / maxDim);
-        return root;
+        const scale = target / maxDim;
+        root.scale.setScalar(scale);
+
+        const panNode = variant === "movingHead" ? root.getObjectByName("arm") ?? null : null;
+        const tiltNode = variant === "movingHead" ? root.getObjectByName("head") ?? null : null;
+        const beam = tiltNode ? createBeamMesh(scale) : null;
+        if (beam && tiltNode) {
+            tiltNode.add(beam);
+        }
+
+        return {
+            root,
+            panNode,
+            tiltNode,
+            panRest: panNode?.rotation.clone() ?? null,
+            tiltRest: tiltNode?.rotation.clone() ?? null,
+            beam,
+        };
     }, [collada, variant]);
 
     useLayoutEffect(() => {
         if (variant === "smoke") {
-            applyOpacity(rootObj, 0.15 + Math.max(0, Math.min(1, intensity)) * 0.85);
+            applyOpacity(rig.root, 0.15 + Math.max(0, Math.min(1, intensity)) * 0.85);
         }
-    }, [rootObj, variant, intensity]);
+    }, [rig.root, variant, intensity]);
 
-    useFrame(() => {
-        if (!pivot.current || !head.current) {
+    useLayoutEffect(() => {
+        if (!rig.beam) {
             return;
         }
-        const {panDeg: p, tiltDeg: t} = angles.current;
-        pivot.current.rotation.set(0, (p * Math.PI) / 180, 0);
-        head.current.rotation.set((t * Math.PI) / 180, 0, 0);
+        const focus = clamp01(focus01);
+        const aperture = BEAM_APERTURE_MIN + focus * (BEAM_APERTURE_MAX - BEAM_APERTURE_MIN);
+        const beamOpacity = 0.2 + Math.max(0, Math.min(1, intensity)) * 0.55;
+        rig.beam.scale.x = aperture / rig.root.scale.x;
+        rig.beam.scale.y = aperture / rig.root.scale.y;
+        rig.beam.visible = intensity > 0.03;
+        rig.beam.material.opacity = beamOpacity;
+        rig.beam.material.color.set(beamColor || DEFAULT_BEAM_COLOR);
+    }, [rig.beam, rig.root.scale.x, rig.root.scale.y, intensity, focus01, beamColor]);
+
+    useFrame(() => {
+        if (!fallbackPivot.current || !fallbackHead.current) {
+            return;
+        }
+        const {panDeg: p, tiltDeg: t, maxPanDeg: maxPan, maxTiltDeg: maxTilt} = angles.current;
+
+        if (variant === "movingHead" && rig.panNode && rig.tiltNode && rig.panRest && rig.tiltRest) {
+            fallbackPivot.current.rotation.set(0, 0, 0);
+            fallbackHead.current.rotation.set(0, 0, 0);
+            rig.panNode.rotation.set(rig.panRest.x, rig.panRest.y + degToRad(p - maxPan / 2), rig.panRest.z);
+            rig.tiltNode.rotation.set(rig.tiltRest.x + degToRad(t - maxTilt / 2), rig.tiltRest.y, rig.tiltRest.z);
+            return;
+        }
+
+        fallbackPivot.current.rotation.set(0, degToRad(p), 0);
+        fallbackHead.current.rotation.set(degToRad(t), 0, 0);
     });
 
-    const beamOpacity = 0.2 + Math.max(0, Math.min(1, intensity)) * 0.55;
-
     return (
-        <group ref={pivot}>
-            <group ref={head}>
-                <primitive object={rootObj}/>
-                {variant === "movingHead" && (
-                    <mesh position={[0, 0.05, 0.55]} rotation={[Math.PI / 2, 0, 0]} visible={intensity > 0.03}>
-                        <coneGeometry args={[0.12, 0.55, 20, 1, true]}/>
-                        <meshBasicMaterial
-                            color="#ffe8a0"
-                            transparent
-                            opacity={beamOpacity}
-                            depthWrite={false}
-                            blending={THREE.AdditiveBlending}
-                            side={THREE.DoubleSide}
-                        />
-                    </mesh>
-                )}
+        <group ref={fallbackPivot}>
+            <group ref={fallbackHead}>
+                <primitive object={rig.root}/>
             </group>
         </group>
     );

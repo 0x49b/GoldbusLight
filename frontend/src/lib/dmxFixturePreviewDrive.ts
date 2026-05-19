@@ -1,5 +1,5 @@
 import type {DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
-import type {DMXLiveControlState} from "./dmxLiveMap";
+import {parseFixtureEntries, type DMXLiveControlState} from "./dmxLiveMap";
 
 function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
     return channels.find((c) => c.type === type);
@@ -42,7 +42,32 @@ export type FixturePreviewDrive = {
     pan01: number;
     tilt01: number;
     dimmer01: number;
+    focus01: number;
+    beamColor?: string;
 };
+
+function fixtureEntryForByte(entries: ReturnType<typeof parseFixtureEntries>, value: number) {
+    return entries.find((entry) => value >= entry.from && value <= entry.to);
+}
+
+function fixtureEntryForIndex(entries: ReturnType<typeof parseFixtureEntries>, idx: number) {
+    if (entries.length === 0) {
+        return undefined;
+    }
+    return entries[Math.max(0, Math.min(entries.length - 1, Math.floor(idx)))];
+}
+
+function previewBeamColor(color: string | undefined): string | undefined {
+    const raw = color?.trim();
+    if (!raw) {
+        return undefined;
+    }
+    const lowered = raw.toLowerCase();
+    if (lowered.includes("rainbow") || lowered.includes("scroll")) {
+        return undefined;
+    }
+    return raw;
+}
 
 export function fixturePreviewDrive(
     fixture: DMXFixture,
@@ -53,10 +78,14 @@ export function fixturePreviewDrive(
     const tiltCh = firstChannel(fixture.channels, "tilt");
     const dimCh = firstChannel(fixture.channels, "dimmer");
     const fogCh = firstChannel(fixture.channels, "fog");
+    const focusCh = firstChannel(fixture.channels, "focus");
+    const colorWheelCh = firstChannel(fixture.channels, "colorWheel");
 
     let pan01 = fallback.pan01;
     let tilt01 = fallback.tilt01;
     let dimmer01 = fallback.dimmer01;
+    let focus01 = fallback.focus01;
+    let beamColor: string | undefined;
 
     if (universe && universe.length >= 512) {
         if (panCh && Number.isFinite(panCh.channel)) {
@@ -86,7 +115,27 @@ export function fixturePreviewDrive(
                 dimmer01 = byteTo01(raw, fogCh.properties as JSONMap);
             }
         }
+        if (focusCh && Number.isFinite(focusCh.channel)) {
+            const addr = dmxChannelAddress(fixture, Math.round(focusCh.channel));
+            const raw = addr != null ? universeValue(universe, addr) : undefined;
+            if (raw !== undefined) {
+                focus01 = byteTo01(raw, focusCh.properties as JSONMap);
+            }
+        }
+        if (colorWheelCh && Number.isFinite(colorWheelCh.channel)) {
+            const entries = parseFixtureEntries(colorWheelCh.properties as JSONMap | undefined);
+            const addr = dmxChannelAddress(fixture, Math.round(colorWheelCh.channel));
+            const raw = addr != null ? universeValue(universe, addr) : undefined;
+            beamColor = previewBeamColor(
+                raw !== undefined
+                    ? fixtureEntryForByte(entries, raw)?.color
+                    : fixtureEntryForIndex(entries, fallback.colorWheelIdx)?.color,
+            );
+        }
+    } else if (colorWheelCh) {
+        const entries = parseFixtureEntries(colorWheelCh.properties as JSONMap | undefined);
+        beamColor = previewBeamColor(fixtureEntryForIndex(entries, fallback.colorWheelIdx)?.color);
     }
 
-    return {pan01, tilt01, dimmer01};
+    return {pan01, tilt01, dimmer01, focus01, beamColor};
 }

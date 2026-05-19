@@ -124,6 +124,8 @@ export function DMXFixtureLiveControls({
     const previewPanDeg = previewDrive.pan01 * maxPanDeg;
     const previewTiltDeg = previewDrive.tilt01 * maxTiltDeg;
     const previewIntensity = previewDrive.dimmer01;
+    const previewFocus = previewDrive.focus01;
+    const previewBeamColor = previewDrive.beamColor;
     const showFixturePreview = fixture.type === "movingHead" || fixture.type === "smoke";
 
     const cwMax = Math.max(0, cwEntries.length - 1);
@@ -163,6 +165,10 @@ export function DMXFixtureLiveControls({
                         variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
                         panDeg={previewPanDeg}
                         tiltDeg={previewTiltDeg}
+                        maxPanDeg={maxPanDeg}
+                        maxTiltDeg={maxTiltDeg}
+                        focus01={previewFocus}
+                        beamColor={previewBeamColor}
                         intensity={previewIntensity}
                     />
                     <p className="text-[11px] text-muted-foreground">
