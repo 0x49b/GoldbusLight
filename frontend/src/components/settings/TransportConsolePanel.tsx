@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import type {ConsoleEntry} from "../../types/controller";
+import type {ConsoleEntry} from "@/types/controller.ts";
 
 const TRANSPORT_LABEL: Record<string, string> = {
     wled: "WLED",

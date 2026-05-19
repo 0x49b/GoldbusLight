@@ -19,7 +19,7 @@ import type {
     NetworkApplyResult,
     USBSerialDevice,
     WLEDDevice,
-} from "../../types/controller";
+} from "@/types/controller.ts";
 import { TransportConsolePanel } from "./TransportConsolePanel";
 
 export type ControllerSettingsViewProps = {

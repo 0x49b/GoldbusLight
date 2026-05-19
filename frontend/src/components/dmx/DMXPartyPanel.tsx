@@ -6,7 +6,7 @@ import type {
     DMXPartyAudioSourcePreset,
     DMXPartyConfig,
     DMXPartyState,
-} from "../../types/controller";
+} from "@/types/controller.ts";
 import {formatPartyTimestamp, listUSBMicDevices, pickLoopbackDevice, pickUSBMicDevice} from "../../lib/dmxPartyAudio";
 
 type DMXPartyPanelProps = {

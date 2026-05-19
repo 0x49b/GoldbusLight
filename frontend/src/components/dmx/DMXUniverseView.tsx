@@ -11,9 +11,9 @@ import {
     universeRange,
 } from "@/lib/dmxUniverseGrid";
 import {parseFixtureEntries} from "@/lib/dmxLiveMap";
-import type {DetailRoute, DMXFixture, DMXPartyAudioInputDevice, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "../../types/controller";
+import type {DetailRoute, DMXFixture, DMXPartyAudioInputDevice, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "@/types/controller.ts";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
-import type {JSONMap} from "../../types/controller";
+import type {JSONMap} from "@/types/controller.ts";
 import {PiPlus, PiWarningCircle} from "react-icons/pi";
 
 export type DMXUniverseViewProps = {

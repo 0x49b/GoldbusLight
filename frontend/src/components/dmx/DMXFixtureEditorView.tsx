@@ -133,6 +133,7 @@ const DMX_CHANNEL_TYPES: DMXChannelType[] = [
     "shutterStrobe",
     "tilt",
     "tiltFine",
+    "timer",
     "xfadeToColor",
     "xfadeToColorFine",
     "zoom",

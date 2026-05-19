@@ -16,6 +16,7 @@ export type DMXLiveControlState = {
     zoom01: number;
     iris01: number;
     frost01: number;
+    fog01: number;
     /** Frost curve: prefer entries with this mode when possible */
     frostCurve: "linear" | "pulse";
     dimmer01: number;
@@ -86,6 +87,68 @@ function slotMid(entries: EntryRow[], idx: number): number {
     const i = clamp(Math.floor(idx), 0, entries.length - 1);
     const e = entries[i];
     return clamp255((e.from + e.to) / 2);
+}
+
+export type SmokeFogOutputRange = {
+    min: number;
+    max: number;
+};
+
+export function smokeFogOutputRange(props: JSONMap | undefined): SmokeFogOutputRange | null {
+    const raw = props?.entries;
+    if (!Array.isArray(raw) || raw.length === 0) {
+        return null;
+    }
+
+    let hasOffSlot = false;
+    let min = 255;
+    let max = 1;
+
+    for (const item of raw) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+            continue;
+        }
+        const e = item as Record<string, unknown>;
+        const fromRaw = typeof e.from === "number" ? e.from : undefined;
+        const toRaw = typeof e.to === "number" ? e.to : undefined;
+
+        if ((fromRaw === 0 && (toRaw === undefined || toRaw === 0)) || (toRaw === 0 && (fromRaw === undefined || fromRaw === 0))) {
+            hasOffSlot = true;
+            continue;
+        }
+
+        const from = fromRaw ?? toRaw;
+        const to = toRaw ?? fromRaw;
+        if (from === undefined || to === undefined) {
+            continue;
+        }
+        const lo = Math.min(from, to);
+        const hi = Math.max(from, to);
+        if (hi >= 1) {
+            min = Math.min(min, Math.max(1, lo));
+            max = Math.max(max, hi);
+        }
+    }
+
+    if (!hasOffSlot) {
+        return null;
+    }
+    if (max < min) {
+        return {min: 1, max: 255};
+    }
+    return {min: clamp255(min), max: clamp255(max)};
+}
+
+function smokeFogByte(props: JSONMap | undefined, t01: number): number {
+    const range = smokeFogOutputRange(props);
+    if (!range) {
+        return linearByte(props, t01);
+    }
+    const t = clamp(t01, 0, 1);
+    if (t <= 0) {
+        return 0;
+    }
+    return clamp255(range.min + t * (range.max - range.min));
 }
 
 function firstChannel(channels: DMXChannel[], type: DMXChannelType): DMXChannel | undefined {
@@ -162,6 +225,7 @@ export function defaultDmxLiveControlState(): DMXLiveControlState {
         zoom01: 0.5,
         iris01: 0.5,
         frost01: 0,
+        fog01: 0,
         frostCurve: "linear",
         dimmer01: 1,
     };
@@ -218,6 +282,12 @@ export function buildDmxLivePatch(fixture: DMXFixture, s: DMXLiveControlState): 
     pushPatch(out, fixture, zoom, linearByte(zoom?.properties as JSONMap | undefined, s.zoom01));
     const iris = firstChannel(chans, "iris");
     pushPatch(out, fixture, iris, linearByte(iris?.properties as JSONMap | undefined, s.iris01));
+
+    const fog = firstChannel(chans, "fog");
+    const fogProps = fog?.properties as JSONMap | undefined;
+    if (fixture.type === "smoke" && smokeFogOutputRange(fogProps)) {
+        pushPatch(out, fixture, fog, smokeFogByte(fogProps, s.fog01));
+    }
 
     const frost = firstChannel(chans, "frost");
     if (frost) {

@@ -1,13 +1,7 @@
 import {useCallback, useEffect, useMemo, useState} from "react";
-import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
-import type {DMXChannelType, DMXFixture, JSONMap} from "../../types/controller";
-import {
-    buildDmxLivePatch,
-    defaultDmxLiveControlState,
-    type DMXLiveControlState,
-    type DMXLiveShutterMode,
-    parseFixtureEntries,
-} from "../../lib/dmxLiveMap";
+import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
+import type {DMXChannelType, DMXFixture, JSONMap} from "@/types/controller.ts";
+import {buildDmxLivePatch, defaultDmxLiveControlState, type DMXLiveControlState, type DMXLiveShutterMode, parseFixtureEntries, smokeFogOutputRange,} from "@/lib/dmxLiveMap.ts";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Label} from "@/components/ui/label";
@@ -17,7 +11,7 @@ import {cn} from "@/lib/utils";
 import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
-import {fixturePreviewDrive} from "../../lib/dmxFixturePreviewDrive";
+import {fixturePreviewDrive} from "@/lib/dmxFixturePreviewDrive.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -44,6 +38,14 @@ const SHUTTER_OPTIONS: { value: DMXLiveShutterMode; label: string; symbol: strin
     {value: "pulse", label: "Pulse", symbol: "▲"},
 ];
 
+const SMOKE_FOG_PRESETS: { value: number; label: string }[] = [
+    {value: 0, label: "Off"},
+    {value: 0.25, label: "25%"},
+    {value: 0.5, label: "50%"},
+    {value: 0.75, label: "75%"},
+    {value: 1, label: "100%"},
+];
+
 export function DMXFixtureLiveControls({
                                            fixture,
                                            busy,
@@ -53,7 +55,7 @@ export function DMXFixtureLiveControls({
                                            liveUniverse,
                                            pullDMXState,
                                        }: DMXFixtureLiveControlsProps) {
-    const connected = liveStatus?.connected ?? false;
+    const connected                 = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState());
 
     useEffect(() => {
@@ -79,20 +81,20 @@ export function DMXFixtureLiveControls({
 
     const chans = fixture.channels;
 
-    const cwEntries = useMemo(
+    const cwEntries      = useMemo(
         () => parseFixtureEntries(firstChannel(chans, "colorWheel")?.properties as JSONMap | undefined),
         [chans],
     );
-    const goboWheels = useMemo(() => allChannelsOfType(chans, "goboWheel"), [chans]);
-    const g1Entries = useMemo(
+    const goboWheels     = useMemo(() => allChannelsOfType(chans, "goboWheel"), [chans]);
+    const g1Entries      = useMemo(
         () => parseFixtureEntries(goboWheels[0]?.properties as JSONMap | undefined),
         [goboWheels],
     );
-    const g2Entries = useMemo(
+    const g2Entries      = useMemo(
         () => parseFixtureEntries(goboWheels[1]?.properties as JSONMap | undefined),
         [goboWheels],
     );
-    const msEntries = useMemo(
+    const msEntries      = useMemo(
         () => parseFixtureEntries(firstChannel(chans, "movementSpeed")?.properties as JSONMap | undefined),
         [chans],
     );
@@ -100,33 +102,41 @@ export function DMXFixtureLiveControls({
         () => parseFixtureEntries(firstChannel(chans, "shutterStrobe")?.properties as JSONMap | undefined),
         [chans],
     );
-    const frostEntries = useMemo(
+    const frostEntries   = useMemo(
         () => parseFixtureEntries(firstChannel(chans, "frost")?.properties as JSONMap | undefined),
         [chans],
     );
+    const fogChannel     = firstChannel(chans, "fog");
+    const smokeFogRange  = useMemo(
+        () => smokeFogOutputRange(fogChannel?.properties as JSONMap | undefined),
+        [fogChannel],
+    );
 
-    const hasPan = Boolean(firstChannel(chans, "pan"));
-    const hasTilt = Boolean(firstChannel(chans, "tilt"));
-    const hasDimmer = Boolean(firstChannel(chans, "dimmer"));
-    const hasColorWheel = cwEntries.length > 0;
-    const hasGobo1 = g1Entries.length > 0;
-    const hasGobo2 = g2Entries.length > 0;
-    const hasShutter = shutterEntries.length > 0;
-    const hasMovementSpeed = msEntries.length > 0;
-    const hasFocus = Boolean(firstChannel(chans, "focus"));
-    const hasZoom = Boolean(firstChannel(chans, "zoom"));
-    const hasIris = Boolean(firstChannel(chans, "iris"));
-    const hasFrost = Boolean(firstChannel(chans, "frost"));
-    const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
-    const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
+    const hasPan            = Boolean(firstChannel(chans, "pan"));
+    const hasTilt           = Boolean(firstChannel(chans, "tilt"));
+    const hasDimmer         = Boolean(firstChannel(chans, "dimmer"));
+    const hasColorWheel     = cwEntries.length > 0;
+    const hasGobo1          = g1Entries.length > 0;
+    const hasGobo2          = g2Entries.length > 0;
+    const hasShutter        = shutterEntries.length > 0;
+    const hasMovementSpeed  = msEntries.length > 0;
+    const hasFocus          = Boolean(firstChannel(chans, "focus"));
+    const hasZoom           = Boolean(firstChannel(chans, "zoom"));
+    const hasIris           = Boolean(firstChannel(chans, "iris"));
+    const hasFrost          = Boolean(firstChannel(chans, "frost"));
+    const hasSmokeFogOutput = fixture.type === "smoke" && Boolean(fogChannel && smokeFogRange);
+    const maxPanDeg         = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
+    const maxTiltDeg        = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
 
-    const previewDrive = fixturePreviewDrive(fixture, liveUniverse, liveState);
-    const previewPanDeg = previewDrive.pan01 * maxPanDeg;
-    const previewTiltDeg = previewDrive.tilt01 * maxTiltDeg;
-    const previewIntensity = previewDrive.dimmer01;
-    const previewFocus = previewDrive.focus01;
-    const previewBeamColor = previewDrive.beamColor;
-    const showFixturePreview = fixture.type === "movingHead" || fixture.type === "smoke";
+    const previewDrive          = fixturePreviewDrive(fixture, liveUniverse, liveState);
+    const previewPanDeg         = liveState.pan01 * maxPanDeg;
+    const previewTiltDeg        = liveState.tilt01 * maxTiltDeg;
+    const previewIntensity      = previewDrive.dimmer01;
+    const previewSmokeIntensity = liveState.fog01;
+    const previewFocus          = previewDrive.focus01;
+    const previewBeamColor      = previewDrive.beamColor;
+    const previewBeamRainbow    = previewDrive.beamRainbow;
+    const showFixturePreview    = fixture.type === "movingHead" || fixture.type === "smoke";
 
     const cwMax = Math.max(0, cwEntries.length - 1);
     const msMax = Math.max(0, msEntries.length - 1);
@@ -135,20 +145,36 @@ export function DMXFixtureLiveControls({
         setLiveState((s) => ({...s, ...partial}));
     }, []);
 
-    const sliderDisabled = busy || !connected || partyRunning;
-    const noneConfigured =
-        !hasPan &&
-        !hasTilt &&
-        !hasDimmer &&
-        !hasColorWheel &&
-        !hasGobo1 &&
-        !hasGobo2 &&
-        !hasShutter &&
-        !hasMovementSpeed &&
-        !hasFocus &&
-        !hasZoom &&
-        !hasIris &&
-        !hasFrost;
+    const sliderDisabled             = busy || !connected || partyRunning;
+    const handlePreviewPanTiltChange = useCallback((next: { pan01: number; tilt01: number }) => {
+        if (sliderDisabled) {
+            return;
+        }
+        const partial: Partial<DMXLiveControlState> = {};
+        if (hasPan) {
+            partial.pan01 = next.pan01;
+        }
+        if (hasTilt) {
+            partial.tilt01 = next.tilt01;
+        }
+        if (Object.keys(partial).length > 0) {
+            patchState(partial);
+        }
+    }, [hasPan, hasTilt, patchState, sliderDisabled]);
+    const noneConfigured             =
+              !hasPan &&
+              !hasTilt &&
+              !hasDimmer &&
+              !hasColorWheel &&
+              !hasGobo1 &&
+              !hasGobo2 &&
+              !hasShutter &&
+              !hasMovementSpeed &&
+              !hasFocus &&
+              !hasZoom &&
+              !hasIris &&
+              !hasFrost &&
+              !hasSmokeFogOutput;
 
     return (
         <div className="space-y-4">
@@ -169,20 +195,11 @@ export function DMXFixtureLiveControls({
                         maxTiltDeg={maxTiltDeg}
                         focus01={previewFocus}
                         beamColor={previewBeamColor}
-                        intensity={previewIntensity}
+                        beamRainbow={previewBeamRainbow}
+                        intensity={fixture.type === "smoke" ? previewSmokeIntensity : previewIntensity}
+                        disabled={sliderDisabled || (!hasPan && !hasTilt)}
+                        onPanTiltChange={handlePreviewPanTiltChange}
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                        Meshes from{" "}
-                        <a
-                            className="underline"
-                            href="https://github.com/mcallegari/qlcplus/tree/master/resources/meshes/fixtures"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            QLC+
-                        </a>
-                        . Pose tracks live DMX when output is running; otherwise it follows the controls below.
-                    </p>
                 </div>
             )}
 
@@ -199,6 +216,44 @@ export function DMXFixtureLiveControls({
                         <CardTitle className="text-base">Live controls</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-8">
+                        {hasSmokeFogOutput && (
+                            <section className="space-y-4">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Smoke</div>
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    <div className="space-y-2 md:col-span-2">
+                                        <div className="flex justify-between text-sm">
+                                            <Label>Fog output</Label>
+                                            <span className="tabular-nums text-muted-foreground">
+                                                {liveState.fog01 <= 0 ? "Off" : `${Math.round(liveState.fog01 * 100)}%`}
+                                            </span>
+                                        </div>
+                                        <Slider
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            value={[liveState.fog01 * 100]}
+                                            onValueChange={([v]) => patchState({fog01: (v ?? 0) / 100})}
+                                            disabled={sliderDisabled}
+                                        />
+                                        <div className="flex flex-wrap gap-2">
+                                            {SMOKE_FOG_PRESETS.map((preset) => (
+                                                <Button
+                                                    key={preset.label}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={Math.abs(liveState.fog01 - preset.value) < 0.005 ? "default" : "outline"}
+                                                    onClick={() => patchState({fog01: preset.value})}
+                                                    disabled={sliderDisabled}
+                                                >
+                                                    {preset.label}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
                         {(hasPan || hasTilt || hasDimmer || hasMovementSpeed) && (
                             <section className="space-y-4">
                                 <div

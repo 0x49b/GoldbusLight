@@ -5,8 +5,9 @@ import {
     PiPlanet,
     PiPlus,
     PiSquaresFour,
+    PiHeadlights, PiCloud,
 } from "react-icons/pi";
-import type {DetailRoute, DMXFixture, WLEDDevice} from "../../types/controller";
+import type {DetailRoute, DMXFixture, WLEDDevice} from "@/types/controller.ts";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {
     Sidebar,
@@ -203,9 +204,18 @@ export function AppShell({
                                                     id: fixture.id
                                                 })}
                                             >
-                                                <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+
+
+                                                {fixture.type === "movingHead" ? (
+                                                    <PiHeadlights className="size-4 shrink-0" aria-hidden />
+                                                ) : fixture.type === "smoke" ? (
+                                                    <PiCloud className="size-4 shrink-0" aria-hidden />
+                                                ) : (
+                                                    <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                                )}
+
                                                 <span
-                                                    className="min-w-0 flex-1 truncate">{fixture.name}</span>
+                                                    className="min-w-0 flex-1 truncate">{fixture.name} - {fixture.type.toLocaleUpperCase()}</span>
                                                 <span
                                                     className={cn(
                                                         "status status-sm shrink-0",

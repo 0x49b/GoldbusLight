@@ -191,6 +191,7 @@ export type DMXChannelType =
     | "onOff"
     | "lamp"
     | "fog"
+    | "timer"
     | "command"
     | "operatingMode"
     | "custom";

@@ -1,5 +1,5 @@
 import type {DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
-import {parseFixtureEntries, type DMXLiveControlState} from "./dmxLiveMap";
+import {parseFixtureEntries, smokeFogOutputRange, type DMXLiveControlState} from "./dmxLiveMap";
 
 function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
     return channels.find((c) => c.type === type);
@@ -43,7 +43,9 @@ export type FixturePreviewDrive = {
     tilt01: number;
     dimmer01: number;
     focus01: number;
+    fog01: number;
     beamColor?: string;
+    beamRainbow: boolean;
 };
 
 function fixtureEntryForByte(entries: ReturnType<typeof parseFixtureEntries>, value: number) {
@@ -57,16 +59,36 @@ function fixtureEntryForIndex(entries: ReturnType<typeof parseFixtureEntries>, i
     return entries[Math.max(0, Math.min(entries.length - 1, Math.floor(idx)))];
 }
 
-function previewBeamColor(color: string | undefined): string | undefined {
-    const raw = color?.trim();
+type PreviewColorEntry = ReturnType<typeof parseFixtureEntries>[number] | undefined;
+
+function isRainbowEntry(entry: PreviewColorEntry): boolean {
+    const hay = `${entry?.color ?? ""} ${entry?.label ?? ""} ${entry?.mode ?? ""}`.toLowerCase();
+    return hay.includes("rainbow");
+}
+
+function previewBeamColor(entry: PreviewColorEntry): string | undefined {
+    const raw = entry?.color?.trim();
     if (!raw) {
         return undefined;
     }
-    const lowered = raw.toLowerCase();
-    if (lowered.includes("rainbow") || lowered.includes("scroll")) {
+    if (isRainbowEntry(entry) || raw.toLowerCase().includes("scroll")) {
         return undefined;
     }
     return raw;
+}
+
+function smokeFogByteTo01(props: JSONMap | undefined, value: number): number {
+    const range = smokeFogOutputRange(props);
+    if (!range) {
+        return byteTo01(value, props);
+    }
+    if (value <= 0) {
+        return 0;
+    }
+    if (range.max === range.min) {
+        return value >= range.min ? 1 : 0;
+    }
+    return Math.max(0, Math.min(1, (value - range.min) / (range.max - range.min)));
 }
 
 export function fixturePreviewDrive(
@@ -85,7 +107,9 @@ export function fixturePreviewDrive(
     let tilt01 = fallback.tilt01;
     let dimmer01 = fallback.dimmer01;
     let focus01 = fallback.focus01;
+    let fog01 = fallback.fog01;
     let beamColor: string | undefined;
+    let beamRainbow = false;
 
     if (universe && universe.length >= 512) {
         if (panCh && Number.isFinite(panCh.channel)) {
@@ -112,7 +136,8 @@ export function fixturePreviewDrive(
             const addr = dmxChannelAddress(fixture, Math.round(fogCh.channel));
             const raw = addr != null ? universeValue(universe, addr) : undefined;
             if (raw !== undefined) {
-                dimmer01 = byteTo01(raw, fogCh.properties as JSONMap);
+                fog01 = smokeFogByteTo01(fogCh.properties as JSONMap | undefined, raw);
+                dimmer01 = fog01;
             }
         }
         if (focusCh && Number.isFinite(focusCh.channel)) {
@@ -126,16 +151,18 @@ export function fixturePreviewDrive(
             const entries = parseFixtureEntries(colorWheelCh.properties as JSONMap | undefined);
             const addr = dmxChannelAddress(fixture, Math.round(colorWheelCh.channel));
             const raw = addr != null ? universeValue(universe, addr) : undefined;
-            beamColor = previewBeamColor(
-                raw !== undefined
-                    ? fixtureEntryForByte(entries, raw)?.color
-                    : fixtureEntryForIndex(entries, fallback.colorWheelIdx)?.color,
-            );
+            const entry = raw !== undefined
+                ? fixtureEntryForByte(entries, raw)
+                : fixtureEntryForIndex(entries, fallback.colorWheelIdx);
+            beamColor = previewBeamColor(entry);
+            beamRainbow = isRainbowEntry(entry);
         }
     } else if (colorWheelCh) {
         const entries = parseFixtureEntries(colorWheelCh.properties as JSONMap | undefined);
-        beamColor = previewBeamColor(fixtureEntryForIndex(entries, fallback.colorWheelIdx)?.color);
+        const entry = fixtureEntryForIndex(entries, fallback.colorWheelIdx);
+        beamColor = previewBeamColor(entry);
+        beamRainbow = isRainbowEntry(entry);
     }
 
-    return {pan01, tilt01, dimmer01, focus01, beamColor};
+    return {pan01, tilt01, dimmer01, focus01, fog01, beamColor, beamRainbow};
 }
