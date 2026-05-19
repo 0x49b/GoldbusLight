@@ -1,10 +1,10 @@
 import {Canvas} from "@react-three/fiber";
 import {OrbitControls} from "@react-three/drei";
 import {type PointerEvent, Suspense, useCallback, useRef} from "react";
-import {DMXMovingHeadPreview3D} from "./DMXMovingHeadPreview3D";
-import {DMXSmokePreview3D} from "./DMXSmokePreview3D";
-import {clamp01, type DMXFixturePreview3DProps} from "./DMXFixturePreview3D.shared";
-export type {DMXFixturePreview3DProps} from "./DMXFixturePreview3D.shared";
+import {DMXMovingHeadPreview3D} from "./3D/DMXMovingHeadPreview3D";
+import {DMXSmokePreview3D} from "./3D/DMXSmokePreview3D";
+import {clamp01, type DMXFixturePreview3DProps} from "./3D/DMXFixturePreview3D.shared";
+export type {DMXFixturePreview3DProps} from "./3D/DMXFixturePreview3D.shared";
 
 type PreviewDragState = {
     pointerId: number;

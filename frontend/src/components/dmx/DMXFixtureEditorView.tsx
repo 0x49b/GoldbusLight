@@ -13,6 +13,11 @@ import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
 import {Separator} from "@/components/ui/separator";
 import {
+    buildDMXFixtureConfigPayload,
+    parseDMXFixtureConfigPayload,
+    safeDMXFixtureConfigFilename,
+} from "@/lib/dmxFixtureConfigTransfer";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -37,7 +42,7 @@ import {
     Triangle,
     Zap
 } from "lucide-react";
-import {type ReactNode, useCallback, useEffect, useMemo, useState} from "react";
+import {type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {PiPlus, PiTrash} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {
@@ -544,6 +549,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const importInputRef = useRef<HTMLInputElement | null>(null);
     const isCurrentFixtureLive =
         props.fixture != null &&
         props.dmxLiveStatus?.connected === true &&
@@ -691,6 +697,17 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         });
     }, []);
 
+    const buildDraftInput = useCallback((includeID: boolean): UpsertDMXFixtureInput => ({
+        id: includeID ? props.fixture?.id : undefined,
+        type: fixtureType,
+        brand: brand.trim(),
+        name: name.trim(),
+        dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
+        maxPan: Math.max(0, Math.round(maxPan) || 0),
+        maxTilt: Math.max(0, Math.round(maxTilt) || 0),
+        channels: cloneChannels(channels),
+    }), [address, brand, channels, fixtureType, maxPan, maxTilt, name, props.fixture?.id]);
+
     const handleSave = async () => {
         setSaveHint(null);
         const trimmedBrand = brand.trim();
@@ -714,16 +731,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             }
             seen.add(off);
         }
-        const input: UpsertDMXFixtureInput = {
-            id: props.fixture?.id,
-            type: fixtureType,
-            brand: trimmedBrand,
-            name: trimmedName,
-            dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
-            maxPan: Math.max(0, Math.round(maxPan) || 0),
-            maxTilt: Math.max(0, Math.round(maxTilt) || 0),
-            channels,
-        };
+        const input = buildDraftInput(true);
         const saved = props.fixture ? await props.onUpdate(input) : await props.onCreate(input);
         if (saved) {
             props.onOpenFixture(saved.id);
@@ -782,6 +790,57 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         const created = await props.onCreate(input);
         if (created) {
             props.onOpenFixture(created.id);
+        }
+    };
+
+    const handleExport = () => {
+        if (!props.fixture) {
+            return;
+        }
+        setSaveHint(null);
+        const input = buildDraftInput(false);
+        const payload = buildDMXFixtureConfigPayload(input);
+        const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+            type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = safeDMXFixtureConfigFilename(input.brand, input.name);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setSaveHint("Fixture config exported.");
+    };
+
+    const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) {
+            return;
+        }
+        setSaveHint(null);
+        try {
+            const json = JSON.parse(await file.text()) as unknown;
+            const parsed = parseDMXFixtureConfigPayload(json);
+            if (!parsed.ok) {
+                setSaveHint(parsed.error);
+                return;
+            }
+            setFixtureType(parsed.input.type);
+            setBrand(parsed.input.brand);
+            setName(parsed.input.name);
+            setAddress(parsed.input.dmxAddress);
+            setMaxPan(parsed.input.maxPan);
+            setMaxTilt(parsed.input.maxTilt);
+            setChannels(cloneChannels(parsed.input.channels));
+            setPageMode("editor");
+            setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
+        } catch (e) {
+            setSaveHint(e instanceof SyntaxError
+                ? "Fixture file is not valid JSON."
+                : "Could not import fixture file.");
         }
     };
     const handleToggleLive = async () => {
@@ -843,7 +902,27 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             {isCurrentFixtureLive ? "Stop live" : "Start live"}
                         </Button>
                     )}
+                    {!props.fixture && (
+                        <input
+                            ref={importInputRef}
+                            type="file"
+                            accept="application/json,.json"
+                            className="hidden"
+                            onChange={(event) => void handleImport(event)}
+                        />
+                    )}
                     <ButtonGroup className={cn(actionGroupDisabled && "opacity-60")}>
+                        {!props.fixture && (
+                            <Button
+                                type="button"
+                                onClick={() => importInputRef.current?.click()}
+                                disabled={props.busy}
+                                size="sm"
+                                variant="outline"
+                            >
+                                Import fixture
+                            </Button>
+                        )}
                         <Button onClick={handleSave} disabled={actionGroupDisabled} size="sm" variant="outline">
                             Save
                         </Button>
@@ -861,6 +940,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem
+                                        disabled={actionGroupDisabled}
+                                        onClick={handleExport}
+                                    >
+                                        Export
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                         disabled={actionGroupDisabled}
                                         onClick={() => void handleClone()}
