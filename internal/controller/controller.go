@@ -281,6 +281,9 @@ type DMXState struct {
 	Fixtures            []DMXFixture  `json:"fixtures"`
 	SelectedUSBDeviceID string        `json:"selectedUSBDeviceId"`
 	Party               DMXPartyState `json:"party"`
+	// LiveUniverse is the current 512-channel buffer sent to USB/Art-Net when live output is active.
+	// Omitted when live output is off; not persisted to dmx.json.
+	LiveUniverse []int `json:"liveUniverse,omitempty"`
 }
 
 type USBSerialDevice = serial2.USBSerialDevice
@@ -1339,8 +1342,20 @@ func (c *WLEDController) RenameDevice(ctx context.Context, deviceID, name string
 
 func (c *WLEDController) GetDMXState() DMXState {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return cloneDMXState(c.dmxState)
+	st := cloneDMXState(c.dmxState)
+	c.mu.RUnlock()
+
+	c.dmxLiveMu.Lock()
+	live := c.dmxLiveRunning && (c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil)
+	if live {
+		u := make([]int, 512)
+		for i := 0; i < 512; i++ {
+			u[i] = int(c.dmxLiveBuf[i])
+		}
+		st.LiveUniverse = u
+	}
+	c.dmxLiveMu.Unlock()
+	return st
 }
 
 func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
@@ -3100,6 +3115,7 @@ func defaultDMXState() DMXState {
 
 func normalizeDMXState(st DMXState) DMXState {
 	normalized := cloneDMXState(st)
+	normalized.LiveUniverse = nil
 	for i := range normalized.Fixtures {
 		normalized.Fixtures[i].Type = normalizeFixtureType(normalized.Fixtures[i].Type)
 		addr := normalized.Fixtures[i].DMXAddress

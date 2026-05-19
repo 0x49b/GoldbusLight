@@ -664,6 +664,7 @@ export class DMXState {
     "fixtures": DMXFixture[];
     "selectedUSBDeviceId": string;
     "party": DMXPartyState;
+    "liveUniverse"?: number[];
 
     /** Creates a new DMXState instance. */
     constructor($$source: Partial<DMXState> = {}) {
@@ -692,6 +693,9 @@ export class DMXState {
         }
         if ("party" in $$parsedSource) {
             $$parsedSource["party"] = $$createField2_0($$parsedSource["party"]);
+        }
+        if ("liveUniverse" in $$parsedSource && $$parsedSource["liveUniverse"] != null && !Array.isArray($$parsedSource["liveUniverse"])) {
+            delete $$parsedSource["liveUniverse"];
         }
         return new DMXState($$parsedSource as Partial<DMXState>);
     }

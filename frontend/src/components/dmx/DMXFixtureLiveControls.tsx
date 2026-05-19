@@ -16,6 +16,8 @@ import {Slider} from "@/components/ui/slider";
 import {cn} from "@/lib/utils";
 import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
+import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
+import {fixturePreviewDrive} from "../../lib/dmxFixturePreviewDrive";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -23,6 +25,8 @@ type DMXFixtureLiveControlsProps = {
     liveStatus: DMXLiveStatus | null;
     partyRunning: boolean;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
+    liveUniverse?: number[];
+    pullDMXState?: () => Promise<unknown>;
 };
 
 function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
@@ -46,6 +50,8 @@ export function DMXFixtureLiveControls({
                                            liveStatus,
                                            partyRunning,
                                            queueDmxLivePatch,
+                                           liveUniverse,
+                                           pullDMXState,
                                        }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState());
@@ -60,6 +66,16 @@ export function DMXFixtureLiveControls({
         }
         queueDmxLivePatch(buildDmxLivePatch(fixture, liveState));
     }, [connected, fixture, liveState, partyRunning, queueDmxLivePatch]);
+
+    useEffect(() => {
+        if (!connected || !pullDMXState) {
+            return;
+        }
+        const id = window.setInterval(() => {
+            void pullDMXState();
+        }, 200);
+        return () => window.clearInterval(id);
+    }, [connected, pullDMXState]);
 
     const chans = fixture.channels;
 
@@ -104,6 +120,12 @@ export function DMXFixtureLiveControls({
     const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
 
+    const previewDrive = fixturePreviewDrive(fixture, liveUniverse, liveState);
+    const previewPanDeg = previewDrive.pan01 * maxPanDeg;
+    const previewTiltDeg = previewDrive.tilt01 * maxTiltDeg;
+    const previewIntensity = previewDrive.dimmer01;
+    const showFixturePreview = fixture.type === "movingHead" || fixture.type === "smoke";
+
     const cwMax = Math.max(0, cwEntries.length - 1);
     const msMax = Math.max(0, msEntries.length - 1);
 
@@ -131,6 +153,30 @@ export function DMXFixtureLiveControls({
             {partyRunning && (
                 <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
                     Party mode controls this fixture. Stop Party to use manual live controls.
+                </div>
+            )}
+
+            {showFixturePreview && (
+                <div className="space-y-1.5">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</div>
+                    <DMXFixturePreview3D
+                        variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
+                        panDeg={previewPanDeg}
+                        tiltDeg={previewTiltDeg}
+                        intensity={previewIntensity}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                        Meshes from{" "}
+                        <a
+                            className="underline"
+                            href="https://github.com/mcallegari/qlcplus/tree/master/resources/meshes/fixtures"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            QLC+
+                        </a>
+                        . Pose tracks live DMX when output is running; otherwise it follows the controls below.
+                    </p>
                 </div>
             )}
 

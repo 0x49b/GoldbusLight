@@ -124,6 +124,7 @@ function App() {
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
                 partyRunning={app.dmxPartyState?.status?.running === true}
+                pullDMXState={app.pullDMXState}
             />
         );
     } else if (app.route.kind === "device" && app.wledEnabled) {
