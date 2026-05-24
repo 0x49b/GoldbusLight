@@ -3,6 +3,7 @@ import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
 import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "./components/device/DeviceDetailView";
 import {AppShell} from "./components/layout/AppShell";
+import {PartyModeView} from "./components/party/PartyModeView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
 import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
@@ -28,7 +29,23 @@ function App() {
     }
 
     let main: ReactNode = null;
-    if (app.route.kind === "presets" && app.wledEnabled) {
+    if (app.route.kind === "party" && (app.wledEnabled || app.dmxEnabled)) {
+        main = (
+            <PartyModeView
+                fixtures={app.dmxState.fixtures}
+                wledDevices={app.devices.filter((device) => device.online && !device.ignored)}
+                party={app.dmxPartyState}
+                busy={app.busy}
+                audioInputDevices={app.partyAudioInputDevices}
+                onRefreshAudioDevices={async () => {
+                    await app.pullPartyAudioInputDevices();
+                }}
+                onUpdateConfig={app.setDMXPartyConfig}
+                onStart={app.startDMXPartyMode}
+                onStop={app.stopDMXPartyMode}
+            />
+        );
+    } else if (app.route.kind === "presets" && app.wledEnabled) {
         main = (
             <GeneralPanel
                 devices={app.devices}
@@ -96,12 +113,6 @@ function App() {
                 startDMXLiveOutput={app.startDMXLiveOutput}
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
                 queueDmxLivePatch={app.queueDmxLivePatch}
-                partyState={app.dmxPartyState}
-                partyAudioInputDevices={app.partyAudioInputDevices}
-                pullPartyAudioInputDevices={app.pullPartyAudioInputDevices}
-                setDMXPartyConfig={app.setDMXPartyConfig}
-                startDMXPartyMode={app.startDMXPartyMode}
-                stopDMXPartyMode={app.stopDMXPartyMode}
             />
         );
     } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {
@@ -184,6 +195,7 @@ function App() {
                 wledEnabled={app.wledEnabled}
                 dmxEnabled={app.dmxEnabled}
                 dmxLiveStatus={app.dmxLiveStatus}
+                dmxPartyState={app.dmxPartyState}
                 error={app.error}
                 onDismissError={app.onDismissError}
             >

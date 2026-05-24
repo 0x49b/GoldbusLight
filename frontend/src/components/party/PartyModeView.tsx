@@ -6,14 +6,16 @@ import type {
     DMXPartyAudioSourcePreset,
     DMXPartyConfig,
     DMXPartyState,
+    WLEDDevice,
 } from "@/types/controller.ts";
-import {formatPartyTimestamp, listUSBMicDevices, pickLoopbackDevice, pickUSBMicDevice} from "../../lib/dmxPartyAudio";
+import {formatPartyTimestamp, listUSBMicDevices, pickLoopbackDevice, pickUSBMicDevice} from "@/lib/dmxPartyAudio";
+import {PartyAudioEqualizer} from "@/components/party/PartyAudioEqualizer";
 
-type DMXPartyPanelProps = {
+type PartyModeViewProps = {
     fixtures: DMXFixture[];
+    wledDevices: WLEDDevice[];
     party: DMXPartyState;
     busy: boolean;
-    liveConnected: boolean;
     audioInputDevices: DMXPartyAudioInputDevice[];
     onRefreshAudioDevices: () => Promise<void>;
     onUpdateConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
@@ -43,22 +45,25 @@ function inferAudioSourcePreset(config: DMXPartyConfig, devices: DMXPartyAudioIn
     return "custom";
 }
 
-export function DMXPartyPanel({
+export function PartyModeView({
     fixtures,
+    wledDevices,
     party,
     busy,
-    liveConnected,
     audioInputDevices,
     onRefreshAudioDevices,
     onUpdateConfig,
     onStart,
     onStop,
-}: DMXPartyPanelProps) {
+}: PartyModeViewProps) {
     const config = party.config;
     const running = party.status.running;
     const mode = config.mode || "auto";
     const selectedFixtureIDs = new Set(config.fixtureIds ?? []);
-    const allSelected = fixtures.length > 0 && fixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
+    const selectedWledIDs = new Set(config.wledDeviceIds ?? []);
+    const allFixturesSelected = fixtures.length > 0 && fixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
+    const allWledSelected = wledDevices.length > 0 && wledDevices.every((device) => selectedWledIDs.has(device.id));
+    const hasTargets = selectedFixtureIDs.size > 0 || selectedWledIDs.size > 0;
 
     const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
         inferAudioSourcePreset(config, audioInputDevices),
@@ -116,12 +121,14 @@ export function DMXPartyPanel({
         void onUpdateConfig({fixtureIds: Array.from(next)});
     };
 
-    const toggleAllFixtures = () => {
-        if (allSelected) {
-            void onUpdateConfig({fixtureIds: []});
-            return;
+    const toggleWled = (deviceId: string) => {
+        const next = new Set(config.wledDeviceIds ?? []);
+        if (next.has(deviceId)) {
+            next.delete(deviceId);
+        } else {
+            next.add(deviceId);
         }
-        void onUpdateConfig({fixtureIds: fixtures.map((fixture) => fixture.id)});
+        void onUpdateConfig({wledDeviceIds: Array.from(next)});
     };
 
     const renderSlider = (
@@ -144,12 +151,12 @@ export function DMXPartyPanel({
     );
 
     return (
-        <section className="rounded-lg border bg-card p-3">
+        <section className="space-y-3 rounded-lg border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h3 className="text-sm font-semibold">Party Mode</h3>
+                    <h2 className="text-base font-semibold">Party Mode</h2>
                     <p className="text-xs text-muted-foreground">
-                        Procedural and audio-reactive fixture driving for non-programmed shows.
+                        Unified automode for selected WLED devices and DMX fixtures.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -160,7 +167,7 @@ export function DMXPartyPanel({
                         type="button"
                         size="sm"
                         variant={running ? "destructive" : "secondary"}
-                        disabled={busy || !liveConnected || fixtures.length === 0}
+                        disabled={busy || (!running && !hasTargets)}
                         onClick={() => {
                             if (running) {
                                 void onStop();
@@ -175,18 +182,15 @@ export function DMXPartyPanel({
             </div>
 
             {running && (
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
                     {mode === "audio" && (
                         <span>Last audio: {formatPartyTimestamp(party.status.lastAudioAt)}</span>
                     )}
-                    {party.status.partyBlocksManualPatch && (
-                        <span>Manual live patches blocked on party channels</span>
-                    )}
                 </div>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3">
                 <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
                     <span className="font-medium">Mode</span>
                     <select
@@ -209,7 +213,7 @@ export function DMXPartyPanel({
             </div>
 
             {mode === "audio" && (
-                <div className="mt-3 space-y-2 rounded-md border bg-muted/30 p-2">
+                <div className="space-y-2 rounded-md border bg-muted/30 p-2">
                     <div className="flex flex-wrap items-end gap-2">
                         <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">Source preset</span>
@@ -286,35 +290,17 @@ export function DMXPartyPanel({
                         </Button>
                     </div>
 
+                    <PartyAudioEqualizer audio={party.audio}/>
+
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>
                             Capture: {party.status.audioCapturing ? "active (native)" : running ? "starting…" : "starts with Party"}
                         </span>
-                        <span>Level {(party.audio.level * 100).toFixed(0)}%</span>
-                        <span>Bass {(party.audio.bass * 100).toFixed(0)}%</span>
-                        <span>Mid {(party.audio.mid * 100).toFixed(0)}%</span>
-                        <span>Treble {(party.audio.treble * 100).toFixed(0)}%</span>
-                        <span>Beat {(party.audio.beat * 100).toFixed(0)}%</span>
+                        {party.status.audioNoSignal && <span className="text-amber-600">No signal detected</span>}
                     </div>
 
-                    {audioSourcePreset === "usbMic" && usbMicDevices.length === 0 && (
-                        <p className="text-xs text-amber-600">
-                            No USB microphone detected. Plug in your USB mic, then click Refresh devices.
-                        </p>
-                    )}
                     {audioSourcePreset === "loopback" && loopbackDevices.length === 0 && (
-                        <p className="text-xs text-amber-600">
-                            No loopback device found. Install a virtual audio cable (BlackHole on macOS, VB-Audio or
-                            Stereo Mix on Windows) and refresh devices.
-                        </p>
-                    )}
-                    {audioInputDevices.length === 0 && (
-                        <p className="text-xs text-amber-600">No audio input devices were found.</p>
-                    )}
-                    {party.status.audioNoSignal && (
-                        <p className="text-xs text-amber-600">
-                            No signal detected. Check input volume, routing, or loopback setup.
-                        </p>
+                        <p className="text-xs text-amber-600">No loopback device found.</p>
                     )}
                     {party.status.audioCaptureError ? (
                         <p className="text-xs text-destructive">{party.status.audioCaptureError}</p>
@@ -322,37 +308,72 @@ export function DMXPartyPanel({
                 </div>
             )}
 
-            <div className="mt-3 rounded-md border bg-muted/20 p-2">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">Fixture targets</span>
-                    <Button type="button" size="sm" variant="ghost" disabled={busy || fixtures.length === 0} onClick={toggleAllFixtures}>
-                        {allSelected ? "Clear selection" : "Select all"}
-                    </Button>
+            <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-md border bg-muted/20 p-2">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">WLED targets</span>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy || wledDevices.length === 0}
+                            onClick={() => void onUpdateConfig({wledDeviceIds: allWledSelected ? [] : wledDevices.map((d) => d.id)})}
+                        >
+                            {allWledSelected ? "Clear selection" : "Select all"}
+                        </Button>
+                    </div>
+                    <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
+                        {wledDevices.map((device) => (
+                            <label key={device.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedWledIDs.has(device.id)}
+                                    disabled={busy}
+                                    onChange={() => toggleWled(device.id)}
+                                />
+                                <span className="truncate">{device.name}</span>
+                            </label>
+                        ))}
+                        {wledDevices.length === 0 && (
+                            <p className="text-xs text-muted-foreground">No online WLED devices available.</p>
+                        )}
+                    </div>
                 </div>
-                <div className="grid max-h-24 grid-cols-2 gap-1 overflow-auto pr-1">
-                    {fixtures.map((fixture) => {
-                        const checked = selectedFixtureIDs.has(fixture.id);
-                        return (
+
+                <div className="rounded-md border bg-muted/20 p-2">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">DMX targets</span>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy || fixtures.length === 0}
+                            onClick={() => void onUpdateConfig({fixtureIds: allFixturesSelected ? [] : fixtures.map((f) => f.id)})}
+                        >
+                            {allFixturesSelected ? "Clear selection" : "Select all"}
+                        </Button>
+                    </div>
+                    <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
+                        {fixtures.map((fixture) => (
                             <label key={fixture.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
                                 <input
                                     type="checkbox"
-                                    checked={checked}
+                                    checked={selectedFixtureIDs.has(fixture.id)}
                                     disabled={busy}
                                     onChange={() => toggleFixture(fixture.id)}
                                 />
                                 <span className="truncate">{fixture.name}</span>
                             </label>
-                        );
-                    })}
+                        ))}
+                        {fixtures.length === 0 && (
+                            <p className="text-xs text-muted-foreground">No DMX fixtures available.</p>
+                        )}
+                    </div>
                 </div>
             </div>
-            {!liveConnected && (
-                <p className="mt-2 text-xs text-amber-600">
-                    Start DMX live output first, then enable Party mode.
-                </p>
-            )}
+
             {party.status.error ? (
-                <p className="mt-2 text-xs text-destructive">{party.status.error}</p>
+                <p className="text-xs text-destructive">{party.status.error}</p>
             ) : null}
         </section>
     );

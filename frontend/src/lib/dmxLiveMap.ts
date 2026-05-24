@@ -2,6 +2,12 @@ import type {DMXChannel, DMXChannelType, DMXFixture, JSONMap} from "../types/con
 
 export type DMXLiveShutterMode = "open" | "closed" | "strobe" | "pulse";
 
+export type CustomChannelLiveState = {
+    linear01: number;
+    slot01: number[];
+    outputByte: number;
+};
+
 export type DMXLiveControlState = {
     /** 0–1 pan (left–right) */
     pan01: number;
@@ -20,6 +26,8 @@ export type DMXLiveControlState = {
     /** Frost curve: prefer entries with this mode when possible */
     frostCurve: "linear" | "pulse";
     dimmer01: number;
+    /** Live values keyed by channel offset (DMXChannel.channel) */
+    customChannels: Record<number, CustomChannelLiveState>;
 };
 
 export type DmxLivePatchEntry = {
@@ -87,6 +95,51 @@ function slotMid(entries: EntryRow[], idx: number): number {
     const i = clamp(Math.floor(idx), 0, entries.length - 1);
     const e = entries[i];
     return clamp255((e.from + e.to) / 2);
+}
+
+function slotByte(entries: EntryRow[], slotIdx: number, t01: number): number {
+    if (entries.length === 0) {
+        return clamp255(t01 * 255);
+    }
+    const i = clamp(Math.floor(slotIdx), 0, entries.length - 1);
+    const e = entries[i];
+    const t = clamp(t01, 0, 1);
+    return clamp255(e.from + t * (e.to - e.from));
+}
+
+export function customChannelLabel(ch: DMXChannel): string {
+    const props = ch.properties as JSONMap | undefined;
+    if (typeof props?.label === "string" && props.label.trim()) {
+        return props.label.trim();
+    }
+    if (typeof props?.name === "string" && props.name.trim()) {
+        return props.name.trim();
+    }
+    return `Custom · offset ${ch.channel}`;
+}
+
+export function initCustomChannelState(ch: DMXChannel): CustomChannelLiveState {
+    const props = ch.properties as JSONMap | undefined;
+    const entries = parseFixtureEntries(props);
+    if (entries.length > 0) {
+        const slot01 = entries.map(() => 0.5);
+        return {linear01: 0.5, slot01, outputByte: slotByte(entries, 0, 0.5)};
+    }
+    const linear01 = 0.5;
+    return {linear01, slot01: [], outputByte: linearByte(props, linear01)};
+}
+
+function initCustomChannelStates(fixture: DMXFixture | undefined): Record<number, CustomChannelLiveState> {
+    const out: Record<number, CustomChannelLiveState> = {};
+    if (!fixture) {
+        return out;
+    }
+    for (const ch of fixture.channels) {
+        if (ch.type === "custom") {
+            out[ch.channel] = initCustomChannelState(ch);
+        }
+    }
+    return out;
 }
 
 export type SmokeFogOutputRange = {
@@ -212,7 +265,7 @@ function frostEntriesForCurve(entries: EntryRow[], curve: "linear" | "pulse"): E
     return filtered.length > 0 ? filtered : entries;
 }
 
-export function defaultDmxLiveControlState(): DMXLiveControlState {
+export function defaultDmxLiveControlState(fixture?: DMXFixture): DMXLiveControlState {
     return {
         pan01: 0.5,
         tilt01: 0.5,
@@ -228,6 +281,7 @@ export function defaultDmxLiveControlState(): DMXLiveControlState {
         fog01: 0,
         frostCurve: "linear",
         dimmer01: 1,
+        customChannels: initCustomChannelStates(fixture),
     };
 }
 
@@ -302,6 +356,14 @@ export function buildDmxLivePatch(fixture: DMXFixture, s: DMXLiveControlState): 
         } else {
             pushPatch(out, fixture, frost, linearByte(props, s.frost01));
         }
+    }
+
+    for (const ch of chans) {
+        if (ch.type !== "custom") {
+            continue;
+        }
+        const customState = s.customChannels[ch.channel] ?? initCustomChannelState(ch);
+        pushPatch(out, fixture, ch, customState.outputByte);
     }
 
     return out;

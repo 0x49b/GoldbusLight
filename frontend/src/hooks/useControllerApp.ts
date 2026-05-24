@@ -46,6 +46,7 @@ const DEVICE_DETAIL_RETRY_DELAY_MS = 400;
 /** Background snapshot poll to pick up devices coming back online (matches header Refresh data). */
 const BACKGROUND_SNAPSHOT_POLL_MS = 30_000;
 const PARTY_STATUS_POLL_MS = 1500;
+const PARTY_AUDIO_FAST_POLL_MS = 100;
 
 /** Live console poll interval. */
 const CONSOLE_POLL_MS = 750;
@@ -841,6 +842,16 @@ export function useControllerApp() {
         return true;
     }, [settings?.dmx.enabled, setError]);
 
+    const ensurePartyEnabled = useCallback((): boolean => {
+        const dmxOn = settings?.dmx.enabled ?? true;
+        const wledOn = settings?.wled.enabled ?? true;
+        if (!dmxOn && !wledOn) {
+            setError("Party mode requires DMX or WLED enabled in Settings.");
+            return false;
+        }
+        return true;
+    }, [settings?.dmx.enabled, settings?.wled.enabled, setError]);
+
     const onSaveSettings = useCallback(async (): Promise<boolean> => {
         const latest = useControllerStore.getState();
         const latestSettings = latest.settings;
@@ -1056,7 +1067,7 @@ export function useControllerApp() {
 
     const setDMXPartyConfig = useCallback(
         async (partial: Partial<DMXPartyConfig>) => {
-            if (!ensureDMXEnabled()) {
+            if (!ensurePartyEnabled()) {
                 return false;
             }
             const base = dmxState.party?.config;
@@ -1074,11 +1085,11 @@ export function useControllerApp() {
                 setBusy(false);
             }
         },
-        [dmxState.party?.config, ensureDMXEnabled, setBusy, setDMXState, setError],
+        [dmxState.party?.config, ensurePartyEnabled, setBusy, setDMXState, setError],
     );
 
     const startDMXPartyMode = useCallback(async () => {
-        if (!ensureDMXEnabled()) {
+        if (!ensurePartyEnabled()) {
             return false;
         }
         setBusy(true);
@@ -1095,7 +1106,7 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, [ensureDMXEnabled, setBusy, setDMXState, setError, setStatus]);
+    }, [ensurePartyEnabled, setBusy, setDMXState, setError, setStatus]);
 
     const stopDMXPartyMode = useCallback(async () => {
         try {
@@ -1121,6 +1132,19 @@ export function useControllerApp() {
         }, PARTY_STATUS_POLL_MS);
         return () => window.clearInterval(timer);
     }, [dmxPartyState?.status?.running, pullDMXPartyState]);
+
+    useEffect(() => {
+        const shouldFastPoll = route.kind === "party" || (dmxPartyState?.status?.running === true && dmxPartyState?.config?.mode === "audio");
+        if (!shouldFastPoll) {
+            return;
+        }
+        const timer = window.setInterval(() => {
+            void pullDMXPartyState().catch(() => {
+                /* ignore transient errors */
+            });
+        }, PARTY_AUDIO_FAST_POLL_MS);
+        return () => window.clearInterval(timer);
+    }, [route.kind, dmxPartyState?.status?.running, dmxPartyState?.config?.mode, pullDMXPartyState]);
 
     const clampDmxByte = useCallback((v: number) => {
         const n = Math.round(v);
@@ -1821,10 +1845,18 @@ function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<
                 .filter((id) => id.length > 0),
         ),
     );
+    const wledDeviceIds = Array.from(
+        new Set(
+            (partial.wledDeviceIds ?? base?.wledDeviceIds ?? [])
+                .map((id) => id.trim())
+                .filter((id) => id.length > 0),
+        ),
+    );
     return {
         enabled: partial.enabled ?? base?.enabled ?? false,
         mode,
         fixtureIds,
+        wledDeviceIds,
         intensity: clampPercent(partial.intensity ?? base?.intensity ?? 80, 80),
         speed: clampPercent(partial.speed ?? base?.speed ?? 55, 55),
         colorVariation: clampPercent(partial.colorVariation ?? base?.colorVariation ?? 70, 70),

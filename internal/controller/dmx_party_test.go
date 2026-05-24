@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time) ([]dmx.DMXOutputUpdate, [512]bool) {
+	c.mu.RLock()
+	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
+	c.mu.RUnlock()
+	targeted := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+	if len(targeted) == 0 && len(fixtures) > 0 {
+		targeted = fixtures
+	}
+	values := computePartyPhaseValues(state, at)
+	var motionPhase float64
+	var colorPhase float64
+	advancePartyPhases(values, &motionPhase, &colorPhase)
+	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted)
+}
+
 func TestNormalizeDMXPartyConfigClampsAndSanitizes(t *testing.T) {
 	in := DMXPartyConfig{
 		Enabled:            true,
@@ -74,9 +89,7 @@ func TestBuildDMXPartyFrameProducesBoundedValues(t *testing.T) {
 			CapturedAt: time.Now(),
 		},
 	}
-	var motionPhase float64
-	var colorPhase float64
-	updates, owned := c.buildDMXPartyFrame(state, time.Now(), &motionPhase, &colorPhase)
+	updates, owned := testBuildDMXPartyFrame(c, state, time.Now())
 	if len(updates) == 0 {
 		t.Fatalf("expected non-empty updates")
 	}
@@ -160,6 +173,9 @@ func TestPartyAllowsChannelByFixtureType(t *testing.T) {
 	}
 	if partyAllowsChannel(DMXFixtureTypeColorChanger, "pan") {
 		t.Fatalf("color changer profile should not include pan")
+	}
+	if !partyAllowsChannel(DMXFixtureTypeColorChanger, "custom") {
+		t.Fatalf("color changer profile should include custom channels")
 	}
 }
 
@@ -273,9 +289,7 @@ func TestBuildDMXPartyFrameStrobeProfileOmitsPan(t *testing.T) {
 	c.mu.Unlock()
 
 	state := DMXPartyState{Config: defaultDMXPartyConfig()}
-	var motionPhase float64
-	var colorPhase float64
-	updates, _ := c.buildDMXPartyFrame(state, time.Now(), &motionPhase, &colorPhase)
+	updates, _ := testBuildDMXPartyFrame(c, state, time.Now())
 	addresses := map[int]struct{}{}
 	for _, update := range updates {
 		addresses[update.Address] = struct{}{}
@@ -288,5 +302,109 @@ func TestBuildDMXPartyFrameStrobeProfileOmitsPan(t *testing.T) {
 	}
 	if _, ok := addresses[3]; !ok {
 		t.Fatalf("strobe fixture should write shutter")
+	}
+}
+
+func TestBuildDMXPartyFrameColorChangerCustomRGBW(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "rgbw",
+					Type:       DMXFixtureTypeColorChanger,
+					DMXAddress: 1,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "custom", Properties: map[string]any{"label": "Rot"}},
+						{Channel: 2, Type: "custom", Properties: map[string]any{"label": "Grün"}},
+						{Channel: 3, Type: "custom", Properties: map[string]any{"label": "Blau"}},
+						{Channel: 4, Type: "custom", Properties: map[string]any{"label": "Weiss"}},
+						{Channel: 5, Type: "dimmer", Properties: map[string]any{"min": 0, "max": 255}},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
+	updates, owned := testBuildDMXPartyFrame(c, state, time.Now())
+	addresses := map[int]int{}
+	for _, update := range updates {
+		addresses[update.Address] = update.Value
+	}
+	for addr := 1; addr <= 5; addr++ {
+		if _, ok := addresses[addr]; !ok {
+			t.Fatalf("expected party to drive address %d", addr)
+		}
+		if !owned[addr-1] {
+			t.Fatalf("expected party to own address %d", addr)
+		}
+	}
+}
+
+func TestBuildDMXPartyFrameSkipsCustomExcludedFromParty(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "rgbw",
+					Type:       DMXFixtureTypeColorChanger,
+					DMXAddress: 1,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "custom", Properties: map[string]any{"label": "Rot", "partyInclude": true}},
+						{Channel: 2, Type: "custom", Properties: map[string]any{"label": "Grün", "partyInclude": false}},
+						{Channel: 3, Type: "custom", Properties: map[string]any{"label": "Blau", "partyInclude": true}},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
+	updates, owned := testBuildDMXPartyFrame(c, state, time.Now())
+	addresses := map[int]struct{}{}
+	for _, update := range updates {
+		addresses[update.Address] = struct{}{}
+	}
+	if _, ok := addresses[1]; !ok {
+		t.Fatalf("expected party on red")
+	}
+	if _, ok := addresses[2]; ok {
+		t.Fatalf("green should be excluded from party")
+	}
+	if _, ok := addresses[3]; !ok {
+		t.Fatalf("expected party on blue")
+	}
+	if !owned[0] {
+		t.Fatalf("expected party to own address 1")
+	}
+	if owned[1] {
+		t.Fatalf("party should not own excluded green address")
+	}
+	if !owned[2] {
+		t.Fatalf("expected party to own address 3")
+	}
+}
+
+func TestFilterPartyWLEDDevices(t *testing.T) {
+	devices := map[string]WLEDDevice{
+		"a": {ID: "a", Name: "Alpha", Online: true},
+		"b": {ID: "b", Name: "Beta", Online: true, Ignored: true},
+		"c": {ID: "c", Name: "Gamma", Online: false},
+	}
+	got := filterPartyWLEDDevices(devices, []string{"a", "b", "c", "missing"})
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("expected only online non-ignored device a, got %#v", got)
+	}
+	if empty := filterPartyWLEDDevices(devices, nil); len(empty) != 0 {
+		t.Fatalf("expected empty for nil ids, got %#v", empty)
+	}
+}
+
+func TestPartyHueToRGB(t *testing.T) {
+	r, g, b := partyHueToRGB(0)
+	if r != 255 || g != 0 || b != 0 {
+		t.Fatalf("expected red at hue 0, got %d,%d,%d", r, g, b)
+	}
+	r, g, b = partyHueToRGB(120)
+	if g < 200 || r > 50 {
+		t.Fatalf("expected greenish at hue 120, got %d,%d,%d", r, g, b)
 	}
 }

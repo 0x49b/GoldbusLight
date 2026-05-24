@@ -1,17 +1,19 @@
 import {useCallback, useEffect, useMemo, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {DMXChannelType, DMXFixture, JSONMap} from "@/types/controller.ts";
-import {buildDmxLivePatch, defaultDmxLiveControlState, type DMXLiveControlState, type DMXLiveShutterMode, parseFixtureEntries, smokeFogOutputRange,} from "@/lib/dmxLiveMap.ts";
+import {buildDmxLivePatch, customChannelLabel, defaultDmxLiveControlState, initCustomChannelState, type CustomChannelLiveState, type DMXLiveControlState, type DMXLiveShutterMode, parseFixtureEntries, smokeFogOutputRange,} from "@/lib/dmxLiveMap.ts";
+import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
 import {Slider} from "@/components/ui/slider";
 import {cn} from "@/lib/utils";
 import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
+import {fixturePartyIncludesChannelType, channelIncludedInParty} from "@/lib/dmxPartyInclude.ts";
 import {fixturePreviewDrive} from "@/lib/dmxFixturePreviewDrive.ts";
+import {LiveControlLabel} from "./LiveControlLabel";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -56,11 +58,25 @@ export function DMXFixtureLiveControls({
                                            pullDMXState,
                                        }: DMXFixtureLiveControlsProps) {
     const connected                 = liveStatus?.connected ?? false;
-    const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState());
+    const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
 
     useEffect(() => {
-        setLiveState(defaultDmxLiveControlState());
+        setLiveState(defaultDmxLiveControlState(fixture));
     }, [fixture.id]);
+
+    useEffect(() => {
+        setLiveState((prev) => {
+            const customChannels = {...prev.customChannels};
+            let changed          = false;
+            for (const ch of fixture.channels) {
+                if (ch.type === "custom" && !customChannels[ch.channel]) {
+                    customChannels[ch.channel] = initCustomChannelState(ch);
+                    changed                    = true;
+                }
+            }
+            return changed ? {...prev, customChannels} : prev;
+        });
+    }, [fixture.channels]);
 
     useEffect(() => {
         if (!connected || partyRunning) {
@@ -111,6 +127,7 @@ export function DMXFixtureLiveControls({
         () => smokeFogOutputRange(fogChannel?.properties as JSONMap | undefined),
         [fogChannel],
     );
+    const customChannels = useMemo(() => allChannelsOfType(chans, "custom"), [chans]);
 
     const hasPan            = Boolean(firstChannel(chans, "pan"));
     const hasTilt           = Boolean(firstChannel(chans, "tilt"));
@@ -125,6 +142,24 @@ export function DMXFixtureLiveControls({
     const hasIris           = Boolean(firstChannel(chans, "iris"));
     const hasFrost          = Boolean(firstChannel(chans, "frost"));
     const hasSmokeFogOutput = fixture.type === "smoke" && Boolean(fogChannel && smokeFogRange);
+    const hasCustom         = customChannels.length > 0;
+    const isColorChanger    = fixture.type === "colorChanger";
+    const sliderGridClass   = cn("grid gap-4", isColorChanger ? "grid-cols-3" : "gap-6 md:grid-cols-2");
+    const sliderFullRowClass = isColorChanger ? "col-span-3" : "md:col-span-2";
+    const hasStandardControls =
+              hasPan ||
+              hasTilt ||
+              hasDimmer ||
+              hasColorWheel ||
+              hasGobo1 ||
+              hasGobo2 ||
+              hasShutter ||
+              hasMovementSpeed ||
+              hasFocus ||
+              hasZoom ||
+              hasIris ||
+              hasFrost ||
+              hasSmokeFogOutput;
     const maxPanDeg         = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTiltDeg        = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
 
@@ -143,6 +178,13 @@ export function DMXFixtureLiveControls({
 
     const patchState = useCallback((partial: Partial<DMXLiveControlState>) => {
         setLiveState((s) => ({...s, ...partial}));
+    }, []);
+
+    const patchCustomChannel = useCallback((offset: number, next: CustomChannelLiveState) => {
+        setLiveState((s) => ({
+            ...s,
+            customChannels: {...s.customChannels, [offset]: next},
+        }));
     }, []);
 
     const sliderDisabled             = busy || !connected || partyRunning;
@@ -174,7 +216,8 @@ export function DMXFixtureLiveControls({
               !hasZoom &&
               !hasIris &&
               !hasFrost &&
-              !hasSmokeFogOutput;
+              !hasSmokeFogOutput &&
+              !hasCustom;
 
     return (
         <div className="space-y-4">
@@ -207,22 +250,218 @@ export function DMXFixtureLiveControls({
                 <Card>
                     <CardContent className="py-8 text-center text-sm text-muted-foreground">
                         No mappable channels found for live control (add pan, tilt, dimmer, wheels,
-                        etc. in the fixture editor).
+                        custom channels, etc. in the fixture editor).
                     </CardContent>
                 </Card>
             ) : (
+                <>
+                    {hasCustom && isColorChanger ? (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Live controls</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {customChannels.flatMap((ch) => {
+                                        const props = ch.properties as JSONMap | undefined;
+                                        const entries = parseFixtureEntries(props);
+                                        const slotMode = entries.length > 0;
+                                        const customState = liveState.customChannels[ch.channel] ?? initCustomChannelState(ch);
+                                        const channelTitle = customChannelLabel(ch);
+                                        const partyChannel = channelIncludedInParty(fixture, ch);
+
+                                        if (!slotMode) {
+                                            return [(
+                                                <div key={`custom-${ch.channel}-linear`} className="space-y-2">
+                                                    <div className="flex justify-between gap-2 text-sm">
+                                                        <LiveControlLabel party={partyChannel}>{channelTitle}</LiveControlLabel>
+                                                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                                                            {customState.outputByte}
+                                                        </span>
+                                                    </div>
+                                                    <Slider
+                                                        min={0}
+                                                        max={100}
+                                                        step={1}
+                                                        value={[customState.linear01 * 100]}
+                                                        onValueChange={([v]) => {
+                                                            const linear01 = (v ?? 0) / 100;
+                                                            const min = typeof props?.min === "number" ? props.min : 0;
+                                                            const max = typeof props?.max === "number" ? props.max : 255;
+                                                            const outputByte = Math.round(
+                                                                Math.max(0, Math.min(255, min + linear01 * (max - min))),
+                                                            );
+                                                            patchCustomChannel(ch.channel, {
+                                                                linear01,
+                                                                slot01: [],
+                                                                outputByte,
+                                                            });
+                                                        }}
+                                                        disabled={sliderDisabled}
+                                                    />
+                                                </div>
+                                            )];
+                                        }
+
+                                        return entries.map((entry, si) => {
+                                            const slot01 = customState.slot01[si] ?? 0.5;
+                                            const slotValue = Math.round(entry.from + slot01 * (entry.to - entry.from));
+                                            const slotLabel = entry.label?.trim() || `Slot ${si + 1}`;
+                                            const title = entries.length > 1 ? `${channelTitle} · ${slotLabel}` : channelTitle;
+                                            return (
+                                                <div key={`custom-${ch.channel}-slot-${si}`} className="space-y-2">
+                                                    <div className="flex justify-between gap-2 text-sm">
+                                                        <LiveControlLabel party={partyChannel}>{title}</LiveControlLabel>
+                                                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                                                            {slotValue}
+                                                        </span>
+                                                    </div>
+                                                    <Slider
+                                                        min={0}
+                                                        max={100}
+                                                        step={1}
+                                                        value={[slot01 * 100]}
+                                                        onValueChange={([v]) => {
+                                                            const t01 = (v ?? 0) / 100;
+                                                            const slot01Next = [...customState.slot01];
+                                                            while (slot01Next.length < entries.length) {
+                                                                slot01Next.push(0.5);
+                                                            }
+                                                            slot01Next[si] = t01;
+                                                            const outputByte = Math.round(
+                                                                entry.from + t01 * (entry.to - entry.from),
+                                                            );
+                                                            patchCustomChannel(ch.channel, {
+                                                                ...customState,
+                                                                slot01: slot01Next,
+                                                                outputByte: Math.max(0, Math.min(255, outputByte)),
+                                                            });
+                                                        }}
+                                                        disabled={sliderDisabled}
+                                                    />
+                                                </div>
+                                            );
+                                        });
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : hasCustom ? customChannels.map((ch) => {
+                        const props = ch.properties as JSONMap | undefined;
+                        const entries = parseFixtureEntries(props);
+                        const slotMode = entries.length > 0;
+                        const customState = liveState.customChannels[ch.channel] ?? initCustomChannelState(ch);
+                        const title = customChannelLabel(ch);
+                        const partyChannel = channelIncludedInParty(fixture, ch);
+
+                        return (
+                            <Card key={`custom-${ch.channel}`}>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <span className="min-w-0 truncate">{title}</span>
+                                        {partyChannel && (
+                                            <Badge
+                                                variant="outline"
+                                                className="h-4 shrink-0 border-violet-500/40 bg-violet-500/10 px-1.5 text-[10px] font-medium text-violet-700 dark:text-violet-300"
+                                            >
+                                                Party
+                                            </Badge>
+                                        )}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {!slotMode ? (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <LiveControlLabel party={partyChannel}>Value</LiveControlLabel>
+                                                <span className="tabular-nums text-muted-foreground">
+                                                    {customState.outputByte}
+                                                </span>
+                                            </div>
+                                            <Slider
+                                                min={0}
+                                                max={100}
+                                                step={1}
+                                                value={[customState.linear01 * 100]}
+                                                onValueChange={([v]) => {
+                                                    const linear01 = (v ?? 0) / 100;
+                                                    const min = typeof props?.min === "number" ? props.min : 0;
+                                                    const max = typeof props?.max === "number" ? props.max : 255;
+                                                    const outputByte = Math.round(
+                                                        Math.max(0, Math.min(255, min + linear01 * (max - min))),
+                                                    );
+                                                    patchCustomChannel(ch.channel, {
+                                                        linear01,
+                                                        slot01: [],
+                                                        outputByte,
+                                                    });
+                                                }}
+                                                disabled={sliderDisabled}
+                                            />
+                                        </div>
+                                    ) : (
+                                        entries.map((entry, si) => {
+                                            const slot01 = customState.slot01[si] ?? 0.5;
+                                            const slotValue = Math.round(entry.from + slot01 * (entry.to - entry.from));
+                                            return (
+                                                <div key={si} className="space-y-2">
+                                                    <div className="flex justify-between text-sm">
+                                                        <LiveControlLabel party={partyChannel}>
+                                                            {entry.label?.trim() || `Slot ${si + 1}`}
+                                                        </LiveControlLabel>
+                                                        <span className="tabular-nums text-muted-foreground">
+                                                            {slotValue}
+                                                        </span>
+                                                    </div>
+                                                    <Slider
+                                                        min={0}
+                                                        max={100}
+                                                        step={1}
+                                                        value={[slot01 * 100]}
+                                                        onValueChange={([v]) => {
+                                                            const t01 = (v ?? 0) / 100;
+                                                            const slot01Next = [...customState.slot01];
+                                                            while (slot01Next.length < entries.length) {
+                                                                slot01Next.push(0.5);
+                                                            }
+                                                            slot01Next[si] = t01;
+                                                            const outputByte = Math.round(
+                                                                entry.from + t01 * (entry.to - entry.from),
+                                                            );
+                                                            patchCustomChannel(ch.channel, {
+                                                                ...customState,
+                                                                slot01: slot01Next,
+                                                                outputByte: Math.max(0, Math.min(255, outputByte)),
+                                                            });
+                                                        }}
+                                                        disabled={sliderDisabled}
+                                                    />
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </CardContent>
+                            </Card>
+                        );
+                    }) : null}
+
+                {hasStandardControls && (
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Live controls</CardTitle>
-                    </CardHeader>
+                    {!(isColorChanger && hasCustom) && (
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Live controls</CardTitle>
+                        </CardHeader>
+                    )}
                     <CardContent className="space-y-8">
                         {hasSmokeFogOutput && (
                             <section className="space-y-4">
                                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Smoke</div>
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-2 md:col-span-2">
+                                <div className={sliderGridClass}>
+                                    <div className={cn("space-y-2", sliderFullRowClass)}>
                                         <div className="flex justify-between text-sm">
-                                            <Label>Fog output</Label>
+                                            <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "fog")}>
+                                                Fog output
+                                            </LiveControlLabel>
                                             <span className="tabular-nums text-muted-foreground">
                                                 {liveState.fog01 <= 0 ? "Off" : `${Math.round(liveState.fog01 * 100)}%`}
                                             </span>
@@ -259,11 +498,13 @@ export function DMXFixtureLiveControls({
                                 <div
                                     className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Movement &amp; master
                                 </div>
-                                <div className="grid gap-6 md:grid-cols-2">
+                                <div className={sliderGridClass}>
                                     {hasPan && (
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
-                                                <Label>Pan</Label>
+                                                <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "pan")}>
+                                                    Pan
+                                                </LiveControlLabel>
                                                 <span
                                                     className="tabular-nums text-muted-foreground">{Math.round(liveState.pan01 * maxPanDeg)}°</span>
                                             </div>
@@ -280,7 +521,9 @@ export function DMXFixtureLiveControls({
                                     {hasTilt && (
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
-                                                <Label>Tilt</Label>
+                                                <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "tilt")}>
+                                                    Tilt
+                                                </LiveControlLabel>
                                                 <span
                                                     className="tabular-nums text-muted-foreground">{Math.round(liveState.tilt01 * maxTiltDeg)}°</span>
                                             </div>
@@ -297,7 +540,9 @@ export function DMXFixtureLiveControls({
                                     {hasDimmer && (
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
-                                                <Label>Dimmer</Label>
+                                                <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "dimmer")}>
+                                                    Dimmer
+                                                </LiveControlLabel>
                                                 <span
                                                     className="tabular-nums text-muted-foreground">{Math.round(liveState.dimmer01 * 100)}%</span>
                                             </div>
@@ -312,9 +557,13 @@ export function DMXFixtureLiveControls({
                                         </div>
                                     )}
                                     {hasMovementSpeed && (
-                                        <div className="space-y-2 md:col-span-2">
+                                        <div className={cn("space-y-2", sliderFullRowClass)}>
                                             <div className="flex justify-between text-sm">
-                                                <Label>Movement speed slot</Label>
+                                                <LiveControlLabel
+                                                    party={fixturePartyIncludesChannelType(fixture, "movementSpeed")}
+                                                >
+                                                    Movement speed slot
+                                                </LiveControlLabel>
                                                 <span
                                                     className="tabular-nums text-muted-foreground">
                           {liveState.movementSpeedIdx + 1} / {msEntries.length}
@@ -341,11 +590,15 @@ export function DMXFixtureLiveControls({
                                     <div
                                         className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Color &amp; gobos
                                     </div>
-                                    <div className="grid gap-6 md:grid-cols-2">
+                                    <div className={sliderGridClass}>
                                         {hasColorWheel && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Color wheel</Label>
+                                                    <LiveControlLabel
+                                                        party={fixturePartyIncludesChannelType(fixture, "colorWheel")}
+                                                    >
+                                                        Color wheel
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">
                             Slot {liveState.colorWheelIdx + 1}
@@ -365,7 +618,11 @@ export function DMXFixtureLiveControls({
                                         {hasGobo1 && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Gobo wheel 1</Label>
+                                                    <LiveControlLabel
+                                                        party={fixturePartyIncludesChannelType(fixture, "goboWheel")}
+                                                    >
+                                                        Gobo wheel 1
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">
                             Slot {liveState.gobo1Idx + 1}
@@ -385,7 +642,11 @@ export function DMXFixtureLiveControls({
                                         {hasGobo2 && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Gobo wheel 2</Label>
+                                                    <LiveControlLabel
+                                                        party={fixturePartyIncludesChannelType(fixture, "goboWheel")}
+                                                    >
+                                                        Gobo wheel 2
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">
                             Slot {liveState.gobo2Idx + 1}
@@ -414,10 +675,14 @@ export function DMXFixtureLiveControls({
                                     <div
                                         className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Beam
                                     </div>
-                                    <div className="grid gap-6 md:grid-cols-2">
+                                    <div className={sliderGridClass}>
                                         {hasShutter && (
-                                            <div className="space-y-2 md:col-span-2">
-                                                <Label>Shutter / strobe</Label>
+                                            <div className={cn("space-y-2", sliderFullRowClass)}>
+                                                <LiveControlLabel
+                                                    party={fixturePartyIncludesChannelType(fixture, "shutterStrobe")}
+                                                >
+                                                    Shutter / strobe
+                                                </LiveControlLabel>
                                                 <div
                                                     className={cn(
                                                         "grid w-full max-w-md grid-cols-2 overflow-hidden rounded-lg border border-border",
@@ -456,7 +721,9 @@ export function DMXFixtureLiveControls({
                                         {hasFocus && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Focus</Label>
+                                                    <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "focus")}>
+                                                        Focus
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">{Math.round(liveState.focus01 * 100)}%</span>
                                                 </div>
@@ -473,7 +740,9 @@ export function DMXFixtureLiveControls({
                                         {hasZoom && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Zoom</Label>
+                                                    <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "zoom")}>
+                                                        Zoom
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">{Math.round(liveState.zoom01 * 100)}%</span>
                                                 </div>
@@ -490,7 +759,9 @@ export function DMXFixtureLiveControls({
                                         {hasIris && (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-sm">
-                                                    <Label>Iris</Label>
+                                                    <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "iris")}>
+                                                        Iris
+                                                    </LiveControlLabel>
                                                     <span
                                                         className="tabular-nums text-muted-foreground">{Math.round(liveState.iris01 * 100)}%</span>
                                                 </div>
@@ -506,7 +777,7 @@ export function DMXFixtureLiveControls({
                                         )}
                                         {hasFrost && (
                                             <>
-                                                <div className="space-y-2 md:col-span-2">
+                                                <div className={cn("space-y-2", sliderFullRowClass)}>
                                                     <div className="flex flex-wrap gap-2">
                                                         <Button
                                                             type="button"
@@ -530,9 +801,11 @@ export function DMXFixtureLiveControls({
                                                         </Button>
                                                     </div>
                                                 </div>
-                                                <div className="space-y-2 md:col-span-2">
+                                                <div className={cn("space-y-2", sliderFullRowClass)}>
                                                     <div className="flex justify-between text-sm">
-                                                        <Label>Frost</Label>
+                                                        <LiveControlLabel party={fixturePartyIncludesChannelType(fixture, "frost")}>
+                                                            Frost
+                                                        </LiveControlLabel>
                                                         <span
                                                             className="tabular-nums text-muted-foreground">{Math.round(liveState.frost01 * 100)}%</span>
                                                     </div>
@@ -553,6 +826,8 @@ export function DMXFixtureLiveControls({
                         )}
                     </CardContent>
                 </Card>
+                )}
+                </>
             )}
         </div>
     );

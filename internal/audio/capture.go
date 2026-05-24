@@ -3,6 +3,7 @@ package audio
 import (
 	"encoding/hex"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +85,9 @@ type Capture struct {
 	device           *malgo.Device
 	running          bool
 	deviceID         string
+	selectedDeviceID malgo.DeviceID
+	deviceIDPinned   bool
+	pinner           runtime.Pinner
 	captureStartedAt time.Time
 	lastLevelAt      time.Time
 	noSignal         bool
@@ -221,7 +225,6 @@ func (c *Capture) Start(deviceID string, onFeatures FeatureHandler) error {
 	deviceConfig.Alsa.NoMMap = 1
 
 	selectedID := strings.TrimSpace(deviceID)
-	var selectedDeviceID malgo.DeviceID
 	if selectedID != "" {
 		id, err := parseDeviceID(selectedID)
 		if err != nil {
@@ -229,8 +232,11 @@ func (c *Capture) Start(deviceID string, onFeatures FeatureHandler) error {
 			ctx.Free()
 			return err
 		}
-		selectedDeviceID = id
-		deviceConfig.Capture.DeviceID = unsafe.Pointer(&selectedDeviceID)
+		// DeviceID must live on the heap and stay pinned while malgo retains the pointer.
+		c.selectedDeviceID = id
+		c.pinner.Pin(&c.selectedDeviceID)
+		c.deviceIDPinned = true
+		deviceConfig.Capture.DeviceID = unsafe.Pointer(&c.selectedDeviceID)
 	}
 
 	c.sampleBuf = make([]int16, 0, partySampleRate)
@@ -256,12 +262,14 @@ func (c *Capture) Start(deviceID string, onFeatures FeatureHandler) error {
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{Data: onRecvFrames})
 	if err != nil {
+		c.releaseDeviceIDPinLocked()
 		_ = ctx.Uninit()
 		ctx.Free()
 		return fmt.Errorf("init capture device: %w", err)
 	}
 	if err := device.Start(); err != nil {
 		device.Uninit()
+		c.releaseDeviceIDPinLocked()
 		_ = ctx.Uninit()
 		ctx.Free()
 		return fmt.Errorf("start capture device: %w", err)
@@ -340,6 +348,7 @@ func (c *Capture) stopLocked() {
 		c.ctx.Free()
 		c.ctx = nil
 	}
+	c.releaseDeviceIDPinLocked()
 	c.running = false
 	c.sampleBuf = nil
 	c.onFeatures = nil
@@ -364,6 +373,14 @@ func (c *Capture) NoSignal() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.noSignal
+}
+
+func (c *Capture) releaseDeviceIDPinLocked() {
+	if c.deviceIDPinned {
+		c.pinner.Unpin()
+		c.deviceIDPinned = false
+	}
+	c.selectedDeviceID = malgo.DeviceID{}
 }
 
 func parseDeviceID(id string) (malgo.DeviceID, error) {

@@ -40,6 +40,25 @@ func (c *WLEDController) ListDMXPartyAudioInputDevices() ([]DMXPartyAudioInputDe
 }
 
 func (c *WLEDController) startPartyAudioCapture(deviceID string) {
+	var err error
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("audio capture panic: %v", recovered)
+		}
+		c.mu.Lock()
+		party := c.dmxState.Party
+		party.Status.AudioCapturing = err == nil
+		party.Status.AudioNoSignal = false
+		if err != nil {
+			party.Status.AudioCaptureError = err.Error()
+		} else {
+			party.Status.AudioCaptureError = ""
+		}
+		c.dmxState.Party = party
+		c.updated = time.Now()
+		c.mu.Unlock()
+	}()
+
 	c.partyAudioMu.Lock()
 	if c.partyAudioCapture == nil {
 		c.partyAudioCapture = &audio.Capture{}
@@ -47,7 +66,7 @@ func (c *WLEDController) startPartyAudioCapture(deviceID string) {
 	capture := c.partyAudioCapture
 	c.partyAudioMu.Unlock()
 
-	err := capture.Start(deviceID, func(features audio.PartyFeatures, activeDeviceID string, capturedAt time.Time) {
+	err = capture.Start(deviceID, func(features audio.PartyFeatures, activeDeviceID string, capturedAt time.Time) {
 		c.updatePartyAudioFeatures(DMXPartyAudioFeatures{
 			Level:      features.Level,
 			Bass:       features.Bass,
@@ -58,18 +77,6 @@ func (c *WLEDController) startPartyAudioCapture(deviceID string) {
 			DeviceID:   activeDeviceID,
 		}, capture.NoSignal())
 	})
-	c.mu.Lock()
-	party := c.dmxState.Party
-	party.Status.AudioCapturing = err == nil
-	party.Status.AudioNoSignal = false
-	if err != nil {
-		party.Status.AudioCaptureError = err.Error()
-	} else {
-		party.Status.AudioCaptureError = ""
-	}
-	c.dmxState.Party = party
-	c.updated = time.Now()
-	c.mu.Unlock()
 }
 
 func (c *WLEDController) stopPartyAudioCapture() {

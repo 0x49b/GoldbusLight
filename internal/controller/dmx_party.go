@@ -21,6 +21,7 @@ type DMXPartyConfig struct {
 	Enabled            bool         `json:"enabled"`
 	Mode               DMXPartyMode `json:"mode"`
 	FixtureIDs         []string     `json:"fixtureIds,omitempty"`
+	WLEDDeviceIDs      []string     `json:"wledDeviceIds,omitempty"`
 	Intensity          int          `json:"intensity"`
 	Speed              int          `json:"speed"`
 	ColorVariation     int          `json:"colorVariation"`
@@ -62,6 +63,7 @@ func defaultDMXPartyConfig() DMXPartyConfig {
 		Enabled:          false,
 		Mode:             DMXPartyModeAuto,
 		FixtureIDs:       []string{},
+		WLEDDeviceIDs:    []string{},
 		Intensity:        80,
 		Speed:            55,
 		ColorVariation:   70,
@@ -122,6 +124,21 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 		nextIDs = append(nextIDs, id)
 	}
 	out.FixtureIDs = nextIDs
+
+	seenWLED := map[string]struct{}{}
+	nextWLEDIDs := make([]string, 0, len(out.WLEDDeviceIDs))
+	for _, raw := range out.WLEDDeviceIDs {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if _, ok := seenWLED[id]; ok {
+			continue
+		}
+		seenWLED[id] = struct{}{}
+		nextWLEDIDs = append(nextWLEDIDs, id)
+	}
+	out.WLEDDeviceIDs = nextWLEDIDs
 	return out
 }
 
@@ -171,9 +188,13 @@ func clampPartyLevel(v float64) float64 {
 	return v
 }
 
+func (c *WLEDController) partyFeaturesEnabled() bool {
+	return c.wledEnabled() || c.dmxEnabled()
+}
+
 func (c *WLEDController) SetDMXPartyConfig(config DMXPartyConfig) (DMXPartyState, error) {
-	if !c.dmxEnabled() {
-		return DMXPartyState{}, fmt.Errorf("dmx component is disabled in settings")
+	if !c.partyFeaturesEnabled() {
+		return DMXPartyState{}, fmt.Errorf("party mode requires WLED or DMX to be enabled in settings")
 	}
 	c.mu.Lock()
 	next := normalizeDMXPartyConfig(config)
@@ -203,8 +224,8 @@ func (c *WLEDController) GetDMXPartyState() DMXPartyState {
 }
 
 func (c *WLEDController) PushDMXPartyAudioFeatures(in DMXPartyAudioFeatures) (DMXPartyState, error) {
-	if !c.dmxEnabled() {
-		return DMXPartyState{}, fmt.Errorf("dmx component is disabled in settings")
+	if !c.partyFeaturesEnabled() {
+		return DMXPartyState{}, fmt.Errorf("party mode requires WLED or DMX to be enabled in settings")
 	}
 	c.updatePartyAudioFeatures(normalizeDMXPartyAudioFeatures(in), false)
 	c.mu.RLock()
@@ -214,11 +235,33 @@ func (c *WLEDController) PushDMXPartyAudioFeatures(in DMXPartyAudioFeatures) (DM
 }
 
 func (c *WLEDController) StartDMXParty() error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if !c.partyFeaturesEnabled() {
+		return fmt.Errorf("party mode requires WLED or DMX to be enabled in settings")
 	}
-	if !c.dmxLiveIsConnected() {
-		return fmt.Errorf("DMX live output is not running")
+
+	state := c.GetDMXPartyState()
+	c.mu.RLock()
+	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
+	devices := cloneDeviceMap(c.devices)
+	c.mu.RUnlock()
+
+	dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+	wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
+	if len(dmxTargets) == 0 && len(wledTargets) == 0 {
+		return fmt.Errorf("select at least one WLED or DMX device for party mode")
+	}
+	if len(dmxTargets) > 0 {
+		if !c.dmxEnabled() {
+			return fmt.Errorf("dmx component is disabled in settings")
+		}
+		if !c.dmxLiveIsConnected() {
+			if err := c.StartDMXLive(""); err != nil {
+				return err
+			}
+		}
+	}
+	if len(wledTargets) > 0 && !c.wledEnabled() {
+		return fmt.Errorf("wled component is disabled in settings")
 	}
 
 	c.mu.Lock()
@@ -301,6 +344,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 	var motionPhase float64
 	var colorPhase float64
+	frameCount := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -310,31 +354,51 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 			if !state.Config.Enabled {
 				continue
 			}
-			if !c.dmxLiveIsConnected() {
-				c.stopDMXPartyWithReason("dmx live output is disconnected")
-				return
-			}
-			updates, owned := c.buildDMXPartyFrame(state, now, &motionPhase, &colorPhase)
-			if len(updates) == 0 {
+
+			c.mu.RLock()
+			fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
+			devices := cloneDeviceMap(c.devices)
+			c.mu.RUnlock()
+			dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+			wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
+			if len(dmxTargets) == 0 && len(wledTargets) == 0 {
 				continue
 			}
-			c.dmxLiveMu.Lock()
-			if !c.dmxLiveRunning || !c.dmxPartyRunning {
-				c.dmxLiveMu.Unlock()
-				continue
+
+			values := computePartyPhaseValues(state, now)
+			advancePartyPhases(values, &motionPhase, &colorPhase)
+
+			if len(dmxTargets) > 0 {
+				if !c.dmxLiveIsConnected() {
+					c.stopDMXPartyWithReason("dmx live output is disconnected")
+					return
+				}
+				updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets)
+				if len(updates) > 0 {
+					c.dmxLiveMu.Lock()
+					if !c.dmxLiveRunning || !c.dmxPartyRunning {
+						c.dmxLiveMu.Unlock()
+						continue
+					}
+					c.partyOwnedAddrs = owned
+					c.applyDMXUpdatesLocked(updates)
+					frame := c.dmxLiveBuf
+					queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
+					queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+					c.dmxLiveMu.Unlock()
+				}
 			}
-			c.partyOwnedAddrs = owned
-			c.applyDMXUpdatesLocked(updates)
-			frame := c.dmxLiveBuf
-			queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
-			queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
-			c.dmxLiveMu.Unlock()
+
+			frameCount++
+			if frameCount%4 == 0 && len(wledTargets) > 0 {
+				c.applyPartyToWLEDDevices(state, motionPhase, colorPhase, values)
+			}
 
 			c.mu.Lock()
 			party := normalizeDMXPartyState(c.dmxState.Party)
 			party.Status.Running = true
 			party.Status.Mode = party.Config.Mode
-			party.Status.PartyBlocksManualPatch = true
+			party.Status.PartyBlocksManualPatch = len(dmxTargets) > 0
 			party.Status.LastFrameAt = now
 			if party.Audio.CapturedAt.After(time.Time{}) {
 				party.Status.LastAudioAt = party.Audio.CapturedAt
@@ -348,49 +412,22 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 func (c *WLEDController) buildDMXPartyFrame(
 	state DMXPartyState,
-	at time.Time,
-	motionPhase *float64,
-	colorPhase *float64,
+	motionPhase float64,
+	colorPhase float64,
+	values partyPhaseValues,
+	targeted []DMXFixture,
 ) ([]dmx.DMXOutputUpdate, [512]bool) {
 	var owned [512]bool
-	c.mu.RLock()
-	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
-	c.mu.RUnlock()
-	if len(fixtures) == 0 {
+	if len(targeted) == 0 {
 		return nil, owned
 	}
-	targeted := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
-	if len(targeted) == 0 {
-		targeted = fixtures
-	}
 
-	speedFactor := 0.2 + (float64(state.Config.Speed) / 100.0 * 1.8)
-	intensity := float64(state.Config.Intensity) / 100.0
-	colorVar := float64(state.Config.ColorVariation) / 100.0
-	beat := 0.0
-	level := 0.0
-	mid := 0.0
-	treble := 0.0
-	if state.Config.Mode == DMXPartyModeAudio {
-		audioAge := at.Sub(state.Audio.CapturedAt)
-		if state.Audio.CapturedAt.IsZero() || audioAge > 2*time.Second {
-			level = 0
-			beat = 0
-			mid = 0
-			treble = 0
-		} else {
-			sens := 0.5 + float64(state.Config.AudioSensitivity)/100.0
-			level = clampPartyLevel(state.Audio.Level * sens)
-			beat = clampPartyLevel(state.Audio.Beat * sens)
-			mid = clampPartyLevel(state.Audio.Mid * sens)
-			treble = clampPartyLevel(state.Audio.Treble * sens)
-			intensity = clampPartyLevel(intensity*0.5 + level*0.5)
-			speedFactor += beat * 1.2
-		}
-	}
-
-	*motionPhase += 0.09 * speedFactor
-	*colorPhase += 0.05 * speedFactor * (1 + treble*0.5)
+	intensity := values.intensity
+	colorVar := values.colorVar
+	beat := values.beat
+	level := values.level
+	mid := values.mid
+	treble := values.treble
 
 	updates := make([]dmx.DMXOutputUpdate, 0, len(targeted)*6)
 	for idx, fixture := range targeted {
@@ -400,6 +437,9 @@ func (c *WLEDController) buildDMXPartyFrame(
 			if !partyAllowsChannel(fixtureType, ch.Type) {
 				continue
 			}
+			if strings.EqualFold(strings.TrimSpace(ch.Type), "custom") && !partyCustomIncludeInMode(ch.Properties) {
+				continue
+			}
 			address := fixture.DMXAddress + ch.Channel - 1
 			if address < 1 || address > 512 {
 				continue
@@ -407,8 +447,8 @@ func (c *WLEDController) buildDMXPartyFrame(
 			next, ok := partyValueForFixtureChannel(
 				fixtureType,
 				ch,
-				*motionPhase+offset,
-				*colorPhase+offset,
+				motionPhase+offset,
+				colorPhase+offset,
 				intensity,
 				colorVar,
 				level,
@@ -511,14 +551,87 @@ func partyValueForFixtureChannel(
 	case "zoom", "focus", "frost", "iris", "prism", "prismrotation":
 		v := oscFast*(0.3+0.7*intensity) + audioBoost*0.2
 		return clampDMXByte(int(v * 255)), true
+	case "custom":
+		return partyCustomChannelValue(ch, fixtureType, colorPhase, intensity, colorVariation, audioBoost, audioBeat, audioMid, audioTreble, oscSlow, oscFast)
 	default:
 		return 0, false
 	}
 }
 
+func partyCustomChannelLabel(props map[string]any) string {
+	if props == nil {
+		return ""
+	}
+	if label, ok := props["label"].(string); ok {
+		return strings.TrimSpace(label)
+	}
+	if name, ok := props["name"].(string); ok {
+		return strings.TrimSpace(name)
+	}
+	return ""
+}
+
+func partyCustomChannelValue(
+	ch DMXChannel,
+	fixtureType DMXFixtureType,
+	colorPhase float64,
+	intensity float64,
+	colorVariation float64,
+	audioBoost float64,
+	audioBeat float64,
+	audioMid float64,
+	audioTreble float64,
+	oscSlow float64,
+	oscFast float64,
+) (int, bool) {
+	label := strings.ToLower(partyCustomChannelLabel(ch.Properties))
+	entries := parseDMXPartyEntries(ch.Properties)
+	colorOsc := (math.Sin(colorPhase) + 1) * 0.5
+	colorOsc2 := (math.Sin(colorPhase+2.09) + 1) * 0.5
+	colorOsc3 := (math.Sin(colorPhase+4.18) + 1) * 0.5
+	blend := colorVariation
+
+	switch fixtureType {
+	case DMXFixtureTypeColorChanger, DMXFixtureTypeLEDBarBeams, DMXFixtureTypeLEDBarPixels:
+		switch {
+		case strings.Contains(label, "rot") || strings.Contains(label, "red"):
+			v := colorOsc*(0.4+0.6*blend) + audioBoost*0.2 + audioTreble*0.15
+			return clampDMXByte(int(v * 255)), true
+		case strings.Contains(label, "grün") || strings.Contains(label, "grun") || strings.Contains(label, "green"):
+			v := colorOsc2*(0.4+0.6*blend) + audioBoost*0.2
+			return clampDMXByte(int(v * 255)), true
+		case strings.Contains(label, "blau") || strings.Contains(label, "blue"):
+			v := colorOsc3*(0.4+0.6*blend) + audioBoost*0.2 + audioMid*0.1
+			return clampDMXByte(int(v * 255)), true
+		case strings.Contains(label, "wei") || strings.Contains(label, "white"):
+			v := ((colorOsc+colorOsc2+colorOsc3)/3.0)*(0.35+0.65*blend) + audioBoost*0.15
+			return clampDMXByte(int(v * 255)), true
+		case strings.Contains(label, "strob") || strings.Contains(label, "sound"):
+			if len(entries) > 0 {
+				strobe := audioBeat > 0.35
+				idx := partyShutterEntryIndex(entries, strobe)
+				if idx >= 0 {
+					return partyEntryMid(entries, idx), true
+				}
+			}
+			if audioBeat > 0.35 {
+				return clampDMXByte(int((0.4 + 0.6*oscFast) * 255)), true
+			}
+			return clampDMXByte(int(oscSlow * 5)), true
+		}
+	}
+
+	if len(entries) > 0 {
+		slot := partySlotIndex(colorPhase, len(entries), audioTreble)
+		return partyEntryMid(entries, slot), true
+	}
+	v := 45 + 180*intensity*oscSlow + 30*audioBoost
+	return clampDMXByte(int(v)), true
+}
+
 func filterPartyFixtures(fixtures []DMXFixture, fixtureIDs []string) []DMXFixture {
 	if len(fixtureIDs) == 0 {
-		return fixtures
+		return nil
 	}
 	ids := map[string]struct{}{}
 	for _, id := range fixtureIDs {
@@ -529,7 +642,7 @@ func filterPartyFixtures(fixtures []DMXFixture, fixtureIDs []string) []DMXFixtur
 		ids[t] = struct{}{}
 	}
 	if len(ids) == 0 {
-		return fixtures
+		return nil
 	}
 	out := make([]DMXFixture, 0, len(fixtures))
 	for _, fixture := range fixtures {

@@ -53,6 +53,16 @@ func readPartyNumber(v any, def int) int {
 	}
 }
 
+func partyCustomIncludeInMode(props map[string]any) bool {
+	if props == nil {
+		return true
+	}
+	if v, ok := props["partyInclude"].(bool); ok {
+		return v
+	}
+	return true
+}
+
 func partyEntryMid(entries []dmxPartyEntry, idx int) int {
 	if len(entries) == 0 {
 		return 0

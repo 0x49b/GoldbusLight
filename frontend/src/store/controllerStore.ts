@@ -152,6 +152,7 @@ const initialState: ControllerStoreState = {
                 enabled: false,
                 mode: "auto",
                 fixtureIds: [],
+                wledDeviceIds: [],
                 intensity: 80,
                 speed: 55,
                 colorVariation: 70,

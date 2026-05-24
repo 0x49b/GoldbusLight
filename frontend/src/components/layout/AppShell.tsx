@@ -7,7 +7,7 @@ import {
     PiSquaresFour,
     PiHeadlights, PiCloud,
 } from "react-icons/pi";
-import type {DetailRoute, DMXFixture, WLEDDevice} from "@/types/controller.ts";
+import type {DetailRoute, DMXFixture, DMXPartyState, WLEDDevice} from "@/types/controller.ts";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {
     Sidebar,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
+import {isFixtureInParty, isWledInParty} from "@/lib/partyTargets";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 
 export type AppShellProps = {
@@ -36,6 +37,7 @@ export type AppShellProps = {
     wledEnabled: boolean;
     dmxEnabled: boolean;
     dmxLiveStatus: DMXLiveStatus | null;
+    dmxPartyState: DMXPartyState;
     error: string;
     onDismissError: () => void;
     children: ReactNode;
@@ -51,15 +53,25 @@ export function AppShell({
                              wledEnabled,
                              dmxEnabled,
                              dmxLiveStatus,
+                             dmxPartyState,
                              error,
                              onDismissError,
                              children,
                          }: AppShellProps) {
     const dmxLiveConnected = dmxLiveStatus?.connected === true;
     const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
+    const partyRunning = dmxPartyState?.status?.running === true;
+    const partyConfig = dmxPartyState?.config;
     return (
 
         <SidebarProvider>
+            <div className={cn("relative flex min-h-screen w-full", partyRunning && "party-running-shell")}>
+            {partyRunning && (
+                <div
+                    className="pointer-events-none absolute inset-0 z-50 rounded-xl border-2 border-violet-500/70 animate-party-hue"
+                    aria-hidden
+                />
+            )}
             <Sidebar collapsible="offcanvas">
                 <SidebarHeader>
                     Goldbus Licht Controller
@@ -68,6 +80,30 @@ export function AppShell({
                     </p>
                 </SidebarHeader>
                 <SidebarContent>
+                    {(wledEnabled || dmxEnabled) && (
+                        <SidebarGroup>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        type="button"
+                                        isActive={route.kind === "party"}
+                                        className={cn(
+                                            route.kind === "party" &&
+                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                        )}
+                                        onClick={() => setRoute({kind: "party"})}
+                                    >
+                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                        <span className="min-w-0 flex-1 truncate">Party</span>
+                                        <span
+                                            className={cn("status status-sm shrink-0", partyRunning ? "status-success" : "status-neutral")}
+                                            aria-hidden
+                                        />
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+                    )}
 
                     {wledEnabled && (
                         <>
@@ -133,7 +169,9 @@ export function AppShell({
                                                 <span
                                                     className={cn(
                                                         "status status-sm shrink-0",
-                                                        dev.online ? "status-success" : "status-neutral"
+                                                        partyRunning && isWledInParty(dev.id, partyConfig)
+                                                            ? "status-success"
+                                                            : dev.online ? "status-success" : "status-neutral"
                                                     )}
                                                     aria-hidden
                                                 />
@@ -219,7 +257,9 @@ export function AppShell({
                                                 <span
                                                     className={cn(
                                                         "status status-sm shrink-0",
-                                                        dmxLiveConnected && dmxLiveFixtureId === fixture.id
+                                                        partyRunning && isFixtureInParty(fixture.id, partyConfig)
+                                                            ? "status-success"
+                                                            : dmxLiveConnected && dmxLiveFixtureId === fixture.id
                                                             ? "status-success"
                                                             : "status-neutral",
                                                     )}
@@ -281,6 +321,7 @@ export function AppShell({
                     {children}
                 </main>
             </SidebarInset>
+            </div>
         </SidebarProvider>
     );
 }

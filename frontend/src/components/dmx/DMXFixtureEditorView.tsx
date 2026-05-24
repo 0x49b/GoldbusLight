@@ -1,5 +1,6 @@
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Checkbox} from "@/components/ui/checkbox";
 import {
     Dialog,
     DialogContent,
@@ -31,6 +32,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
+import {isFixtureInParty} from "@/lib/partyTargets";
 import {cn} from "@/lib/utils";
 import {
     ArrowDownRight,
@@ -77,6 +80,8 @@ const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string
     {value: "smoke", label: "Smoke"},
     {value: "strobe", label: "Strobe"},
 ];
+
+const PAN_TILT_FIXTURE_TYPES = new Set<DMXFixtureType>(["movingHead", "scanner", "laser"]);
 
 type DMXFixtureEditorViewProps = {
     fixture: DMXFixture | undefined;
@@ -433,6 +438,13 @@ function defaultPropsForType(type: DMXChannelType): JSONMap {
                 return {entries: [{from: 0, to: 255, label: "Slot A"}]};
         }
     }
+    if (type === "custom") {
+        return {
+            label: "",
+            partyInclude: true,
+            entries: [{from: 0, to: 255, label: "Slot 1"}],
+        };
+    }
     return {min: 1, max: 255};
 }
 
@@ -554,7 +566,9 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         props.fixture != null &&
         props.dmxLiveStatus?.connected === true &&
         props.dmxLiveStatus.fixtureId === props.fixture.id;
+    const fixturePartyIncluded = props.fixture ? isFixtureInParty(props.fixture.id, props.dmxState.party?.config) : false;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
+    const showPanTiltInputs     = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
 
     useEffect(() => {
         if (props.fixture) {
@@ -847,6 +861,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         if (!props.fixture || props.busy) {
             return;
         }
+        if (props.partyRunning && fixturePartyIncluded) {
+            props.setRoute({kind: "party"});
+            return;
+        }
         if (isCurrentFixtureLive) {
             await props.stopDMXLiveOutput();
             await props.pullDMXLiveStatus();
@@ -894,12 +912,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     {props.fixture && (
                         <Button
                             type="button"
-                            variant={isCurrentFixtureLive ? "destructive" : "secondary"}
+                            variant={props.partyRunning && fixturePartyIncluded ? "outline" : isCurrentFixtureLive ? "destructive" : "secondary"}
                             size="sm"
                             onClick={() => void handleToggleLive()}
                             disabled={props.busy}
                         >
-                            {isCurrentFixtureLive ? "Stop live" : "Start live"}
+                            {props.partyRunning && fixturePartyIncluded
+                                ? "Party active"
+                                : isCurrentFixtureLive ? "Stop live" : "Start live"}
                         </Button>
                     )}
                     {!props.fixture && (
@@ -1031,7 +1051,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     />
                                 </div>
                             </div>
-                            <div className="grid gap-4 md:grid-cols-4">
+                            <div className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-4" : "md:grid-cols-2")}>
                                 <div className="space-y-2">
                                     <Label htmlFor="dmx-fixture-type">Fixture type</Label>
                                     <NativeSelect
@@ -1058,28 +1078,32 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         onChange={(e) => setAddress(Number(e.target.value) || 1)}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
-                                    <Input
-                                        id="dmx-max-pan"
-                                        type="number"
-                                        min={0}
-                                        max={720}
-                                        value={maxPan}
-                                        onChange={(e) => setMaxPan(Number(e.target.value) || 0)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
-                                    <Input
-                                        id="dmx-max-tilt"
-                                        type="number"
-                                        min={0}
-                                        max={360}
-                                        value={maxTilt}
-                                        onChange={(e) => setMaxTilt(Number(e.target.value) || 0)}
-                                    />
-                                </div>
+                                {showPanTiltInputs && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
+                                            <Input
+                                                id="dmx-max-pan"
+                                                type="number"
+                                                min={0}
+                                                max={720}
+                                                value={maxPan}
+                                                onChange={(e) => setMaxPan(Number(e.target.value) || 0)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
+                                            <Input
+                                                id="dmx-max-tilt"
+                                                type="number"
+                                                min={0}
+                                                max={360}
+                                                value={maxTilt}
+                                                onChange={(e) => setMaxTilt(Number(e.target.value) || 0)}
+                                            />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -1198,6 +1222,41 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 <PiTrash className="size-4"/>
                                             </Button>
                                         </div>
+
+                                        {ch.type === "custom" && (
+                                            <div className="mt-2 max-w-md space-y-2">
+                                                <div className="grid gap-1">
+                                                <Label className="text-xs">Channel name</Label>
+                                                <Input
+                                                    placeholder="e.g. Red"
+                                                    value={typeof propsMap.label === "string" ? propsMap.label : ""}
+                                                    onChange={(e) => {
+                                                        updateChannelAt(originalIdx, {
+                                                            properties: {
+                                                                ...propsMap,
+                                                                label: e.target.value,
+                                                            },
+                                                        });
+                                                    }}
+                                                />
+                                                </div>
+                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                                    <Checkbox
+                                                        checked={readCustomPartyInclude(propsMap)}
+                                                        onCheckedChange={(checked) => {
+                                                            updateChannelAt(originalIdx, {
+                                                                properties: {
+                                                                    ...propsMap,
+                                                                    partyInclude: checked === true,
+                                                                },
+                                                            });
+                                                        }}
+                                                        disabled={props.busy}
+                                                    />
+                                                    <span>Include in party mode</span>
+                                                </label>
+                                            </div>
+                                        )}
 
                                         <Separator className="my-3"/>
 

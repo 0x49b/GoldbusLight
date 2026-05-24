@@ -38,7 +38,7 @@ func partyMovingHeadChannel(t string) bool {
 func partyColorChangerChannel(t string) bool {
 	switch t {
 	case "dimmer", "dimmerfine", "colorwheel", "colorcomponent", "colortemperature", "colortemperaturefine",
-		"greensaturation", "greensaturationfine", "xfadetocolor", "xfadetocolorfine", "onoff", "lamp":
+		"greensaturation", "greensaturationfine", "xfadetocolor", "xfadetocolorfine", "onoff", "lamp", "custom":
 		return true
 	default:
 		return false

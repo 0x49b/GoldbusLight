@@ -479,6 +479,7 @@ export class DMXPartyConfig {
     "enabled": boolean;
     "mode": DMXPartyMode;
     "fixtureIds"?: string[];
+    "wledDeviceIds"?: string[];
     "intensity": number;
     "speed": number;
     "colorVariation": number;
@@ -514,9 +515,13 @@ export class DMXPartyConfig {
      */
     static createFrom($$source: any = {}): DMXPartyConfig {
         const $$createField2_0 = $$createType15;
+        const $$createField3_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtureIds" in $$parsedSource) {
             $$parsedSource["fixtureIds"] = $$createField2_0($$parsedSource["fixtureIds"]);
+        }
+        if ("wledDeviceIds" in $$parsedSource) {
+            $$parsedSource["wledDeviceIds"] = $$createField3_0($$parsedSource["wledDeviceIds"]);
         }
         return new DMXPartyConfig($$parsedSource as Partial<DMXPartyConfig>);
     }
@@ -664,6 +669,11 @@ export class DMXState {
     "fixtures": DMXFixture[];
     "selectedUSBDeviceId": string;
     "party": DMXPartyState;
+
+    /**
+     * LiveUniverse is the current 512-channel buffer sent to USB/Art-Net when live output is active.
+     * Omitted when live output is off; not persisted to dmx.json.
+     */
     "liveUniverse"?: number[];
 
     /** Creates a new DMXState instance. */
@@ -687,6 +697,7 @@ export class DMXState {
     static createFrom($$source: any = {}): DMXState {
         const $$createField0_0 = $$createType23;
         const $$createField2_0 = $$createType24;
+        const $$createField3_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtures" in $$parsedSource) {
             $$parsedSource["fixtures"] = $$createField0_0($$parsedSource["fixtures"]);
@@ -694,8 +705,8 @@ export class DMXState {
         if ("party" in $$parsedSource) {
             $$parsedSource["party"] = $$createField2_0($$parsedSource["party"]);
         }
-        if ("liveUniverse" in $$parsedSource && $$parsedSource["liveUniverse"] != null && !Array.isArray($$parsedSource["liveUniverse"])) {
-            delete $$parsedSource["liveUniverse"];
+        if ("liveUniverse" in $$parsedSource) {
+            $$parsedSource["liveUniverse"] = $$createField3_0($$parsedSource["liveUniverse"]);
         }
         return new DMXState($$parsedSource as Partial<DMXState>);
     }
@@ -871,7 +882,7 @@ export class NetworkApplyResult {
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
         const $$createField1_0 = $$createType15;
-        const $$createField2_0 = $$createType26;
+        const $$createField2_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -1240,5 +1251,6 @@ const $$createType21 = DMXTestingSettings.createFrom;
 const $$createType22 = DMXFixture.createFrom;
 const $$createType23 = $Create.Array($$createType22);
 const $$createType24 = DMXPartyState.createFrom;
-const $$createType25 = NetworkCommandResult.createFrom;
-const $$createType26 = $Create.Array($$createType25);
+const $$createType25 = $Create.Array($Create.Any);
+const $$createType26 = NetworkCommandResult.createFrom;
+const $$createType27 = $Create.Array($$createType26);

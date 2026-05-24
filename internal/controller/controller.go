@@ -1804,7 +1804,8 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 	c.dmxLiveUSBName = c.dmxLiveUSBDisplayName(path)
 	seed := c.dmxLiveBuf
 	c.dmxLiveWG.Add(1)
-	go c.dmxLiveUSBWorker(frameCh, port, path)
+	useEnttecPro := dmx.UsesEnttecProProtocol(dev.Description, dev.Name, path)
+	go c.dmxLiveUSBWorker(frameCh, port, path, useEnttecPro)
 	queueLatestDMXFrame(frameCh, seed)
 	c.dmxLiveMu.Unlock()
 
@@ -1813,7 +1814,11 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 	}
 	c.logger.Printf("dmx live: usb adapter started on %s", path)
 	if c.console != nil {
-		c.console.Info(console.TransportUSBDMX, path, fmt.Sprintf("USB DMX adapter started @ %dHz", dmxLiveFrameHz))
+		proto := "raw 513-byte"
+		if useEnttecPro {
+			proto = "Enttec Pro"
+		}
+		c.console.Info(console.TransportUSBDMX, path, fmt.Sprintf("USB DMX adapter started @ %dHz (%s)", dmxLiveFrameHz, proto))
 	}
 	return nil
 }
@@ -1958,7 +1963,7 @@ func (c *WLEDController) reconcileDMXLiveAdapters() error {
 	return firstErr
 }
 
-func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string) {
+func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string, enttecPro bool) {
 	defer c.dmxLiveWG.Done()
 	defer func() { _ = port.Close() }()
 	defer func() {
@@ -1975,8 +1980,8 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 	const consoleInterval = time.Second
 	var lastConsoleAt time.Time
 
-	frame := make([]byte, 513)
-	frame[0] = 0
+	rawFrame := make([]byte, 513)
+	rawFrame[0] = 0
 	var latest [512]byte
 	for {
 		select {
@@ -1986,8 +1991,14 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 			}
 			latest = next
 		case <-ticker.C:
-			copy(frame[1:], latest[:])
-			if _, err := port.Write(frame); err != nil {
+			var out []byte
+			if enttecPro {
+				out = dmx.BuildEnttecProSendDMXPacket(latest)
+			} else {
+				copy(rawFrame[1:], latest[:])
+				out = rawFrame
+			}
+			if _, err := port.Write(out); err != nil {
 				c.logger.Printf("dmx usb write (%s): %v", path, err)
 				c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
 				if c.console != nil {
@@ -2000,9 +2011,13 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 				now := time.Now()
 				if now.Sub(lastConsoleAt) >= consoleInterval {
 					lastConsoleAt = now
+					packetLabel := "513 bytes"
+					if enttecPro {
+						packetLabel = "518 bytes Enttec Pro"
+					}
 					c.logger.Printf("dmx live: usb frame sent path=%s hz=%d %s", path, dmxLiveFrameHz, frameSummary)
 					c.console.Out(console.TransportUSBDMX, path,
-						fmt.Sprintf("DMX frame sent (%dHz, 513 bytes)", dmxLiveFrameHz),
+						fmt.Sprintf("DMX frame sent (%dHz, %s)", dmxLiveFrameHz, packetLabel),
 						frameSummary)
 				}
 			}
@@ -2792,6 +2807,7 @@ func cloneDMXState(in DMXState) DMXState {
 		Party:               normalizeDMXPartyState(in.Party),
 	}
 	out.Party.Config.FixtureIDs = append([]string(nil), out.Party.Config.FixtureIDs...)
+	out.Party.Config.WLEDDeviceIDs = append([]string(nil), out.Party.Config.WLEDDeviceIDs...)
 	for _, fixture := range in.Fixtures {
 		cp := fixture
 		cp.Brand = strings.TrimSpace(cp.Brand)

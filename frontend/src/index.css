@@ -85,6 +85,19 @@
     .status-neutral {
         background-color : color-mix(in oklab, var(--foreground) 35%, transparent);
     }
+
+    @keyframes partyHueSpin {
+        from {
+            filter : hue-rotate(0deg);
+        }
+        to {
+            filter : hue-rotate(360deg);
+        }
+    }
+
+    .animate-party-hue {
+        animation : partyHueSpin 2.4s linear infinite;
+    }
 }
 
 @layer components {

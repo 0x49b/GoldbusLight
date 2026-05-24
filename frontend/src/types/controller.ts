@@ -218,6 +218,7 @@ export type DMXPartyConfig = {
     enabled: boolean;
     mode: DMXPartyMode;
     fixtureIds?: string[];
+    wledDeviceIds?: string[];
     intensity: number;
     speed: number;
     colorVariation: number;
@@ -292,6 +293,7 @@ export type UpsertDMXFixtureInput = {
 };
 
 export type DetailRoute =
+    | { kind: "party" }
     | { kind: "presets" }
     | { kind: "settings" }
     | { kind: "device"; id: string }

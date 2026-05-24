@@ -1,7 +1,6 @@
-import {useEffect, useMemo, useState} from "react";
+import {type DragEvent, useEffect, useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
-import {DMXPartyPanel} from "@/components/dmx/DMXPartyPanel";
 import {
     channelIndexToCell,
     DMX_UNIVERSE_GRID_COLS,
@@ -11,7 +10,7 @@ import {
     universeRange,
 } from "@/lib/dmxUniverseGrid";
 import {parseFixtureEntries} from "@/lib/dmxLiveMap";
-import type {DetailRoute, DMXFixture, DMXPartyAudioInputDevice, DMXPartyConfig, DMXPartyState, USBSerialDevice} from "@/types/controller.ts";
+import type {DetailRoute, DMXFixture, USBSerialDevice} from "@/types/controller.ts";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 import type {JSONMap} from "@/types/controller.ts";
 import {PiPlus, PiWarningCircle} from "react-icons/pi";
@@ -28,16 +27,33 @@ export type DMXUniverseViewProps = {
     startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
     stopDMXLiveOutput: () => Promise<void>;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
-    partyState: DMXPartyState;
-    partyAudioInputDevices: DMXPartyAudioInputDevice[];
-    pullPartyAudioInputDevices: () => Promise<DMXPartyAudioInputDevice[]>;
-    setDMXPartyConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
-    startDMXPartyMode: () => Promise<boolean>;
-    stopDMXPartyMode: () => Promise<void>;
 };
 
 function padChannel(n: number): string {
     return String(Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, n))).padStart(3, "0");
+}
+
+/** Match the grabbed element's rendered size so the browser does not scale the drag ghost. */
+function attachUniverseFixtureDragImage(event: DragEvent<HTMLButtonElement>) {
+    const source = event.currentTarget;
+    const rect = source.getBoundingClientRect();
+    const clone = source.cloneNode(true) as HTMLButtonElement;
+    clone.type = "button";
+    clone.style.position = "fixed";
+    clone.style.left = "0";
+    clone.style.top = "0";
+    clone.style.width = `${rect.width}px`;
+    clone.style.height = `${rect.height}px`;
+    clone.style.margin = "0";
+    clone.style.boxSizing = "border-box";
+    clone.style.transform = "none";
+    clone.style.opacity = "0.45";
+    clone.style.pointerEvents = "none";
+    clone.style.zIndex = "10000";
+    clone.setAttribute("aria-hidden", "true");
+    document.body.appendChild(clone);
+    event.dataTransfer.setDragImage(clone, event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+    window.setTimeout(() => clone.remove(), 0);
 }
 
 function buildSlotOccupancy(fixtures: DMXFixture[]): Map<number, string[]> {
@@ -81,6 +97,39 @@ type ReaddressPlan = {
     updates: Array<{ id: string; dmxAddress: number }>;
     shiftedCount: number;
 };
+
+type DropTargetRange = {
+    start: number;
+    end: number;
+};
+
+function dropTargetRange(
+    fixtureById: Map<string, DMXFixture>,
+    draggingFixtureId: string | null,
+    dropChannel: number | null,
+): DropTargetRange | null {
+    if (!draggingFixtureId || dropChannel == null) {
+        return null;
+    }
+    const draggedFixture = fixtureById.get(draggingFixtureId);
+    if (!draggedFixture) {
+        return null;
+    }
+    const start = Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, Math.round(dropChannel) || 1));
+    return {start, end: start + footprint(draggedFixture) - 1};
+}
+
+function channelInDropTargetRange(channel: number, range: DropTargetRange | null): boolean {
+    return range != null && channel >= range.start && channel <= range.end;
+}
+
+function segmentOverlapsDropTargetRange(segStartCh: number, span: number, range: DropTargetRange | null): boolean {
+    if (!range) {
+        return false;
+    }
+    const segEndCh = segStartCh + span - 1;
+    return segStartCh <= range.end && range.start <= segEndCh;
+}
 
 function fixtureAddress(base: number, offset: number): number {
     return base + offset - 1;
@@ -347,12 +396,6 @@ export function DMXUniverseView({
                                     startDMXLiveOutput,
                                     stopDMXLiveOutput,
                                     queueDmxLivePatch,
-                                    partyState,
-                                    partyAudioInputDevices,
-                                    pullPartyAudioInputDevices,
-                                    setDMXPartyConfig,
-                                    startDMXPartyMode,
-                                    stopDMXPartyMode,
                                 }: DMXUniverseViewProps) {
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
@@ -421,6 +464,11 @@ export function DMXUniverseView({
         return resolveForwardChainPush(fixtures, draggingFixtureId, dropChannel);
     }, [draggingFixtureId, dropChannel, fixtures]);
 
+    const dropPreviewRange = useMemo(
+        () => dropTargetRange(fixtureById, draggingFixtureId, dropChannel),
+        [fixtureById, draggingFixtureId, dropChannel],
+    );
+
     const handleDropOnChannel = async (targetChannel: number) => {
         if (!draggingFixtureId || dropBusy) {
             return;
@@ -485,20 +533,6 @@ export function DMXUniverseView({
                     {anyLive ? "All fixtures live: ON" : "All fixtures live: OFF"}
                 </Button>
             </div>
-            <DMXPartyPanel
-                fixtures={sortedFixtures}
-                party={partyState}
-                busy={busy || dropBusy}
-                liveConnected={liveConnected}
-                audioInputDevices={partyAudioInputDevices}
-                onRefreshAudioDevices={async () => {
-                    await pullPartyAudioInputDevices();
-                }}
-                onUpdateConfig={setDMXPartyConfig}
-                onStart={startDMXPartyMode}
-                onStop={stopDMXPartyMode}
-            />
-
             <div
                 className="touch-pan-scroll min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3">
                 <div
@@ -518,7 +552,7 @@ export function DMXUniverseView({
                                 key={`free-${ch}`}
                                 className={cn(
                                     "flex items-center justify-center rounded-md border border-transparent bg-muted text-[10px] font-medium tabular-nums text-muted-foreground sm:text-xs",
-                                    draggingFixtureId && dropChannel === ch && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
+                                    draggingFixtureId && channelInDropTargetRange(ch, dropPreviewRange) && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
                                 )}
                                 style={{
                                     gridRow: row + 1,
@@ -567,8 +601,8 @@ export function DMXUniverseView({
                                         "cursor-grab active:cursor-grabbing",
                                         conflict && "border-destructive ring-1 ring-destructive/40",
                                         fixtureLive && "border-emerald-500/70 bg-emerald-500/15",
-                                        draggingFixtureId === fx.id && "opacity-70",
-                                        draggingFixtureId && dropChannel === segStartCh && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
+                                        draggingFixtureId === fx.id && "opacity-40",
+                                        draggingFixtureId && segmentOverlapsDropTargetRange(segStartCh, seg.span, dropPreviewRange) && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
                                     )}
                                     style={{
                                         gridRow: seg.row + 1,
@@ -583,6 +617,7 @@ export function DMXUniverseView({
                                         setDropChannel(universeRange(fx)?.start ?? fx.dmxAddress);
                                         event.dataTransfer.effectAllowed = "move";
                                         event.dataTransfer.setData("text/plain", fx.id);
+                                        attachUniverseFixtureDragImage(event);
                                     }}
                                     onDragEnd={() => {
                                         setDropChannel(null);
