@@ -58,6 +58,7 @@ func main() {
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})
+	afterWebviewCreated()
 
 	var consoleWindowMu sync.Mutex
 	var consoleWindow *application.WebviewWindow

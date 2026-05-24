@@ -78,6 +78,10 @@ export function GetControllerSnapshot(): $CancellablePromise<controller$0.Contro
     });
 }
 
+export function GetDMXFixtureLiveLayoutJSON(fixtureID: string): $CancellablePromise<string> {
+    return $Call.ByID(2477334130, fixtureID);
+}
+
 export function GetDMXLiveStatus(): $CancellablePromise<dmx$0.DMXLiveStatus> {
     return $Call.ByID(1614902043).then(($result: any) => {
         return $$createType6($result);
@@ -176,6 +180,10 @@ export function SaveControllerSettings(settings: controller$0.ControllerSettings
     return $Call.ByID(2607228358, settings).then(($result: any) => {
         return $$createType5($result);
     });
+}
+
+export function SetDMXFixtureLiveLayoutJSON(fixtureID: string, layoutJSON: string): $CancellablePromise<void> {
+    return $Call.ByID(3105573870, fixtureID, layoutJSON);
 }
 
 export function SetDMXPartyConfig(config: controller$0.DMXPartyConfig): $CancellablePromise<controller$0.DMXPartyState> {

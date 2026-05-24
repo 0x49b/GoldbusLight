@@ -4,6 +4,9 @@ Wails v3 desktop app for controlling WLED lights in the Goldbus environment.
 
 ## Development
 
+See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, NetworkManager, toolchain versions).
+
+
 - Run in dev mode:
   - `wails3 dev`
 - Build native binary:

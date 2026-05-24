@@ -47,11 +47,12 @@ func (c *WLEDController) startPartyAudioCapture(deviceID string) {
 		}
 		c.mu.Lock()
 		party := c.dmxState.Party
-		party.Status.AudioCapturing = err == nil
 		party.Status.AudioNoSignal = false
 		if err != nil {
+			party.Status.AudioCapturing = false
 			party.Status.AudioCaptureError = err.Error()
 		} else {
+			party.Status.AudioCapturing = true
 			party.Status.AudioCaptureError = ""
 		}
 		c.dmxState.Party = party
@@ -113,7 +114,7 @@ func (c *WLEDController) syncPartyAudioCapture() {
 	if running && activeID == deviceID {
 		return
 	}
-	c.startPartyAudioCapture(deviceID)
+	go c.startPartyAudioCapture(deviceID)
 }
 
 func (c *WLEDController) updatePartyAudioFeatures(features DMXPartyAudioFeatures, noSignal bool) {

@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "type": "movingHead",
+  "brand": "SGM",
+  "name": "Idea Spot 575 (16ch)",
+  "dmxAddress": 1,
+  "movingHead": {
+    "maxPan": 630,
+    "maxTilt": 265
+  },
+  "channels": [
+    {
+      "channel": 1,
+      "type": "pan",
+      "properties": { "min": 0, "max": 255 }
+    },
+    {
+      "channel": 2,
+      "type": "panFine",
+      "properties": { "min": 0, "max": 255 }
+    },
+    {
+      "channel": 3,
+      "type": "tilt",
+      "properties": { "min": 0, "max": 255 }
+    },
+    {
+      "channel": 4,
+      "type": "tiltFine",
+      "properties": { "min": 0, "max": 255 }
+    },
+    {
+      "channel": 5,
+      "type": "movementSpeed",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 225, "label": "Max to min speed", "mode": "tracking" },
+          { "from": 226, "to": 235, "label": "Blackout by movement", "mode": "blackout_pt" },
+          { "from": 236, "to": 245, "label": "Blackout by all wheel changing", "mode": "blackout_wheel" },
+          { "from": 246, "to": 255, "label": "No function" }
+        ]
+      }
+    },
+    {
+      "channel": 6,
+      "type": "colorWheel",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 13, "label": "Open / white", "color": "#ffffff" },
+          { "from": 14, "to": 27, "label": "Color 1" },
+          { "from": 28, "to": 41, "label": "Color 2" },
+          { "from": 42, "to": 55, "label": "Color 3" },
+          { "from": 56, "to": 69, "label": "Color 4" },
+          { "from": 70, "to": 83, "label": "Color 5" },
+          { "from": 84, "to": 97, "label": "Color 6" },
+          { "from": 98, "to": 111, "label": "Color 7" },
+          { "from": 112, "to": 127, "label": "Color 8" },
+          {
+            "from": 128,
+            "to": 187,
+            "label": "Forwards rainbow effect (fast to slow)",
+            "mode": "scroll",
+            "direction": "cw"
+          },
+          { "from": 188, "to": 193, "label": "No rotation", "mode": "stop", "direction": "stop" },
+          {
+            "from": 194,
+            "to": 255,
+            "label": "Backwards rainbow effect (slow to fast)",
+            "mode": "scroll",
+            "direction": "ccw"
+          }
+        ]
+      }
+    },
+    {
+      "channel": 7,
+      "type": "goboWheel",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 9, "label": "Open", "goboName": "Open", "goboIdentifier": "", "goboImage": "" },
+          { "from": 10, "to": 19, "label": "Rot. Gobo 1", "goboName": "Rot. Gobo 1" },
+          { "from": 20, "to": 29, "label": "Rot. Gobo 2", "goboName": "Rot. Gobo 2" },
+          { "from": 30, "to": 39, "label": "Rot. Gobo 3", "goboName": "Rot. Gobo 3" },
+          { "from": 40, "to": 49, "label": "Rot. Gobo 4", "goboName": "Rot. Gobo 4" },
+          { "from": 50, "to": 59, "label": "Rot. Gobo 5", "goboName": "Rot. Gobo 5" },
+          { "from": 60, "to": 69, "label": "Rot. Gobo 6", "goboName": "Rot. Gobo 6" },
+          { "from": 70, "to": 89, "label": "Gobo 1 shake slow to fast", "goboName": "Gobo 1 shake" },
+          { "from": 90, "to": 109, "label": "Gobo 2 shake slow to fast", "goboName": "Gobo 2 shake" },
+          { "from": 110, "to": 129, "label": "Gobo 3 shake slow to fast", "goboName": "Gobo 3 shake" },
+          { "from": 130, "to": 149, "label": "Gobo 4 shake slow to fast", "goboName": "Gobo 4 shake" },
+          { "from": 150, "to": 169, "label": "Gobo 5 shake slow to fast", "goboName": "Gobo 5 shake" },
+          { "from": 170, "to": 189, "label": "Gobo 6 shake slow to fast", "goboName": "Gobo 6 shake" },
+          {
+            "from": 190,
+            "to": 255,
+            "label": "Rot. Gobo wheel cont. rotation slow to fast",
+            "mode": "scroll",
+            "direction": "cw"
+          }
+        ]
+      }
+    },
+    {
+      "channel": 8,
+      "type": "shutterStrobe",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 31, "label": "Shutter closed", "mode": "closed" },
+          { "from": 32, "to": 63, "label": "Dimmer control (shutter open)", "mode": "open" },
+          { "from": 64, "to": 95, "label": "Strobe effect slow to fast", "mode": "strobe" },
+          { "from": 96, "to": 127, "label": "No function (shutter open)", "mode": "open" },
+          { "from": 128, "to": 159, "label": "Pulse-effect in sequences", "mode": "pulse" },
+          { "from": 160, "to": 191, "label": "No function (shutter open)", "mode": "open" },
+          { "from": 192, "to": 223, "label": "Random strobe effect slow to fast", "mode": "randomStrobe" },
+          { "from": 224, "to": 255, "label": "No function (shutter open)", "mode": "open" }
+        ]
+      }
+    },
+    {
+      "channel": 9,
+      "type": "dimmer",
+      "properties": { "min": 0, "max": 255 }
+    },
+    {
+      "channel": 10,
+      "type": "goboRotation",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 127, "label": "Gobo indexing" },
+          {
+            "from": 128,
+            "to": 189,
+            "label": "Forwards gobo rotation (fast to slow)",
+            "mode": "slow",
+            "direction": "cw"
+          },
+          { "from": 190, "to": 193, "label": "No rotation", "mode": "stop", "direction": "stop" },
+          {
+            "from": 194,
+            "to": 255,
+            "label": "Backwards gobo rotation (slow to fast)",
+            "mode": "slow",
+            "direction": "ccw"
+          }
+        ]
+      }
+    },
+    {
+      "channel": 11,
+      "type": "prism",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 3, "label": "Open" },
+          { "from": 4, "to": 63, "label": "Forwards rotation (fast to slow)", "mode": "slow", "direction": "cw" },
+          { "from": 64, "to": 67, "label": "No rotation", "mode": "stop", "direction": "stop" },
+          { "from": 68, "to": 127, "label": "Backwards rotation (slow to fast)", "mode": "slow", "direction": "ccw" },
+          { "from": 128, "to": 135, "label": "Macro 1" },
+          { "from": 136, "to": 143, "label": "Macro 2" },
+          { "from": 144, "to": 151, "label": "Macro 3" },
+          { "from": 152, "to": 159, "label": "Macro 4" },
+          { "from": 160, "to": 167, "label": "Macro 5" },
+          { "from": 168, "to": 175, "label": "Macro 6" },
+          { "from": 176, "to": 183, "label": "Macro 7" },
+          { "from": 184, "to": 191, "label": "Macro 8" },
+          { "from": 192, "to": 199, "label": "Macro 9" },
+          { "from": 200, "to": 207, "label": "Macro 10" },
+          { "from": 208, "to": 215, "label": "Macro 11" },
+          { "from": 216, "to": 223, "label": "Macro 12" },
+          { "from": 224, "to": 231, "label": "Macro 13" },
+          { "from": 232, "to": 239, "label": "Macro 14" },
+          { "from": 240, "to": 247, "label": "Macro 15" },
+          { "from": 248, "to": 255, "label": "Macro 16" }
+        ]
+      }
+    },
+    {
+      "channel": 12,
+      "type": "goboWheel",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 13, "label": "Open/Hole", "goboName": "Open", "goboIdentifier": "", "goboImage": "" },
+          { "from": 14, "to": 27, "label": "Gobo 1", "goboName": "Gobo 1" },
+          { "from": 28, "to": 41, "label": "Gobo 2", "goboName": "Gobo 2" },
+          { "from": 42, "to": 55, "label": "Gobo 3", "goboName": "Gobo 3" },
+          { "from": 56, "to": 69, "label": "Gobo 4", "goboName": "Gobo 4" },
+          { "from": 70, "to": 83, "label": "Gobo 5", "goboName": "Gobo 5" },
+          { "from": 84, "to": 97, "label": "Gobo 6", "goboName": "Gobo 6" },
+          { "from": 98, "to": 111, "label": "Gobo 7", "goboName": "Gobo 7" },
+          { "from": 112, "to": 127, "label": "Gobo 1 shake slow to fast", "goboName": "Gobo 1 shake" },
+          { "from": 128, "to": 143, "label": "Gobo 2 shake slow to fast", "goboName": "Gobo 2 shake" },
+          { "from": 144, "to": 159, "label": "Gobo 3 shake slow to fast", "goboName": "Gobo 3 shake" },
+          { "from": 160, "to": 175, "label": "Gobo 4 shake slow to fast", "goboName": "Gobo 4 shake" },
+          { "from": 176, "to": 191, "label": "Gobo 5 shake slow to fast", "goboName": "Gobo 5 shake" },
+          { "from": 192, "to": 207, "label": "Gobo 6 shake slow to fast", "goboName": "Gobo 6 shake" },
+          { "from": 208, "to": 223, "label": "Gobo 7 shake slow to fast", "goboName": "Gobo 7 shake" },
+          {
+            "from": 224,
+            "to": 255,
+            "label": "Gobo wheel rotation (slow to fast)",
+            "mode": "scroll",
+            "direction": "cw"
+          }
+        ]
+      }
+    },
+    {
+      "channel": 13,
+      "type": "zoom",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 85, "label": "Zoom1 & Continuous adjustment (far to near)" },
+          { "from": 86, "to": 171, "label": "Zoom2 & Continuous adjustment (far to near)" },
+          { "from": 172, "to": 255, "label": "Zoom3 & Continuous adjustment (far to near)" }
+        ]
+      }
+    },
+    {
+      "channel": 14,
+      "type": "iris",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 191, "label": "Max. diameter to Min. diameter" },
+          { "from": 192, "to": 223, "label": "Pulse opening fast to slow" },
+          { "from": 224, "to": 255, "label": "Pulse closing slow to fast" }
+        ]
+      }
+    },
+    {
+      "channel": 15,
+      "type": "command",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 19, "label": "Colour change normal" },
+          { "from": 20, "to": 39, "label": "Colour change to any position" },
+          { "from": 40, "to": 59, "label": "Lamp ON" },
+          { "from": 60, "to": 79, "label": "Lamp switch OFF" },
+          { "from": 80, "to": 99, "label": "Motor reset" },
+          { "from": 100, "to": 119, "label": "Internal program 1" },
+          { "from": 120, "to": 139, "label": "Internal program 2" },
+          { "from": 140, "to": 159, "label": "Internal program 3" },
+          { "from": 160, "to": 179, "label": "Internal program 4" },
+          { "from": 180, "to": 199, "label": "Internal program 5" },
+          { "from": 200, "to": 219, "label": "Internal program 6" },
+          { "from": 220, "to": 239, "label": "Internal program 7" },
+          { "from": 240, "to": 255, "label": "Internal program 8" }
+        ]
+      }
+    },
+    {
+      "channel": 16,
+      "type": "frost",
+      "properties": {
+        "entries": [
+          { "from": 0, "to": 191, "label": "Frost (0 to 100%)" },
+          { "from": 192, "to": 223, "label": "Pulse closing (fast to slow)" },
+          { "from": 224, "to": 254, "label": "Pulse opening (slow to fast)" },
+          { "from": 255, "to": 255, "label": "100% Frost" }
+        ]
+      }
+    }
+  ]
+}

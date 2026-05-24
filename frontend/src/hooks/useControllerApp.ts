@@ -1201,26 +1201,17 @@ export function useControllerApp() {
 
     const startDMXLiveOutput = useCallback(
         async (fixtureID: string) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9b77be'},body:JSON.stringify({sessionId:'9b77be',runId:'usb-live-freeze-investigation',hypothesisId:'H5',location:'useControllerApp.ts:startDMXLiveOutput:entry',message:'UI requested StartDMXLive',data:{fixtureID},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             if (!ensureDMXEnabled()) {
                 return false;
             }
             setBusy(true);
             try {
                 await GreetService.StartDMXLive(fixtureID);
-                // #region agent log
-                fetch('http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9b77be'},body:JSON.stringify({sessionId:'9b77be',runId:'usb-live-freeze-investigation',hypothesisId:'H5',location:'useControllerApp.ts:startDMXLiveOutput:success',message:'StartDMXLive resolved to UI',data:{fixtureID},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 setError("");
                 setStatus("DMX live output started");
                 await pullDMXLiveStatus();
                 return true;
             } catch (err) {
-                // #region agent log
-                fetch('http://127.0.0.1:7477/ingest/c7477188-2d72-424f-b53e-8ed4d8ae47b6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9b77be'},body:JSON.stringify({sessionId:'9b77be',runId:'usb-live-freeze-investigation',hypothesisId:'H5',location:'useControllerApp.ts:startDMXLiveOutput:error',message:'StartDMXLive rejected to UI',data:{fixtureID,error:String(err)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 setError(String(err));
                 await pullDMXLiveStatus();
                 return false;
