@@ -216,6 +216,18 @@ func (g *GoldbusLightService) GetDMXState() (ctrlpkg.DMXState, error) {
 	})
 }
 
+func (g *GoldbusLightService) GetDMXFixtureLiveLayoutJSON(fixtureID string) (string, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (string, error) {
+		return c.GetDMXFixtureLiveLayoutJSON(fixtureID)
+	})
+}
+
+func (g *GoldbusLightService) SetDMXFixtureLiveLayoutJSON(fixtureID string, layoutJSON string) error {
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.SetDMXFixtureLiveLayoutJSON(fixtureID, layoutJSON)
+	})
+}
+
 func (g *GoldbusLightService) GetDMXPartyState() (ctrlpkg.DMXPartyState, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.DMXPartyState {
 		return c.GetDMXPartyState()

@@ -425,9 +425,7 @@ func (s *DMXPersistenceManager) Load() (DMXState, error) {
 	if err := json.Unmarshal(data, &st); err != nil {
 		return def, err
 	}
-	normalized := normalizeDMXState(st)
-	normalized.Party = stripDMXPartyRuntimeForPersistence(normalized.Party)
-	return normalized, nil
+	return normalizeDMXState(st), nil
 }
 
 func (s *DMXPersistenceManager) Save(st DMXState) error {
@@ -436,9 +434,7 @@ func (s *DMXPersistenceManager) Save(st DMXState) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	toSave := normalizeDMXState(st)
-	toSave.Party = stripDMXPartyRuntimeForPersistence(toSave.Party)
-	payload, err := json.MarshalIndent(toSave, "", "  ")
+	payload, err := json.MarshalIndent(normalizeDMXState(st), "", "  ")
 	if err != nil {
 		return err
 	}
@@ -634,6 +630,7 @@ type WLEDController struct {
 	logger                *log.Logger
 	persistence           *StatePersistenceManager
 	generalTabPersistence *GeneralTabStatePersistenceManager
+	dmxLiveLayoutPersistence *DMXFixtureLiveLayoutPersistenceManager
 	dmxPersistence        *DMXPersistenceManager
 	network               *NetworkManager
 	discovery             *DiscoveryEngine
