@@ -117,7 +117,14 @@ func main() {
 		for {
 			now := time.Now().Format(time.RFC1123)
 			app.Event.Emit("time", now)
-			app.Event.Emit("controller:snapshot", controller.Snapshot())
+			func() {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						log.Printf("controller snapshot panic: %v", recovered)
+					}
+				}()
+				app.Event.Emit("controller:snapshot", controller.Snapshot())
+			}()
 			time.Sleep(time.Second)
 		}
 	}()
