@@ -14,6 +14,8 @@ export type DMXFixturePreview3DProps = {
     intensity: number;
     disabled?: boolean;
     onPanTiltChange?: (value: { pan01: number; tilt01: number }) => void;
+    /** When true, grow with the parent (e.g. live layout grid tile) instead of a fixed preview height. */
+    fillGridCell?: boolean;
 };
 
 export type DMXMovingHeadPreview3DProps = Pick<

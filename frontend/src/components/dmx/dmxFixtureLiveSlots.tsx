@@ -76,21 +76,24 @@ export type LiveControlsSlotCtx = {
 function SlotPreview(ctx: LiveControlsSlotCtx) {
     const {fixture, previewPanDeg, previewTiltDeg, maxPanDeg, maxTiltDeg, previewFocus, previewBeamColor, previewBeamRainbow, previewIntensity, previewSmokeIntensity, sliderDisabled, hasPan, hasTilt, onPreviewPanTiltChange} = ctx;
     return (
-        <div className="space-y-1.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</div>
-            <DMXFixturePreview3D
-                variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
-                panDeg={previewPanDeg}
-                tiltDeg={previewTiltDeg}
-                maxPanDeg={maxPanDeg}
-                maxTiltDeg={maxTiltDeg}
-                focus01={previewFocus}
-                beamColor={previewBeamColor}
-                beamRainbow={previewBeamRainbow}
-                intensity={fixture.type === "smoke" ? previewSmokeIntensity : previewIntensity}
-                disabled={sliderDisabled || (!hasPan && !hasTilt)}
-                onPanTiltChange={onPreviewPanTiltChange}
-            />
+        <div className="flex h-full min-h-0 flex-col gap-1.5">
+            <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <DMXFixturePreview3D
+                    fillGridCell
+                    variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
+                    panDeg={previewPanDeg}
+                    tiltDeg={previewTiltDeg}
+                    maxPanDeg={maxPanDeg}
+                    maxTiltDeg={maxTiltDeg}
+                    focus01={previewFocus}
+                    beamColor={previewBeamColor}
+                    beamRainbow={previewBeamRainbow}
+                    intensity={fixture.type === "smoke" ? previewSmokeIntensity : previewIntensity}
+                    disabled={sliderDisabled || (!hasPan && !hasTilt)}
+                    onPanTiltChange={onPreviewPanTiltChange}
+                />
+            </div>
         </div>
     );
 }

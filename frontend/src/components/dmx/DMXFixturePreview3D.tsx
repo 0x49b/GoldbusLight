@@ -4,6 +4,7 @@ import {type PointerEvent, Suspense, useCallback, useRef} from "react";
 import {DMXMovingHeadPreview3D} from "./3D/DMXMovingHeadPreview3D";
 import {DMXSmokePreview3D} from "./3D/DMXSmokePreview3D";
 import {clamp01, type DMXFixturePreview3DProps} from "./3D/DMXFixturePreview3D.shared";
+import {cn} from "@/lib/utils";
 export type {DMXFixturePreview3DProps} from "./3D/DMXFixturePreview3D.shared";
 
 type PreviewDragState = {
@@ -47,6 +48,7 @@ export function DMXFixturePreview3D(props: DMXFixturePreview3DProps) {
     const interactive = props.variant === "movingHead" && !props.disabled && Boolean(props.onPanTiltChange);
     const pan01 = props.maxPanDeg && props.maxPanDeg > 0 ? clamp01(props.panDeg / props.maxPanDeg) : 0.5;
     const tilt01 = props.maxTiltDeg && props.maxTiltDeg > 0 ? clamp01(props.tiltDeg / props.maxTiltDeg) : 0.5;
+    const fill = Boolean(props.fillGridCell);
 
     const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
         if (!interactive || event.button !== 0) {
@@ -89,21 +91,32 @@ export function DMXFixturePreview3D(props: DMXFixturePreview3DProps) {
 
     return (
         <div
-            className={`h-56 w-full overflow-hidden rounded-md border border-border bg-zinc-950 ${interactive ? "cursor-grab active:cursor-grabbing" : ""}`}
+            className={cn(
+                "w-full overflow-hidden rounded-md border border-border bg-zinc-950",
+                fill ? "flex min-h-56 flex-1 flex-col" : "h-56",
+                interactive && "cursor-grab active:cursor-grabbing",
+            )}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={stopDrag}
             onPointerCancel={stopDrag}
         >
-            <Canvas shadows dpr={[1, 2]} camera={{position: [2.35, 1.45, 2.55], fov: 75, near: 0.5, far: 1000}}>
-                <color attach="background" args={["#070707"]}/>
-                <ambientLight intensity={0.6}/>
-                <directionalLight castShadow position={[3.5, 6, 4]} intensity={1.15}/>
-                <Suspense fallback={null}>
-                    <PreviewFixture {...props} />
-                </Suspense>
-                <OrbitControls enablePan={false} enableRotate={props.variant !== "movingHead"} minDistance={1.4} maxDistance={7}/>
-            </Canvas>
+            <div className={cn(fill ? "min-h-0 flex-1" : "h-full w-full")}>
+                <Canvas
+                    className={fill ? "h-full w-full" : undefined}
+                    shadows
+                    dpr={[1, 2]}
+                    camera={{position: [2.35, 1.45, 2.55], fov: 75, near: 0.5, far: 1000}}
+                >
+                    <color attach="background" args={["#070707"]}/>
+                    <ambientLight intensity={0.6}/>
+                    <directionalLight castShadow position={[3.5, 6, 4]} intensity={1.15}/>
+                    <Suspense fallback={null}>
+                        <PreviewFixture {...props} />
+                    </Suspense>
+                    <OrbitControls enablePan={false} enableRotate={props.variant !== "movingHead"} minDistance={1.4} maxDistance={7}/>
+                </Canvas>
+            </div>
         </div>
     );
 }

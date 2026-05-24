@@ -206,7 +206,7 @@ export function DMXFixtureLiveLayoutGrid({
                                 <GripHorizontal className="size-4" aria-hidden/>
                             </button>
                         )}
-                        <div className={cn("min-h-0 flex-1 overflow-y-auto p-2", editMode && "pt-1")}>
+                        <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto p-2", editMode && "pt-1")}>
                             {renderSlot(t.id)}
                         </div>
                         {editMode && (
