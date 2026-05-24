@@ -24,6 +24,39 @@ func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time
 	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted)
 }
 
+func TestCloneDMXStatePreservesPartyRuntime(t *testing.T) {
+	st := DMXState{
+		Fixtures: []DMXFixture{},
+		Party: DMXPartyState{
+			Config: defaultDMXPartyConfig(),
+			Status: DMXPartyStatus{
+				Running:           true,
+				Mode:              DMXPartyModeAudio,
+				AudioCapturing:    true,
+				AudioNoSignal:     true,
+				AudioCaptureError: "mic",
+			},
+		},
+	}
+	cloned := cloneDMXState(st)
+	if !cloned.Party.Status.Running {
+		t.Fatalf("expected clone to preserve party running flag for live API consumers")
+	}
+	if !cloned.Party.Status.AudioCapturing {
+		t.Fatalf("expected clone to preserve audio capturing flag")
+	}
+	if !cloned.Party.Status.AudioNoSignal {
+		t.Fatalf("expected clone to preserve audio no-signal flag")
+	}
+	if cloned.Party.Status.AudioCaptureError != "mic" {
+		t.Fatalf("expected clone to preserve audio capture error, got %q", cloned.Party.Status.AudioCaptureError)
+	}
+	stripped := stripDMXPartyRuntimeForPersistence(cloned.Party)
+	if stripped.Status.Running || stripped.Status.AudioCapturing || stripped.Status.AudioNoSignal || stripped.Status.AudioCaptureError != "" {
+		t.Fatalf("strip for persistence should clear volatile status: %+v", stripped.Status)
+	}
+}
+
 func TestNormalizeDMXPartyConfigClampsAndSanitizes(t *testing.T) {
 	in := DMXPartyConfig{
 		Enabled:            true,

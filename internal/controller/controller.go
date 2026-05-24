@@ -425,7 +425,9 @@ func (s *DMXPersistenceManager) Load() (DMXState, error) {
 	if err := json.Unmarshal(data, &st); err != nil {
 		return def, err
 	}
-	return normalizeDMXState(st), nil
+	normalized := normalizeDMXState(st)
+	normalized.Party = stripDMXPartyRuntimeForPersistence(normalized.Party)
+	return normalized, nil
 }
 
 func (s *DMXPersistenceManager) Save(st DMXState) error {
@@ -434,7 +436,9 @@ func (s *DMXPersistenceManager) Save(st DMXState) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	payload, err := json.MarshalIndent(normalizeDMXState(st), "", "  ")
+	toSave := normalizeDMXState(st)
+	toSave.Party = stripDMXPartyRuntimeForPersistence(toSave.Party)
+	payload, err := json.MarshalIndent(toSave, "", "  ")
 	if err != nil {
 		return err
 	}

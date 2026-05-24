@@ -167,14 +167,20 @@ func normalizeDMXPartyState(in DMXPartyState) DMXPartyState {
 	out.Config = normalizeDMXPartyConfig(out.Config)
 	out.Status = normalizeDMXPartyStatus(out.Status)
 	out.Audio = normalizeDMXPartyAudioFeatures(out.Audio)
-	// Runtime state never resumes automatically from persisted state.
+	if !out.Config.Enabled {
+		out.Status.Error = ""
+	}
+	return out
+}
+
+// stripDMXPartyRuntimeForPersistence clears volatile party status before writing dmx.json
+// or after reading from disk so a stored "running" flag never auto-starts the worker.
+func stripDMXPartyRuntimeForPersistence(in DMXPartyState) DMXPartyState {
+	out := in
 	out.Status.Running = false
 	out.Status.AudioCapturing = false
 	out.Status.AudioNoSignal = false
 	out.Status.AudioCaptureError = ""
-	if !out.Config.Enabled {
-		out.Status.Error = ""
-	}
 	return out
 }
 
