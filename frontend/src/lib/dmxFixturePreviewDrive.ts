@@ -1,5 +1,14 @@
 import type {DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
-import {parseFixtureEntries, smokeFogOutputRange, type DMXLiveControlState} from "./dmxLiveMap";
+import {
+    legacyColorWheelIdx,
+    legacyDimmer01,
+    legacyFocus01,
+    legacyPan01,
+    legacyTilt01,
+    parseFixtureEntries,
+    smokeFogOutputRange,
+    type DMXLiveControlState,
+} from "./dmxLiveMap";
 
 function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
     return channels.find((c) => c.type === type);
@@ -103,10 +112,10 @@ export function fixturePreviewDrive(
     const focusCh = firstChannel(fixture.channels, "focus");
     const colorWheelCh = firstChannel(fixture.channels, "colorWheel");
 
-    let pan01 = fallback.pan01;
-    let tilt01 = fallback.tilt01;
-    let dimmer01 = fallback.dimmer01;
-    let focus01 = fallback.focus01;
+    let pan01 = legacyPan01(fixture, fallback);
+    let tilt01 = legacyTilt01(fixture, fallback);
+    let dimmer01 = legacyDimmer01(fixture, fallback);
+    let focus01 = legacyFocus01(fixture, fallback);
     let fog01 = fallback.fog01;
     let beamColor: string | undefined;
     let beamRainbow = false;
@@ -153,13 +162,13 @@ export function fixturePreviewDrive(
             const raw = addr != null ? universeValue(universe, addr) : undefined;
             const entry = raw !== undefined
                 ? fixtureEntryForByte(entries, raw)
-                : fixtureEntryForIndex(entries, fallback.colorWheelIdx);
+                : fixtureEntryForIndex(entries, legacyColorWheelIdx(fixture, fallback));
             beamColor = previewBeamColor(entry);
             beamRainbow = isRainbowEntry(entry);
         }
     } else if (colorWheelCh) {
         const entries = parseFixtureEntries(colorWheelCh.properties as JSONMap | undefined);
-        const entry = fixtureEntryForIndex(entries, fallback.colorWheelIdx);
+        const entry = fixtureEntryForIndex(entries, legacyColorWheelIdx(fixture, fallback));
         beamColor = previewBeamColor(entry);
         beamRainbow = isRainbowEntry(entry);
     }

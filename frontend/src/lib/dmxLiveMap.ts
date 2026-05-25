@@ -1,33 +1,39 @@
-import type {DMXChannel, DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
+import type {DMXChannel, DMXFixture, JSONMap} from "../types/controller";
+import {
+    findOffButtonSlotIndex,
+    firstSliderSlotIndex,
+    parseEntryLiveSlotKinds,
+    resolveLiveWidget,
+    type DMXLiveWidget,
+} from "./dmxLiveWidget";
 
 export type DMXLiveShutterMode = "open" | "closed" | "strobe" | "pulse";
 
+export type EntryChannelLiveState = {
+    slotIdx: number;
+    /** 0–1 position within the active slot range (slotSlider / buttonSlider) */
+    within01: number;
+    /** 0–1 for linear slider widgets */
+    linear01: number;
+    shutter?: DMXLiveShutterMode;
+    frostCurve?: "linear" | "pulse";
+    /** buttonSlider: latched toggle slot (-1 = none / use slider) */
+    buttonSlotIdx?: number;
+    /** buttonSlider: which slider entry drives output */
+    activeSliderIdx?: number;
+};
+
+export type DMXLiveControlState = {
+    entryChannels: Record<number, EntryChannelLiveState>;
+    /** Smoke/hazer fog output 0–1 */
+    fog01: number;
+};
+
+/** @deprecated Use EntryChannelLiveState — kept for gradual migration in custom channel cards */
 export type CustomChannelLiveState = {
     linear01: number;
     slot01: number[];
     outputByte: number;
-};
-
-export type DMXLiveControlState = {
-    /** 0–1 pan (left–right) */
-    pan01: number;
-    /** 0–1 tilt (bottom–top) */
-    tilt01: number;
-    colorWheelIdx: number;
-    gobo1Idx: number;
-    gobo2Idx: number;
-    shutter: DMXLiveShutterMode;
-    movementSpeedIdx: number;
-    focus01: number;
-    zoom01: number;
-    iris01: number;
-    frost01: number;
-    fog01: number;
-    /** Frost curve: prefer entries with this mode when possible */
-    frostCurve: "linear" | "pulse";
-    dimmer01: number;
-    /** Live values keyed by channel offset (DMXChannel.channel) */
-    customChannels: Record<number, CustomChannelLiveState>;
 };
 
 export type DmxLivePatchEntry = {
@@ -35,7 +41,7 @@ export type DmxLivePatchEntry = {
     value: number;
 };
 
-type EntryRow = {
+export type FixtureEntryRow = {
     from: number;
     to: number;
     label?: string;
@@ -54,12 +60,12 @@ function clamp255(n: number): number {
     return Math.round(clamp(n, 0, 255));
 }
 
-export function parseFixtureEntries(props: JSONMap | undefined): EntryRow[] {
+export function parseFixtureEntries(props: JSONMap | undefined): FixtureEntryRow[] {
     const raw = props?.entries;
     if (!Array.isArray(raw)) {
         return [];
     }
-    const out: EntryRow[] = [];
+    const out: FixtureEntryRow[] = [];
     for (const item of raw) {
         if (!item || typeof item !== "object" || Array.isArray(item)) {
             continue;
@@ -81,14 +87,14 @@ export function parseFixtureEntries(props: JSONMap | undefined): EntryRow[] {
     return out;
 }
 
-function linearByte(props: JSONMap | undefined, t01: number): number {
+export function linearByte(props: JSONMap | undefined, t01: number): number {
     const min = typeof props?.min === "number" ? props.min : 0;
     const max = typeof props?.max === "number" ? props.max : 255;
     const t = clamp(t01, 0, 1);
     return clamp255(min + t * (max - min));
 }
 
-function slotMid(entries: EntryRow[], idx: number): number {
+export function slotMid(entries: FixtureEntryRow[], idx: number): number {
     if (entries.length === 0) {
         return 0;
     }
@@ -97,14 +103,73 @@ function slotMid(entries: EntryRow[], idx: number): number {
     return clamp255((e.from + e.to) / 2);
 }
 
-function slotByte(entries: EntryRow[], slotIdx: number, t01: number): number {
+export function slotByte(entries: FixtureEntryRow[], slotIdx: number, t01: number): number {
     if (entries.length === 0) {
         return clamp255(t01 * 255);
     }
     const i = clamp(Math.floor(slotIdx), 0, entries.length - 1);
     const e = entries[i];
     const t = clamp(t01, 0, 1);
-    return clamp255(e.from + t * (e.to - e.from));
+    const lo = Math.min(e.from, e.to);
+    const hi = Math.max(e.from, e.to);
+    return clamp255(lo + t * (hi - lo));
+}
+
+export function channelEntryState(
+    state: DMXLiveControlState,
+    offset: number,
+): EntryChannelLiveState | undefined {
+    return state.entryChannels[offset];
+}
+
+export function getChannelLinear01(state: DMXLiveControlState, ch: DMXChannel, fallback = 0.5): number {
+    return state.entryChannels[ch.channel]?.linear01 ?? fallback;
+}
+
+export function getChannelSlotIdx(state: DMXLiveControlState, ch: DMXChannel, fallback = 0): number {
+    return state.entryChannels[ch.channel]?.slotIdx ?? fallback;
+}
+
+export function defaultEntryStateForChannel(ch: DMXChannel): EntryChannelLiveState {
+    const widget = resolveLiveWidget(ch);
+    const props = ch.properties as JSONMap | undefined;
+    const entries = parseFixtureEntries(props);
+    const linear01 = ch.type === "dimmer" || ch.type === "dimmerFine" ? 1 : 0.5;
+    const base: EntryChannelLiveState = {
+        slotIdx: 0,
+        within01: 0,
+        linear01,
+    };
+    if (widget === "shutterModes") {
+        base.shutter = "open";
+    }
+    if (ch.type === "frost") {
+        base.frostCurve = "linear";
+        base.linear01 = 0;
+    }
+    if (widget === "buttonSlider" && entries.length > 0) {
+        const kinds = parseEntryLiveSlotKinds(props, entries);
+        const offIdx = findOffButtonSlotIndex(entries, kinds);
+        const sliderIdx = firstSliderSlotIndex(kinds);
+        base.buttonSlotIdx = offIdx >= 0 ? offIdx : -1;
+        base.activeSliderIdx = sliderIdx >= 0 ? sliderIdx : 0;
+        base.within01 = 0;
+        base.slotIdx = offIdx >= 0 ? offIdx : 0;
+    }
+    return base;
+}
+
+function initEntryChannelStates(fixture: DMXFixture | undefined): Record<number, EntryChannelLiveState> {
+    const out: Record<number, EntryChannelLiveState> = {};
+    if (!fixture) {
+        return out;
+    }
+    for (const ch of fixture.channels) {
+        if (resolveLiveWidget(ch) !== "hidden") {
+            out[ch.channel] = defaultEntryStateForChannel(ch);
+        }
+    }
+    return out;
 }
 
 export function customChannelLabel(ch: DMXChannel): string {
@@ -118,28 +183,28 @@ export function customChannelLabel(ch: DMXChannel): string {
     return `Custom · offset ${ch.channel}`;
 }
 
+export function channelLiveLabel(ch: DMXChannel): string {
+    if (ch.type === "custom") {
+        return customChannelLabel(ch);
+    }
+    const props = ch.properties as JSONMap | undefined;
+    if (typeof props?.label === "string" && props.label.trim()) {
+        return props.label.trim();
+    }
+    const typeLabel = ch.type.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+    return `${typeLabel.trim()} · ch ${ch.channel}`;
+}
+
+/** @deprecated */
 export function initCustomChannelState(ch: DMXChannel): CustomChannelLiveState {
+    const st = defaultEntryStateForChannel(ch);
     const props = ch.properties as JSONMap | undefined;
     const entries = parseFixtureEntries(props);
     if (entries.length > 0) {
-        const slot01 = entries.map(() => 0.5);
-        return {linear01: 0.5, slot01, outputByte: slotByte(entries, 0, 0.5)};
+        const slot01 = entries.map(() => st.within01);
+        return {linear01: st.linear01, slot01, outputByte: channelOutputByte(ch, st)};
     }
-    const linear01 = 0.5;
-    return {linear01, slot01: [], outputByte: linearByte(props, linear01)};
-}
-
-function initCustomChannelStates(fixture: DMXFixture | undefined): Record<number, CustomChannelLiveState> {
-    const out: Record<number, CustomChannelLiveState> = {};
-    if (!fixture) {
-        return out;
-    }
-    for (const ch of fixture.channels) {
-        if (ch.type === "custom") {
-            out[ch.channel] = initCustomChannelState(ch);
-        }
-    }
-    return out;
+    return {linear01: st.linear01, slot01: [], outputByte: channelOutputByte(ch, st)};
 }
 
 export type SmokeFogOutputRange = {
@@ -192,26 +257,6 @@ export function smokeFogOutputRange(props: JSONMap | undefined): SmokeFogOutputR
     return {min: clamp255(min), max: clamp255(max)};
 }
 
-function smokeFogByte(props: JSONMap | undefined, t01: number): number {
-    const range = smokeFogOutputRange(props);
-    if (!range) {
-        return linearByte(props, t01);
-    }
-    const t = clamp(t01, 0, 1);
-    if (t <= 0) {
-        return 0;
-    }
-    return clamp255(range.min + t * (range.max - range.min));
-}
-
-function firstChannel(channels: DMXChannel[], type: DMXChannelType): DMXChannel | undefined {
-    return channels.find((c) => c.type === type);
-}
-
-function allChannelsOfType(channels: DMXChannel[], type: DMXChannelType): DMXChannel[] {
-    return channels.filter((c) => c.type === type);
-}
-
 function pushPatch(out: DmxLivePatchEntry[], fixture: DMXFixture, ch: DMXChannel | undefined, value: number) {
     if (!ch || !Number.isFinite(ch.channel)) {
         return;
@@ -227,7 +272,7 @@ function pushPatch(out: DmxLivePatchEntry[], fixture: DMXFixture, ch: DMXChannel
     out.push({address: addr, value: clamp255(value)});
 }
 
-function pickShutterEntryIndex(entries: EntryRow[], mode: DMXLiveShutterMode): number {
+export function pickShutterEntryIndex(entries: FixtureEntryRow[], mode: DMXLiveShutterMode): number {
     const keys: Record<DMXLiveShutterMode, string[]> = {
         open: ["open", "shutter open", "full"],
         closed: ["close", "closed", "blackout"],
@@ -253,7 +298,7 @@ function pickShutterEntryIndex(entries: EntryRow[], mode: DMXLiveShutterMode): n
     return clamp(fallback[mode], 0, Math.max(0, entries.length - 1));
 }
 
-function frostEntriesForCurve(entries: EntryRow[], curve: "linear" | "pulse"): EntryRow[] {
+function frostEntriesForCurve(entries: FixtureEntryRow[], curve: "linear" | "pulse"): FixtureEntryRow[] {
     const filtered = entries.filter((e) => {
         const m = (e.mode ?? "").toLowerCase();
         const l = (e.label ?? "").toLowerCase();
@@ -265,106 +310,168 @@ function frostEntriesForCurve(entries: EntryRow[], curve: "linear" | "pulse"): E
     return filtered.length > 0 ? filtered : entries;
 }
 
+function findCoarseChannel(fixture: DMXFixture, fine: DMXChannel): DMXChannel | undefined {
+    if (fine.type === "panFine") {
+        return fixture.channels.find((c) => c.type === "pan" || c.type === "infinitePan");
+    }
+    if (fine.type === "tiltFine") {
+        return fixture.channels.find((c) => c.type === "tilt" || c.type === "infiniteTilt");
+    }
+    return undefined;
+}
+
+export function channelOutputByte(ch: DMXChannel, st: EntryChannelLiveState, widget?: DMXLiveWidget): number {
+    const w = widget ?? resolveLiveWidget(ch);
+    const props = ch.properties as JSONMap | undefined;
+    const entries = parseFixtureEntries(props);
+
+    switch (w) {
+        case "hidden":
+            return 0;
+        case "slider":
+            return linearByte(props, st.linear01);
+        case "shutterModes": {
+            const mode = st.shutter ?? "open";
+            const idx = pickShutterEntryIndex(entries, mode);
+            return slotMid(entries, idx);
+        }
+        case "colorWheel":
+        case "goboWheel":
+        case "buttons":
+            return slotMid(entries, st.slotIdx);
+        case "slotSlider": {
+            if (entries.length === 0) {
+                return linearByte(props, st.linear01);
+            }
+            if (ch.type === "frost") {
+                const pool = frostEntriesForCurve(entries, st.frostCurve ?? "linear");
+                const usePool = pool.length > 0 ? pool : entries;
+                const maxI = Math.max(0, usePool.length - 1);
+                const idx = Math.round(clamp(st.linear01, 0, 1) * maxI);
+                return slotMid(usePool, idx);
+            }
+            return slotByte(entries, st.slotIdx, st.within01);
+        }
+        case "buttonSlider": {
+            if (entries.length === 0) {
+                return linearByte(props, st.linear01);
+            }
+            const kinds = parseEntryLiveSlotKinds(props, entries);
+            const offIdx = findOffButtonSlotIndex(entries, kinds);
+            const buttonSlot = st.buttonSlotIdx ?? (offIdx >= 0 ? offIdx : -1);
+            if (offIdx >= 0 && buttonSlot === offIdx) {
+                return 0;
+            }
+            const sliderIdx = st.activeSliderIdx ?? firstSliderSlotIndex(kinds);
+            if (sliderIdx >= 0 && kinds[sliderIdx] === "slider") {
+                const t = clamp(st.within01, 0, 1);
+                if (t <= 0 && offIdx < 0) {
+                    return slotMid(entries, buttonSlot >= 0 ? buttonSlot : 0);
+                }
+                if (t <= 0 && offIdx >= 0) {
+                    return 0;
+                }
+                return slotByte(entries, sliderIdx, t);
+            }
+            if (buttonSlot >= 0) {
+                return slotMid(entries, buttonSlot);
+            }
+            return 0;
+        }
+        default:
+            return linearByte(props, st.linear01);
+    }
+}
+
 export function defaultDmxLiveControlState(fixture?: DMXFixture): DMXLiveControlState {
     return {
-        pan01: 0.5,
-        tilt01: 0.5,
-        colorWheelIdx: 0,
-        gobo1Idx: 0,
-        gobo2Idx: 0,
-        shutter: "open",
-        movementSpeedIdx: 0,
-        focus01: 0.5,
-        zoom01: 0.5,
-        iris01: 0.5,
-        frost01: 0,
+        entryChannels: initEntryChannelStates(fixture),
         fog01: 0,
-        frostCurve: "linear",
-        dimmer01: 1,
-        customChannels: initCustomChannelStates(fixture),
+    };
+}
+
+export function patchEntryChannel(
+    state: DMXLiveControlState,
+    offset: number,
+    partial: Partial<EntryChannelLiveState>,
+): DMXLiveControlState {
+    const prev = state.entryChannels[offset] ?? {
+        slotIdx: 0,
+        within01: 0.5,
+        linear01: 0.5,
+    };
+    return {
+        ...state,
+        entryChannels: {
+            ...state.entryChannels,
+            [offset]: {...prev, ...partial},
+        },
     };
 }
 
 export function buildDmxLivePatch(fixture: DMXFixture, s: DMXLiveControlState): DmxLivePatchEntry[] {
     const out: DmxLivePatchEntry[] = [];
-    const chans = fixture.channels;
+    const patchedOffsets = new Set<number>();
 
-    const pan = firstChannel(chans, "pan");
-    const tilt = firstChannel(chans, "tilt");
-    if (pan) {
-        pushPatch(out, fixture, pan, linearByte(pan.properties as JSONMap | undefined, s.pan01));
-    }
-    if (tilt) {
-        pushPatch(out, fixture, tilt, linearByte(tilt.properties as JSONMap | undefined, s.tilt01));
-    }
-
-    const dim = firstChannel(chans, "dimmer");
-    pushPatch(out, fixture, dim, linearByte(dim?.properties as JSONMap | undefined, s.dimmer01));
-
-    const cw = firstChannel(chans, "colorWheel");
-    if (cw) {
-        const entries = parseFixtureEntries(cw.properties as JSONMap | undefined);
-        pushPatch(out, fixture, cw, slotMid(entries, s.colorWheelIdx));
-    }
-
-    const gobos = allChannelsOfType(chans, "goboWheel");
-    if (gobos[0]) {
-        const entries = parseFixtureEntries(gobos[0].properties as JSONMap | undefined);
-        pushPatch(out, fixture, gobos[0], slotMid(entries, s.gobo1Idx));
-    }
-    if (gobos[1]) {
-        const entries = parseFixtureEntries(gobos[1].properties as JSONMap | undefined);
-        pushPatch(out, fixture, gobos[1], slotMid(entries, s.gobo2Idx));
-    }
-
-    const shutter = firstChannel(chans, "shutterStrobe");
-    if (shutter) {
-        const entries = parseFixtureEntries(shutter.properties as JSONMap | undefined);
-        const idx = pickShutterEntryIndex(entries, s.shutter);
-        pushPatch(out, fixture, shutter, slotMid(entries, idx));
-    }
-
-    const ms = firstChannel(chans, "movementSpeed");
-    if (ms) {
-        const entries = parseFixtureEntries(ms.properties as JSONMap | undefined);
-        pushPatch(out, fixture, ms, slotMid(entries, s.movementSpeedIdx));
-    }
-
-    const focus = firstChannel(chans, "focus");
-    pushPatch(out, fixture, focus, linearByte(focus?.properties as JSONMap | undefined, s.focus01));
-    const zoom = firstChannel(chans, "zoom");
-    pushPatch(out, fixture, zoom, linearByte(zoom?.properties as JSONMap | undefined, s.zoom01));
-    const iris = firstChannel(chans, "iris");
-    pushPatch(out, fixture, iris, linearByte(iris?.properties as JSONMap | undefined, s.iris01));
-
-    const fog = firstChannel(chans, "fog");
-    const fogProps = fog?.properties as JSONMap | undefined;
-    if (fixture.type === "smoke" && smokeFogOutputRange(fogProps)) {
-        pushPatch(out, fixture, fog, smokeFogByte(fogProps, s.fog01));
-    }
-
-    const frost = firstChannel(chans, "frost");
-    if (frost) {
-        const props = frost.properties as JSONMap | undefined;
-        const entries = parseFixtureEntries(props);
-        if (entries.length > 0) {
-            const pool = frostEntriesForCurve(entries, s.frostCurve);
-            const usePool = pool.length > 0 ? pool : entries;
-            const maxI = Math.max(0, usePool.length - 1);
-            const idx = Math.round(clamp(s.frost01, 0, 1) * maxI);
-            pushPatch(out, fixture, frost, slotMid(usePool, idx));
-        } else {
-            pushPatch(out, fixture, frost, linearByte(props, s.frost01));
-        }
-    }
-
-    for (const ch of chans) {
-        if (ch.type !== "custom") {
+    for (const ch of fixture.channels) {
+        const widget = resolveLiveWidget(ch);
+        if (widget === "hidden") {
+            const coarse = findCoarseChannel(fixture, ch);
+            if (coarse) {
+                const coarseSt = s.entryChannels[coarse.channel];
+                if (coarseSt) {
+                    const coarseVal = channelOutputByte(coarse, coarseSt);
+                    pushPatch(out, fixture, ch, coarseVal);
+                    patchedOffsets.add(ch.channel);
+                }
+            }
             continue;
         }
-        const customState = s.customChannels[ch.channel] ?? initCustomChannelState(ch);
-        pushPatch(out, fixture, ch, customState.outputByte);
+
+        const st = s.entryChannels[ch.channel] ?? defaultEntryStateForChannel(ch);
+        pushPatch(out, fixture, ch, channelOutputByte(ch, st, widget));
+        patchedOffsets.add(ch.channel);
     }
 
     return out;
+}
+
+/** Legacy accessors for preview drive */
+export function legacyPan01(fixture: DMXFixture, s: DMXLiveControlState): number {
+    const ch = fixture.channels.find((c) => c.type === "pan" || c.type === "infinitePan");
+    return ch ? getChannelLinear01(s, ch) : 0.5;
+}
+
+export function legacyTilt01(fixture: DMXFixture, s: DMXLiveControlState): number {
+    const ch = fixture.channels.find((c) => c.type === "tilt" || c.type === "infiniteTilt");
+    return ch ? getChannelLinear01(s, ch) : 0.5;
+}
+
+export function legacyDimmer01(fixture: DMXFixture, s: DMXLiveControlState): number {
+    const ch = fixture.channels.find((c) => c.type === "dimmer");
+    return ch ? getChannelLinear01(s, ch, 1) : 1;
+}
+
+export function legacyColorWheelIdx(fixture: DMXFixture, s: DMXLiveControlState): number {
+    const ch = fixture.channels.find((c) => c.type === "colorWheel");
+    return ch ? getChannelSlotIdx(s, ch) : 0;
+}
+
+export function legacyFocus01(fixture: DMXFixture, s: DMXLiveControlState): number {
+    const ch = fixture.channels.find((c) => c.type === "focus");
+    if (!ch) {
+        return 0.5;
+    }
+    const widget = resolveLiveWidget(ch);
+    const st = s.entryChannels[ch.channel];
+    if (!st) {
+        return 0.5;
+    }
+    if (widget === "slotSlider" || widget === "buttons") {
+        const entries = parseFixtureEntries(ch.properties as JSONMap | undefined);
+        if (entries.length > 0) {
+            return st.slotIdx / Math.max(1, entries.length - 1);
+        }
+    }
+    return st.linear01;
 }

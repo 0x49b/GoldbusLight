@@ -41,22 +41,6 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 	}
 	chans := fixture.Channels
 
-	const (
-		pan01       = 0.5
-		tilt01      = 0.5
-		dimmer01    = 1.0
-		colorIdx    = 0
-		goboIdx     = 0
-		shutterMode = "open"
-		msIdx       = 0
-		focus01     = 0.5
-		zoom01      = 0.5
-		iris01      = 0.5
-		frost01     = 0.0
-		fog01       = 0.0
-		frostCurve  = "linear"
-	)
-
 	var out []dmx.DMXOutputUpdate
 	push := func(ch *DMXChannel, value int) {
 		if ch == nil || ch.Channel < 1 {
@@ -69,106 +53,26 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 		out = append(out, dmx.DMXOutputUpdate{Address: addr, Value: clampDMXByte(value)})
 	}
 
-	firstCh := func(typ string) *DMXChannel {
-		for i := range chans {
-			if strings.EqualFold(strings.TrimSpace(chans[i].Type), typ) {
-				return &chans[i]
-			}
-		}
-		return nil
-	}
-	allCh := func(typ string) []*DMXChannel {
-		var res []*DMXChannel
-		for i := range chans {
-			if strings.EqualFold(strings.TrimSpace(chans[i].Type), typ) {
-				res = append(res, &chans[i])
-			}
-		}
-		return res
-	}
-
-	if ch := firstCh("pan"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, pan01))
-	}
-	if ch := firstCh("infinitePan"); ch != nil && firstCh("pan") == nil {
-		push(ch, liveInitLinearByte(ch.Properties, pan01))
-	}
-	if ch := firstCh("tilt"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, tilt01))
-	}
-	if ch := firstCh("infiniteTilt"); ch != nil && firstCh("tilt") == nil {
-		push(ch, liveInitLinearByte(ch.Properties, tilt01))
-	}
-	if ch := firstCh("dimmer"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, dimmer01))
-	}
-
-	if ch := firstCh("colorWheel"); ch != nil {
-		entries := liveInitParseEntries(ch.Properties)
-		push(ch, liveInitSlotMid(entries, colorIdx))
-	}
-
-	gobos := allCh("goboWheel")
-	if len(gobos) > 0 {
-		entries := liveInitParseEntries(gobos[0].Properties)
-		push(gobos[0], liveInitSlotMid(entries, goboIdx))
-	}
-	if len(gobos) > 1 {
-		entries := liveInitParseEntries(gobos[1].Properties)
-		push(gobos[1], liveInitSlotMid(entries, goboIdx))
-	}
-
-	if ch := firstCh("shutterStrobe"); ch != nil {
-		entries := liveInitParseEntries(ch.Properties)
-		idx := liveInitPickShutterEntryIndex(entries, shutterMode)
-		push(ch, liveInitSlotMid(entries, idx))
-	}
-
-	if ch := firstCh("movementSpeed"); ch != nil {
-		entries := liveInitParseEntries(ch.Properties)
-		push(ch, liveInitSlotMid(entries, msIdx))
-	}
-
-	if ch := firstCh("focus"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, focus01))
-	}
-	if ch := firstCh("zoom"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, zoom01))
-	}
-	if ch := firstCh("iris"); ch != nil {
-		push(ch, liveInitLinearByte(ch.Properties, iris01))
-	}
-
-	if ch := firstCh("fog"); ch != nil && (fixture.Type == DMXFixtureTypeSmoke || fixture.Type == DMXFixtureTypeHazer) {
-		if r := liveInitSmokeFogOutputRange(ch.Properties); r != nil {
-			push(ch, liveInitSmokeFogByte(ch.Properties, fog01))
-		} else {
-			push(ch, liveInitLinearByte(ch.Properties, fog01))
-		}
-	}
-
-	if ch := firstCh("frost"); ch != nil {
-		entries := liveInitParseEntries(ch.Properties)
-		if len(entries) > 0 {
-			pool := liveInitFrostEntriesForCurve(entries, frostCurve)
-			usePool := pool
-			if len(usePool) == 0 {
-				usePool = entries
-			}
-			maxI := max(0, len(usePool)-1)
-			idx := int(math.Round(clampFloat(frost01, 0, 1) * float64(maxI)))
-			push(ch, liveInitSlotMid(usePool, idx))
-		} else {
-			push(ch, liveInitLinearByte(ch.Properties, frost01))
-		}
-	}
-
 	for i := range chans {
 		ch := &chans[i]
-		if !strings.EqualFold(strings.TrimSpace(ch.Type), "custom") {
+		if ch.Channel < 1 {
 			continue
 		}
-		push(ch, liveInitCustomOutputByte(ch))
+		widget := resolveLiveWidget(*ch)
+		if widget == liveWidgetHidden {
+			coarse := findCoarseForFine(fixture, ch)
+			if coarse != nil {
+				push(ch, liveInitOutputForChannel(fixture, coarse))
+			}
+			continue
+		}
+		if strings.EqualFold(ch.Type, "fog") &&
+			(fixture.Type == DMXFixtureTypeSmoke || fixture.Type == DMXFixtureTypeHazer) &&
+			liveInitSmokeFogOutputRange(ch.Properties) != nil {
+			push(ch, liveInitSmokeFogByte(ch.Properties, 0))
+			continue
+		}
+		push(ch, liveInitOutputForChannel(fixture, ch))
 	}
 
 	touched := map[int]struct{}{}
@@ -202,12 +106,7 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 }
 
 func liveInitCustomOutputByte(ch *DMXChannel) int {
-	props := ch.Properties
-	entries := liveInitParseEntries(props)
-	if len(entries) > 0 {
-		return liveInitSlotByte(entries, 0, 0.5)
-	}
-	return liveInitLinearByte(props, 0.5)
+	return liveInitOutputForChannel(DMXFixture{}, ch)
 }
 
 func clampFloat(n, lo, hi float64) float64 {
@@ -290,15 +189,17 @@ func liveInitSlotByte(entries []liveFixtureEntry, slotIdx int, t01 float64) int 
 	i := int(math.Floor(clampFloat(float64(slotIdx), 0, float64(len(entries)-1))))
 	e := entries[i]
 	t := clampFloat(t01, 0, 1)
-	return clampDMXByte(int(math.Round(e.from + t*(e.to-e.from))))
+	lo := math.Min(e.from, e.to)
+	hi := math.Max(e.from, e.to)
+	return clampDMXByte(int(math.Round(lo + t*(hi-lo))))
 }
 
 func liveInitPickShutterEntryIndex(entries []liveFixtureEntry, mode string) int {
 	want := map[string][]string{
-		"open":    {"open", "shutter open", "full"},
-		"closed":  {"close", "closed", "blackout"},
-		"strobe":  {"strobe", "strob", "random strobe"},
-		"pulse":   {"pulse", "ramp", "fade"},
+		"open":   {"open", "shutter open", "full"},
+		"closed": {"close", "closed", "blackout"},
+		"strobe": {"strobe", "strob", "random strobe"},
+		"pulse":  {"pulse", "ramp", "fade"},
 	}
 	keys, ok := want[strings.ToLower(strings.TrimSpace(mode))]
 	if !ok {
@@ -318,10 +219,10 @@ func liveInitPickShutterEntryIndex(entries []liveFixtureEntry, mode string) int 
 		}
 	}
 	fallback := map[string]int{
-		"open":    0,
-		"closed":  minInt(1, maxInt(0, len(entries)-1)),
-		"strobe":  minInt(2, maxInt(0, len(entries)-1)),
-		"pulse":   minInt(3, maxInt(0, len(entries)-1)),
+		"open":   0,
+		"closed": minInt(1, maxInt(0, len(entries)-1)),
+		"strobe": minInt(2, maxInt(0, len(entries)-1)),
+		"pulse":  minInt(3, maxInt(0, len(entries)-1)),
 	}
 	fb := fallback[strings.ToLower(strings.TrimSpace(mode))]
 	if fb < 0 {

@@ -1,23 +1,29 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
-import type {DMXChannelType, DMXFixture, JSONMap} from "@/types/controller.ts";
+import type {DMXFixture} from "@/types/controller.ts";
 import {
     buildDmxLivePatch,
+    channelOutputByte,
     defaultDmxLiveControlState,
-    initCustomChannelState,
-    type CustomChannelLiveState,
+    defaultEntryStateForChannel,
+    legacyFocus01,
+    legacyPan01,
+    legacyTilt01,
     type DMXLiveControlState,
-    parseFixtureEntries,
-    smokeFogOutputRange,
 } from "@/lib/dmxLiveMap.ts";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
-import {cn} from "@/lib/utils";
+import {parseChannelLiveTileId, resolveLiveWidget} from "@/lib/dmxLiveWidget.ts";
 import {fixturePreviewDrive} from "@/lib/dmxFixturePreviewDrive.ts";
-import {mergeLiveLayoutWithActiveIds, type LiveLayoutTile} from "@/lib/dmxFixtureLiveLayout";
+import {
+    liveTileIdsForFixture,
+    mergeLiveLayoutWithActiveIds,
+    type LiveLayoutTile,
+} from "@/lib/dmxFixtureLiveLayout";
 import {loadFixtureLiveLayoutDocument, saveFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
-import {renderLiveControlsSlot, type LiveControlsSlotCtx} from "./dmxFixtureLiveSlots";
+import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
+import {LiveChannelControl} from "./LiveChannelControl";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -29,24 +35,114 @@ type DMXFixtureLiveControlsProps = {
     pullDMXState?: () => Promise<unknown>;
 };
 
-function firstChannel(channels: DMXFixture["channels"], type: DMXChannelType) {
-    return channels.find((c) => c.type === type);
-}
+function renderLiveTile(
+    id: string,
+    fixture: DMXFixture,
+    liveState: DMXLiveControlState,
+    setLiveState: React.Dispatch<React.SetStateAction<DMXLiveControlState>>,
+    opts: {
+        sliderDisabled: boolean;
+        maxPanDeg: number;
+        maxTiltDeg: number;
+        previewPanDeg: number;
+        previewTiltDeg: number;
+        previewFocus: number;
+        previewBeamColor: string;
+        previewBeamRainbow: boolean;
+        previewIntensity: number;
+        previewSmokeIntensity: number;
+        hasPan: boolean;
+        hasTilt: boolean;
+    },
+) {
+    if (id === "preview") {
+        if (fixture.type !== "movingHead" && fixture.type !== "smoke") {
+            return null;
+        }
+        return (
+            <div className="flex h-full min-h-0 flex-col gap-1.5">
+                <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</div>
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <DMXFixturePreview3D
+                        fillGridCell
+                        variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
+                        panDeg={opts.previewPanDeg}
+                        tiltDeg={opts.previewTiltDeg}
+                        maxPanDeg={opts.maxPanDeg}
+                        maxTiltDeg={opts.maxTiltDeg}
+                        focus01={opts.previewFocus}
+                        beamColor={opts.previewBeamColor}
+                        beamRainbow={opts.previewBeamRainbow}
+                        intensity={fixture.type === "smoke" ? opts.previewSmokeIntensity : opts.previewIntensity}
+                        disabled={opts.sliderDisabled || (!opts.hasPan && !opts.hasTilt)}
+                        onPanTiltChange={(next) => {
+                            if (opts.sliderDisabled) {
+                                return;
+                            }
+                            setLiveState((s) => {
+                                let nextState = s;
+                                const panCh = fixture.channels.find((c) => c.type === "pan" || c.type === "infinitePan");
+                                const tiltCh = fixture.channels.find((c) => c.type === "tilt" || c.type === "infiniteTilt");
+                                if (panCh && resolveLiveWidget(panCh) !== "hidden") {
+                                    const prev = s.entryChannels[panCh.channel] ?? defaultEntryStateForChannel(panCh);
+                                    nextState = {
+                                        ...nextState,
+                                        entryChannels: {
+                                            ...nextState.entryChannels,
+                                            [panCh.channel]: {...prev, linear01: next.pan01},
+                                        },
+                                    };
+                                }
+                                if (tiltCh && resolveLiveWidget(tiltCh) !== "hidden") {
+                                    const prev = nextState.entryChannels[tiltCh.channel] ?? defaultEntryStateForChannel(tiltCh);
+                                    nextState = {
+                                        ...nextState,
+                                        entryChannels: {
+                                            ...nextState.entryChannels,
+                                            [tiltCh.channel]: {...prev, linear01: next.tilt01},
+                                        },
+                                    };
+                                }
+                                return nextState;
+                            });
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    }
 
-function allChannelsOfType(channels: DMXFixture["channels"], type: DMXChannelType) {
-    return channels.filter((c) => c.type === type);
+    const offset = parseChannelLiveTileId(id);
+    if (offset == null) {
+        return null;
+    }
+    const ch = fixture.channels.find((c) => c.channel === offset);
+    if (!ch || resolveLiveWidget(ch) === "hidden") {
+        return null;
+    }
+
+    return (
+        <LiveChannelControl
+            fixture={fixture}
+            channel={ch}
+            liveState={liveState}
+            onStateChange={setLiveState}
+            disabled={opts.sliderDisabled}
+            compact
+        />
+    );
 }
 
 export function DMXFixtureLiveControls({
-                                           fixture,
-                                           busy,
-                                           liveStatus,
-                                           partyRunning,
-                                           queueDmxLivePatch,
-                                           liveUniverse,
-                                           pullDMXState,
-                                       }: DMXFixtureLiveControlsProps) {
-    const connected                 = liveStatus?.connected ?? false;
+    fixture,
+    busy,
+    liveStatus,
+    partyRunning,
+    queueDmxLivePatch,
+    liveUniverse,
+    pullDMXState,
+}: DMXFixtureLiveControlsProps) {
+    const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
 
     useEffect(() => {
@@ -55,15 +151,15 @@ export function DMXFixtureLiveControls({
 
     useEffect(() => {
         setLiveState((prev) => {
-            const customChannels = {...prev.customChannels};
-            let changed          = false;
+            const entryChannels = {...prev.entryChannels};
+            let changed = false;
             for (const ch of fixture.channels) {
-                if (ch.type === "custom" && !customChannels[ch.channel]) {
-                    customChannels[ch.channel] = initCustomChannelState(ch);
-                    changed                    = true;
+                if (resolveLiveWidget(ch) !== "hidden" && !entryChannels[ch.channel]) {
+                    entryChannels[ch.channel] = defaultEntryStateForChannel(ch);
+                    changed = true;
                 }
             }
-            return changed ? {...prev, customChannels} : prev;
+            return changed ? {...prev, entryChannels} : prev;
         });
     }, [fixture.channels]);
 
@@ -84,163 +180,26 @@ export function DMXFixtureLiveControls({
         return () => window.clearInterval(id);
     }, [connected, pullDMXState]);
 
-    const chans = fixture.channels;
+    const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
+    const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
+    const previewDrive = fixturePreviewDrive(fixture, liveUniverse, liveState);
+    const previewPanDeg = legacyPan01(fixture, liveState) * maxPanDeg;
+    const previewTiltDeg = legacyTilt01(fixture, liveState) * maxTiltDeg;
+    const hasPan = fixture.channels.some((c) => (c.type === "pan" || c.type === "infinitePan") && resolveLiveWidget(c) !== "hidden");
+    const hasTilt = fixture.channels.some((c) => (c.type === "tilt" || c.type === "infiniteTilt") && resolveLiveWidget(c) !== "hidden");
 
-    const cwEntries      = useMemo(
-        () => parseFixtureEntries(firstChannel(chans, "colorWheel")?.properties as JSONMap | undefined),
-        [chans],
-    );
-    const goboWheels     = useMemo(() => allChannelsOfType(chans, "goboWheel"), [chans]);
-    const g1Entries      = useMemo(
-        () => parseFixtureEntries(goboWheels[0]?.properties as JSONMap | undefined),
-        [goboWheels],
-    );
-    const g2Entries      = useMemo(
-        () => parseFixtureEntries(goboWheels[1]?.properties as JSONMap | undefined),
-        [goboWheels],
-    );
-    const msEntries      = useMemo(
-        () => parseFixtureEntries(firstChannel(chans, "movementSpeed")?.properties as JSONMap | undefined),
-        [chans],
-    );
-    const shutterEntries = useMemo(
-        () => parseFixtureEntries(firstChannel(chans, "shutterStrobe")?.properties as JSONMap | undefined),
-        [chans],
-    );
-    const frostEntries   = useMemo(
-        () => parseFixtureEntries(firstChannel(chans, "frost")?.properties as JSONMap | undefined),
-        [chans],
-    );
-    const fogChannel     = firstChannel(chans, "fog");
-    const smokeFogRange  = useMemo(
-        () => smokeFogOutputRange(fogChannel?.properties as JSONMap | undefined),
-        [fogChannel],
-    );
-    const customChannels = useMemo(() => allChannelsOfType(chans, "custom"), [chans]);
+    const fogChannel = fixture.channels.find((c) => c.type === "fog");
+    const previewSmoke01 = useMemo(() => {
+        if (!fogChannel) {
+            return liveState.fog01;
+        }
+        const st = liveState.entryChannels[fogChannel.channel] ?? defaultEntryStateForChannel(fogChannel);
+        return channelOutputByte(fogChannel, st) / 255;
+    }, [fogChannel, liveState]);
 
-    const hasPan            = Boolean(firstChannel(chans, "pan"));
-    const hasTilt           = Boolean(firstChannel(chans, "tilt"));
-    const hasDimmer         = Boolean(firstChannel(chans, "dimmer"));
-    const hasColorWheel     = cwEntries.length > 0;
-    const hasGobo1          = g1Entries.length > 0;
-    const hasGobo2          = g2Entries.length > 0;
-    const hasShutter        = shutterEntries.length > 0;
-    const hasMovementSpeed  = msEntries.length > 0;
-    const hasFocus          = Boolean(firstChannel(chans, "focus"));
-    const hasZoom           = Boolean(firstChannel(chans, "zoom"));
-    const hasIris           = Boolean(firstChannel(chans, "iris"));
-    const hasFrost          = Boolean(firstChannel(chans, "frost"));
-    const hasSmokeFogOutput = fixture.type === "smoke" && Boolean(fogChannel && smokeFogRange);
-    const hasCustom         = customChannels.length > 0;
-    const isColorChanger    = fixture.type === "colorChanger";
-    const sliderGridClass   = cn("grid gap-4", isColorChanger ? "grid-cols-3" : "gap-6 md:grid-cols-2");
-    const sliderFullRowClass = isColorChanger ? "col-span-3" : "md:col-span-2";
-    const maxPanDeg         = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
-    const maxTiltDeg        = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
-
-    const previewDrive          = fixturePreviewDrive(fixture, liveUniverse, liveState);
-    const previewPanDeg         = liveState.pan01 * maxPanDeg;
-    const previewTiltDeg        = liveState.tilt01 * maxTiltDeg;
-    const previewIntensity      = previewDrive.dimmer01;
-    const previewSmokeIntensity = liveState.fog01;
-    const previewFocus          = previewDrive.focus01;
-    const previewBeamColor      = previewDrive.beamColor;
-    const previewBeamRainbow    = previewDrive.beamRainbow;
-
-    const cwMax = Math.max(0, cwEntries.length - 1);
-    const msMax = Math.max(0, msEntries.length - 1);
-
-    const patchState = useCallback((partial: Partial<DMXLiveControlState>) => {
-        setLiveState((s) => ({...s, ...partial}));
-    }, []);
-
-    const patchCustomChannel = useCallback((offset: number, next: CustomChannelLiveState) => {
-        setLiveState((s) => ({
-            ...s,
-            customChannels: {...s.customChannels, [offset]: next},
-        }));
-    }, []);
-
-    const sliderDisabled             = busy || !connected || partyRunning;
-    const handlePreviewPanTiltChange = useCallback((next: { pan01: number; tilt01: number }) => {
-        if (sliderDisabled) {
-            return;
-        }
-        const partial: Partial<DMXLiveControlState> = {};
-        if (hasPan) {
-            partial.pan01 = next.pan01;
-        }
-        if (hasTilt) {
-            partial.tilt01 = next.tilt01;
-        }
-        if (Object.keys(partial).length > 0) {
-            patchState(partial);
-        }
-    }, [hasPan, hasTilt, patchState, sliderDisabled]);
-    const noneConfigured             =
-              !hasPan &&
-              !hasTilt &&
-              !hasDimmer &&
-              !hasColorWheel &&
-              !hasGobo1 &&
-              !hasGobo2 &&
-              !hasShutter &&
-              !hasMovementSpeed &&
-              !hasFocus &&
-              !hasZoom &&
-              !hasIris &&
-              !hasFrost &&
-              !hasSmokeFogOutput &&
-              !hasCustom;
-
-    const liveTileIds = useMemo(() => {
-        const ids: string[] = [];
-        if (fixture.type === "movingHead" || fixture.type === "smoke") {
-            ids.push("preview");
-        }
-        if (hasSmokeFogOutput) {
-            ids.push("smoke");
-        }
-        if (hasPan || hasTilt || hasDimmer || hasMovementSpeed) {
-            ids.push("movement");
-        }
-        if (hasColorWheel || hasGobo1 || hasGobo2) {
-            ids.push("colorGobo");
-        }
-        if (hasShutter || hasFocus || hasZoom || hasIris || hasFrost) {
-            ids.push("beam");
-        }
-        if (hasCustom) {
-            if (isColorChanger) {
-                ids.push("custom-all");
-            } else {
-                for (const ch of customChannels) {
-                    ids.push(`custom-${ch.channel}`);
-                }
-            }
-        }
-        return ids;
-    }, [
-        fixture.type,
-        hasSmokeFogOutput,
-        hasPan,
-        hasTilt,
-        hasDimmer,
-        hasMovementSpeed,
-        hasColorWheel,
-        hasGobo1,
-        hasGobo2,
-        hasShutter,
-        hasFocus,
-        hasZoom,
-        hasIris,
-        hasFrost,
-        hasCustom,
-        isColorChanger,
-        customChannels,
-    ]);
-
+    const liveTileIds = useMemo(() => liveTileIdsForFixture(fixture), [fixture]);
     const liveTileIdsKey = liveTileIds.join("|");
+    const noneConfigured = liveTileIds.length === 0;
 
     const [layoutTiles, setLayoutTiles] = useState<LiveLayoutTile[]>([]);
     const [editLayout, setEditLayout] = useState(false);
@@ -258,7 +217,7 @@ export function DMXFixtureLiveControls({
             if (cancelled) {
                 return;
             }
-            setLayoutTiles(mergeLiveLayoutWithActiveIds(saved, liveTileIds));
+            setLayoutTiles(mergeLiveLayoutWithActiveIds(saved, liveTileIds, fixture));
         })();
         return () => {
             cancelled = true;
@@ -267,7 +226,7 @@ export function DMXFixtureLiveControls({
 
     useEffect(() => {
         if (prevEditRef.current && !editLayout) {
-            void saveFixtureLiveLayoutDocument(fixture.id, {version: 1, tiles: layoutTilesRef.current});
+            void saveFixtureLiveLayoutDocument(fixture.id, {version: 3, tiles: layoutTilesRef.current});
         }
         prevEditRef.current = editLayout;
     }, [editLayout, fixture.id]);
@@ -275,97 +234,41 @@ export function DMXFixtureLiveControls({
     useEffect(() => {
         return () => {
             if (editLayout) {
-                void saveFixtureLiveLayoutDocument(fixture.id, {version: 1, tiles: layoutTilesRef.current});
+                void saveFixtureLiveLayoutDocument(fixture.id, {version: 3, tiles: layoutTilesRef.current});
             }
         };
     }, [editLayout, fixture.id]);
 
-    const slotCtx: LiveControlsSlotCtx = useMemo(
-        () => ({
-            fixture,
-            liveState,
-            patchState,
-            patchCustomChannel,
-            sliderDisabled,
-            hasPan,
-            hasTilt,
-            hasDimmer,
-            hasColorWheel,
-            hasGobo1,
-            hasGobo2,
-            hasShutter,
-            hasMovementSpeed,
-            hasFocus,
-            hasZoom,
-            hasIris,
-            hasFrost,
-            hasSmokeFogOutput,
-            hasCustom,
-            isColorChanger,
-            customChannels,
-            sliderGridClass,
-            sliderFullRowClass,
-            cwEntries,
-            g1Entries,
-            g2Entries,
-            msEntries,
-            shutterEntries,
-            frostEntries,
-            cwMax,
-            msMax,
-            maxPanDeg,
-            maxTiltDeg,
-            previewPanDeg,
-            previewTiltDeg,
-            previewFocus,
-            previewBeamColor: previewBeamColor ?? "#ffffff",
-            previewBeamRainbow,
-            previewIntensity,
-            previewSmokeIntensity,
-            onPreviewPanTiltChange: handlePreviewPanTiltChange,
-        }),
+    const sliderDisabled = busy || !connected || partyRunning;
+
+    const renderSlot = useCallback(
+        (id: string) =>
+            renderLiveTile(id, fixture, liveState, setLiveState, {
+                sliderDisabled,
+                maxPanDeg,
+                maxTiltDeg,
+                previewPanDeg,
+                previewTiltDeg,
+                previewFocus: legacyFocus01(fixture, liveState),
+                previewBeamColor: previewDrive.beamColor ?? "#ffffff",
+                previewBeamRainbow: previewDrive.beamRainbow,
+                previewIntensity: previewDrive.dimmer01,
+                previewSmokeIntensity: previewSmoke01,
+                hasPan,
+                hasTilt,
+            }),
         [
             fixture,
             liveState,
-            patchState,
-            patchCustomChannel,
             sliderDisabled,
-            hasPan,
-            hasTilt,
-            hasDimmer,
-            hasColorWheel,
-            hasGobo1,
-            hasGobo2,
-            hasShutter,
-            hasMovementSpeed,
-            hasFocus,
-            hasZoom,
-            hasIris,
-            hasFrost,
-            hasSmokeFogOutput,
-            hasCustom,
-            isColorChanger,
-            customChannels,
-            sliderGridClass,
-            sliderFullRowClass,
-            cwEntries,
-            g1Entries,
-            g2Entries,
-            msEntries,
-            shutterEntries,
-            frostEntries,
-            cwMax,
-            msMax,
             maxPanDeg,
             maxTiltDeg,
             previewPanDeg,
             previewTiltDeg,
-            previewFocus,
-            previewBeamColor,
-            previewBeamRainbow,
-            previewIntensity,
-            previewSmokeIntensity,
-            handlePreviewPanTiltChange,
+            previewDrive,
+            previewSmoke01,
+            hasPan,
+            hasTilt,
         ],
     );
 
@@ -388,8 +291,7 @@ export function DMXFixtureLiveControls({
             {noneConfigured ? (
                 <Card>
                     <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                        No mappable channels found for live control (add pan, tilt, dimmer, wheels,
-                        custom channels, etc. in the fixture editor).
+                        No mappable channels found for live control (configure channels in the fixture editor).
                     </CardContent>
                 </Card>
             ) : (
@@ -397,7 +299,7 @@ export function DMXFixtureLiveControls({
                     editMode={editLayout}
                     tiles={layoutTiles}
                     onTilesChange={setLayoutTiles}
-                    renderSlot={(id) => renderLiveControlsSlot(id, slotCtx)}
+                    renderSlot={renderSlot}
                 />
             )}
         </div>

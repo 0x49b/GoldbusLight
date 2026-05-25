@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "type": "other",
+  "brand": "Renkforce",
+  "name": "RGBW LEDSpot",
+  "dmxAddress": 1,
+  "movingHead": {
+    "maxPan": 540,
+    "maxTilt": 270
+  },
+  "channels": [
+    {
+      "channel": 1,
+      "type": "custom",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Rot",
+            "to": 255
+          }
+        ]
+      }
+    },
+    {
+      "channel": 2,
+      "type": "custom",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Grün",
+            "to": 255
+          }
+        ]
+      }
+    },
+    {
+      "channel": 3,
+      "type": "custom",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Blau",
+            "to": 255
+          }
+        ]
+      }
+    },
+    {
+      "channel": 4,
+      "type": "custom",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Weiss",
+            "to": 255
+          }
+        ]
+      }
+    },
+    {
+      "channel": 5,
+      "type": "dimmer",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Helligkeit",
+            "to": 255
+          }
+        ]
+      }
+    },
+    {
+      "channel": 6,
+      "type": "custom",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Dauerlicht",
+            "to": 5
+          },
+          {
+            "from": 6,
+            "label": "Strobo",
+            "to": 250
+          },
+          {
+            "from": 251,
+            "label": "Sound-to-light",
+            "to": 255
+          }
+        ]
+      }
+    }
+  ]
+}

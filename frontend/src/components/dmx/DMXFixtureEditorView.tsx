@@ -33,6 +33,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
+import {
+    DMX_LIVE_WIDGET_OPTIONS,
+    readLiveWidgetOverride,
+    resolveLiveWidget,
+    type DMXLiveWidget,
+    type LiveSlotKind,
+} from "@/lib/dmxLiveWidget.ts";
+import {liveWidgetPreviewLine} from "./LiveChannelControl";
 import {isFixtureInParty} from "@/lib/partyTargets";
 import {cn} from "@/lib/utils";
 import {
@@ -173,6 +181,8 @@ type SlotEntry = {
     goboIdentifier?: string;
     goboName?: string;
     goboImage?: string;
+    /** buttonSlider: toggle vs range slider for this slot */
+    liveSlotKind?: LiveSlotKind;
 };
 
 type GoboCatalogEntry = {
@@ -471,6 +481,9 @@ function parseEntries(props: JSONMap | undefined): SlotEntry[] {
             continue;
         }
         const e = item as Record<string, unknown>;
+        const liveSlotRaw = e.liveSlotKind;
+        const liveSlotKind =
+            liveSlotRaw === "button" || liveSlotRaw === "slider" ? liveSlotRaw : undefined;
         out.push({
             from: typeof e.from === "number" ? e.from : Number(e.from) || 0,
             to: typeof e.to === "number" ? e.to : Number(e.to) || 255,
@@ -482,6 +495,7 @@ function parseEntries(props: JSONMap | undefined): SlotEntry[] {
             goboIdentifier: typeof e.goboIdentifier === "string" ? e.goboIdentifier : undefined,
             goboName: typeof e.goboName === "string" ? e.goboName : undefined,
             goboImage: typeof e.goboImage === "string" ? e.goboImage : undefined,
+            liveSlotKind,
         });
     }
     return out;
@@ -490,6 +504,28 @@ function parseEntries(props: JSONMap | undefined): SlotEntry[] {
 function usesSlots(properties: JSONMap | undefined): boolean {
     const entries = parseEntries(properties);
     return entries.length > 0;
+}
+
+function EntryLiveSlotKindSelect({
+    value,
+    onChange,
+    disabled,
+}: {
+    value: LiveSlotKind | undefined;
+    onChange: (kind: LiveSlotKind) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <NativeSelect
+            value={value ?? "button"}
+            onChange={(e) => onChange(e.target.value as LiveSlotKind)}
+            disabled={disabled}
+            className="h-8"
+        >
+            <NativeSelectOption value="button">Toggle</NativeSelectOption>
+            <NativeSelectOption value="slider">Slider</NativeSelectOption>
+        </NativeSelect>
+    );
 }
 
 function maxChannelOffset(dmxAddress: number): number {
@@ -1124,6 +1160,9 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 const propsMap = (ch.properties ?? {}) as JSONMap;
                                 const slots = parseEntries(propsMap);
                                 const slotMode = usesSlots(propsMap);
+                                const resolvedLiveWidget = resolveLiveWidget(ch);
+                                const showSlotKindEditor =
+                                    resolvedLiveWidget === "buttonSlider" && slotMode && slots.length > 0;
                                 const minV =
                                     typeof propsMap.min === "number" ? propsMap.min : Number(propsMap.min) || 0;
                                 const maxV =
@@ -1221,6 +1260,31 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             >
                                                 <PiTrash className="size-4"/>
                                             </Button>
+                                        </div>
+
+                                        <div className="mt-2 max-w-md space-y-1">
+                                            <Label className="text-xs">Live control</Label>
+                                            <NativeSelect
+                                                value={readLiveWidgetOverride(propsMap) ?? "auto"}
+                                                onChange={(e) => {
+                                                    const v = e.target.value as DMXLiveWidget;
+                                                    const nextProps = {...propsMap};
+                                                    if (v === "auto") {
+                                                        delete nextProps.liveWidget;
+                                                    } else {
+                                                        nextProps.liveWidget = v;
+                                                    }
+                                                    updateChannelAt(originalIdx, {properties: nextProps});
+                                                }}
+                                                disabled={props.busy}
+                                            >
+                                                {DMX_LIVE_WIDGET_OPTIONS.map((opt) => (
+                                                    <NativeSelectOption key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </NativeSelectOption>
+                                                ))}
+                                            </NativeSelect>
+                                            <p className="text-[11px] text-muted-foreground">{liveWidgetPreviewLine(ch)}</p>
                                         </div>
 
                                         {ch.type === "custom" && (
@@ -2169,6 +2233,27 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             </Button>
                                                                         </div>
                                                                     </TableCell>
+                                                                    {showSlotKindEditor ? (
+                                                                        <TableCell className="align-middle">
+                                                                            <EntryLiveSlotKindSelect
+                                                                                value={slot.liveSlotKind}
+                                                                                disabled={props.busy}
+                                                                                onChange={(kind) => {
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        liveSlotKind: kind,
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                        </TableCell>
+                                                                    ) : null}
                                                                     <TableCell
                                                                         className="text-right align-middle">
                                                                         <Button
@@ -2251,6 +2336,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 className="w-[200px] text-right text-muted-foreground">
                                                                 Speed
                                                             </TableHead>
+                                                            {showSlotKindEditor ? (
+                                                                <TableHead className="w-[108px] text-muted-foreground">
+                                                                    Live slot
+                                                                </TableHead>
+                                                            ) : null}
                                                             <TableHead className="w-12"/>
                                                         </TableRow>
                                                     </TableHeader>
@@ -2455,6 +2545,27 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             </Button>
                                                                         </div>
                                                                     </TableCell>
+                                                                    {showSlotKindEditor ? (
+                                                                        <TableCell className="align-middle">
+                                                                            <EntryLiveSlotKindSelect
+                                                                                value={slot.liveSlotKind}
+                                                                                disabled={props.busy}
+                                                                                onChange={(kind) => {
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        liveSlotKind: kind,
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            />
+                                                                        </TableCell>
+                                                                    ) : null}
                                                                     <TableCell
                                                                         className="text-right align-middle">
                                                                         <Button
@@ -2526,12 +2637,20 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             </div>
                                         ) : (
                                             <div className="mt-3 space-y-2">
+                                                {showSlotKindEditor && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Button slider: set each slot to Toggle (button) or Slider for
+                                                        live control.
+                                                    </p>
+                                                )}
                                                 {slots.map((slot, si) => (
                                                     <div
                                                         key={si}
                                                         className={cn(
                                                             "grid gap-2 rounded-md border bg-background p-2",
-                                                            "sm:grid-cols-[88px_88px_1fr_auto]",
+                                                            showSlotKindEditor
+                                                                ? "sm:grid-cols-[88px_88px_1fr_108px_auto]"
+                                                                : "sm:grid-cols-[88px_88px_1fr_auto]",
                                                         )}
                                                     >
                                                         <div className="grid gap-1">
@@ -2599,6 +2718,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 }}
                                                             />
                                                         </div>
+                                                        {showSlotKindEditor ? (
+                                                            <div className="grid gap-1">
+                                                                <Label className="text-xs">Live slot</Label>
+                                                                <EntryLiveSlotKindSelect
+                                                                    value={slot.liveSlotKind}
+                                                                    disabled={props.busy}
+                                                                    onChange={(kind) => {
+                                                                        const next = [...slots];
+                                                                        next[si] = {
+                                                                            ...slot,
+                                                                            liveSlotKind: kind,
+                                                                        };
+                                                                        updateChannelAt(originalIdx, {
+                                                                            properties: {
+                                                                                ...propsMap,
+                                                                                entries: next,
+                                                                            },
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        ) : null}
                                                         <div className="flex items-end justify-end">
                                                             <Button
                                                                 type="button"
