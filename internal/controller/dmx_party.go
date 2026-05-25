@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goldbus/internal/dmx"
 	"math"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -305,10 +306,18 @@ func (c *WLEDController) StartDMXParty() error {
 }
 
 func (c *WLEDController) StopDMXParty() {
-	c.stopDMXPartyWithReason("")
+	c.stopDMXPartyInternal("", true)
 }
 
 func (c *WLEDController) stopDMXPartyWithReason(reason string) {
+	c.stopDMXPartyInternal(reason, true)
+}
+
+// stopDMXPartyInternal tears down party mode. When wait is true (normal UI/shutdown path),
+// it waits for the worker goroutine to exit. When wait is false (called from the worker
+// itself, e.g. DMX disconnect), it must not wait — otherwise the worker deadlocks on its
+// own WaitGroup.
+func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 	c.stopPartyAudioCapture()
 	c.dmxLiveMu.Lock()
 	cancel := c.dmxPartyCancel
@@ -320,7 +329,7 @@ func (c *WLEDController) stopDMXPartyWithReason(reason string) {
 	if cancel != nil {
 		cancel()
 	}
-	if running {
+	if running && wait {
 		c.dmxPartyWG.Wait()
 	}
 	c.mu.Lock()
@@ -344,7 +353,13 @@ func (c *WLEDController) dmxLiveIsConnected() bool {
 }
 
 func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
-	defer c.dmxPartyWG.Done()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			c.logger.Printf("dmx party worker panic: %v\n%s", recovered, debug.Stack())
+			c.onDMXPartyWorkerCrashed(fmt.Errorf("party mode crashed: %v", recovered))
+		}
+		c.dmxPartyWG.Done()
+	}()
 	ticker := time.NewTicker(time.Second / dmxLiveFrameHz)
 	defer ticker.Stop()
 
@@ -356,64 +371,81 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			state := c.GetDMXPartyState()
-			if !state.Config.Enabled {
-				continue
-			}
-
-			c.mu.RLock()
-			fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
-			devices := cloneDeviceMap(c.devices)
-			c.mu.RUnlock()
-			dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
-			wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
-			if len(dmxTargets) == 0 && len(wledTargets) == 0 {
-				continue
-			}
-
-			values := computePartyPhaseValues(state, now)
-			advancePartyPhases(values, &motionPhase, &colorPhase)
-
-			if len(dmxTargets) > 0 {
-				if !c.dmxLiveIsConnected() {
-					c.stopDMXPartyWithReason("dmx live output is disconnected")
+			func() {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						c.logger.Printf("dmx party frame panic: %v\n%s", recovered, debug.Stack())
+					}
+				}()
+				state := c.GetDMXPartyState()
+				if !state.Config.Enabled {
 					return
 				}
-				updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets)
-				if len(updates) > 0 {
-					c.dmxLiveMu.Lock()
-					if !c.dmxLiveRunning || !c.dmxPartyRunning {
-						c.dmxLiveMu.Unlock()
-						continue
-					}
-					c.partyOwnedAddrs = owned
-					c.applyDMXUpdatesLocked(updates)
-					frame := c.dmxLiveBuf
-					queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
-					queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
-					c.dmxLiveMu.Unlock()
+
+				c.mu.RLock()
+				fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
+				devices := cloneDeviceMap(c.devices)
+				c.mu.RUnlock()
+				dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+				wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
+				if len(dmxTargets) == 0 && len(wledTargets) == 0 {
+					return
 				}
-			}
 
-			frameCount++
-			if frameCount%4 == 0 && len(wledTargets) > 0 {
-				c.applyPartyToWLEDDevices(state, motionPhase, colorPhase, values)
-			}
+				values := computePartyPhaseValues(state, now)
+				advancePartyPhases(values, &motionPhase, &colorPhase)
 
-			c.mu.Lock()
-			party := normalizeDMXPartyState(c.dmxState.Party)
-			party.Status.Running = true
-			party.Status.Mode = party.Config.Mode
-			party.Status.PartyBlocksManualPatch = len(dmxTargets) > 0
-			party.Status.LastFrameAt = now
-			if party.Audio.CapturedAt.After(time.Time{}) {
-				party.Status.LastAudioAt = party.Audio.CapturedAt
-			}
-			c.dmxState.Party = party
-			c.updated = time.Now()
-			c.mu.Unlock()
+				if len(dmxTargets) > 0 {
+					if !c.dmxLiveIsConnected() {
+						c.stopDMXPartyInternal("dmx live output is disconnected", false)
+						return
+					}
+					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets)
+					if len(updates) > 0 {
+						c.dmxLiveMu.Lock()
+						if !c.dmxLiveRunning || !c.dmxPartyRunning {
+							c.dmxLiveMu.Unlock()
+							return
+						}
+						c.partyOwnedAddrs = owned
+						c.applyDMXUpdatesLocked(updates)
+						frame := c.dmxLiveBuf
+						queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
+						queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+						c.dmxLiveMu.Unlock()
+					}
+				}
+
+				frameCount++
+				if frameCount%4 == 0 && len(wledTargets) > 0 {
+					c.applyPartyToWLEDDevices(state, motionPhase, colorPhase, values)
+				}
+
+				c.mu.Lock()
+				party := normalizeDMXPartyState(c.dmxState.Party)
+				party.Status.Running = true
+				party.Status.Mode = party.Config.Mode
+				party.Status.PartyBlocksManualPatch = len(dmxTargets) > 0
+				party.Status.LastFrameAt = now
+				if party.Audio.CapturedAt.After(time.Time{}) {
+					party.Status.LastAudioAt = party.Audio.CapturedAt
+				}
+				c.dmxState.Party = party
+				c.updated = time.Now()
+				c.mu.Unlock()
+			}()
 		}
 	}
+}
+
+// onDMXPartyWorkerCrashed clears party worker flags without waiting on the worker
+// (must not be called from the party worker goroutine while it is still registered in the WaitGroup).
+func (c *WLEDController) onDMXPartyWorkerCrashed(err error) {
+	reason := "party mode stopped due to an internal error"
+	if err != nil {
+		reason = err.Error()
+	}
+	c.stopDMXPartyInternal(reason, false)
 }
 
 func (c *WLEDController) buildDMXPartyFrame(

@@ -785,6 +785,8 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	}
 
 	normDMX := normalizeDMXState(dmxState)
+	normDMX.Party = stripDMXPartyRuntimeForPersistence(normalizeDMXPartyState(normDMX.Party))
+	normDMX.Party.Config.Enabled = false
 	oldUSB := strings.TrimSpace(normDMX.SelectedUSBDeviceID)
 	normDMX.SelectedUSBDeviceID = dmx.CanonicalizePersistedDMXUSBSelectionID(oldUSB)
 
@@ -796,6 +798,8 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
+
+	c.StopDMXParty()
 
 	if normDMX.SelectedUSBDeviceID != oldUSB && normDMX.SelectedUSBDeviceID != "" {
 		if err := c.persistDMX(); err != nil {
@@ -822,7 +826,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.subnetProbeLoop(runCtx)
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
-	go c.restoreLastStatesOnBoot(runCtx)
+	go c.recallWLEDDevicePresetsOnBoot(runCtx)
 
 	return nil
 }
@@ -1474,6 +1478,7 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	defer c.dmxLiveOpMu.Unlock()
 	c.mu.RLock()
 	dmxSettings := c.settings.DMX
+	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
 	c.mu.RUnlock()
 	if !dmxSettings.Enabled {
 		return fmt.Errorf("dmx component is disabled in settings")
@@ -1495,6 +1500,15 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	reconcileErr := c.reconcileDMXLiveAdaptersLocked()
 	c.dmxLiveMu.Lock()
 	hasAdapter := c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil
+	if hasAdapter {
+		updates := buildDMXLiveInitUpdates(fixtures)
+		if len(updates) > 0 {
+			c.applyDMXUpdatesLocked(updates)
+		}
+		frame := c.dmxLiveBuf
+		queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
+		queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+	}
 	c.dmxLiveMu.Unlock()
 	if !hasAdapter {
 		c.stopDMXLiveLocked()
@@ -2592,7 +2606,9 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 	}
 }
 
-func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
+// recallWLEDDevicePresetsOnBoot tells each known WLED unit to load a preset from its own
+// flash (HTTP JSON "ps") instead of replaying merged LastState from the desktop session.
+func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
 	if !c.wledEnabled() {
 		return
 	}
@@ -2605,7 +2621,7 @@ func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
 	c.mu.RLock()
 	list := make([]WLEDDevice, 0, len(c.devices))
 	for _, d := range c.devices {
-		if d.Ignored || len(d.LastState) == 0 {
+		if d.Ignored {
 			continue
 		}
 		list = append(list, d)
@@ -2616,12 +2632,10 @@ func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
 	defer cancel()
 
 	for _, device := range list {
-		state := cloneJSONMap(device.LastState)
-		if len(state) == 0 {
-			continue
-		}
-		if err := c.applyWLEDState(restoreCtx, device, state); err != nil {
-			c.logger.Printf("boot restore for %s failed: %v", device.ID, err)
+		ps := wledBootPresetSlot(device.LastState)
+		payload := map[string]any{"ps": ps}
+		if err := c.applyWLEDState(restoreCtx, device, payload); err != nil {
+			c.logger.Printf("wled boot preset recall for %s failed: %v", device.ID, err)
 			continue
 		}
 		c.mu.Lock()
@@ -2631,19 +2645,28 @@ func (c *WLEDController) restoreLastStatesOnBoot(ctx context.Context) {
 		if latest.Info == nil {
 			latest.Info = map[string]any{}
 		}
-		if v, ok := state["on"]; ok {
-			latest.Info["on"] = v
-		}
-		if v, ok := state["bri"]; ok {
-			latest.Info["bri"] = v
-		}
+		latest.LastState = mergeStateIntoLastState(latest.LastState, payload)
 		c.devices[device.ID] = latest
 		c.updated = time.Now()
 		c.mu.Unlock()
 	}
 	if err := c.persist(); err != nil {
-		c.logger.Printf("persist after boot restore failed: %v", err)
+		c.logger.Printf("persist after boot preset recall failed: %v", err)
 	}
+}
+
+// wledBootPresetSlot picks the WLED preset index to recall on startup (1–250).
+// If LastState remembers a recent "ps" value, that wins; otherwise slot 1 is used.
+func wledBootPresetSlot(lastState map[string]any) int {
+	const fallback = 1
+	if lastState != nil {
+		if v, ok := lastState["ps"]; ok {
+			if n, ok := intFromAny(v); ok && n >= 1 && n <= 250 {
+				return n
+			}
+		}
+	}
+	return fallback
 }
 
 func (c *WLEDController) healthLoop(ctx context.Context) {
@@ -2725,6 +2748,7 @@ func (c *WLEDController) persistDMX() error {
 	c.mu.RLock()
 	state := cloneDMXState(c.dmxState)
 	c.mu.RUnlock()
+	state.Party = stripDMXPartyRuntimeForPersistence(state.Party)
 	return c.dmxPersistence.Save(state)
 }
 

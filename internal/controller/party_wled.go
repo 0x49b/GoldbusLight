@@ -134,22 +134,30 @@ func (c *WLEDController) applyPartyToWLEDDevices(state DMXPartyState, motionPhas
 		ctx = context.Background()
 	}
 	for _, device := range devices {
-		if isNoOpStatePatch(device.LastState, payload) {
-			continue
-		}
-		if err := c.applyWLEDState(ctx, device, payload); err != nil {
-			c.logger.Printf("party wled state failed for %s: %v", device.ID, err)
-			continue
-		}
-		c.mu.Lock()
-		if latest, ok := c.devices[device.ID]; ok {
-			latest.LastSeen = time.Now()
-			latest.Online = true
-			latest.LastState = mergeStateIntoLastState(latest.LastState, payload)
-			c.devices[device.ID] = latest
-		}
-		c.updated = time.Now()
-		c.mu.Unlock()
+		device := device
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					c.logger.Printf("party wled apply panic for %s: %v", device.ID, recovered)
+				}
+			}()
+			if isNoOpStatePatch(device.LastState, payload) {
+				return
+			}
+			if err := c.applyWLEDState(ctx, device, payload); err != nil {
+				c.logger.Printf("party wled state failed for %s: %v", device.ID, err)
+				return
+			}
+			c.mu.Lock()
+			if latest, ok := c.devices[device.ID]; ok {
+				latest.LastSeen = time.Now()
+				latest.Online = true
+				latest.LastState = mergeStateIntoLastState(latest.LastState, payload)
+				c.devices[device.ID] = latest
+			}
+			c.updated = time.Now()
+			c.mu.Unlock()
+		}()
 	}
 }
 
