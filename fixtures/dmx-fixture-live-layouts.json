@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "layouts": {
+    "fixture-1779184904523861896": {
+      "version": 3,
+      "tiles": [
+        {
+          "id": "preview",
+          "col": 0,
+          "w": 1,
+          "y": 0,
+          "heightPx": 363
+        },
+        {
+          "id": "ch-6",
+          "col": 1,
+          "w": 1,
+          "y": 0,
+          "heightPx": 306
+        },
+        {
+          "id": "ch-7",
+          "col": 2,
+          "w": 1,
+          "y": 0,
+          "heightPx": 297
+        },
+        {
+          "id": "ch-9",
+          "col": 2,
+          "w": 1,
+          "y": 305,
+          "heightPx": 125
+        },
+        {
+          "id": "ch-12",
+          "col": 1,
+          "w": 1,
+          "y": 314,
+          "heightPx": 288
+        },
+        {
+          "id": "ch-3",
+          "col": 0,
+          "w": 1,
+          "y": 371,
+          "heightPx": 127
+        },
+        {
+          "id": "ch-16",
+          "col": 2,
+          "w": 1,
+          "y": 438,
+          "heightPx": 158
+        },
+        {
+          "id": "ch-1",
+          "col": 0,
+          "w": 1,
+          "y": 506,
+          "heightPx": 126
+        },
+        {
+          "id": "ch-15",
+          "col": 2,
+          "w": 1,
+          "y": 607,
+          "heightPx": 154
+        },
+        {
+          "id": "ch-14",
+          "col": 1,
+          "w": 1,
+          "y": 610,
+          "heightPx": 156
+        },
+        {
+          "id": "ch-8",
+          "col": 0,
+          "w": 1,
+          "y": 640,
+          "heightPx": 192
+        },
+        {
+          "id": "ch-10",
+          "col": 0,
+          "w": 1,
+          "y": 840,
+          "heightPx": 160
+        },
+        {
+          "id": "ch-5",
+          "col": 2,
+          "w": 1,
+          "y": 769,
+          "heightPx": 163
+        },
+        {
+          "id": "ch-13",
+          "col": 1,
+          "w": 1,
+          "y": 774,
+          "heightPx": 164
+        },
+        {
+          "id": "ch-11",
+          "col": 2,
+          "w": 1,
+          "y": 940,
+          "heightPx": 160
+        }
+      ]
+    },
+    "fixture-1779188052753189379": {
+      "version": 2,
+      "tiles": [
+        {
+          "id": "preview",
+          "col": 0,
+          "row": 0,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "id": "ch-1",
+          "col": 1,
+          "row": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    "fixture-1779618934699114406": {
+      "version": 3,
+      "tiles": [
+        {
+          "id": "ch-1",
+          "col": 0,
+          "w": 1,
+          "y": 0,
+          "heightPx": 159
+        },
+        {
+          "id": "ch-2",
+          "col": 1,
+          "w": 1,
+          "y": 0,
+          "heightPx": 173
+        },
+        {
+          "id": "ch-3",
+          "col": 2,
+          "w": 1,
+          "y": 0,
+          "heightPx": 169
+        },
+        {
+          "id": "ch-6",
+          "col": 2,
+          "w": 1,
+          "y": 179,
+          "heightPx": 216
+        },
+        {
+          "id": "ch-4",
+          "col": 0,
+          "w": 1,
+          "y": 181,
+          "heightPx": 169
+        },
+        {
+          "id": "ch-5",
+          "col": 1,
+          "w": 1,
+          "y": 184,
+          "heightPx": 165
+        }
+      ]
+    }
+  }
+}

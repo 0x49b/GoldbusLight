@@ -1,0 +1,974 @@
+{
+  "fixtures": [
+    {
+      "id": "fixture-1779618934699114406",
+      "type": "colorChanger",
+      "brand": "Renkforce",
+      "name": "RGBW LEDSpot",
+      "dmxAddress": 1,
+      "movingHead": {
+        "maxPan": 540,
+        "maxTilt": 270
+      },
+      "channels": [
+        {
+          "channel": 1,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Anteil %",
+                "to": 255
+              }
+            ],
+            "label": "Rot",
+            "liveWidget": "slider"
+          }
+        },
+        {
+          "channel": 2,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Anteil %",
+                "to": 255
+              }
+            ],
+            "label": "Grün",
+            "liveWidget": "slider",
+            "partyInclude": false
+          }
+        },
+        {
+          "channel": 3,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Anteil %",
+                "to": 255
+              }
+            ],
+            "label": "Blau",
+            "liveWidget": "slider"
+          }
+        },
+        {
+          "channel": 4,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Anteil %",
+                "to": 255
+              }
+            ],
+            "label": "Weiss",
+            "liveWidget": "slider"
+          }
+        },
+        {
+          "channel": 5,
+          "type": "dimmer",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Helligkeit",
+                "to": 255
+              }
+            ],
+            "liveWidget": "slider"
+          }
+        },
+        {
+          "channel": 6,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Dauerlicht",
+                "to": 5
+              },
+              {
+                "from": 6,
+                "label": "Strobo Geschwindigkeit",
+                "liveSlotKind": "slider",
+                "to": 250
+              },
+              {
+                "from": 251,
+                "label": "Sound-to-light",
+                "liveSlotKind": "slider",
+                "to": 255
+              }
+            ],
+            "label": "Strobo \u0026 Sound-To-Light",
+            "liveWidget": "buttonSlider"
+          }
+        }
+      ],
+      "createdAt": "2026-05-24T12:35:34.699118772+02:00",
+      "updatedAt": "2026-05-25T22:16:00.810716292+02:00"
+    },
+    {
+      "id": "fixture-1779184904523861896",
+      "type": "movingHead",
+      "brand": "Idealight",
+      "name": "Spot 575",
+      "dmxAddress": 7,
+      "movingHead": {
+        "maxPan": 540,
+        "maxTilt": 270
+      },
+      "channels": [
+        {
+          "channel": 1,
+          "type": "pan",
+          "properties": {
+            "max": 255,
+            "min": 1
+          }
+        },
+        {
+          "channel": 2,
+          "type": "panFine",
+          "properties": {
+            "max": 255,
+            "min": 1
+          }
+        },
+        {
+          "channel": 3,
+          "type": "dimmer",
+          "properties": {
+            "max": 255,
+            "min": 1
+          }
+        },
+        {
+          "channel": 4,
+          "type": "tiltFine",
+          "properties": {
+            "max": 255,
+            "min": 1
+          }
+        },
+        {
+          "channel": 5,
+          "type": "movementSpeed",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Vector",
+                "mode": "vector",
+                "to": 225
+              },
+              {
+                "from": 226,
+                "label": "Vector",
+                "mode": "vector",
+                "numeric": 0,
+                "to": 235
+              },
+              {
+                "from": 236,
+                "label": "Vector",
+                "mode": "vector",
+                "numeric": 0,
+                "to": 245
+              },
+              {
+                "direction": "stop",
+                "from": 246,
+                "label": "Stop",
+                "mode": "stop",
+                "numeric": 0,
+                "to": 255
+              }
+            ],
+            "liveWidget": "slotSlider"
+          }
+        },
+        {
+          "channel": 6,
+          "type": "colorWheel",
+          "properties": {
+            "entries": [
+              {
+                "color": "#ffffff",
+                "from": 0,
+                "label": "Weiss",
+                "to": 13
+              },
+              {
+                "color": "#9141ac",
+                "from": 14,
+                "label": "Violett",
+                "to": 27
+              },
+              {
+                "color": "#99c1f1",
+                "from": 28,
+                "label": "Hellblau",
+                "to": 41
+              },
+              {
+                "color": "#ffffff",
+                "from": 42,
+                "label": "Weiss",
+                "to": 55
+              },
+              {
+                "color": "#ffffff",
+                "from": 56,
+                "label": "Weiss",
+                "to": 69
+              },
+              {
+                "color": "#f9f06b",
+                "from": 70,
+                "label": "HellGelb",
+                "to": 83
+              },
+              {
+                "color": "#00ff00",
+                "from": 84,
+                "label": "Grün",
+                "to": 97
+              },
+              {
+                "color": "#1a5fb4",
+                "from": 98,
+                "label": "Blau",
+                "to": 111
+              },
+              {
+                "color": "#ff0000",
+                "from": 112,
+                "label": "Rot",
+                "to": 127
+              },
+              {
+                "color": "#888888",
+                "direction": "cw",
+                "from": 128,
+                "label": "Rainbow CW",
+                "to": 187
+              },
+              {
+                "color": "#888888",
+                "from": 188,
+                "label": "Rainbow",
+                "to": 193
+              },
+              {
+                "color": "#888888",
+                "direction": "ccw",
+                "from": 194,
+                "label": "Rainbow CCW",
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 7,
+          "type": "goboWheel",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "Open",
+                "label": "Open",
+                "to": 9
+              },
+              {
+                "from": 10,
+                "goboIdentifier": "71011",
+                "goboImage": "/gobos/images/71011.jpg",
+                "goboName": "Circular Wood",
+                "label": "Circular Wood",
+                "to": 19
+              },
+              {
+                "from": 20,
+                "goboIdentifier": "78122",
+                "goboImage": "/gobos/images/78122.jpg",
+                "goboName": "Stars 7",
+                "label": "Stars 7",
+                "to": 29
+              },
+              {
+                "from": 30,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 4",
+                "to": 39
+              },
+              {
+                "from": 40,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 5",
+                "to": 49
+              },
+              {
+                "from": 50,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 6",
+                "to": 59
+              },
+              {
+                "from": 60,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 7",
+                "to": 69
+              },
+              {
+                "from": 70,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 8",
+                "to": 89
+              },
+              {
+                "from": 90,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 9",
+                "to": 109
+              },
+              {
+                "from": 110,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 10",
+                "to": 129
+              },
+              {
+                "from": 130,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 11",
+                "to": 149
+              },
+              {
+                "from": 150,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 12",
+                "to": 169
+              },
+              {
+                "from": 170,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 13",
+                "to": 189
+              },
+              {
+                "from": 190,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 14",
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 8,
+          "type": "shutterStrobe",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Shutter Closed",
+                "mode": "closed",
+                "to": 31
+              },
+              {
+                "from": 32,
+                "label": "Shutter Open",
+                "mode": "open",
+                "to": 63
+              },
+              {
+                "from": 64,
+                "label": "Strobe",
+                "mode": "strobe",
+                "to": 95
+              },
+              {
+                "from": 96,
+                "label": "Shutter Open",
+                "mode": "open",
+                "to": 127
+              },
+              {
+                "from": 128,
+                "label": "Pulse Alternating",
+                "mode": "pulse",
+                "to": 159
+              },
+              {
+                "from": 160,
+                "label": "Shutter Open",
+                "mode": "open",
+                "to": 191
+              },
+              {
+                "from": 192,
+                "label": "Strobe",
+                "mode": "strobe",
+                "to": 223
+              },
+              {
+                "from": 224,
+                "label": "Shutter Open",
+                "mode": "open",
+                "to": 255
+              }
+            ],
+            "liveWidget": "buttons"
+          }
+        },
+        {
+          "channel": 9,
+          "type": "dimmer",
+          "properties": {
+            "max": 255,
+            "min": 0
+          }
+        },
+        {
+          "channel": 10,
+          "type": "goboRotation",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Tracking",
+                "mode": "tracking",
+                "to": 127
+              },
+              {
+                "direction": "cw",
+                "from": 128,
+                "label": "Slow CW",
+                "mode": "slow",
+                "numeric": 0,
+                "to": 189
+              },
+              {
+                "from": 190,
+                "label": "Tracking",
+                "mode": "tracking",
+                "numeric": 0,
+                "to": 193
+              },
+              {
+                "direction": "ccw",
+                "from": 194,
+                "label": "Slow CCW",
+                "mode": "slow",
+                "numeric": 0,
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 11,
+          "type": "prism",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "open",
+                "to": 3
+              },
+              {
+                "from": 4,
+                "label": "Forward slow to fast",
+                "to": 63
+              },
+              {
+                "from": 64,
+                "label": "No rotation",
+                "to": 67
+              },
+              {
+                "from": 68,
+                "label": "Backward slow to fast",
+                "to": 127
+              },
+              {
+                "from": 128,
+                "label": "Macro 1",
+                "to": 135
+              },
+              {
+                "from": 136,
+                "label": "Macro 2",
+                "to": 143
+              },
+              {
+                "from": 144,
+                "label": "Macro 3",
+                "to": 151
+              },
+              {
+                "from": 152,
+                "label": "Macro 4",
+                "to": 159
+              },
+              {
+                "from": 160,
+                "label": "Macro 5",
+                "to": 167
+              },
+              {
+                "from": 168,
+                "label": "Macro 6",
+                "to": 175
+              },
+              {
+                "from": 176,
+                "label": "Macro 7",
+                "to": 183
+              },
+              {
+                "from": 184,
+                "label": "Macro 8",
+                "to": 191
+              },
+              {
+                "from": 192,
+                "label": "Macro 9",
+                "to": 199
+              },
+              {
+                "from": 200,
+                "label": "Macro 10",
+                "to": 207
+              },
+              {
+                "from": 208,
+                "label": "Macro 11",
+                "to": 215
+              },
+              {
+                "from": 216,
+                "label": "Macro 12",
+                "to": 223
+              },
+              {
+                "from": 224,
+                "label": "Macro 13",
+                "to": 231
+              },
+              {
+                "from": 232,
+                "label": "Macro 14",
+                "to": 239
+              },
+              {
+                "from": 240,
+                "label": "Macro 15",
+                "to": 247
+              },
+              {
+                "from": 248,
+                "label": "Macro 16",
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 12,
+          "type": "goboWheel",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "Open",
+                "label": "Open",
+                "to": 31
+              },
+              {
+                "from": 32,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 2",
+                "to": 27
+              },
+              {
+                "from": 28,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 3",
+                "to": 41
+              },
+              {
+                "from": 42,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 4",
+                "to": 55
+              },
+              {
+                "from": 56,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 5",
+                "to": 69
+              },
+              {
+                "from": 70,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 6",
+                "to": 83
+              },
+              {
+                "from": 84,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 7",
+                "to": 97
+              },
+              {
+                "from": 98,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 8",
+                "to": 111
+              },
+              {
+                "from": 112,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 9",
+                "to": 127
+              },
+              {
+                "from": 128,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 10",
+                "to": 143
+              },
+              {
+                "from": 144,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 11",
+                "to": 159
+              },
+              {
+                "from": 160,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 12",
+                "to": 175
+              },
+              {
+                "from": 176,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 13",
+                "to": 191
+              },
+              {
+                "from": 192,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 14",
+                "to": 207
+              },
+              {
+                "from": 208,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 15",
+                "to": 223
+              },
+              {
+                "from": 224,
+                "goboIdentifier": "",
+                "goboImage": "",
+                "goboName": "",
+                "label": "Slot 16",
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 13,
+          "type": "focus",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Zoom1 \u0026 cont adjustment far to near",
+                "to": 85
+              },
+              {
+                "from": 86,
+                "label": "Zoom 2 far to near",
+                "to": 171
+              },
+              {
+                "from": 172,
+                "label": "Zoom3 far to near",
+                "to": 255
+              }
+            ]
+          }
+        },
+        {
+          "channel": 14,
+          "type": "iris",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Max diameter to min diameter",
+                "to": 191
+              },
+              {
+                "from": 192,
+                "label": "Pulse open fast to slow",
+                "to": 223
+              },
+              {
+                "from": 224,
+                "label": "Pulse close slow to fast",
+                "to": 255
+              }
+            ],
+            "liveWidget": "slider"
+          }
+        },
+        {
+          "channel": 15,
+          "type": "custom",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "color change normal",
+                "to": 19
+              },
+              {
+                "from": 20,
+                "label": "color change to any pos",
+                "to": 39
+              },
+              {
+                "from": 40,
+                "label": "Lamp on",
+                "to": 59
+              },
+              {
+                "from": 60,
+                "label": "Lamp Off",
+                "to": 79
+              },
+              {
+                "from": 80,
+                "label": "Motor reset",
+                "to": 99
+              },
+              {
+                "from": 100,
+                "label": "Internal Program 1",
+                "to": 119
+              },
+              {
+                "from": 120,
+                "label": "Internal Program 2",
+                "to": 139
+              },
+              {
+                "from": 160,
+                "label": "Internal Program 4",
+                "to": 179
+              },
+              {
+                "from": 180,
+                "label": "Internal Program 5",
+                "to": 199
+              },
+              {
+                "from": 200,
+                "label": "Internal Program 6",
+                "to": 219
+              },
+              {
+                "from": 220,
+                "label": "Internal Program 7",
+                "to": 239
+              },
+              {
+                "from": 240,
+                "label": "Internal Program 8",
+                "to": 255
+              },
+              {
+                "from": 140,
+                "label": "Internal Program 3",
+                "to": 159
+              }
+            ],
+            "label": "Lamp",
+            "partyInclude": true
+          }
+        },
+        {
+          "channel": 16,
+          "type": "frost",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Frost 0-100%",
+                "to": 191
+              },
+              {
+                "from": 192,
+                "label": "Pulse closing fast to slow",
+                "to": 223
+              },
+              {
+                "from": 224,
+                "label": "Pulse opening slow to fast",
+                "to": 254
+              },
+              {
+                "from": 255,
+                "label": "100% Frost",
+                "to": 255
+              }
+            ]
+          }
+        }
+      ],
+      "createdAt": "2026-05-19T12:01:44.523878164+02:00",
+      "updatedAt": "2026-05-25T22:30:45.05341432+02:00"
+    },
+    {
+      "id": "fixture-1779188052753189379",
+      "type": "smoke",
+      "brand": "Eliminator",
+      "name": "VF1600 EP",
+      "dmxAddress": 14,
+      "movingHead": {
+        "maxPan": 540,
+        "maxTilt": 270
+      },
+      "channels": [
+        {
+          "channel": 1,
+          "type": "fog",
+          "properties": {
+            "entries": [
+              {
+                "from": 0,
+                "label": "Off",
+                "to": 0
+              },
+              {
+                "from": 1,
+                "label": "Volume",
+                "liveSlotKind": "button",
+                "to": 255
+              }
+            ],
+            "liveWidget": "buttonSlider"
+          }
+        }
+      ],
+      "createdAt": "2026-05-19T12:54:12.753193556+02:00",
+      "updatedAt": "2026-05-25T14:13:18.422979807+02:00"
+    }
+  ],
+  "selectedUSBDeviceId": "/dev/ttyACM0",
+  "party": {
+    "config": {
+      "enabled": false,
+      "mode": "auto",
+      "fixtureIds": [
+        "fixture-1779184904523861896",
+        "fixture-1779618934699114406"
+      ],
+      "wledDeviceIds": [
+        "ccdba7df183c"
+      ],
+      "intensity": 88,
+      "speed": 49,
+      "colorVariation": 100,
+      "audioSensitivity": 0
+    },
+    "status": {
+      "running": false,
+      "mode": "auto",
+      "lastFrameAt": "2026-05-25T22:25:13.411166088+02:00",
+      "lastAudioAt": "2026-05-24T21:50:02.469938096+02:00",
+      "partyBlocksManualPatch": false,
+      "audioCapturing": false,
+      "audioNoSignal": false
+    },
+    "audio": {
+      "level": 0.5576065038716601,
+      "bass": 0.003547732737939976,
+      "mid": 0.004265941375221712,
+      "treble": 0.003357669862034238,
+      "beat": 0.12428244900158664,
+      "capturedAt": "2026-05-24T21:50:02.469938096+02:00",
+      "deviceId": "alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Mic1__source"
+    }
+  }
+}
