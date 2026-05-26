@@ -190,7 +190,7 @@ export function PartyModeView({
                         type="button"
                         size="sm"
                         variant={running ? "destructive" : "secondary"}
-                        disabled={busy || (!running && !hasTargets)}
+                        disabled={(busy && !running) || (!running && !hasTargets)}
                         onClick={() => {
                             if (running) {
                                 void onStop();

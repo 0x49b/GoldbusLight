@@ -37,7 +37,7 @@
                 "to": 255
               }
             ],
-            "label": "Grün",
+            "label": "Gr\u00fcn",
             "liveWidget": "slider",
             "partyInclude": false
           }
@@ -109,7 +109,7 @@
                 "to": 255
               }
             ],
-            "label": "Strobo \u0026 Sound-To-Light",
+            "label": "Strobo & Sound-To-Light",
             "liveWidget": "buttonSlider"
           }
         }
@@ -140,13 +140,14 @@
           "channel": 2,
           "type": "panFine",
           "properties": {
+            "liveWidget": "hidden",
             "max": 255,
             "min": 1
           }
         },
         {
           "channel": 3,
-          "type": "dimmer",
+          "type": "tilt",
           "properties": {
             "max": 255,
             "min": 1
@@ -156,6 +157,7 @@
           "channel": 4,
           "type": "tiltFine",
           "properties": {
+            "liveWidget": "hidden",
             "max": 255,
             "min": 1
           }
@@ -164,6 +166,7 @@
           "channel": 5,
           "type": "movementSpeed",
           "properties": {
+            "liveWidget": "buttons",
             "entries": [
               {
                 "from": 0,
@@ -193,8 +196,7 @@
                 "numeric": 0,
                 "to": 255
               }
-            ],
-            "liveWidget": "slotSlider"
+            ]
           }
         },
         {
@@ -205,55 +207,55 @@
               {
                 "color": "#ffffff",
                 "from": 0,
-                "label": "Weiss",
+                "label": "Open / white",
                 "to": 13
               },
               {
-                "color": "#9141ac",
+                "color": "#ff0000",
                 "from": 14,
-                "label": "Violett",
+                "label": "Color1",
                 "to": 27
               },
               {
-                "color": "#99c1f1",
+                "color": "#00ff00",
                 "from": 28,
-                "label": "Hellblau",
+                "label": "Color 2",
                 "to": 41
               },
               {
-                "color": "#ffffff",
+                "color": "#0000ff",
                 "from": 42,
-                "label": "Weiss",
+                "label": "Color 3",
                 "to": 55
               },
               {
-                "color": "#ffffff",
+                "color": "#c061cb",
                 "from": 56,
-                "label": "Weiss",
+                "label": "Color 4",
                 "to": 69
               },
               {
-                "color": "#f9f06b",
+                "color": "#cdab8f",
                 "from": 70,
-                "label": "HellGelb",
+                "label": "Color 5 ",
                 "to": 83
               },
               {
-                "color": "#00ff00",
+                "color": "#dc8add",
                 "from": 84,
-                "label": "Grün",
+                "label": "Color 6",
                 "to": 97
               },
               {
-                "color": "#1a5fb4",
+                "color": "#f9f06b",
                 "from": 98,
-                "label": "Blau",
+                "label": "Color 7",
                 "to": 111
               },
               {
-                "color": "#ff0000",
+                "color": "#888888",
                 "from": 112,
-                "label": "Rot",
+                "label": "Color 8",
                 "to": 127
               },
               {
@@ -266,7 +268,7 @@
               {
                 "color": "#888888",
                 "from": 188,
-                "label": "Rainbow",
+                "label": "No Rotation",
                 "to": 193
               },
               {
@@ -452,8 +454,7 @@
                 "mode": "open",
                 "to": 255
               }
-            ],
-            "liveWidget": "buttons"
+            ]
           }
         },
         {
@@ -468,6 +469,7 @@
           "channel": 10,
           "type": "goboRotation",
           "properties": {
+            "liveWidget": "buttons",
             "entries": [
               {
                 "from": 0,
@@ -505,6 +507,7 @@
           "channel": 11,
           "type": "prism",
           "properties": {
+            "liveWidget": "buttons",
             "entries": [
               {
                 "from": 0,
@@ -628,14 +631,6 @@
                 "goboImage": "",
                 "goboName": "",
                 "label": "Slot 2",
-                "to": 27
-              },
-              {
-                "from": 28,
-                "goboIdentifier": "",
-                "goboImage": "",
-                "goboName": "",
-                "label": "Slot 3",
                 "to": 41
               },
               {
@@ -643,7 +638,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 4",
+                "label": "Slot 3",
                 "to": 55
               },
               {
@@ -651,7 +646,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 5",
+                "label": "Slot 4",
                 "to": 69
               },
               {
@@ -659,7 +654,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 6",
+                "label": "Slot 5",
                 "to": 83
               },
               {
@@ -667,7 +662,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 7",
+                "label": "Slot 6",
                 "to": 97
               },
               {
@@ -675,7 +670,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 8",
+                "label": "Slot 7",
                 "to": 111
               },
               {
@@ -683,7 +678,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 9",
+                "label": "Slot 8",
                 "to": 127
               },
               {
@@ -691,7 +686,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 10",
+                "label": "Slot 9",
                 "to": 143
               },
               {
@@ -699,7 +694,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 11",
+                "label": "Slot 10",
                 "to": 159
               },
               {
@@ -707,7 +702,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 12",
+                "label": "Slot 11",
                 "to": 175
               },
               {
@@ -715,7 +710,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 13",
+                "label": "Slot 12",
                 "to": 191
               },
               {
@@ -723,7 +718,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 14",
+                "label": "Slot 13",
                 "to": 207
               },
               {
@@ -731,7 +726,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 15",
+                "label": "Slot 14",
                 "to": 223
               },
               {
@@ -739,7 +734,7 @@
                 "goboIdentifier": "",
                 "goboImage": "",
                 "goboName": "",
-                "label": "Slot 16",
+                "label": "Slot 15",
                 "to": 255
               }
             ]
@@ -749,10 +744,11 @@
           "channel": 13,
           "type": "focus",
           "properties": {
+            "liveWidget": "buttons",
             "entries": [
               {
                 "from": 0,
-                "label": "Zoom1 \u0026 cont adjustment far to near",
+                "label": "Zoom1 & cont adjustment far to near",
                 "to": 85
               },
               {
@@ -772,6 +768,7 @@
           "channel": 14,
           "type": "iris",
           "properties": {
+            "liveWidget": "slotSlider",
             "entries": [
               {
                 "from": 0,
@@ -788,8 +785,7 @@
                 "label": "Pulse close slow to fast",
                 "to": 255
               }
-            ],
-            "liveWidget": "slider"
+            ]
           }
         },
         {
@@ -833,6 +829,11 @@
                 "to": 139
               },
               {
+                "from": 140,
+                "label": "Internal Program 3",
+                "to": 159
+              },
+              {
                 "from": 160,
                 "label": "Internal Program 4",
                 "to": 179
@@ -856,14 +857,10 @@
                 "from": 240,
                 "label": "Internal Program 8",
                 "to": 255
-              },
-              {
-                "from": 140,
-                "label": "Internal Program 3",
-                "to": 159
               }
             ],
             "label": "Lamp",
+            "liveWidget": "buttons",
             "partyInclude": true
           }
         },

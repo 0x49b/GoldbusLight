@@ -441,3 +441,30 @@ func TestPartyHueToRGB(t *testing.T) {
 		t.Fatalf("expected greenish at hue 120, got %d,%d,%d", r, g, b)
 	}
 }
+
+func TestStopDMXPartyClearsRunningState(t *testing.T) {
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(t.TempDir(), "dmx.json")}
+	c.mu.Lock()
+	c.settings.DMX.Enabled = true
+	c.dmxState.Party.Config.Enabled = true
+	c.dmxState.Party.Status.Running = true
+	c.dmxState.Party.Config.FixtureIDs = []string{"fixture-1"}
+	c.mu.Unlock()
+	c.dmxLiveMu.Lock()
+	c.dmxPartyRunning = true
+	c.dmxLiveMu.Unlock()
+
+	c.StopDMXParty()
+
+	st := c.GetDMXPartyState()
+	if st.Status.Running || st.Config.Enabled {
+		t.Fatalf("expected stopped party after StopDMXParty, got %+v", st)
+	}
+	c.dmxLiveMu.Lock()
+	stillWorker := c.dmxPartyRunning
+	c.dmxLiveMu.Unlock()
+	if stillWorker {
+		t.Fatalf("expected dmxPartyRunning false after stop")
+	}
+}

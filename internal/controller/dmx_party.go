@@ -319,6 +319,21 @@ func (c *WLEDController) stopDMXPartyWithReason(reason string) {
 // own WaitGroup.
 func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 	c.stopPartyAudioCapture()
+
+	// Mark stopped before waiting so GetDMXState/GetDMXPartyState and the UI poll path
+	// see party off immediately (worker may still be finishing one frame).
+	c.mu.Lock()
+	party := normalizeDMXPartyState(c.dmxState.Party)
+	party.Config.Enabled = false
+	party.Status.Running = false
+	party.Status.PartyBlocksManualPatch = false
+	if reason != "" {
+		party.Status.Error = strings.TrimSpace(reason)
+	}
+	c.dmxState.Party = party
+	c.updated = time.Now()
+	c.mu.Unlock()
+
 	c.dmxLiveMu.Lock()
 	cancel := c.dmxPartyCancel
 	running := c.dmxPartyRunning
@@ -332,8 +347,10 @@ func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 	if running && wait {
 		c.dmxPartyWG.Wait()
 	}
+
+	// Worker may have set Running=true on its last frame; force stopped again.
 	c.mu.Lock()
-	party := normalizeDMXPartyState(c.dmxState.Party)
+	party = normalizeDMXPartyState(c.dmxState.Party)
 	party.Config.Enabled = false
 	party.Status.Running = false
 	party.Status.PartyBlocksManualPatch = false
@@ -377,8 +394,17 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 						c.logger.Printf("dmx party frame panic: %v\n%s", recovered, debug.Stack())
 					}
 				}()
+				if ctx.Err() != nil {
+					return
+				}
+				c.dmxLiveMu.Lock()
+				stillRunning := c.dmxPartyRunning
+				c.dmxLiveMu.Unlock()
+				if !stillRunning {
+					return
+				}
 				state := c.GetDMXPartyState()
-				if !state.Config.Enabled {
+				if !state.Config.Enabled || !state.Status.Running {
 					return
 				}
 
@@ -421,17 +447,25 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 					c.applyPartyToWLEDDevices(state, motionPhase, colorPhase, values)
 				}
 
+				c.dmxLiveMu.Lock()
+				stillRunning = c.dmxPartyRunning
+				c.dmxLiveMu.Unlock()
+				if !stillRunning || ctx.Err() != nil {
+					return
+				}
 				c.mu.Lock()
 				party := normalizeDMXPartyState(c.dmxState.Party)
-				party.Status.Running = true
-				party.Status.Mode = party.Config.Mode
-				party.Status.PartyBlocksManualPatch = len(dmxTargets) > 0
-				party.Status.LastFrameAt = now
-				if party.Audio.CapturedAt.After(time.Time{}) {
-					party.Status.LastAudioAt = party.Audio.CapturedAt
+				if party.Config.Enabled {
+					party.Status.Running = true
+					party.Status.Mode = party.Config.Mode
+					party.Status.PartyBlocksManualPatch = len(dmxTargets) > 0
+					party.Status.LastFrameAt = now
+					if party.Audio.CapturedAt.After(time.Time{}) {
+						party.Status.LastAudioAt = party.Audio.CapturedAt
+					}
+					c.dmxState.Party = party
+					c.updated = time.Now()
 				}
-				c.dmxState.Party = party
-				c.updated = time.Now()
 				c.mu.Unlock()
 			}()
 		}

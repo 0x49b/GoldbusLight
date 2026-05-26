@@ -174,6 +174,26 @@ export function resolveLiveWidget(ch: DMXChannel): DMXLiveWidget {
     return inferLiveWidget(ch);
 }
 
+/** Why a channel is omitted from the live tab. */
+export type LiveWidgetHiddenSource = "override" | "inferred";
+
+export function isLiveWidgetHidden(ch: DMXChannel): boolean {
+    return resolveLiveWidget(ch) === "hidden";
+}
+
+/** When hidden: `override` = Live control set to Hidden; `inferred` = Auto (e.g. fine channels). */
+export function liveWidgetHiddenSource(ch: DMXChannel): LiveWidgetHiddenSource | null {
+    if (!isLiveWidgetHidden(ch)) {
+        return null;
+    }
+    const override = readLiveWidgetOverride(ch.properties as JSONMap | undefined);
+    return override === "hidden" ? "override" : "inferred";
+}
+
+export function liveWidgetHiddenBadgeLabel(source: LiveWidgetHiddenSource): string {
+    return source === "override" ? "Hidden · set in editor" : "Hidden · auto";
+}
+
 export function liveWidgetLabel(widget: DMXLiveWidget): string {
     return DMX_LIVE_WIDGET_OPTIONS.find((o) => o.value === widget)?.label ?? widget;
 }

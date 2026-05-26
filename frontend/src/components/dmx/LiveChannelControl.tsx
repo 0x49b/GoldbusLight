@@ -10,6 +10,7 @@ import {
 import {
     findOffButtonSlotIndex,
     firstSliderSlotIndex,
+    liveWidgetHiddenSource,
     parseEntryLiveSlotKinds,
     resolveLiveWidget,
     type LiveSlotKind,
@@ -408,7 +409,14 @@ export function LiveChannelControl({
 export function liveWidgetPreviewLine(ch: DMXChannel): string {
     const w = resolveLiveWidget(ch);
     if (w === "hidden") {
-        return "Live tab: hidden";
+        const source = liveWidgetHiddenSource(ch);
+        if (source === "override") {
+            return "Not shown on live tab (Live control = Hidden).";
+        }
+        if (source === "inferred") {
+            return "Not shown on live tab (Auto: fine/aux channel or no live mapping).";
+        }
+        return "Not shown on live tab.";
     }
     const entries = parseFixtureEntries(ch.properties as JSONMap | undefined);
     if (w === "buttons" && entries.length > 0) {

@@ -1109,14 +1109,37 @@ export function useControllerApp() {
     }, [ensurePartyEnabled, setBusy, setDMXState, setError, setStatus]);
 
     const stopDMXPartyMode = useCallback(async () => {
+        setDMXState((prev) => ({
+            ...prev,
+            party: {
+                ...prev.party,
+                config: {...prev.party.config, enabled: false},
+                status: {
+                    ...prev.party.status,
+                    running: false,
+                    partyBlocksManualPatch: false,
+                },
+            },
+        }));
+        setBusy(true);
         try {
             await GreetService.StopDMXParty();
-            const state = await GreetService.GetDMXPartyState();
-            setDMXState((prev) => ({...prev, party: state as unknown as DMXPartyState}));
-        } catch {
-            /* ignore */
+            const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+            setDMXState((prev) => ({...prev, party: state}));
+            setStatus("Party mode stopped");
+            setError("");
+        } catch (err) {
+            setError(String(err));
+            try {
+                const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+                setDMXState((prev) => ({...prev, party: state}));
+            } catch {
+                /* ignore follow-up read failure */
+            }
+        } finally {
+            setBusy(false);
         }
-    }, [setDMXState]);
+    }, [setBusy, setDMXState, setError, setStatus]);
 
     useEffect(() => {
         if (dmxPartyState?.status?.running !== true) {

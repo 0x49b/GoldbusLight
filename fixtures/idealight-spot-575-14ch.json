@@ -2,7 +2,7 @@
   "version": 1,
   "type": "movingHead",
   "brand": "Idealight",
-  "name": "Spot 575",
+  "name": "Spot 575 (14ch)",
   "dmxAddress": 7,
   "movingHead": {
     "maxPan": 540,
@@ -14,37 +14,19 @@
       "type": "pan",
       "properties": {
         "max": 255,
-        "min": 1
+        "min": 0
       }
     },
     {
       "channel": 2,
-      "type": "panFine",
+      "type": "tilt",
       "properties": {
-        "liveWidget": "hidden",
         "max": 255,
-        "min": 1
+        "min": 0
       }
     },
     {
       "channel": 3,
-      "type": "tilt",
-      "properties": {
-        "max": 255,
-        "min": 1
-      }
-    },
-    {
-      "channel": 4,
-      "type": "tiltFine",
-      "properties": {
-        "liveWidget": "hidden",
-        "max": 255,
-        "min": 1
-      }
-    },
-    {
-      "channel": 5,
       "type": "movementSpeed",
       "properties": {
         "liveWidget": "buttons",
@@ -81,7 +63,7 @@
       }
     },
     {
-      "channel": 6,
+      "channel": 4,
       "type": "colorWheel",
       "properties": {
         "entries": [
@@ -163,7 +145,7 @@
       }
     },
     {
-      "channel": 7,
+      "channel": 5,
       "type": "goboWheel",
       "properties": {
         "entries": [
@@ -283,7 +265,7 @@
       }
     },
     {
-      "channel": 8,
+      "channel": 6,
       "type": "shutterStrobe",
       "properties": {
         "entries": [
@@ -339,7 +321,7 @@
       }
     },
     {
-      "channel": 9,
+      "channel": 7,
       "type": "dimmer",
       "properties": {
         "max": 255,
@@ -347,7 +329,7 @@
       }
     },
     {
-      "channel": 10,
+      "channel": 8,
       "type": "goboRotation",
       "properties": {
         "liveWidget": "buttons",
@@ -385,7 +367,7 @@
       }
     },
     {
-      "channel": 11,
+      "channel": 9,
       "type": "prism",
       "properties": {
         "liveWidget": "buttons",
@@ -494,7 +476,7 @@
       }
     },
     {
-      "channel": 12,
+      "channel": 10,
       "type": "goboWheel",
       "properties": {
         "entries": [
@@ -622,7 +604,7 @@
       }
     },
     {
-      "channel": 13,
+      "channel": 11,
       "type": "focus",
       "properties": {
         "liveWidget": "buttons",
@@ -646,7 +628,7 @@
       }
     },
     {
-      "channel": 14,
+      "channel": 12,
       "type": "iris",
       "properties": {
         "liveWidget": "slotSlider",
@@ -670,7 +652,7 @@
       }
     },
     {
-      "channel": 15,
+      "channel": 13,
       "type": "custom",
       "properties": {
         "entries": [
@@ -746,7 +728,7 @@
       }
     },
     {
-      "channel": 16,
+      "channel": 14,
       "type": "frost",
       "properties": {
         "entries": [

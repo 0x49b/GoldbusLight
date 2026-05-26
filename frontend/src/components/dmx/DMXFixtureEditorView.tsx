@@ -34,18 +34,18 @@ import {
 } from "@/components/ui/table";
 import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
 import {
-    DMX_LIVE_WIDGET_OPTIONS,
-    readLiveWidgetOverride,
+    liveWidgetHiddenBadgeLabel,
+    liveWidgetHiddenSource,
     resolveLiveWidget,
-    type DMXLiveWidget,
     type LiveSlotKind,
 } from "@/lib/dmxLiveWidget.ts";
-import {liveWidgetPreviewLine} from "./LiveChannelControl";
+import {LiveControlEditorField} from "./LiveControlEditorField";
 import {isFixtureInParty} from "@/lib/partyTargets";
 import {cn} from "@/lib/utils";
 import {
     ArrowDownRight,
     ArrowUpRight,
+    EyeOff,
     Minus,
     MoreHorizontal,
     RotateCcw,
@@ -53,6 +53,7 @@ import {
     Triangle,
     Zap
 } from "lucide-react";
+import {Badge} from "@/components/ui/badge";
 import {type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {PiPlus, PiTrash} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
@@ -1166,6 +1167,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 const slots = parseEntries(propsMap);
                                 const slotMode = usesSlots(propsMap);
                                 const resolvedLiveWidget = resolveLiveWidget(ch);
+                                const liveHiddenSource = liveWidgetHiddenSource(ch);
                                 const showSlotKindEditor =
                                     resolvedLiveWidget === "buttonSlider" && slotMode && slots.length > 0;
                                 const minV =
@@ -1176,9 +1178,23 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 return (
                                     <div
                                         key={originalIdx}
-                                        className="rounded-lg border bg-muted/20 p-3 shadow-sm"
+                                        className={cn(
+                                            "rounded-lg border bg-muted/20 p-3 shadow-sm",
+                                            liveHiddenSource &&
+                                                "border-amber-500/35 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
+                                        )}
                                     >
                                         <div className="flex flex-wrap items-end gap-2">
+                                            {liveHiddenSource ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="mb-5 gap-1 border-amber-600/45 bg-amber-500/10 text-[10px] text-amber-900 dark:text-amber-200"
+                                                    title="This channel has no tile on the live tab"
+                                                >
+                                                    <EyeOff className="size-3 shrink-0" aria-hidden/>
+                                                    {liveWidgetHiddenBadgeLabel(liveHiddenSource)}
+                                                </Badge>
+                                            ) : null}
                                             <div className="grid w-[88px] shrink-0 gap-1">
                                                 <Label className="text-xs">Offset</Label>
                                                 <Input
@@ -1290,30 +1306,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             </Button>
                                         </div>
 
-                                        <div className="mt-2 max-w-md space-y-1">
-                                            <Label className="text-xs">Live control</Label>
-                                            <NativeSelect
-                                                value={readLiveWidgetOverride(propsMap) ?? "auto"}
-                                                onChange={(e) => {
-                                                    const v = e.target.value as DMXLiveWidget;
-                                                    const nextProps = {...propsMap};
-                                                    if (v === "auto") {
-                                                        delete nextProps.liveWidget;
-                                                    } else {
-                                                        nextProps.liveWidget = v;
-                                                    }
-                                                    updateChannelAt(originalIdx, {properties: nextProps});
-                                                }}
-                                                disabled={props.busy}
-                                            >
-                                                {DMX_LIVE_WIDGET_OPTIONS.map((opt) => (
-                                                    <NativeSelectOption key={opt.value} value={opt.value}>
-                                                        {opt.label}
-                                                    </NativeSelectOption>
-                                                ))}
-                                            </NativeSelect>
-                                            <p className="text-[11px] text-muted-foreground">{liveWidgetPreviewLine(ch)}</p>
-                                        </div>
+                                        <LiveControlEditorField
+                                            channel={ch}
+                                            properties={propsMap}
+                                            busy={props.busy}
+                                            onPropertiesChange={(nextProps) =>
+                                                updateChannelAt(originalIdx, {properties: nextProps})
+                                            }
+                                        />
 
                                         {ch.type === "custom" && (
                                             <div className="mt-2 max-w-md space-y-2">
