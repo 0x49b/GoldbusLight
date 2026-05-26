@@ -604,29 +604,30 @@ type WLEDController struct {
 	rootCtx context.Context
 	cancel  context.CancelFunc
 
-	dmxLiveMu         sync.Mutex
-	dmxLiveOpMu       sync.Mutex // serializes start/stop/reconcile
-	dmxLiveUSBWG      sync.WaitGroup
-	dmxLiveArtWG      sync.WaitGroup
-	dmxLiveRunning    bool
-	dmxLiveBuf        [512]byte
-	dmxLiveErr        string
-	dmxLiveFixID      string
-	dmxLiveUSBFrames  chan [512]byte
-	dmxLiveUSBPath    string
-	dmxLiveUSBName    string
-	dmxLiveArtFrames  chan [512]byte
-	dmxLiveArtPath    string
-	dmxLiveArtName    string
-	dmxLiveArtTarget  string
-	dmxLiveArtHz      int
-	dmxLivePatchLog   time.Time
-	dmxPartyRunning   bool
-	dmxPartyCancel    context.CancelFunc
-	dmxPartyWG        sync.WaitGroup
-	partyOwnedAddrs   [512]bool
-	partyAudioMu      sync.Mutex
-	partyAudioCapture *audio.Capture
+	dmxLiveMu           sync.Mutex
+	dmxLiveOpMu         sync.Mutex // serializes start/stop/reconcile
+	dmxLiveUSBWG        sync.WaitGroup
+	dmxLiveArtWG        sync.WaitGroup
+	dmxLiveRunning      bool
+	dmxLiveBuf          [512]byte
+	dmxLiveErr          string
+	dmxLiveFixID        string
+	dmxLiveUSBFrames    chan [512]byte
+	dmxLiveUSBPath      string
+	dmxLiveUSBName      string
+	dmxLiveArtFrames    chan [512]byte
+	dmxLiveArtPath      string
+	dmxLiveArtName      string
+	dmxLiveArtTarget    string
+	dmxLiveArtHz        int
+	dmxLiveUSBRecoverAt time.Time
+	dmxLivePatchLog     time.Time
+	dmxPartyRunning     bool
+	dmxPartyCancel      context.CancelFunc
+	dmxPartyWG          sync.WaitGroup
+	partyOwnedAddrs     [512]bool
+	partyAudioMu        sync.Mutex
+	partyAudioCapture   *audio.Capture
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1560,6 +1561,7 @@ func (c *WLEDController) stopDMXUSBAdapterLocked() {
 	}
 	c.dmxLiveUSBPath = ""
 	c.dmxLiveUSBName = ""
+	c.dmxLiveUSBRecoverAt = time.Time{}
 }
 
 func (c *WLEDController) stopDMXUSBAdapterAndWait() {
@@ -1657,7 +1659,7 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 		port serial.Port
 		err  error
 	}
-	attemptPaths := make([]string, 0, 3)
+	attemptPaths := make([]string, 0, 4)
 	seenPath := make(map[string]struct{}, 3)
 	appendPath := func(candidate string) {
 		candidate = strings.TrimSpace(candidate)
@@ -1670,13 +1672,25 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 		seenPath[candidate] = struct{}{}
 		attemptPaths = append(attemptPaths, candidate)
 	}
-	appendPath(path)
-	appendPath(rawPath)
-	if strings.HasPrefix(path, "/dev/cu.") {
-		appendPath("/dev/tty." + strings.TrimPrefix(path, "/dev/cu."))
+	ttyFromCu := func(candidate string) string {
+		if !strings.HasPrefix(candidate, "/dev/cu.") {
+			return ""
+		}
+		return "/dev/tty." + strings.TrimPrefix(candidate, "/dev/cu.")
 	}
-	if strings.HasPrefix(rawPath, "/dev/cu.") {
-		appendPath("/dev/tty." + strings.TrimPrefix(rawPath, "/dev/cu."))
+	// On macOS modem-class USB serial adapters (/dev/cu.usbmodem*), prefer tty first:
+	// it can be more resilient after transient USB resets. We still keep cu as fallback.
+	preferTTYFirst := strings.HasPrefix(path, "/dev/cu.usbmodem")
+	if preferTTYFirst {
+		appendPath(ttyFromCu(path))
+		appendPath(path)
+		appendPath(ttyFromCu(rawPath))
+		appendPath(rawPath)
+	} else {
+		appendPath(path)
+		appendPath(rawPath)
+		appendPath(ttyFromCu(path))
+		appendPath(ttyFromCu(rawPath))
 	}
 	var port serial.Port
 	var lastErr error
@@ -1730,6 +1744,7 @@ func (c *WLEDController) startDMXUSBAdapter() error {
 	c.dmxLiveUSBFrames = frameCh
 	c.dmxLiveUSBPath = path
 	c.dmxLiveUSBName = c.dmxLiveUSBDisplayName(path)
+	c.dmxLiveUSBRecoverAt = time.Time{}
 	seed := c.dmxLiveBuf
 	c.dmxLiveUSBWG.Add(1)
 	useEnttecPro := dmx.UsesEnttecProProtocol(dev.Description, dev.Name, path)
@@ -1948,6 +1963,9 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 				if c.console != nil {
 					c.console.Error(console.TransportUSBDMX, path, "USB write failed", err.Error())
 				}
+				if c.requestDMXUSBReconnect(path, err) {
+					return
+				}
 				continue
 			}
 			frameSummary := dmxFrameSummary(latest)
@@ -1967,6 +1985,48 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 			}
 		}
 	}
+}
+
+const dmxLiveUSBReconnectMinInterval = 2 * time.Second
+
+func isRecoverableDMXUSBWriteError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "device not configured")
+}
+
+func (c *WLEDController) requestDMXUSBReconnect(path string, cause error) bool {
+	if !isRecoverableDMXUSBWriteError(cause) {
+		return false
+	}
+	now := time.Now()
+	c.dmxLiveMu.Lock()
+	if !c.dmxLiveRunning || c.dmxLiveUSBPath != path {
+		c.dmxLiveMu.Unlock()
+		return false
+	}
+	if !c.dmxLiveUSBRecoverAt.IsZero() && now.Before(c.dmxLiveUSBRecoverAt) {
+		c.dmxLiveMu.Unlock()
+		return false
+	}
+	c.dmxLiveUSBRecoverAt = now.Add(dmxLiveUSBReconnectMinInterval)
+	c.dmxLiveMu.Unlock()
+
+	c.logger.Printf("dmx live: usb reconnect requested for %s after write error: %v", path, cause)
+	go func() {
+		c.dmxLiveOpMu.Lock()
+		defer c.dmxLiveOpMu.Unlock()
+		c.stopDMXUSBAdapterAndWait()
+		if err := c.startDMXUSBAdapter(); err != nil {
+			c.logger.Printf("dmx live: usb reconnect failed for %s: %v", path, err)
+			c.setDMXLiveError("usb reconnect failed: " + err.Error())
+			return
+		}
+		c.logger.Printf("dmx live: usb reconnect succeeded for %s", path)
+	}()
+	return true
 }
 
 func (c *WLEDController) dmxLiveUSBSimulatorWorker(frameCh <-chan [512]byte, path string) {
