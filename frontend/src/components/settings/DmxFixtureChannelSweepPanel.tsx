@@ -39,6 +39,19 @@ function sortFixtureChannels(channels: DMXChannel[]): DMXChannel[] {
     return [...channels].filter((c) => c.channel >= 1).sort((a, b) => a.channel - b.channel);
 }
 
+function sweepBaselineValue(channel: DMXChannel): number {
+    if (
+        channel.type === "dimmer" ||
+        channel.type === "dimmerFine" ||
+        channel.type === "onOff" ||
+        channel.type === "lamp" ||
+        channel.type === "colorComponent"
+    ) {
+        return 255;
+    }
+    return 0;
+}
+
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => {
         window.setTimeout(resolve, ms);
@@ -201,6 +214,7 @@ export function DmxFixtureChannelSweepPanel({
         const delayMs = Math.max(4, Math.round(260 - speed * 2.5));
 
         try {
+            await stopDMXLiveOutput();
             const ok = await startDMXLiveOutput(selectedFixture.id);
             if (!ok || abortRef.current) {
                 return;
@@ -208,6 +222,10 @@ export function DmxFixtureChannelSweepPanel({
             await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
 
             const base = selectedFixture.dmxAddress;
+            const baselineByOffset = new Map<number, number>();
+            for (const c of sortedChannels) {
+                baselineByOffset.set(c.channel, sweepBaselineValue(c));
+            }
 
             outer: for (let ci = 0; ci < sortedChannels.length; ci++) {
                 const ch = sortedChannels[ci];
@@ -236,7 +254,12 @@ export function DmxFixtureChannelSweepPanel({
                             continue;
                         }
                         updates.push(
-                            new DMXOutputUpdate({ address: a, value: c.channel === ch.channel ? clampDmxByte(v) : 0 }),
+                            new DMXOutputUpdate({
+                                address: a,
+                                value: c.channel === ch.channel
+                                    ? clampDmxByte(v)
+                                    : clampDmxByte(baselineByOffset.get(c.channel) ?? 0),
+                            }),
                         );
                     }
 
