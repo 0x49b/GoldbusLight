@@ -21,7 +21,7 @@ func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time
 	var motionPhase float64
 	var colorPhase float64
 	advancePartyPhases(values, &motionPhase, &colorPhase)
-	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted)
+	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted, at)
 }
 
 func TestCloneDMXStatePreservesPartyRuntime(t *testing.T) {
@@ -230,6 +230,7 @@ func TestPartyEntryMidAndSlotIndex(t *testing.T) {
 
 func TestPartyColorWheelUsesEntries(t *testing.T) {
 	ch := DMXChannel{
+		Channel: 1,
 		Type: "colorWheel",
 		Properties: map[string]any{
 			"entries": []any{
@@ -238,7 +239,11 @@ func TestPartyColorWheelUsesEntries(t *testing.T) {
 			},
 		},
 	}
+	fixture := DMXFixture{ID: "f", Type: DMXFixtureTypeMovingHead, DMXAddress: 1}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
 	got, ok := partyValueForFixtureChannel(
+		state,
+		fixture,
 		DMXFixtureTypeMovingHead,
 		ch,
 		1.0,
@@ -249,6 +254,7 @@ func TestPartyColorWheelUsesEntries(t *testing.T) {
 		0.4,
 		0.3,
 		0.6,
+		time.Unix(0, 0),
 	)
 	if !ok {
 		t.Fatalf("expected value for color wheel with entries")
@@ -260,6 +266,7 @@ func TestPartyColorWheelUsesEntries(t *testing.T) {
 
 func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 	ch := DMXChannel{
+		Channel: 1,
 		Type: "goboWheel",
 		Properties: map[string]any{
 			"entries": []any{
@@ -268,7 +275,12 @@ func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 			},
 		},
 	}
+	fixture := DMXFixture{ID: "f", Type: DMXFixtureTypeMovingHead, DMXAddress: 1}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
+	at := time.Unix(0, 0)
 	lowMid, ok := partyValueForFixtureChannel(
+		state,
+		fixture,
 		DMXFixtureTypeMovingHead,
 		ch,
 		1.0,
@@ -279,11 +291,14 @@ func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 		0.1,
 		0.0,
 		0.0,
+		at,
 	)
 	if !ok {
 		t.Fatalf("expected gobo value")
 	}
 	highMid, ok := partyValueForFixtureChannel(
+		state,
+		fixture,
 		DMXFixtureTypeMovingHead,
 		ch,
 		20.0,
@@ -294,6 +309,7 @@ func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 		0.9,
 		0.0,
 		0.0,
+		at,
 	)
 	if !ok {
 		t.Fatalf("expected gobo value with high mid")

@@ -226,6 +226,7 @@ type DMXFixture struct {
 	Name       string           `json:"name"`
 	DMXAddress int              `json:"dmxAddress"`
 	MovingHead MovingHeadConfig `json:"movingHead"`
+	Party      DMXFixtureParty  `json:"party,omitempty"`
 	Channels   []DMXChannel     `json:"channels"`
 	CreatedAt  time.Time        `json:"createdAt"`
 	UpdatedAt  time.Time        `json:"updatedAt"`
@@ -250,6 +251,7 @@ type UpsertDMXFixtureInput struct {
 	DMXAddress int            `json:"dmxAddress"`
 	MaxPan     int            `json:"maxPan"`
 	MaxTilt    int            `json:"maxTilt"`
+	Party      DMXFixtureParty `json:"party,omitempty"`
 	Channels   []DMXChannel   `json:"channels"`
 }
 
@@ -2833,6 +2835,14 @@ func cloneDMXState(in DMXState) DMXState {
 		cp := fixture
 		cp.Brand = strings.TrimSpace(cp.Brand)
 		cp.Name = strings.TrimSpace(cp.Name)
+		cp.Party = normalizeFixtureParty(cp.Party)
+		if len(cp.Party.ChannelWeights) > 0 {
+			wm := make(map[string]int, len(cp.Party.ChannelWeights))
+			for k, v := range cp.Party.ChannelWeights {
+				wm[k] = v
+			}
+			cp.Party.ChannelWeights = wm
+		}
 		if cp.Channels == nil {
 			cp.Channels = []DMXChannel{}
 		} else {
@@ -3286,6 +3296,7 @@ func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput) 
 		MaxPan:  input.MaxPan,
 		MaxTilt: input.MaxTilt,
 	}
+	fixture.Party = normalizeFixtureParty(input.Party)
 	fixture.Channels = channels
 	return fixture, nil
 }

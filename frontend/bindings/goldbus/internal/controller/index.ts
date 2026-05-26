@@ -9,6 +9,7 @@ export {
     ControllerSnapshot,
     DMXChannel,
     DMXFixture,
+    DMXFixtureParty,
     DMXFixtureType,
     DMXPartyAudioFeatures,
     DMXPartyAudioInputDevice,

@@ -13,6 +13,7 @@ type PartyFeatures struct {
 	Mid    float64
 	Treble float64
 	Beat   float64
+	BPM    float64
 }
 
 func clampUnit(v float64) float64 {
@@ -21,6 +22,16 @@ func clampUnit(v float64) float64 {
 	}
 	if v > 1 {
 		return 1
+	}
+	return v
+}
+
+func clampBPM(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 300 {
+		return 300
 	}
 	return v
 }
@@ -65,6 +76,7 @@ func ExtractPartyFeatures(samples []int16) PartyFeatures {
 		Mid:    clampUnit(mid),
 		Treble: clampUnit(treble),
 		Beat:   beat,
+		BPM:    0,
 	}
 }
 
