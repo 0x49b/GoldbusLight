@@ -1607,6 +1607,7 @@ export function useControllerApp() {
         applyResult,
         status,
         error,
+        setError,
         statePayloadText,
         setStatePayloadText,
         configPatchText,

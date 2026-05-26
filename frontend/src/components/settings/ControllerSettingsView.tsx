@@ -20,6 +20,7 @@ import type {
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
+import { DmxFixtureChannelSweepPanel } from "./DmxFixtureChannelSweepPanel";
 import { TransportConsolePanel } from "./TransportConsolePanel";
 
 export type ControllerSettingsViewProps = {
@@ -39,6 +40,11 @@ export type ControllerSettingsViewProps = {
     onUnignoreDevice: (deviceId: string) => void;
     currentVersion: string;
     dmxState: DMXState;
+    dmxEnabled: boolean;
+    dmxPartyRunning: boolean;
+    startDMXLiveOutput: (fixtureId: string) => Promise<boolean>;
+    stopDMXLiveOutput: () => Promise<void>;
+    setError: (message: string) => void;
     usbSerialDevices: USBSerialDevice[];
     onRefreshUSBSerialDevices: () => void;
     onSelectUSBSerialDevice: (deviceId: string) => void;
@@ -67,6 +73,11 @@ export function ControllerSettingsView({
                                            onUnignoreDevice,
                                            currentVersion,
                                            dmxState,
+                                           dmxEnabled,
+                                           dmxPartyRunning,
+                                           startDMXLiveOutput,
+                                           stopDMXLiveOutput,
+                                           setError,
                                            usbSerialDevices,
                                            onRefreshUSBSerialDevices,
                                            onSelectUSBSerialDevice,
@@ -825,6 +836,19 @@ export function ControllerSettingsView({
                             </div>
                         </CardContent>
                     </Card>
+
+                    <DmxFixtureChannelSweepPanel
+                        fixtures={dmxState.fixtures}
+                        dmxEnabled={dmxEnabled}
+                        settings={settings}
+                        selectedUSBDeviceId={dmxState.selectedUSBDeviceId ?? null}
+                        usbSerialDevices={usbSerialDevices}
+                        partyRunning={dmxPartyRunning}
+                        busy={busy}
+                        startDMXLiveOutput={startDMXLiveOutput}
+                        stopDMXLiveOutput={stopDMXLiveOutput}
+                        setError={setError}
+                    />
                 </TabsContent>
 
                 {!consoleDetached && (

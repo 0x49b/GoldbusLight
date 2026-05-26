@@ -88,6 +88,11 @@ function App() {
                 onUnignoreDevice={app.onUnignoreDevice}
                 currentVersion={app.currentVersion}
                 dmxState={app.dmxState}
+                dmxEnabled={app.dmxEnabled}
+                dmxPartyRunning={app.dmxPartyState?.status?.running === true}
+                startDMXLiveOutput={app.startDMXLiveOutput}
+                stopDMXLiveOutput={app.stopDMXLiveOutput}
+                setError={app.setError}
                 usbSerialDevices={app.usbSerialDevices}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
