@@ -227,7 +227,11 @@ export function AppShell({
                                     <PiPlus aria-hidden/>
                                 </SidebarGroupAction>
                                 <SidebarMenu>
-                                    {dmxFixtures.map((fixture) => (
+                                    {dmxFixtures.map((fixture) => {
+                                        const fixtureLive =
+                                            dmxLiveConnected &&
+                                            (dmxLiveFixtureId === "" || dmxLiveFixtureId === fixture.id);
+                                        return (
                                         <SidebarMenuItem key={fixture.id} className="mb-2">
                                             <SidebarMenuButton
                                                 type="button"
@@ -259,7 +263,7 @@ export function AppShell({
                                                         "status status-sm shrink-0",
                                                         partyRunning && isFixtureInParty(fixture.id, partyConfig)
                                                             ? "status-success"
-                                                            : dmxLiveConnected && dmxLiveFixtureId === fixture.id
+                                                            : fixtureLive
                                                             ? "status-success"
                                                             : "status-neutral",
                                                     )}
@@ -267,7 +271,8 @@ export function AppShell({
                                                 />
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
-                                    ))}
+                                        );
+                                    })}
                                 </SidebarMenu>
                             </SidebarGroup>
                         </>

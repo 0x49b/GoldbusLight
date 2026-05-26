@@ -277,6 +277,9 @@ func liveInitOutputForChannel(fixture DMXFixture, ch *DMXChannel) int {
 	if ch == nil {
 		return 0
 	}
+	if v, ok := explicitDefaultOutputByte(ch); ok {
+		return v
+	}
 	widget := resolveLiveWidget(*ch)
 	props := ch.Properties
 	entries := liveInitParseEntries(props)
@@ -320,4 +323,11 @@ func liveInitOutputForChannel(fixture DMXFixture, ch *DMXChannel) int {
 	default:
 		return liveInitLinearByte(props, 0.5)
 	}
+}
+
+func explicitDefaultOutputByte(ch *DMXChannel) (int, bool) {
+	if ch == nil || ch.DefaultValue == nil {
+		return 0, false
+	}
+	return clampDMXByte(*ch.DefaultValue), true
 }

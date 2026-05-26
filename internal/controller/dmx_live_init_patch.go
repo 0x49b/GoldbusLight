@@ -58,6 +58,10 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 		if ch.Channel < 1 {
 			continue
 		}
+		if v, ok := explicitDefaultOutputByte(ch); ok {
+			push(ch, v)
+			continue
+		}
 		widget := resolveLiveWidget(*ch)
 		if widget == liveWidgetHidden {
 			coarse := findCoarseForFine(fixture, ch)

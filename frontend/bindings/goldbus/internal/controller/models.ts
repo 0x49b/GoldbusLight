@@ -279,6 +279,7 @@ export class ControllerSnapshot {
 export class DMXChannel {
     "channel": number;
     "type": string;
+    "defaultValue"?: number | null;
     "properties"?: { [_ in string]?: any };
 
     /** Creates a new DMXChannel instance. */
@@ -297,10 +298,10 @@ export class DMXChannel {
      * Creates a new DMXChannel instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXChannel {
-        const $$createField2_0 = $$createType11;
+        const $$createField3_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("properties" in $$parsedSource) {
-            $$parsedSource["properties"] = $$createField2_0($$parsedSource["properties"]);
+            $$parsedSource["properties"] = $$createField3_0($$parsedSource["properties"]);
         }
         return new DMXChannel($$parsedSource as Partial<DMXChannel>);
     }

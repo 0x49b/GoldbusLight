@@ -110,6 +110,7 @@ function cloneChannel(channel: DMXChannel): DMXChannel {
     return {
         channel: channel.channel,
         type: channel.type,
+        defaultValue: typeof channel.defaultValue === "number" ? Math.max(0, Math.min(255, Math.round(channel.defaultValue))) : undefined,
         properties: cloneJSONMap(channel.properties),
     };
 }
@@ -143,9 +144,23 @@ function parseChannels(raw: unknown): { channels: DMXChannel[]; error?: string }
         }
         seenOffsets.add(roundedOffset);
 
+        let defaultValue: number | undefined;
+        if ("defaultValue" in item && item.defaultValue !== undefined && item.defaultValue !== null) {
+            const parsedDefault = finiteNumber(item.defaultValue);
+            if (parsedDefault == null) {
+                return { channels, error: `Channel ${i + 1} has an invalid default value.` };
+            }
+            const roundedDefault = Math.round(parsedDefault);
+            if (roundedDefault < 0 || roundedDefault > 255) {
+                return { channels, error: `Channel ${i + 1} default value must be between 0 and 255.` };
+            }
+            defaultValue = roundedDefault;
+        }
+
         channels.push({
             channel: roundedOffset,
             type: item.type as DMXChannelType,
+            defaultValue,
             properties: cloneJSONMap(item.properties),
         });
     }

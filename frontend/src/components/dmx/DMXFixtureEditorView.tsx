@@ -181,7 +181,7 @@ type SlotEntry = {
     goboIdentifier?: string;
     goboName?: string;
     goboImage?: string;
-    /** buttonSlider: toggle vs range slider for this slot */
+    /** buttonSlider: switch vs range slider for this slot */
     liveSlotKind?: LiveSlotKind;
 };
 
@@ -462,12 +462,13 @@ function cloneChannels(from: DMXChannel[]): DMXChannel[] {
     return from.map((c) => ({
         channel: c.channel,
         type: c.type,
+        defaultValue: typeof c.defaultValue === "number" ? Math.max(0, Math.min(255, Math.round(c.defaultValue))) : undefined,
         properties: c.properties ? ({...c.properties} as JSONMap) : undefined,
     }));
 }
 
 function defaultInitialChannels(): DMXChannel[] {
-    return [{channel: 1, type: "pan", properties: {min: 1, max: 255}}];
+    return [{channel: 1, type: "pan", defaultValue: 128, properties: {min: 1, max: 255}}];
 }
 
 function parseEntries(props: JSONMap | undefined): SlotEntry[] {
@@ -522,7 +523,7 @@ function EntryLiveSlotKindSelect({
             disabled={disabled}
             className="h-8"
         >
-            <NativeSelectOption value="button">Toggle</NativeSelectOption>
+            <NativeSelectOption value="button">Switch</NativeSelectOption>
             <NativeSelectOption value="slider">Slider</NativeSelectOption>
         </NativeSelect>
     );
@@ -598,10 +599,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const importInputRef = useRef<HTMLInputElement | null>(null);
-    const isCurrentFixtureLive =
-        props.fixture != null &&
-        props.dmxLiveStatus?.connected === true &&
-        props.dmxLiveStatus.fixtureId === props.fixture.id;
+    const isCurrentFixtureLive = props.fixture != null && props.dmxLiveStatus?.connected === true;
     const fixturePartyIncluded = props.fixture ? isFixtureInParty(props.fixture.id, props.dmxState.party?.config) : false;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
     const showPanTiltInputs     = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
@@ -735,7 +733,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
         setChannels((prev) => [
             ...prev,
-            {channel: nextOff, type: "dimmer", properties: defaultPropsForType("dimmer")},
+            {channel: nextOff, type: "dimmer", defaultValue: 255, properties: defaultPropsForType("dimmer")},
         ]);
         setSaveHint(null);
     }, [address, channels, slotBudget]);
@@ -778,6 +776,13 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             if (seen.has(off)) {
                 setSaveHint(`Channel offset ${off} is used more than once.`);
                 return;
+            }
+            if (ch.defaultValue !== undefined) {
+                const defaultValue = Math.round(Number(ch.defaultValue));
+                if (!Number.isFinite(defaultValue) || defaultValue < 0 || defaultValue > 255) {
+                    setSaveHint(`Channel offset ${off} has an invalid default value (use 0-255).`);
+                    return;
+                }
             }
             seen.add(off);
         }
@@ -906,7 +911,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             await props.pullDMXLiveStatus();
             return;
         }
-        await props.startDMXLiveOutput(props.fixture.id);
+        await props.startDMXLiveOutput("");
         await props.pullDMXLiveStatus();
     };
 
@@ -1190,6 +1195,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                     }}
                                                 />
                                             </div>
+                                            <div className="grid w-[108px] shrink-0 gap-1">
+                                                <Label className="text-xs">Default</Label>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={255}
+                                                    value={ch.defaultValue ?? ""}
+                                                    onChange={(e) => {
+                                                        const raw = e.target.value.trim();
+                                                        const nextDefault = raw === ""
+                                                            ? undefined
+                                                            : Math.max(0, Math.min(255, Math.round(Number(raw) || 0)));
+                                                        updateChannelAt(originalIdx, {defaultValue: nextDefault});
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        if (!e.target.value.trim()) {
+                                                            updateChannelAt(originalIdx, {defaultValue: undefined});
+                                                        }
+                                                    }}
+                                                    placeholder="0-255"
+                                                />
+                                            </div>
                                             <div
                                                 className="min-w-0 flex-1 basis-[200px] grid gap-1">
                                                 <Label className="text-xs">Function</Label>
@@ -1200,6 +1227,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         replaceChannelAt(originalIdx, {
                                                             channel: ch.channel,
                                                             type: nextType,
+                                                            defaultValue: ch.defaultValue,
                                                             properties: defaultPropsForType(nextType),
                                                         });
                                                     }}
@@ -2639,7 +2667,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             <div className="mt-3 space-y-2">
                                                 {showSlotKindEditor && (
                                                     <p className="text-xs text-muted-foreground">
-                                                        Button slider: set each slot to Toggle (button) or Slider for
+                                                        Switch + slider: set each slot to Switch or Slider for
                                                         live control.
                                                     </p>
                                                 )}

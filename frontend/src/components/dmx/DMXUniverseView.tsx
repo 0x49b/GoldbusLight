@@ -1,19 +1,18 @@
-import {type DragEvent, useEffect, useMemo, useState} from "react";
-import {Button} from "@/components/ui/button";
-import {cn} from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { parseFixtureEntries } from "@/lib/dmxLiveMap";
 import {
-    channelIndexToCell,
     DMX_UNIVERSE_GRID_COLS,
     DMX_UNIVERSE_SLOTS,
+    channelIndexToCell,
     footprint,
     splitRangeIntoSegments,
     universeRange,
 } from "@/lib/dmxUniverseGrid";
-import {parseFixtureEntries} from "@/lib/dmxLiveMap";
-import type {DetailRoute, DMXFixture, USBSerialDevice} from "@/types/controller.ts";
-import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
-import type {JSONMap} from "@/types/controller.ts";
-import {PiPlus, PiWarningCircle} from "react-icons/pi";
+import { cn } from "@/lib/utils";
+import type { DMXFixture, DetailRoute, JSONMap, USBSerialDevice } from "@/types/controller.ts";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { PiWarningCircle } from "react-icons/pi";
+import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx/models";
 
 export type DMXUniverseViewProps = {
     fixtures: DMXFixture[];
@@ -449,7 +448,7 @@ export function DMXUniverseView({
         if (sortedFixtures.length === 0) {
             return;
         }
-        await startDMXLiveOutput(sortedFixtures[0].id);
+        await startDMXLiveOutput("");
         const updates = buildAllFixturesPowerPatch(sortedFixtures, 255);
         if (updates.length > 0) {
             queueDmxLivePatch(updates);
@@ -503,7 +502,8 @@ export function DMXUniverseView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-            <div className="flex flex-wrap items-start gap-2">
+            
+            <div className="flex flex-wrap w-full items-start gap-2" >
                 <div
                     className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary px-3 py-2 text-primary-foreground shadow-sm">
                     <span className="text-sm font-semibold leading-none">Universe 1</span>
@@ -513,26 +513,16 @@ export function DMXUniverseView({
                 </div>
                 <Button
                     type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    disabled
-                    title="Only one universe supported"
-                    aria-label="Add universe (not available)"
-                >
-                    <PiPlus className="size-4" aria-hidden/>
-                </Button>
-                <Button
-                    type="button"
                     variant={anyLive ? "destructive" : "secondary"}
                     size="sm"
-                    className="shrink-0"
+                    className="ml-auto shrink-0"
                     onClick={() => void handleToggleAllLive()}
                     disabled={busy || dropBusy || sortedFixtures.length === 0}
                 >
-                    {anyLive ? "All fixtures live: ON" : "All fixtures live: OFF"}
+                    DMX Output - {anyLive ? "ON" : "OFF"}
                 </Button>
             </div>
+            
             <div
                 className="touch-pan-scroll min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3">
                 <div

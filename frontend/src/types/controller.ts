@@ -148,6 +148,7 @@ export type DMXFixtureType =
 export type DMXChannel = {
     channel: number;
     type: DMXChannelType;
+    defaultValue?: number;
     properties?: JSONMap;
 };
 

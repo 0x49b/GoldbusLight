@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
+import {Slider} from "@/components/ui/slider";
 import type {
     DMXFixture,
     DMXPartyAudioInputDevice,
@@ -22,6 +23,8 @@ type PartyModeViewProps = {
     onStart: () => Promise<boolean>;
     onStop: () => Promise<void>;
 };
+
+type PartySliderField = "intensity" | "speed" | "colorVariation" | "audioSensitivity";
 
 function normalizePercent(v: number): number {
     if (!Number.isFinite(v)) {
@@ -68,10 +71,25 @@ export function PartyModeView({
     const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
         inferAudioSourcePreset(config, audioInputDevices),
     );
+    const [sliderDraft, setSliderDraft] = useState<Record<PartySliderField, number>>({
+        intensity: normalizePercent(config.intensity),
+        speed: normalizePercent(config.speed),
+        colorVariation: normalizePercent(config.colorVariation),
+        audioSensitivity: normalizePercent(config.audioSensitivity),
+    });
 
     useEffect(() => {
         setAudioSourcePreset(inferAudioSourcePreset(config, audioInputDevices));
     }, [config.audioInputDeviceId, audioInputDevices]);
+
+    useEffect(() => {
+        setSliderDraft({
+            intensity: normalizePercent(config.intensity),
+            speed: normalizePercent(config.speed),
+            colorVariation: normalizePercent(config.colorVariation),
+            audioSensitivity: normalizePercent(config.audioSensitivity),
+        });
+    }, [config.intensity, config.speed, config.colorVariation, config.audioSensitivity]);
 
     useEffect(() => {
         if (mode === "audio") {
@@ -107,7 +125,7 @@ export function PartyModeView({
         }
     };
 
-    const setSlider = (field: "intensity" | "speed" | "colorVariation" | "audioSensitivity", raw: number) => {
+    const setSlider = (field: PartySliderField, raw: number) => {
         void onUpdateConfig({[field]: normalizePercent(raw)});
     };
 
@@ -132,20 +150,25 @@ export function PartyModeView({
     };
 
     const renderSlider = (
-        field: "intensity" | "speed" | "colorVariation" | "audioSensitivity",
+        field: PartySliderField,
         label: string,
         value: number,
     ) => (
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
             <span className="font-medium">{label}: {normalizePercent(value)}%</span>
-            <input
-                type="range"
+            <Slider
                 min={0}
                 max={100}
                 step={1}
-                value={normalizePercent(value)}
+                value={[normalizePercent(value)]}
                 disabled={busy}
-                onChange={(event) => setSlider(field, Number(event.target.value))}
+                onValueChange={([next]) =>
+                    setSliderDraft((prev) => ({
+                        ...prev,
+                        [field]: normalizePercent(next ?? 0),
+                    }))
+                }
+                onValueCommit={([next]) => setSlider(field, next ?? 0)}
             />
         </label>
     );
@@ -206,10 +229,10 @@ export function PartyModeView({
                         <option value="audio">Audio reactive</option>
                     </select>
                 </label>
-                {renderSlider("intensity", "Intensity", config.intensity)}
-                {renderSlider("speed", "Speed", config.speed)}
-                {renderSlider("colorVariation", "Color variation", config.colorVariation)}
-                {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", config.audioSensitivity)}
+                {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
+                {renderSlider("speed", "Speed", sliderDraft.speed)}
+                {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
+                {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
             </div>
 
             {mode === "audio" && (

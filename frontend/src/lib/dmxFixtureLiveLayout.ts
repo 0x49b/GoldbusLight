@@ -46,16 +46,23 @@ export function clampTileHeightPx(h: number): number {
     return Math.round(Math.max(LIVE_LAYOUT_MIN_HEIGHT_PX, Math.min(LIVE_LAYOUT_MAX_HEIGHT_PX, h)));
 }
 
-export function clampTileCol(col: number, w: LiveTileWidth): number {
-    const maxCol = LIVE_LAYOUT_COLUMNS - w;
+export function clampTileCol(col: number, w: LiveTileWidth, columns = LIVE_LAYOUT_COLUMNS): number {
+    const safeColumns = Math.max(LIVE_LAYOUT_COLUMNS, Math.round(columns) || LIVE_LAYOUT_COLUMNS);
+    const maxCol = Math.max(0, safeColumns - w);
     return Math.max(0, Math.min(maxCol, Math.round(col)));
 }
 
-function normalizeTile(t: LiveLayoutTile): LiveLayoutTile {
+function normalizeTile(t: LiveLayoutTile, columns = LIVE_LAYOUT_COLUMNS): LiveLayoutTile {
+    const safeColumns = Math.max(LIVE_LAYOUT_COLUMNS, Math.round(columns) || LIVE_LAYOUT_COLUMNS);
     const w = (t.w === 2 || t.w === 3 ? t.w : 1) as LiveTileWidth;
+    const maxCol = Math.max(0, safeColumns - w);
+    const roundedCol = Math.round(t.col);
+    const wrappedCol = roundedCol > maxCol
+        ? ((roundedCol % safeColumns) + safeColumns) % safeColumns
+        : roundedCol;
     return {
         id: t.id,
-        col: clampTileCol(t.col, w),
+        col: clampTileCol(wrappedCol, w, safeColumns),
         w,
         y: Math.max(0, Math.round(t.y)),
         heightPx: clampTileHeightPx(t.heightPx),
@@ -71,18 +78,19 @@ export function tilesOverlapHorizontally(a: LiveLayoutTile, b: LiveLayoutTile): 
 }
 
 /** Pack tiles into masonry positions (respects saved y when non-overlapping). */
-export function packMasonryTiles(tiles: LiveLayoutTile[]): MasonryPlacedTile[] {
-    const sorted = [...tiles].map((t) => normalizeTile(t));
+export function packMasonryTiles(tiles: LiveLayoutTile[], columns = LIVE_LAYOUT_COLUMNS): MasonryPlacedTile[] {
+    const safeColumns = Math.max(LIVE_LAYOUT_COLUMNS, Math.round(columns) || LIVE_LAYOUT_COLUMNS);
+    const sorted = [...tiles].map((t) => normalizeTile(t, safeColumns));
     sorted.sort((a, b) => a.y - b.y || a.col - b.col || a.id.localeCompare(b.id));
 
     const placed: MasonryPlacedTile[] = [];
 
     const bottomAtCol = (): number[] => {
-        const bottoms = [0, 0, 0];
+        const bottoms = Array.from({length: safeColumns}, () => 0);
         for (const p of placed) {
             const endCol = tileColEnd(p);
             const bottom = p.y + p.heightPx + LIVE_LAYOUT_GAP_PX;
-            for (let c = p.col; c < endCol && c < LIVE_LAYOUT_COLUMNS; c++) {
+            for (let c = p.col; c < endCol && c < safeColumns; c++) {
                 bottoms[c] = Math.max(bottoms[c], bottom);
             }
         }
@@ -230,16 +238,15 @@ function parseTileV3(raw: unknown): LiveLayoutTile | null {
     }
     const tile: LiveLayoutTile = {
         id,
-        col,
+        col: Math.max(0, Math.round(col)),
         w: w as LiveTileWidth,
         y: Number.isFinite(y) ? Math.max(0, y) : 0,
         heightPx: Number.isFinite(heightPx) ? heightPx : LIVE_LAYOUT_DEFAULT_HEIGHT_PX,
     };
-    const n = normalizeTile(tile);
-    if (n.col + n.w > LIVE_LAYOUT_COLUMNS) {
-        return null;
-    }
-    return n;
+    return {
+        ...tile,
+        heightPx: clampTileHeightPx(tile.heightPx),
+    };
 }
 
 /** Migrate v2 grid tiles (row, h in quarter units) to v3 masonry. */
@@ -399,12 +406,14 @@ export function snapMasonryDrop(
     clientY: number,
     containerRect: DOMRect,
     tileW: LiveTileWidth,
+    columns = LIVE_LAYOUT_COLUMNS,
 ): {col: number; y: number} {
-    const colWidth = (containerRect.width - LIVE_LAYOUT_GAP_PX * (LIVE_LAYOUT_COLUMNS - 1)) / LIVE_LAYOUT_COLUMNS;
+    const safeColumns = Math.max(LIVE_LAYOUT_COLUMNS, Math.round(columns) || LIVE_LAYOUT_COLUMNS);
+    const colWidth = (containerRect.width - LIVE_LAYOUT_GAP_PX * (safeColumns - 1)) / safeColumns;
     const relX = clientX - containerRect.left;
     const relY = clientY - containerRect.top;
     let col = Math.floor(relX / (colWidth + LIVE_LAYOUT_GAP_PX));
-    col = clampTileCol(col, tileW);
+    col = clampTileCol(col, tileW, safeColumns);
     const y = Math.max(0, Math.round(relY));
     return {col, y};
 }

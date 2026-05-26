@@ -26,6 +26,8 @@ const BEAM_APERTURE_MAX = 1.0;
 const BEAM_LOCAL_LENS_Y = -0.34;
 const MOVING_HEAD_TARGET_SIZE = 1.55;
 const CEILING_LEVEL_TILT_OFFSET_DEG = -90;
+const MOVING_HEAD_TILT_START_DEG = -45;
+const MOVING_HEAD_TILT_SWEEP_DEG_DEFAULT = 270;
 
 function createBeamMesh(scale: number) {
     const material = new THREE.MeshBasicMaterial({
@@ -118,7 +120,11 @@ export function DMXMovingHeadPreview3D({
         }
 
         const visualPanDeg = p - maxPan / 2;
-        const visualTiltDeg = t - maxTilt / 2 + CEILING_LEVEL_TILT_OFFSET_DEG;
+        const tiltSweepDeg = maxTilt > 0 ? maxTilt : MOVING_HEAD_TILT_SWEEP_DEG_DEFAULT;
+        const normalizedTilt = clamp01(t / tiltSweepDeg);
+        const visualTiltDeg = MOVING_HEAD_TILT_START_DEG
+            + normalizedTilt * tiltSweepDeg
+            + CEILING_LEVEL_TILT_OFFSET_DEG;
 
         if (rig.panNode && rig.tiltNode && rig.panRest && rig.tiltRest) {
             fallbackPivot.current.rotation.set(0, 0, 0);

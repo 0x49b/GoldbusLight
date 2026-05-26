@@ -208,9 +208,10 @@ const (
 )
 
 type DMXChannel struct {
-	Channel    int            `json:"channel"`
-	Type       string         `json:"type"`
-	Properties map[string]any `json:"properties,omitempty"`
+	Channel      int            `json:"channel"`
+	Type         string         `json:"type"`
+	DefaultValue *int           `json:"defaultValue,omitempty"`
+	Properties   map[string]any `json:"properties,omitempty"`
 }
 
 type MovingHeadConfig struct {
@@ -3148,9 +3149,10 @@ func sanitizeDMXChannels(dmxAddress int, in []DMXChannel) []DMXChannel {
 		}
 		used[n] = struct{}{}
 		out = append(out, DMXChannel{
-			Channel:    n,
-			Type:       normalizeDMXChannelType(ch.Type),
-			Properties: sanitizeDMXChannelProperties(ch.Properties),
+			Channel:      n,
+			Type:         normalizeDMXChannelType(ch.Type),
+			DefaultValue: sanitizeDMXChannelDefaultValue(ch.DefaultValue),
+			Properties:   sanitizeDMXChannelProperties(ch.Properties),
 		})
 	}
 	if len(out) == 0 {
@@ -3247,9 +3249,10 @@ func validateDMXChannels(dmxAddress int, channels []DMXChannel) ([]DMXChannel, e
 		}
 		used[ch.Channel] = struct{}{}
 		out = append(out, DMXChannel{
-			Channel:    ch.Channel,
-			Type:       normalizeDMXChannelType(ch.Type),
-			Properties: sanitizeDMXChannelProperties(ch.Properties),
+			Channel:      ch.Channel,
+			Type:         normalizeDMXChannelType(ch.Type),
+			DefaultValue: sanitizeDMXChannelDefaultValue(ch.DefaultValue),
+			Properties:   sanitizeDMXChannelProperties(ch.Properties),
 		})
 	}
 	slices.SortFunc(out, func(a, b DMXChannel) int {
@@ -3289,6 +3292,20 @@ func sanitizeDMXChannelProperties(in map[string]any) map[string]any {
 		props = map[string]any{}
 	}
 	return props
+}
+
+func sanitizeDMXChannelDefaultValue(in *int) *int {
+	if in == nil {
+		return nil
+	}
+	v := *in
+	if v < 0 {
+		v = 0
+	}
+	if v > 255 {
+		v = 255
+	}
+	return &v
 }
 
 func defaultGeneralTabState() GeneralTabState {

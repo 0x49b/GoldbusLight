@@ -17,6 +17,7 @@ import {
 import {channelIncludedInParty} from "@/lib/dmxPartyInclude.ts";
 import {Button} from "@/components/ui/button";
 import {Slider} from "@/components/ui/slider";
+import {Switch} from "@/components/ui/switch";
 import {cn} from "@/lib/utils";
 import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
@@ -163,27 +164,75 @@ export function LiveChannelControl({
                     const label = entry.label?.trim() || `Slot ${idx + 1}`;
                     if (kind === "button") {
                         const active = buttonSlot === idx;
+                        const checked = offIdx >= 0 && idx === offIdx ? !isOff : active;
                         return (
-                            <div key={idx} className="space-y-1">
+                            <div key={idx} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                                 <LiveControlLabel party={party} className="text-xs">
-                                    {label}
+                                    {offIdx >= 0 && idx === offIdx ? "Output enabled" : label}
                                 </LiveControlLabel>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={active ? "default" : "outline"}
-                                    className="w-full justify-start"
+                                <Switch
+                                    checked={checked}
                                     disabled={disabled}
-                                    onClick={() =>
-                                        patch({
-                                            buttonSlotIdx: idx,
-                                            slotIdx: idx,
-                                            within01: 0,
-                                        })
-                                    }
-                                >
-                                    {label}
-                                </Button>
+                                    onCheckedChange={(nextChecked) => {
+                                        if (offIdx >= 0 && idx === offIdx) {
+                                            if (!nextChecked) {
+                                                patch({
+                                                    buttonSlotIdx: offIdx,
+                                                    slotIdx: offIdx,
+                                                    within01: 0,
+                                                });
+                                                return;
+                                            }
+                                            const fallbackSlider = firstSliderSlotIndex(kinds);
+                                            const nextSliderIdx = sliderIdx >= 0 ? sliderIdx : fallbackSlider;
+                                            if (nextSliderIdx >= 0) {
+                                                patch({
+                                                    activeSliderIdx: nextSliderIdx,
+                                                    buttonSlotIdx: -1,
+                                                    slotIdx: nextSliderIdx,
+                                                    within01: st.within01,
+                                                });
+                                            } else {
+                                                patch({
+                                                    buttonSlotIdx: -1,
+                                                    slotIdx: idx,
+                                                    within01: 0,
+                                                });
+                                            }
+                                            return;
+                                        }
+                                        if (nextChecked) {
+                                            patch({
+                                                buttonSlotIdx: idx,
+                                                slotIdx: idx,
+                                                within01: 0,
+                                            });
+                                            return;
+                                        }
+                                        if (offIdx >= 0) {
+                                            patch({
+                                                buttonSlotIdx: offIdx,
+                                                slotIdx: offIdx,
+                                                within01: 0,
+                                            });
+                                            return;
+                                        }
+                                        const fallbackSlider = firstSliderSlotIndex(kinds);
+                                        if (fallbackSlider >= 0) {
+                                            patch({
+                                                activeSliderIdx: fallbackSlider,
+                                                buttonSlotIdx: -1,
+                                                slotIdx: fallbackSlider,
+                                                within01: st.within01,
+                                            });
+                                        } else {
+                                            patch({
+                                                buttonSlotIdx: -1,
+                                                within01: 0,
+                                            });
+                                        }
+                                    }}
+                                />
                             </div>
                         );
                     }
@@ -372,7 +421,7 @@ export function liveWidgetPreviewLine(ch: DMXChannel): string {
         const kinds = parseEntryLiveSlotKinds(ch.properties as JSONMap | undefined, entries);
         const buttons = kinds.filter((k) => k === "button").length;
         const sliders = kinds.filter((k) => k === "slider").length;
-        return `Live tab: Button slider (${buttons} toggle${buttons === 1 ? "" : "s"}, ${sliders} slider${sliders === 1 ? "" : "s"})`;
+        return `Live tab: Switch + slider (${buttons} switch${buttons === 1 ? "" : "es"}, ${sliders} slider${sliders === 1 ? "" : "s"})`;
     }
     return `Live tab: ${w === "shutterModes" ? "Shutter modes" : w.charAt(0).toUpperCase() + w.slice(1)}`;
 }

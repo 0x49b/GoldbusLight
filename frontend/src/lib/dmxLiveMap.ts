@@ -60,6 +60,52 @@ function clamp255(n: number): number {
     return Math.round(clamp(n, 0, 255));
 }
 
+function channelDefaultByte(ch: DMXChannel): number | undefined {
+    if (typeof ch.defaultValue !== "number" || !Number.isFinite(ch.defaultValue)) {
+        return undefined;
+    }
+    return clamp255(ch.defaultValue);
+}
+
+function slotIndexForOutputByte(entries: FixtureEntryRow[], outputByte: number): number {
+    if (entries.length === 0) {
+        return 0;
+    }
+    const byte = clamp255(outputByte);
+    for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const lo = Math.min(entry.from, entry.to);
+        const hi = Math.max(entry.from, entry.to);
+        if (byte >= lo && byte <= hi) {
+            return i;
+        }
+    }
+    let nearest = 0;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < entries.length; i++) {
+        const mid = slotMid(entries, i);
+        const dist = Math.abs(mid - byte);
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = i;
+        }
+    }
+    return nearest;
+}
+
+function withinForOutputByte(entry: FixtureEntryRow | undefined, outputByte: number): number {
+    if (!entry) {
+        return 0;
+    }
+    const lo = Math.min(entry.from, entry.to);
+    const hi = Math.max(entry.from, entry.to);
+    const span = hi - lo;
+    if (span <= 0) {
+        return 0;
+    }
+    return clamp((clamp255(outputByte) - lo) / span, 0, 1);
+}
+
 export function parseFixtureEntries(props: JSONMap | undefined): FixtureEntryRow[] {
     const raw = props?.entries;
     if (!Array.isArray(raw)) {
@@ -134,6 +180,7 @@ export function defaultEntryStateForChannel(ch: DMXChannel): EntryChannelLiveSta
     const widget = resolveLiveWidget(ch);
     const props = ch.properties as JSONMap | undefined;
     const entries = parseFixtureEntries(props);
+    const defaultByte = channelDefaultByte(ch);
     const linear01 = ch.type === "dimmer" || ch.type === "dimmerFine" ? 1 : 0.5;
     const base: EntryChannelLiveState = {
         slotIdx: 0,
@@ -156,6 +203,46 @@ export function defaultEntryStateForChannel(ch: DMXChannel): EntryChannelLiveSta
         base.within01 = 0;
         base.slotIdx = offIdx >= 0 ? offIdx : 0;
     }
+    if (defaultByte === undefined) {
+        return base;
+    }
+    if (widget === "slider" || entries.length === 0) {
+        const min = typeof props?.min === "number" ? props.min : 0;
+        const max = typeof props?.max === "number" ? props.max : 255;
+        const span = max - min;
+        base.linear01 = span === 0 ? 0 : clamp((defaultByte - min) / span, 0, 1);
+        return base;
+    }
+    if (widget === "buttonSlider") {
+        const kinds = parseEntryLiveSlotKinds(props, entries);
+        const offIdx = findOffButtonSlotIndex(entries, kinds);
+        const sliderIdx = firstSliderSlotIndex(kinds);
+        if (defaultByte === 0 && offIdx >= 0) {
+            base.buttonSlotIdx = offIdx;
+            base.slotIdx = offIdx;
+            base.within01 = 0;
+            return base;
+        }
+        const idx = slotIndexForOutputByte(entries, defaultByte);
+        const kind = kinds[idx] ?? "slider";
+        if (kind === "button") {
+            base.buttonSlotIdx = idx;
+            base.slotIdx = idx;
+            base.within01 = 0;
+            return base;
+        }
+        const activeIdx = kind === "slider" ? idx : (sliderIdx >= 0 ? sliderIdx : idx);
+        base.activeSliderIdx = activeIdx;
+        base.slotIdx = activeIdx;
+        base.within01 = withinForOutputByte(entries[activeIdx], defaultByte);
+        if (offIdx >= 0 && base.buttonSlotIdx === undefined) {
+            base.buttonSlotIdx = offIdx;
+        }
+        return base;
+    }
+    const idx = slotIndexForOutputByte(entries, defaultByte);
+    base.slotIdx = idx;
+    base.within01 = withinForOutputByte(entries[idx], defaultByte);
     return base;
 }
 
@@ -416,6 +503,12 @@ export function buildDmxLivePatch(fixture: DMXFixture, s: DMXLiveControlState): 
     for (const ch of fixture.channels) {
         const widget = resolveLiveWidget(ch);
         if (widget === "hidden") {
+            const explicitDefault = channelDefaultByte(ch);
+            if (explicitDefault !== undefined) {
+                pushPatch(out, fixture, ch, explicitDefault);
+                patchedOffsets.add(ch.channel);
+                continue;
+            }
             const coarse = findCoarseChannel(fixture, ch);
             if (coarse) {
                 const coarseSt = s.entryChannels[coarse.channel];

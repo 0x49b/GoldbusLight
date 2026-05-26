@@ -20,7 +20,7 @@ export const DMX_LIVE_WIDGET_OPTIONS: { value: DMXLiveWidget; label: string }[] 
     {value: "slider", label: "Slider"},
     {value: "slotSlider", label: "Slot slider"},
     {value: "buttons", label: "Buttons"},
-    {value: "buttonSlider", label: "Button slider"},
+    {value: "buttonSlider", label: "Switch + slider"},
     {value: "colorWheel", label: "Color wheel"},
     {value: "goboWheel", label: "Gobo wheel"},
     {value: "shutterModes", label: "Shutter modes"},
@@ -218,7 +218,7 @@ function inferEntryLiveSlotKind(
     return "slider";
 }
 
-/** Per-entry live control: toggle button vs range slider (for `buttonSlider` widget). */
+/** Per-entry live control: switch vs range slider (for `buttonSlider` widget). */
 export function parseEntryLiveSlotKinds(
     props: JSONMap | undefined,
     entries: ReturnType<typeof parseFixtureEntries>,
