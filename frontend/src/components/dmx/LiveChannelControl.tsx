@@ -10,8 +10,11 @@ import {
 import {
     findOffButtonSlotIndex,
     firstSliderSlotIndex,
+    isDegreeSliderChannel,
     liveWidgetHiddenSource,
     parseEntryLiveSlotKinds,
+    liveSliderLabelModeHint,
+    readLiveSliderLabelMode,
     resolveLiveWidget,
     type LiveSlotKind,
 } from "@/lib/dmxLiveWidget.ts";
@@ -241,7 +244,8 @@ export function LiveChannelControl({
                     const t01 = showSlider ? st.within01 : 0;
                     const lo = Math.min(entry.from, entry.to);
                     const hi = Math.max(entry.from, entry.to);
-                    const byteVal = Math.round(lo + t01 * (hi - lo));
+                    const span = hi - lo;
+                    const byteVal = Math.round(lo + t01 * span);
                     return (
                         <div key={idx} className="space-y-1">
                             <div className="flex justify-between text-xs">
@@ -251,12 +255,13 @@ export function LiveChannelControl({
                                 </span>
                             </div>
                             <Slider
-                                min={0}
-                                max={100}
+                                min={lo}
+                                max={hi}
                                 step={1}
-                                value={[isOff ? 0 : t01 * 100]}
+                                value={[isOff ? lo : byteVal]}
                                 onValueChange={([v]) => {
-                                    const next01 = (v ?? 0) / 100;
+                                    const byte = Math.round(v ?? lo);
+                                    const next01 = span === 0 ? 0 : (byte - lo) / span;
                                     patch({
                                         activeSliderIdx: idx,
                                         buttonSlotIdx: -1,
@@ -370,14 +375,28 @@ export function LiveChannelControl({
     // slider (default)
     const min = typeof props?.min === "number" ? props.min : 0;
     const max = typeof props?.max === "number" ? props.max : 255;
-    const isDeg = channel.type === "pan" || channel.type === "tilt" || channel.type === "infinitePan" || channel.type === "infiniteTilt";
+    const isDeg = isDegreeSliderChannel(channel);
     const maxPan = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTilt = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
+    const labelMode = readLiveSliderLabelMode(props, channel);
+    const span = max - min;
+    const useDmxSteps = !isDeg && labelMode === "dmx";
+    const useDegreeSteps = isDeg;
+    const sliderMin = useDmxSteps ? min : useDegreeSteps ? 0 : 0;
+    const sliderMax = useDmxSteps ? max : useDegreeSteps ? (channel.type === "tilt" || channel.type === "infiniteTilt" ? maxTilt : maxPan) : 100;
+    const sliderValue = useDmxSteps
+        ? outputByte
+        : useDegreeSteps
+          ? Math.round(
+                st.linear01 *
+                    (channel.type === "tilt" || channel.type === "infiniteTilt" ? maxTilt : maxPan),
+            )
+          : Math.round(st.linear01 * 100);
     const valueLabel = isDeg
         ? channel.type === "tilt" || channel.type === "infiniteTilt"
             ? `${Math.round(st.linear01 * maxTilt)}°`
             : `${Math.round(st.linear01 * maxPan)}°`
-        : channel.type === "dimmer"
+        : labelMode === "percent"
           ? `${Math.round(st.linear01 * 100)}%`
           : `${outputByte}`;
 
@@ -390,11 +409,24 @@ export function LiveChannelControl({
                 <span className="shrink-0 tabular-nums text-muted-foreground">{valueLabel}</span>
             </div>
             <Slider
-                min={0}
-                max={100}
+                min={sliderMin}
+                max={sliderMax}
                 step={1}
-                value={[st.linear01 * 100]}
-                onValueChange={([v]) => patch({linear01: (v ?? 0) / 100})}
+                value={[sliderValue]}
+                onValueChange={([v]) => {
+                    const raw = Math.round(v ?? sliderMin);
+                    if (useDmxSteps) {
+                        patch({linear01: span === 0 ? 0 : (raw - min) / span});
+                        return;
+                    }
+                    if (useDegreeSteps) {
+                        const degMax =
+                            channel.type === "tilt" || channel.type === "infiniteTilt" ? maxTilt : maxPan;
+                        patch({linear01: degMax === 0 ? 0 : raw / degMax});
+                        return;
+                    }
+                    patch({linear01: (raw ?? 0) / 100});
+                }}
                 disabled={disabled}
             />
             {!compact && (min !== 0 || max !== 255) ? (
@@ -430,6 +462,11 @@ export function liveWidgetPreviewLine(ch: DMXChannel): string {
         const buttons = kinds.filter((k) => k === "button").length;
         const sliders = kinds.filter((k) => k === "slider").length;
         return `Live tab: Switch + slider (${buttons} switch${buttons === 1 ? "" : "es"}, ${sliders} slider${sliders === 1 ? "" : "s"})`;
+    }
+    if (w === "slider" && !isDegreeSliderChannel(ch)) {
+        const props = ch.properties as JSONMap | undefined;
+        const mode = readLiveSliderLabelMode(props, ch);
+        return `Live tab: Slider (value label: ${liveSliderLabelModeHint(mode)})`;
     }
     return `Live tab: ${w === "shutterModes" ? "Shutter modes" : w.charAt(0).toUpperCase() + w.slice(1)}`;
 }

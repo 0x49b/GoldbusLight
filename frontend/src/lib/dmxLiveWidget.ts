@@ -41,8 +41,11 @@ const LIVE_MAPPABLE_TYPES = new Set<DMXChannelType>([
     "colorWheel",
     "colorComponent",
     "goboWheel",
+    "goboIndexing",
+    "goboIndexingFine",
     "goboRotation",
     "goboRotationFine",
+    "goboShake",
     "shutterStrobe",
     "focus",
     "focusFine",
@@ -151,8 +154,13 @@ export function inferLiveWidget(ch: DMXChannel): DMXLiveWidget {
         case "movementSpeed":
         case "goboRotation":
         case "goboRotationFine":
+        case "goboShake":
+        case "goboIndexing":
+        case "goboIndexingFine":
         case "prism":
         case "prismRotation":
+        case "prismIndexing":
+        case "prismIndexingFine":
         case "custom":
             if (entries.length > 0) {
                 return entriesLookDiscrete(entries) ? "buttons" : "slotSlider";
@@ -196,6 +204,38 @@ export function liveWidgetHiddenBadgeLabel(source: LiveWidgetHiddenSource): stri
 
 export function liveWidgetLabel(widget: DMXLiveWidget): string {
     return DMX_LIVE_WIDGET_OPTIONS.find((o) => o.value === widget)?.label ?? widget;
+}
+
+/** How the live tab shows the current value for a linear `slider` widget. */
+export type LiveSliderLabelMode = "percent" | "dmx";
+
+export const LIVE_SLIDER_LABEL_OPTIONS: { value: LiveSliderLabelMode; label: string }[] = [
+    {value: "percent", label: "Percent (%)"},
+    {value: "dmx", label: "DMX (0–255)"},
+];
+
+export function isDegreeSliderChannel(ch: DMXChannel): boolean {
+    return (
+        ch.type === "pan" ||
+        ch.type === "tilt" ||
+        ch.type === "infinitePan" ||
+        ch.type === "infiniteTilt"
+    );
+}
+
+export function readLiveSliderLabelMode(props: JSONMap | undefined, ch: DMXChannel): LiveSliderLabelMode {
+    const raw = props?.liveSliderLabel;
+    if (raw === "percent" || raw === "dmx") {
+        return raw;
+    }
+    if (ch.type === "dimmer" || ch.type === "dimmerFine") {
+        return "percent";
+    }
+    return "dmx";
+}
+
+export function liveSliderLabelModeHint(mode: LiveSliderLabelMode): string {
+    return mode === "percent" ? "%" : "0–255";
 }
 
 export function channelLiveTileId(ch: DMXChannel): string {

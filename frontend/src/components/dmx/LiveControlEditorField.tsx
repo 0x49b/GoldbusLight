@@ -4,12 +4,16 @@ import {Label} from "@/components/ui/label";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {
     DMX_LIVE_WIDGET_OPTIONS,
+    isDegreeSliderChannel,
+    LIVE_SLIDER_LABEL_OPTIONS,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     liveWidgetLabel,
+    readLiveSliderLabelMode,
     readLiveWidgetOverride,
     resolveLiveWidget,
     type DMXLiveWidget,
+    type LiveSliderLabelMode,
 } from "@/lib/dmxLiveWidget";
 import {cn} from "@/lib/utils";
 import type {DMXChannel, JSONMap} from "@/types/controller";
@@ -31,6 +35,8 @@ export function LiveControlEditorField({
     const hiddenSource = liveWidgetHiddenSource(channel);
     const resolved = resolveLiveWidget(channel);
     const override = readLiveWidgetOverride(properties);
+    const showSliderLabelMode = resolved === "slider" && !isDegreeSliderChannel(channel);
+    const sliderLabelMode = readLiveSliderLabelMode(properties, channel);
 
     return (
         <div
@@ -79,6 +85,26 @@ export function LiveControlEditorField({
                     </NativeSelectOption>
                 ))}
             </NativeSelect>
+            {showSliderLabelMode ? (
+                <div className="space-y-1">
+                    <Label className="text-xs">Live value label</Label>
+                    <NativeSelect
+                        value={sliderLabelMode}
+                        onChange={(e) => {
+                            const v = e.target.value as LiveSliderLabelMode;
+                            const nextProps = {...properties, liveSliderLabel: v};
+                            onPropertiesChange(nextProps);
+                        }}
+                        disabled={busy}
+                    >
+                        {LIVE_SLIDER_LABEL_OPTIONS.map((opt) => (
+                            <NativeSelectOption key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </NativeSelectOption>
+                        ))}
+                    </NativeSelect>
+                </div>
+            ) : null}
             <p
                 className={cn(
                     "text-[11px]",

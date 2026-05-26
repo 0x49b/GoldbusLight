@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "savedAt": "2026-05-25T22:31:10.706498075+02:00",
+  "savedAt": "2026-05-26T22:37:53.026537503+02:00",
   "settings": {
     "accessPoint": {
       "enabled": false,
@@ -82,12 +82,12 @@
       "host": "wled-df183c.local",
       "address": "192.168.178.68",
       "port": 80,
-      "lastSeen": "2026-05-25T22:31:05.928968123+02:00",
-      "online": true,
+      "lastSeen": "2026-05-26T21:59:55.676844337+02:00",
+      "online": false,
       "provisioned": false,
       "ignored": false,
       "info": {
-        "bri": 94,
+        "bri": 255,
         "on": true,
         "version": "16.0.0"
       },
@@ -95,7 +95,7 @@
         "AudioReactive": {
           "on": false
         },
-        "bri": 94,
+        "bri": 200,
         "bs": 0,
         "ledmap": 0,
         "lor": 0,
@@ -120,19 +120,9 @@
             "cct": 127,
             "col": [
               [
-                0,
-                229,
-                255
-              ],
-              [
-                0,
-                0,
-                0
-              ],
-              [
-                0,
-                0,
-                0
+                255,
+                169,
+                87
               ]
             ],
             "frz": false,

@@ -165,6 +165,9 @@ const ENTRY_FIRST_TYPES = new Set<DMXChannelType>([
     "goboWheel",
     "goboRotation",
     "goboRotationFine",
+    "goboShake",
+    "goboIndexing",
+    "goboIndexingFine",
     "infinitePan",
     "infiniteTilt",
     "movementSpeed",
@@ -401,6 +404,7 @@ function defaultPropsForType(type: DMXChannelType): JSONMap {
             case "movementSpeed":
             case "goboRotation":
             case "goboRotationFine":
+            case "goboShake":
                 return {
                     entries: [
                         {
@@ -701,6 +705,20 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         return channels
             .map((ch, originalIdx) => ({ch, originalIdx}))
             .sort((a, b) => a.ch.channel - b.ch.channel || a.originalIdx - b.originalIdx);
+    }, [channels]);
+
+    const duplicateChannelOffsets = useMemo(() => {
+        const counts = new Map<number, number>();
+        for (const ch of channels) {
+            const off = Math.round(ch.channel);
+            if (!Number.isFinite(off)) {
+                continue;
+            }
+            counts.set(off, (counts.get(off) ?? 0) + 1);
+        }
+        return new Set(
+            [...counts.entries()].filter(([, count]) => count > 1).map(([offset]) => offset),
+        );
     }, [channels]);
 
     const updateChannelAt = useCallback((originalIdx: number, patch: Partial<DMXChannel>) => {
@@ -1161,6 +1179,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {duplicateChannelOffsets.size > 0 ? (
+                                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                    Duplicate channel offsets:{" "}
+                                    {[...duplicateChannelOffsets].sort((a, b) => a - b).join(", ")}.
+                                    Only one function per offset is saved — use separate offsets for gobo wheel,
+                                    gobo rotation, gobo shake, etc. (e.g. 9 and 10).
+                                </div>
+                            ) : null}
 
                             {channelRows.map(({ch, originalIdx}) => {
                                 const propsMap = (ch.properties ?? {}) as JSONMap;
@@ -1168,6 +1194,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 const slotMode = usesSlots(propsMap);
                                 const resolvedLiveWidget = resolveLiveWidget(ch);
                                 const liveHiddenSource = liveWidgetHiddenSource(ch);
+                                const isDuplicateOffset = duplicateChannelOffsets.has(Math.round(ch.channel));
                                 const showSlotKindEditor =
                                     resolvedLiveWidget === "buttonSlider" && slotMode && slots.length > 0;
                                 const minV =
@@ -1182,9 +1209,19 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             "rounded-lg border bg-muted/20 p-3 shadow-sm",
                                             liveHiddenSource &&
                                                 "border-amber-500/35 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
+                                            isDuplicateOffset &&
+                                                "border-destructive/40 bg-destructive/[0.04]",
                                         )}
                                     >
                                         <div className="flex flex-wrap items-end gap-2">
+                                            {isDuplicateOffset ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="mb-5 border-destructive/50 text-[10px] text-destructive"
+                                                >
+                                                    Duplicate offset
+                                                </Badge>
+                                            ) : null}
                                             {liveHiddenSource ? (
                                                 <Badge
                                                     variant="outline"

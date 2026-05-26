@@ -121,7 +121,8 @@ func inferLiveWidget(ch DMXChannel) dmxLiveWidget {
 			return liveWidgetButtons
 		}
 		return liveWidgetSlider
-	case "movementspeed", "goborotation", "prism", "custom":
+	case "movementspeed", "goborotation", "goborotationfine", "goboshake", "goboindexing", "goboindexingfine",
+		"prism", "prismrotation", "prismindexing", "prismindexingfine", "custom":
 		if len(entries) > 0 {
 			if entriesLookDiscrete(entries) {
 				return liveWidgetButtons
