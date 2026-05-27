@@ -6,10 +6,11 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.contentType
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -36,7 +37,7 @@ class KtorWledClient : WledClient {
 
     override suspend fun applyState(device: WledDevice, state: JsonObject) {
         val response = client.post("${baseHttpUrl(device)}/json/state") {
-            contentType(ContentType.Application.Json)
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(state)
         }
         if (!response.status.isSuccess()) {

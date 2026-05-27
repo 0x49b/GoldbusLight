@@ -14,6 +14,25 @@ See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, 
   - `task darwin:build DEV=false` (macOS)
   - `task windows:build DEV=false` (Windows)
 
+## Kotlin Multiplatform Desktop rewrite
+
+This branch starts the Kotlin Multiplatform replacement under `composeApp/`.
+It uses Gradle, Compose Multiplatform Desktop, Material 3, kotlinx.serialization,
+kotlinx.coroutines `StateFlow`, and Ktor CIO for WLED HTTP control.
+
+- Run desktop tests:
+  - `./gradlew :composeApp:desktopTest`
+- Run the Compose Desktop app:
+  - `./gradlew :composeApp:run`
+- Package for the current OS:
+  - `./gradlew :composeApp:packageDistributionForCurrentOS`
+
+The first ported runtime slice loads the existing `wled-controller/state.json`
+and `general-tab-state.json` files, renders a Compose Desktop WLED presets UI,
+supports manual/simulated WLED devices, and POSTs global state to WLED
+`/json/state`. DMX, Art-Net, USB-DMX, Party mode, discovery, and 3D previews
+have Kotlin domain models in place and are the next backend/UI slices to fill in.
+
 ## Raspberry Pi setup
 
 ### Supported platform

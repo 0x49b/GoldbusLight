@@ -18,7 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -109,7 +109,7 @@ private fun Sidebar(snapshot: ControllerSnapshot) {
     ) {
         Text("Goldbus", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Kotlin Multiplatform Desktop", style = MaterialTheme.typography.bodyMedium)
-        Divider(Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
         NavItem("WLED Presets", "Running slice")
         NavItem("Devices", "${snapshot.devices.size} known")
         NavItem("Settings", "Persistence + simulation")
@@ -251,7 +251,7 @@ private fun DeviceCard(
                 }
             }
 
-            Divider(Modifier.padding(vertical = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Text("Add manual WLED", fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.weight(1f))

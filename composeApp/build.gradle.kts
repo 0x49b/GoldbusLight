@@ -18,10 +18,10 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.compose.foundation:foundation:${libs.versions.compose.get()}")
-                implementation("org.jetbrains.compose.material3:material3:${libs.versions.compose.get()}")
-                implementation("org.jetbrains.compose.runtime:runtime:${libs.versions.compose.get()}")
-                implementation("org.jetbrains.compose.ui:ui:${libs.versions.compose.get()}")
+                implementation(libs.compose.foundation)
+                implementation(libs.compose.material3)
+                implementation(libs.compose.runtime)
+                implementation(libs.compose.ui)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.datetime)
                 implementation(libs.kotlinx.serialization.json)

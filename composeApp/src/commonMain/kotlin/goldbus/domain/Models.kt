@@ -1,6 +1,5 @@
 package goldbus.domain
 
-import kotlinx.datetime.Clock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -8,10 +7,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.time.Clock
 
 const val PersistentStateVersion = 3
 const val SimulatedWledDeviceId = "sim:wled"
 
+@OptIn(kotlin.time.ExperimentalTime::class)
 fun nowIso(): String = Clock.System.now().toString()
 
 @Serializable
