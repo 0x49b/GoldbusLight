@@ -1,12 +1,13 @@
 import type {
     DMXChannel,
     DMXChannelType,
+    DMXFixtureParty,
     DMXFixtureType,
     JSONMap,
     UpsertDMXFixtureInput,
 } from "@/types/controller";
 
-const FIXTURE_CONFIG_VERSION = 1;
+const FIXTURE_CONFIG_VERSION = 2;
 
 const FIXTURE_TYPES = new Set<DMXFixtureType>([
     "colorChanger",
@@ -82,6 +83,7 @@ export type DMXFixtureConfigPayload = {
         maxTilt: number;
     };
     channels: DMXChannel[];
+    party?: DMXFixtureParty;
 };
 
 export type ParseDMXFixtureConfigResult =
@@ -168,8 +170,41 @@ function parseChannels(raw: unknown): { channels: DMXChannel[]; error?: string }
     return { channels };
 }
 
+function parsePartyRecord(raw: Record<string, unknown>): DMXFixtureParty | undefined {
+    const out: DMXFixtureParty = {};
+    const cwRaw = raw.channelWeights;
+    if (isRecord(cwRaw)) {
+        const cw: Record<string, number> = {};
+        for (const [k, v] of Object.entries(cwRaw)) {
+            const n = finiteNumber(v);
+            if (n == null) {
+                continue;
+            }
+            cw[k] = Math.max(0, Math.min(100, Math.round(n)));
+        }
+        if (Object.keys(cw).length > 0) {
+            out.channelWeights = cw;
+        }
+    }
+    if (raw.strobeEnabled === true) {
+        out.strobeEnabled = true;
+    }
+    const onMs = finiteNumber(raw.strobeOnMs);
+    if (onMs != null) {
+        out.strobeOnMs = Math.max(20, Math.min(8000, Math.round(onMs)));
+    }
+    const offMs = finiteNumber(raw.strobeOffMs);
+    if (offMs != null) {
+        out.strobeOffMs = Math.max(20, Math.min(15000, Math.round(offMs)));
+    }
+    if (!out.channelWeights && !out.strobeEnabled && out.strobeOnMs == null && out.strobeOffMs == null) {
+        return undefined;
+    }
+    return out;
+}
+
 export function buildDMXFixtureConfigPayload(input: UpsertDMXFixtureInput): DMXFixtureConfigPayload {
-    return {
+    const payload: DMXFixtureConfigPayload = {
         version: FIXTURE_CONFIG_VERSION,
         type: input.type,
         brand: input.brand,
@@ -181,6 +216,14 @@ export function buildDMXFixtureConfigPayload(input: UpsertDMXFixtureInput): DMXF
         },
         channels: input.channels.map(cloneChannel),
     };
+    if (input.party) {
+        const p = input.party;
+        const hasWeights = p.channelWeights && Object.keys(p.channelWeights).length > 0;
+        if (hasWeights || p.strobeEnabled || p.strobeOnMs != null || p.strobeOffMs != null) {
+            payload.party = {...p};
+        }
+    }
+    return payload;
 }
 
 export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureConfigResult {
@@ -188,7 +231,8 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
         return { ok: false, error: "Fixture file must be a JSON object." };
     }
 
-    if (value.version !== FIXTURE_CONFIG_VERSION) {
+    const fileVersion = finiteNumber(value.version);
+    if (fileVersion !== 1 && fileVersion !== 2) {
         return { ok: false, error: "Fixture file version is not supported." };
     }
 
@@ -230,6 +274,11 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
         };
     }
 
+    let party: DMXFixtureParty | undefined;
+    if (fileVersion === 2 && "party" in value && isRecord(value.party)) {
+        party = parsePartyRecord(value.party);
+    }
+
     return {
         ok: true,
         input: {
@@ -240,6 +289,7 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
             maxPan: Math.round(maxPan),
             maxTilt: Math.round(maxTilt),
             channels: parsedChannels.channels,
+            ...(party ? {party} : {}),
         },
     };
 }

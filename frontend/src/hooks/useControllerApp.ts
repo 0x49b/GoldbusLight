@@ -363,7 +363,16 @@ export function useControllerApp() {
 
     const pullDMXState = useCallback(async () => {
         const next = (await GreetService.GetDMXState()) as DMXState;
-        setDMXState(next);
+        setDMXState((prev) => {
+            const nextParty = next.party;
+            const prevParty = prev.party;
+            const prevStopped = !prevParty.config.enabled && !prevParty.status.running;
+            const nextRunning = !!(nextParty.config?.enabled && nextParty.status?.running);
+            if (prevStopped && nextRunning) {
+                return {...next, party: prevParty};
+            }
+            return next;
+        });
         return next;
     }, []);
 
@@ -1767,6 +1776,7 @@ function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDM
         dmxAddress,
         maxPan: fixture.movingHead?.maxPan ?? 540,
         maxTilt: fixture.movingHead?.maxTilt ?? 270,
+        party: fixture.party,
         channels: fixture.channels,
     };
 }

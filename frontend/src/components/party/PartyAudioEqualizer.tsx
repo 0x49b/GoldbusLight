@@ -23,6 +23,9 @@ function bandValue(audio: DMXPartyAudioFeatures, key: keyof DMXPartyAudioFeature
 }
 
 export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps) {
+    const bpmRaw = audio.bpm;
+    const bpm =
+        typeof bpmRaw === "number" && Number.isFinite(bpmRaw) && bpmRaw > 0 ? Math.round(bpmRaw) : null;
     return (
         <div
             className={cn("flex items-end justify-center gap-3 rounded-md border bg-muted/30 px-4 py-3", className)}
@@ -46,6 +49,17 @@ export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps
                     </div>
                 );
             })}
+            <div className="ml-1 flex min-w-[4rem] flex-col items-center gap-1 border-l border-border pl-3">
+                <div className="flex h-28 flex-col items-center justify-center rounded-sm bg-background/80 px-2 py-1">
+                    <span className="text-lg font-semibold tabular-nums leading-none">
+                        {bpm != null ? bpm : "—"}
+                    </span>
+                    <span className="mt-1 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                        BPM
+                    </span>
+                </div>
+                <span className="text-[10px] text-center text-muted-foreground">from bass onsets</span>
+            </div>
         </div>
     );
 }

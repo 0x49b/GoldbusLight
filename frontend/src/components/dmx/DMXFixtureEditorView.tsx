@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
+import {Slider} from "@/components/ui/slider";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover";
 import {Separator} from "@/components/ui/separator";
@@ -62,6 +63,7 @@ import type {
     DMXChannel,
     DMXChannelType,
     DMXFixture,
+    DMXFixtureParty,
     DMXFixtureType,
     DMXState,
     JSONMap,
@@ -91,6 +93,30 @@ const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string
 ];
 
 const PAN_TILT_FIXTURE_TYPES = new Set<DMXFixtureType>(["movingHead", "scanner", "laser"]);
+
+function buildFixturePartySavePayload(
+    channels: DMXChannel[],
+    partyChannelWeights: Record<string, number>,
+    partyStrobeEnabled: boolean,
+    partyStrobeOnMs: number,
+    partyStrobeOffMs: number,
+): DMXFixtureParty {
+    const cw: Record<string, number> = {};
+    for (const ch of channels) {
+        const k = String(Math.round(ch.channel));
+        const raw = partyChannelWeights[k];
+        const w = typeof raw === "number" && Number.isFinite(raw) ? Math.round(raw) : 100;
+        if (w !== 100) {
+            cw[k] = Math.max(0, Math.min(100, w));
+        }
+    }
+    return {
+        ...(Object.keys(cw).length > 0 ? {channelWeights: cw} : {}),
+        strobeEnabled: partyStrobeEnabled,
+        strobeOnMs: Math.max(20, Math.round(partyStrobeOnMs) || 120),
+        strobeOffMs: Math.max(20, Math.round(partyStrobeOffMs) || 500),
+    };
+}
 
 type DMXFixtureEditorViewProps = {
     fixture: DMXFixture | undefined;
@@ -600,6 +626,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [maxPan, setMaxPan] = useState(540);
     const [maxTilt, setMaxTilt] = useState(270);
     const [channels, setChannels] = useState<DMXChannel[]>(defaultInitialChannels);
+    const [partyChannelWeights, setPartyChannelWeights] = useState<Record<string, number>>({});
+    const [partyStrobeEnabled, setPartyStrobeEnabled] = useState(false);
+    const [partyStrobeOnMs, setPartyStrobeOnMs] = useState(120);
+    const [partyStrobeOffMs, setPartyStrobeOffMs] = useState(500);
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -618,6 +648,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setMaxPan(props.fixture.movingHead?.maxPan ?? 540);
             setMaxTilt(props.fixture.movingHead?.maxTilt ?? 270);
             setChannels(props.fixture.channels?.length ? cloneChannels(props.fixture.channels) : defaultInitialChannels());
+            const pw = props.fixture.party?.channelWeights ?? {};
+            setPartyChannelWeights({...pw});
+            setPartyStrobeEnabled(!!props.fixture.party?.strobeEnabled);
+            setPartyStrobeOnMs(Math.max(20, props.fixture.party?.strobeOnMs ?? 120));
+            setPartyStrobeOffMs(Math.max(20, props.fixture.party?.strobeOffMs ?? 500));
             setSaveHint(null);
             return;
         }
@@ -628,7 +663,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setMaxPan(540);
         setMaxTilt(270);
         setChannels(defaultInitialChannels());
-        setSaveHint(null);
+        setPartyChannelWeights({});
+        setPartyStrobeEnabled(false);
+        setPartyStrobeOnMs(120);
+        setPartyStrobeOffMs(500);
     }, [props.fixture?.id, props.fixture?.updatedAt]);
 
     useEffect(() => {
@@ -772,8 +810,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
         maxPan: Math.max(0, Math.round(maxPan) || 0),
         maxTilt: Math.max(0, Math.round(maxTilt) || 0),
+        party: buildFixturePartySavePayload(
+            channels,
+            partyChannelWeights,
+            partyStrobeEnabled,
+            partyStrobeOnMs,
+            partyStrobeOffMs,
+        ),
         channels: cloneChannels(channels),
-    }), [address, brand, channels, fixtureType, maxPan, maxTilt, name, props.fixture?.id]);
+    }), [
+        address,
+        brand,
+        channels,
+        fixtureType,
+        maxPan,
+        maxTilt,
+        name,
+        partyChannelWeights,
+        partyStrobeEnabled,
+        partyStrobeOffMs,
+        partyStrobeOnMs,
+        props.fixture?.id,
+    ]);
 
     const handleSave = async () => {
         setSaveHint(null);
@@ -858,6 +916,13 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             dmxAddress: cloneAddress,
             maxPan: Math.max(0, Math.round(maxPan) || 0),
             maxTilt: Math.max(0, Math.round(maxTilt) || 0),
+            party: buildFixturePartySavePayload(
+                channels,
+                partyChannelWeights,
+                partyStrobeEnabled,
+                partyStrobeOnMs,
+                partyStrobeOffMs,
+            ),
             channels: cloneChannels(channels),
         };
 
@@ -909,6 +974,15 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setMaxPan(parsed.input.maxPan);
             setMaxTilt(parsed.input.maxTilt);
             setChannels(cloneChannels(parsed.input.channels));
+            const impParty = parsed.input.party;
+            if (impParty?.channelWeights) {
+                setPartyChannelWeights({...impParty.channelWeights});
+            } else {
+                setPartyChannelWeights({});
+            }
+            setPartyStrobeEnabled(!!impParty?.strobeEnabled);
+            setPartyStrobeOnMs(Math.max(20, impParty?.strobeOnMs ?? 120));
+            setPartyStrobeOffMs(Math.max(20, impParty?.strobeOffMs ?? 500));
             setPageMode("editor");
             setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
         } catch (e) {
@@ -2975,6 +3049,90 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             </Dialog>
 
                             {saveHint && <p className="text-sm text-destructive">{saveHint}</p>}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Party mode tuning</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-xs text-muted-foreground">
+                                Per-channel reaction scales how strongly auto and audio party algorithms move each
+                                function toward its default (0% = frozen at default, 100% = full motion).
+                            </p>
+                            <div className="grid gap-3">
+                                {channels.map((ch) => {
+                                    const key = String(Math.round(ch.channel));
+                                    const w = partyChannelWeights[key] ?? 100;
+                                    return (
+                                        <label key={`${key}-${ch.type}`} className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                            <span className="font-medium text-foreground">
+                                                Offset {ch.channel} ({ch.type}) — {w}%
+                                            </span>
+                                            <Slider
+                                                min={0}
+                                                max={100}
+                                                step={1}
+                                                value={[w]}
+                                                disabled={props.busy}
+                                                onValueChange={([nextW]) =>
+                                                    setPartyChannelWeights((prev) => ({
+                                                        ...prev,
+                                                        [key]: Math.max(0, Math.min(100, Math.round(nextW ?? 100))),
+                                                    }))
+                                                }
+                                            />
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <Separator/>
+                            <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+                                <p className="text-xs text-muted-foreground">
+                                    Timed strobe applies to shutter/strobe channels and LED strobe or sound macros.
+                                </p>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <Checkbox
+                                        checked={partyStrobeEnabled}
+                                        disabled={props.busy}
+                                        onCheckedChange={(v) => setPartyStrobeEnabled(v === true)}
+                                    />
+                                    <span>Use timed strobe bursts in party</span>
+                                </label>
+                                {partyStrobeEnabled ? (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="party-strobe-on">Burst on (ms)</Label>
+                                            <Input
+                                                id="party-strobe-on"
+                                                type="number"
+                                                min={20}
+                                                max={8000}
+                                                value={partyStrobeOnMs}
+                                                disabled={props.busy}
+                                                onChange={(e) =>
+                                                    setPartyStrobeOnMs(Math.max(20, Math.round(Number(e.target.value) || 120)))
+                                                }
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="party-strobe-off">Pause between (ms)</Label>
+                                            <Input
+                                                id="party-strobe-off"
+                                                type="number"
+                                                min={20}
+                                                max={15000}
+                                                value={partyStrobeOffMs}
+                                                disabled={props.busy}
+                                                onChange={(e) =>
+                                                    setPartyStrobeOffMs(Math.max(20, Math.round(Number(e.target.value) || 500)))
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
                         </CardContent>
                     </Card>
 
