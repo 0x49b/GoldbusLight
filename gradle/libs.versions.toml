@@ -1,0 +1,37 @@
+[versions]
+kotlin = "2.3.20"
+compose = "1.11.0"
+kotlinx-coroutines = "1.10.2"
+kotlinx-datetime = "0.7.1"
+kotlinx-serialization = "1.8.1"
+ktor = "3.5.0"
+voyager = "2.0.0-alpha01"
+koin = "4.2.1"
+kermit = "2.0.4"
+jserialcomm = "2.11.2"
+jmdns = "3.6.1"
+tarsosdsp = "2.5"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
+voyager-screenmodel = { module = "cafe.adriel.voyager:voyager-screenmodel", version.ref = "voyager" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+jserialcomm = { module = "com.fazecast:jSerialComm", version.ref = "jserialcomm" }
+jmdns = { module = "org.jmdns:jmdns", version.ref = "jmdns" }
+tarsosdsp = { module = "be.tarsos.dsp:tarsos-dsp-jvm", version.ref = "tarsosdsp" }
+
+[plugins]
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

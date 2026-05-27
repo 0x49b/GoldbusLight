@@ -1,8 +1,10 @@
 .task
+.gradle
 bin
 frontend/dist/*
 !frontend/dist/.gitkeep
 frontend/node_modules
+composeApp/build
 build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 .DS_Store
