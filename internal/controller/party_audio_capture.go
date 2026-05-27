@@ -74,6 +74,7 @@ func (c *WLEDController) startPartyAudioCapture(deviceID string) {
 			Mid:        features.Mid,
 			Treble:     features.Treble,
 			Beat:       features.Beat,
+			BPM:        features.BPM,
 			CapturedAt: capturedAt,
 			DeviceID:   activeDeviceID,
 		}, capture.NoSignal())

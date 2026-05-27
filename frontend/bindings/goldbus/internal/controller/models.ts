@@ -307,6 +307,26 @@ export class DMXChannel {
     }
 }
 
+export class DMXFixtureParty {
+    "channelWeights"?: { [_ in string]?: number };
+    "strobeEnabled"?: boolean;
+    "strobeOnMs"?: number;
+    "strobeOffMs"?: number;
+
+    /** Creates a new DMXFixtureParty instance. */
+    constructor($$source: Partial<DMXFixtureParty> = {}) {
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXFixtureParty instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXFixtureParty {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DMXFixtureParty($$parsedSource as Partial<DMXFixtureParty>);
+    }
+}
+
 export class DMXFixture {
     "id": string;
     "type": DMXFixtureType;
@@ -314,6 +334,7 @@ export class DMXFixture {
     "name": string;
     "dmxAddress": number;
     "movingHead": MovingHeadConfig;
+    "party": DMXFixtureParty;
     "channels": DMXChannel[];
     "createdAt": time$0.Time;
     "updatedAt": time$0.Time;
@@ -338,6 +359,9 @@ export class DMXFixture {
         if (!("movingHead" in $$source)) {
             this["movingHead"] = (new MovingHeadConfig());
         }
+        if (!("party" in $$source)) {
+            this["party"] = (new DMXFixtureParty());
+        }
         if (!("channels" in $$source)) {
             this["channels"] = [];
         }
@@ -360,6 +384,9 @@ export class DMXFixture {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("movingHead" in $$parsedSource) {
             $$parsedSource["movingHead"] = $$createField5_0($$parsedSource["movingHead"]);
+        }
+        if ("party" in $$parsedSource) {
+            $$parsedSource["party"] = DMXFixtureParty.createFrom($$parsedSource["party"]);
         }
         if ("channels" in $$parsedSource) {
             $$parsedSource["channels"] = $$createField6_0($$parsedSource["channels"]);
@@ -396,6 +423,7 @@ export class DMXPartyAudioFeatures {
     "mid": number;
     "treble": number;
     "beat": number;
+    "bpm": number;
     "capturedAt": time$0.Time;
     "deviceId"?: string;
 
@@ -415,6 +443,9 @@ export class DMXPartyAudioFeatures {
         }
         if (!("beat" in $$source)) {
             this["beat"] = 0;
+        }
+        if (!("bpm" in $$source)) {
+            this["bpm"] = 0;
         }
         if (!("capturedAt" in $$source)) {
             this["capturedAt"] = null;
@@ -1012,6 +1043,7 @@ export class UpsertDMXFixtureInput {
     "dmxAddress": number;
     "maxPan": number;
     "maxTilt": number;
+    "party": DMXFixtureParty;
     "channels": DMXChannel[];
 
     /** Creates a new UpsertDMXFixtureInput instance. */
@@ -1034,6 +1066,9 @@ export class UpsertDMXFixtureInput {
         if (!("maxTilt" in $$source)) {
             this["maxTilt"] = 0;
         }
+        if (!("party" in $$source)) {
+            this["party"] = (new DMXFixtureParty());
+        }
         if (!("channels" in $$source)) {
             this["channels"] = [];
         }
@@ -1047,6 +1082,9 @@ export class UpsertDMXFixtureInput {
     static createFrom($$source: any = {}): UpsertDMXFixtureInput {
         const $$createField7_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("party" in $$parsedSource) {
+            $$parsedSource["party"] = DMXFixtureParty.createFrom($$parsedSource["party"]);
+        }
         if ("channels" in $$parsedSource) {
             $$parsedSource["channels"] = $$createField7_0($$parsedSource["channels"]);
         }

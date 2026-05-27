@@ -197,6 +197,14 @@ export type DMXChannelType =
     | "operatingMode"
     | "custom";
 
+export type DMXFixtureParty = {
+    /** Fixture-relative channel offset (string key) → 0–100; 100 = full motion (default). */
+    channelWeights?: Record<string, number>;
+    strobeEnabled?: boolean;
+    strobeOnMs?: number;
+    strobeOffMs?: number;
+};
+
 export type DMXFixture = {
     id: string;
     type: DMXFixtureType;
@@ -208,6 +216,7 @@ export type DMXFixture = {
         maxPan: number;
         maxTilt: number;
     };
+    party?: DMXFixtureParty;
     channels: DMXChannel[];
     createdAt: string;
     updatedAt: string;
@@ -233,6 +242,8 @@ export type DMXPartyAudioFeatures = {
     mid: number;
     treble: number;
     beat: number;
+    /** Estimated tempo in BPM (0 = not enough signal yet). */
+    bpm: number;
     capturedAt?: string;
     deviceId?: string;
 };
@@ -290,6 +301,7 @@ export type UpsertDMXFixtureInput = {
     dmxAddress: number;
     maxPan: number;
     maxTilt: number;
+    party?: DMXFixtureParty;
     channels: DMXChannel[];
 };
 

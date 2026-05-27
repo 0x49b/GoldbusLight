@@ -169,6 +169,7 @@ const initialState: ControllerStoreState = {
                 mid: 0,
                 treble: 0,
                 beat: 0,
+                bpm: 0,
             },
         },
     },

@@ -32,6 +32,7 @@ type Capture struct {
 	sampleBuf        []int16
 	featureStop      chan struct{}
 	featureDone      chan struct{}
+	bpmTracker       BPMTracker
 }
 
 func (c *Capture) featureLoop() {
@@ -55,6 +56,7 @@ func (c *Capture) featureLoop() {
 			c.mu.Unlock()
 
 			features := ExtractPartyFeatures(samples)
+			features.BPM = clampBPM(c.bpmTracker.Update(features.Bass, now))
 			if features.Level > 0.01 {
 				c.mu.Lock()
 				c.lastLevelAt = now
@@ -78,6 +80,7 @@ func (c *Capture) beginCaptureLocked(deviceID string, onFeatures FeatureHandler)
 	c.sampleBuf = make([]int16, 0, partySampleRate)
 	c.onFeatures = onFeatures
 	c.deviceID = deviceID
+	c.bpmTracker.Reset()
 	c.captureStartedAt = time.Now()
 	c.lastLevelAt = time.Time{}
 	c.noSignal = false
