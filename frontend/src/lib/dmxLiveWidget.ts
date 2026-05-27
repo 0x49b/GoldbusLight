@@ -260,7 +260,7 @@ function readEntryLiveSlotKind(raw: unknown): LiveSlotKind | undefined {
 
 function inferEntryLiveSlotKind(
     entry: { from: number; to: number; label?: string; mode?: string },
-    index: number,
+    _index: number,
 ): LiveSlotKind {
     const lo = Math.min(entry.from, entry.to);
     const hi = Math.max(entry.from, entry.to);
@@ -278,6 +278,19 @@ function inferEntryLiveSlotKind(
     return "slider";
 }
 
+/** Resolve stored slot kind; wide DMX ranges must stay sliders even if saved as switches. */
+export function effectiveEntryLiveSlotKind(
+    entry: { from: number; to: number; label?: string; mode?: string },
+    explicit: LiveSlotKind | undefined,
+    index = 0,
+): LiveSlotKind {
+    const inferred = inferEntryLiveSlotKind(entry, index);
+    if (explicit === "button" && inferred === "slider") {
+        return "slider";
+    }
+    return explicit ?? inferred;
+}
+
 /** Per-entry live control: switch vs range slider (for `buttonSlider` widget). */
 export function parseEntryLiveSlotKinds(
     props: JSONMap | undefined,
@@ -287,13 +300,11 @@ export function parseEntryLiveSlotKinds(
     const rawList = Array.isArray(raw) ? raw : [];
     return entries.map((entry, i) => {
         const item = rawList[i];
+        let explicit: LiveSlotKind | undefined;
         if (item && typeof item === "object" && !Array.isArray(item)) {
-            const fromItem = readEntryLiveSlotKind((item as Record<string, unknown>).liveSlotKind);
-            if (fromItem) {
-                return fromItem;
-            }
+            explicit = readEntryLiveSlotKind((item as Record<string, unknown>).liveSlotKind);
         }
-        return inferEntryLiveSlotKind(entry, i);
+        return effectiveEntryLiveSlotKind(entry, explicit, i);
     });
 }
 

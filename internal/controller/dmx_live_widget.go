@@ -220,19 +220,6 @@ func liveInitParseEntrySlotKinds(props map[string]any, entries []liveFixtureEntr
 	}
 	out := make([]string, len(entries))
 	for i := range entries {
-		kind := "slider"
-		if i < len(raw) {
-			if m, ok := raw[i].(map[string]any); ok {
-				if s, ok := m["liveSlotKind"].(string); ok {
-					s = strings.TrimSpace(s)
-					if s == "button" || s == "slider" {
-						kind = s
-						out[i] = kind
-						continue
-					}
-				}
-			}
-		}
 		e := entries[i]
 		lo := int(e.from)
 		hi := int(e.to)
@@ -241,8 +228,23 @@ func liveInitParseEntrySlotKinds(props map[string]any, entries []liveFixtureEntr
 		}
 		span := hi - lo + 1
 		hay := strings.ToLower(e.mode + " " + e.label)
+		inferred := "slider"
 		if lo == 0 && hi == 0 || strings.Contains(hay, "off") && span <= 1 || span <= 3 {
-			kind = "button"
+			inferred = "button"
+		}
+		kind := inferred
+		if i < len(raw) {
+			if m, ok := raw[i].(map[string]any); ok {
+				if s, ok := m["liveSlotKind"].(string); ok {
+					s = strings.TrimSpace(s)
+					if s == "button" || s == "slider" {
+						kind = s
+					}
+				}
+			}
+		}
+		if kind == "button" && inferred == "slider" {
+			kind = "slider"
 		}
 		out[i] = kind
 	}

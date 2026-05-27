@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
 import {
+    effectiveEntryLiveSlotKind,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     resolveLiveWidget,
@@ -397,6 +398,13 @@ function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {from: 32, to: 63, label: "Shutter Open", mode: "open"},
                         {from: 64, to: 95, label: "Strobe", mode: "strobe"},
                         {from: 96, to: 127, label: "Pulse Alternating", mode: "pulse"},
+                    ],
+                };
+            case "fog":
+                return {
+                    entries: [
+                        {from: 0, to: 0, label: "Off", liveSlotKind: "button"},
+                        {from: 1, to: 255, label: "Volume", liveSlotKind: "slider"},
                     ],
                 };
             case "infinitePan":
@@ -2301,7 +2309,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     {showSlotKindEditor ? (
                                                                         <TableCell className="align-middle">
                                                                             <EntryLiveSlotKindSelect
-                                                                                value={slot.liveSlotKind}
+                                                                                value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                                 disabled={props.busy}
                                                                                 onChange={(kind) => {
                                                                                     const next = [...slots];
@@ -2613,7 +2621,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                     {showSlotKindEditor ? (
                                                                         <TableCell className="align-middle">
                                                                             <EntryLiveSlotKindSelect
-                                                                                value={slot.liveSlotKind}
+                                                                                value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                                 disabled={props.busy}
                                                                                 onChange={(kind) => {
                                                                                     const next = [...slots];
@@ -2787,7 +2795,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                             <div className="grid gap-1">
                                                                 <Label className="text-xs">Live slot</Label>
                                                                 <EntryLiveSlotKindSelect
-                                                                    value={slot.liveSlotKind}
+                                                                    value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                     disabled={props.busy}
                                                                     onChange={(kind) => {
                                                                         const next = [...slots];

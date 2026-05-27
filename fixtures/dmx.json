@@ -542,7 +542,7 @@
               {
                 "from": 1,
                 "label": "Volume",
-                "liveSlotKind": "button",
+                "liveSlotKind": "slider",
                 "to": 255
               }
             ],
