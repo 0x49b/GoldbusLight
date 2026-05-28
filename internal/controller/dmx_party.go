@@ -28,6 +28,12 @@ type DMXPartyConfig struct {
 	ColorVariation     int          `json:"colorVariation"`
 	AudioSensitivity   int          `json:"audioSensitivity"`
 	AudioInputDeviceID string       `json:"audioInputDeviceId,omitempty"`
+	// SmokeBurstOnMS is how long each smoke/hazer burst stays on (milliseconds).
+	SmokeBurstOnMS int `json:"smokeBurstOnMs,omitempty"`
+	// SmokeBurstOffMS is the pause between smoke/hazer bursts (milliseconds).
+	SmokeBurstOffMS int `json:"smokeBurstOffMs,omitempty"`
+	// SmokeVolume is fog output level during a burst (0–100).
+	SmokeVolume int `json:"smokeVolume,omitempty"`
 }
 
 type DMXPartyAudioFeatures struct {
@@ -70,6 +76,9 @@ func defaultDMXPartyConfig() DMXPartyConfig {
 		Speed:            55,
 		ColorVariation:   70,
 		AudioSensitivity: 60,
+		SmokeBurstOnMS:   defaultPartySmokeBurstOnMS,
+		SmokeBurstOffMS:  defaultPartySmokeBurstOffMS,
+		SmokeVolume:      defaultPartySmokeVolume,
 	}
 }
 
@@ -111,6 +120,14 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 	out.ColorVariation = clampPercent(out.ColorVariation)
 	out.AudioSensitivity = clampPercent(out.AudioSensitivity)
 	out.AudioInputDeviceID = strings.TrimSpace(out.AudioInputDeviceID)
+	if in.SmokeBurstOnMS == 0 && in.SmokeBurstOffMS == 0 && in.SmokeVolume == 0 {
+		out.SmokeBurstOnMS = defaultPartySmokeBurstOnMS
+		out.SmokeBurstOffMS = defaultPartySmokeBurstOffMS
+		out.SmokeVolume = defaultPartySmokeVolume
+	} else {
+		out.SmokeBurstOnMS, out.SmokeBurstOffMS = normalizePartySmokeBurstMS(out.SmokeBurstOnMS, out.SmokeBurstOffMS)
+		out.SmokeVolume = clampPercent(out.SmokeVolume)
+	}
 
 	seen := map[string]struct{}{}
 	nextIDs := make([]string, 0, len(out.FixtureIDs))
@@ -259,7 +276,7 @@ func (c *WLEDController) StartDMXParty() error {
 	devices := cloneDeviceMap(c.devices)
 	c.mu.RUnlock()
 
-	dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+	dmxTargets := partyDMXTargets(fixtures, state.Config)
 	wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
 	if len(dmxTargets) == 0 && len(wledTargets) == 0 {
 		return fmt.Errorf("select at least one WLED or DMX device for party mode")
@@ -280,6 +297,7 @@ func (c *WLEDController) StartDMXParty() error {
 
 	c.mu.Lock()
 	party := normalizeDMXPartyState(c.dmxState.Party)
+	party.Config = state.Config
 	party.Config.Enabled = true
 	party.Status.Mode = party.Config.Mode
 	party.Status.Error = ""
@@ -390,6 +408,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 	var motionPhase float64
 	var colorPhase float64
 	frameCount := 0
+	burstAnchor := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -419,7 +438,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 				fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
 				devices := cloneDeviceMap(c.devices)
 				c.mu.RUnlock()
-				dmxTargets := filterPartyFixtures(fixtures, state.Config.FixtureIDs)
+				dmxTargets := partyDMXTargets(fixtures, state.Config)
 				wledTargets := filterPartyWLEDDevices(devices, state.Config.WLEDDeviceIDs)
 				if len(dmxTargets) == 0 && len(wledTargets) == 0 {
 					return
@@ -433,7 +452,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 						c.stopDMXPartyInternal("dmx live output is disconnected", false)
 						return
 					}
-					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets, now)
+					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets, now, burstAnchor)
 					if len(updates) > 0 {
 						c.dmxLiveMu.Lock()
 						if !c.dmxLiveRunning || !c.dmxPartyRunning {
@@ -496,6 +515,7 @@ func (c *WLEDController) buildDMXPartyFrame(
 	values partyPhaseValues,
 	targeted []DMXFixture,
 	now time.Time,
+	burstAnchor time.Time,
 ) ([]dmx.DMXOutputUpdate, [512]bool) {
 	var owned [512]bool
 	if len(targeted) == 0 {
@@ -538,6 +558,7 @@ func (c *WLEDController) buildDMXPartyFrame(
 				mid,
 				treble,
 				now,
+				burstAnchor,
 			)
 			if !ok {
 				continue
@@ -569,6 +590,7 @@ func partyValueForFixtureChannel(
 	audioMid float64,
 	audioTreble float64,
 	now time.Time,
+	burstAnchor time.Time,
 ) (int, bool) {
 	normType := strings.ToLower(strings.TrimSpace(ch.Type))
 	entries := parseDMXPartyEntries(ch.Properties)
@@ -581,9 +603,12 @@ func partyValueForFixtureChannel(
 
 	switch normType {
 	case "dimmer", "dimmerfine":
+		if fixtureType == DMXFixtureTypeSmoke || fixtureType == DMXFixtureTypeHazer {
+			return partySmokeFixtureOutput(state.Config, ch, normType, burstAnchor, now), true
+		}
 		v := 45 + 180*intensity
 		v += 30 * audioBoost
-		if fixtureType == DMXFixtureTypeSmoke || fixtureType == DMXFixtureTypeHazer || fixtureType == DMXFixtureTypeFan {
+		if fixtureType == DMXFixtureTypeFan {
 			v = 80 + 120*oscSlow*intensity + 40*audioBeat
 		}
 		return clampDMXByte(int(v)), true
@@ -594,8 +619,7 @@ func partyValueForFixtureChannel(
 		return 0, true
 	case "fog":
 		if fixtureType == DMXFixtureTypeSmoke || fixtureType == DMXFixtureTypeHazer {
-			v := 40 + 180*oscSlow*intensity + 60*audioBeat
-			return clampDMXByte(int(v)), true
+			return partySmokeFixtureOutput(state.Config, ch, normType, burstAnchor, now), true
 		}
 		return 0, false
 	case "pan", "tilt", "infinitepan", "infinitetilt":
@@ -779,6 +803,41 @@ func filterPartyFixtures(fixtures []DMXFixture, fixtureIDs []string) []DMXFixtur
 		return strings.Compare(a.ID, b.ID)
 	})
 	return out
+}
+
+func partyDMXTargets(fixtures []DMXFixture, cfg DMXPartyConfig) []DMXFixture {
+	targeted := filterPartyFixtures(fixtures, cfg.FixtureIDs)
+	if clampPercent(cfg.SmokeVolume) <= 0 {
+		return targeted
+	}
+	have := make(map[string]struct{}, len(targeted))
+	for _, fixture := range targeted {
+		have[fixture.ID] = struct{}{}
+	}
+	for _, fixture := range fixtures {
+		ft := normalizeFixtureType(fixture.Type)
+		if ft != DMXFixtureTypeSmoke && ft != DMXFixtureTypeHazer {
+			continue
+		}
+		if _, ok := have[fixture.ID]; ok {
+			continue
+		}
+		targeted = append(targeted, fixture)
+		have[fixture.ID] = struct{}{}
+	}
+	if len(targeted) == 0 {
+		return targeted
+	}
+	slices.SortFunc(targeted, func(a, b DMXFixture) int {
+		if a.DMXAddress < b.DMXAddress {
+			return -1
+		}
+		if a.DMXAddress > b.DMXAddress {
+			return 1
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	return targeted
 }
 
 func clampDMXByte(v int) int {

@@ -111,6 +111,78 @@ func partyWeightNeutralByte(ch DMXChannel, normType string, fixtureType DMXFixtu
 	}
 }
 
+const (
+	defaultPartySmokeBurstOnMS  = 2500
+	defaultPartySmokeBurstOffMS = 45000
+	defaultPartySmokeVolume     = 55
+)
+
+func normalizePartySmokeBurstMS(onMS, offMS int) (int, int) {
+	if onMS <= 0 {
+		onMS = defaultPartySmokeBurstOnMS
+	}
+	if offMS <= 0 {
+		offMS = defaultPartySmokeBurstOffMS
+	}
+	if onMS < 200 {
+		onMS = 200
+	}
+	if onMS > 15000 {
+		onMS = 15000
+	}
+	if offMS < 1000 {
+		offMS = 1000
+	}
+	if offMS > 300000 {
+		offMS = 300000
+	}
+	return onMS, offMS
+}
+
+func partySmokeGateMS(cfg DMXPartyConfig, anchor time.Time, now time.Time) bool {
+	on, off := normalizePartySmokeBurstMS(cfg.SmokeBurstOnMS, cfg.SmokeBurstOffMS)
+	period := int64(on + off)
+	if period <= 0 {
+		return false
+	}
+	var ms int64
+	if anchor.IsZero() {
+		ms = now.UnixMilli() % period
+	} else {
+		ms = now.Sub(anchor).Milliseconds() % period
+		if ms < 0 {
+			ms += period
+		}
+	}
+	return ms < int64(on)
+}
+
+func partySmokeFixtureOutput(cfg DMXPartyConfig, ch DMXChannel, normType string, anchor time.Time, now time.Time) int {
+	if !partySmokeGateMS(cfg, anchor, now) {
+		return 0
+	}
+	vol := float64(clampPercent(cfg.SmokeVolume)) / 100.0
+	if vol <= 0 {
+		return 0
+	}
+	if normType == "fog" {
+		return partyFogVolumeByte(ch, vol)
+	}
+	return clampDMXByte(int(math.Round(vol * 255)))
+}
+
+func partyFogVolumeByte(ch DMXChannel, volume01 float64) int {
+	r := liveInitSmokeFogOutputRange(ch.Properties)
+	if r == nil {
+		return clampDMXByte(int(math.Round(clampFloat(volume01, 0, 1) * 255)))
+	}
+	t := clampFloat(volume01, 0, 1)
+	if t <= 0 {
+		return 0
+	}
+	return clampDMXByte(int(math.Round(float64(r.min) + t*float64(r.max-r.min))))
+}
+
 func partyStrobeGateMS(fp DMXFixtureParty, now time.Time) bool {
 	fp = normalizeFixtureParty(fp)
 	if !fp.StrobeEnabled {

@@ -21,7 +21,7 @@ func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time
 	var motionPhase float64
 	var colorPhase float64
 	advancePartyPhases(values, &motionPhase, &colorPhase)
-	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted, at)
+	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted, at, time.Time{})
 }
 
 func TestCloneDMXStatePreservesPartyRuntime(t *testing.T) {
@@ -75,11 +75,133 @@ func TestNormalizeDMXPartyConfigClampsAndSanitizes(t *testing.T) {
 	if got.Intensity != 100 || got.Speed != 0 || got.ColorVariation != 100 || got.AudioSensitivity != 0 {
 		t.Fatalf("unexpected clamped values: %+v", got)
 	}
-	if got.AudioInputDeviceID != "mic-1" {
+    if got.AudioInputDeviceID != "mic-1" {
 		t.Fatalf("expected trimmed audio input device id, got %q", got.AudioInputDeviceID)
 	}
 	if len(got.FixtureIDs) != 2 || got.FixtureIDs[0] != "fixture-1" || got.FixtureIDs[1] != "fixture-2" {
 		t.Fatalf("unexpected fixture ids: %#v", got.FixtureIDs)
+	}
+	if got.SmokeBurstOnMS != defaultPartySmokeBurstOnMS {
+		t.Fatalf("expected default smoke burst on ms, got %d", got.SmokeBurstOnMS)
+	}
+}
+
+func TestPartySmokeGateBursts(t *testing.T) {
+	cfg := defaultDMXPartyConfig()
+	cfg.SmokeBurstOnMS = 2000
+	cfg.SmokeBurstOffMS = 8000
+	cfg.SmokeVolume = 80
+
+	ch := DMXChannel{
+		Channel: 1,
+		Type:    "fog",
+		Properties: map[string]any{
+			"entries": []any{
+				map[string]any{"from": 0, "to": 0, "label": "Off"},
+				map[string]any{"from": 1, "to": 255, "label": "Volume"},
+			},
+		},
+	}
+	fixture := DMXFixture{ID: "smoke-1", Type: DMXFixtureTypeSmoke, DMXAddress: 23}
+	state := DMXPartyState{Config: cfg}
+	anchor := time.Unix(0, 0)
+
+	onVal, ok := partyValueForFixtureChannel(
+		state, fixture, DMXFixtureTypeSmoke, ch,
+		0, 0, 0.8, 0.7, 0.5, 0.4, 0.3, 0.6,
+		time.Unix(0, 0), anchor,
+	)
+	if !ok {
+		t.Fatalf("expected fog value during burst")
+	}
+	if onVal <= 0 {
+		t.Fatalf("expected non-zero fog during burst window, got %d", onVal)
+	}
+
+	offVal, ok := partyValueForFixtureChannel(
+		state, fixture, DMXFixtureTypeSmoke, ch,
+		0, 0, 0.8, 0.7, 0.5, 0.4, 0.3, 0.6,
+		time.Unix(0, 3000000000), anchor,
+	)
+	if !ok {
+		t.Fatalf("expected fog value during pause")
+	}
+	if offVal != 0 {
+		t.Fatalf("expected fog off during pause window, got %d", offVal)
+	}
+}
+
+func TestPartyDMXTargetsAutoIncludesSmokeWhenVolumeEnabled(t *testing.T) {
+	fixtures := []DMXFixture{
+		{ID: "head-1", Type: DMXFixtureTypeMovingHead, DMXAddress: 1},
+		{
+			ID:         "smoke-1",
+			Type:       DMXFixtureTypeSmoke,
+			DMXAddress: 23,
+			Channels:   []DMXChannel{{Channel: 1, Type: "fog"}},
+		},
+	}
+	cfg := defaultDMXPartyConfig()
+	cfg.FixtureIDs = []string{"head-1"}
+	cfg.SmokeVolume = 60
+
+	targets := partyDMXTargets(fixtures, cfg)
+	if len(targets) != 2 {
+		t.Fatalf("expected head + auto smoke, got %d fixtures", len(targets))
+	}
+}
+
+func TestBuildDMXPartyFrameVF1600SmokeBurst(t *testing.T) {
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.mu.Lock()
+	c.dmxState.Fixtures = []DMXFixture{
+		{
+			ID:         "fixture-1779188052753189379",
+			Type:       DMXFixtureTypeSmoke,
+			Name:       "VF1600 EP",
+			DMXAddress: 23,
+			Channels: []DMXChannel{
+				{
+					Channel: 1,
+					Type:    "fog",
+					Properties: map[string]any{
+						"entries": []any{
+							map[string]any{"from": 0, "to": 0, "label": "Off"},
+							map[string]any{"from": 1, "to": 255, "label": "Volume", "liveSlotKind": "slider"},
+						},
+					},
+				},
+			},
+		},
+	}
+	c.mu.Unlock()
+
+	cfg := defaultDMXPartyConfig()
+	cfg.FixtureIDs = []string{"fixture-other"}
+	cfg.SmokeVolume = 80
+	cfg.SmokeBurstOnMS = 5000
+	cfg.SmokeBurstOffMS = 1000
+	state := DMXPartyState{Config: cfg}
+
+	anchor := time.Unix(0, 0)
+	at := time.Unix(0, 0)
+	values := computePartyPhaseValues(state, at)
+	targets := partyDMXTargets(c.dmxState.Fixtures, cfg)
+	updates, owned := c.buildDMXPartyFrame(state, 0, 0, values, targets, at, anchor)
+	if len(targets) != 1 {
+		t.Fatalf("expected auto-included smoke fixture, got %d targets", len(targets))
+	}
+	var smokeVal int
+	for _, u := range updates {
+		if u.Address == 23 {
+			smokeVal = u.Value
+		}
+	}
+	if !owned[22] {
+		t.Fatalf("expected party to own address 23")
+	}
+	if smokeVal <= 0 {
+		t.Fatalf("expected smoke output during burst at address 23, got %d", smokeVal)
 	}
 }
 
@@ -255,6 +377,7 @@ func TestPartyColorWheelUsesEntries(t *testing.T) {
 		0.3,
 		0.6,
 		time.Unix(0, 0),
+		time.Time{},
 	)
 	if !ok {
 		t.Fatalf("expected value for color wheel with entries")
@@ -292,6 +415,7 @@ func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 		0.0,
 		0.0,
 		at,
+		time.Time{},
 	)
 	if !ok {
 		t.Fatalf("expected gobo value")
@@ -310,6 +434,7 @@ func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 		0.0,
 		0.0,
 		at,
+		time.Time{},
 	)
 	if !ok {
 		t.Fatalf("expected gobo value with high mid")

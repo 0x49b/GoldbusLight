@@ -1103,6 +1103,7 @@ export function useControllerApp() {
         }
         setBusy(true);
         try {
+            await setDMXPartyConfig({});
             await GreetService.StartDMXParty();
             const state = await GreetService.GetDMXPartyState();
             setDMXState((prev) => ({...prev, party: state as unknown as DMXPartyState}));
@@ -1115,7 +1116,7 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, [ensurePartyEnabled, setBusy, setDMXState, setError, setStatus]);
+    }, [ensurePartyEnabled, setBusy, setDMXState, setError, setStatus, setDMXPartyConfig]);
 
     const stopDMXPartyMode = useCallback(async () => {
         setDMXState((prev) => ({
@@ -1860,6 +1861,11 @@ function clampPercent(v: number, fallback: number): number {
     return Math.max(0, Math.min(100, n));
 }
 
+function clampMs(v: number, min: number, max: number, fallback: number): number {
+    const n = Number.isFinite(v) ? Math.round(v) : fallback;
+    return Math.max(min, Math.min(max, n));
+}
+
 function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<DMXPartyConfig>): DMXPartyConfig {
     const modeRaw = partial.mode ?? base?.mode ?? "auto";
     const mode: DMXPartyMode = modeRaw === "audio" ? "audio" : "auto";
@@ -1887,5 +1893,8 @@ function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<
         colorVariation: clampPercent(partial.colorVariation ?? base?.colorVariation ?? 70, 70),
         audioSensitivity: clampPercent(partial.audioSensitivity ?? base?.audioSensitivity ?? 60, 60),
         audioInputDeviceId: (partial.audioInputDeviceId ?? base?.audioInputDeviceId ?? "").trim(),
+        smokeBurstOnMs: clampMs(partial.smokeBurstOnMs ?? base?.smokeBurstOnMs ?? 2500, 200, 15000, 2500),
+        smokeBurstOffMs: clampMs(partial.smokeBurstOffMs ?? base?.smokeBurstOffMs ?? 45000, 1000, 300000, 45000),
+        smokeVolume: clampPercent(partial.smokeVolume ?? base?.smokeVolume ?? 55, 55),
     };
 }

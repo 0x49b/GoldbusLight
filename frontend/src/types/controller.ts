@@ -234,6 +234,12 @@ export type DMXPartyConfig = {
     colorVariation: number;
     audioSensitivity: number;
     audioInputDeviceId?: string;
+    /** Smoke/hazer burst length in milliseconds. */
+    smokeBurstOnMs?: number;
+    /** Pause between smoke/hazer bursts in milliseconds. */
+    smokeBurstOffMs?: number;
+    /** Fog output level during a burst (0–100). */
+    smokeVolume?: number;
 };
 
 export type DMXPartyAudioFeatures = {

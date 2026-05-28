@@ -24,13 +24,42 @@ type PartyModeViewProps = {
     onStop: () => Promise<void>;
 };
 
-type PartySliderField = "intensity" | "speed" | "colorVariation" | "audioSensitivity";
+type PartySliderField = "intensity" | "speed" | "colorVariation" | "audioSensitivity" | "smokeVolume";
+
+type PartySmokeDraft = {
+    burstOnSec: number;
+    burstOffSec: number;
+    volume: number;
+};
+
+const DEFAULT_SMOKE_BURST_ON_MS = 2500;
+const DEFAULT_SMOKE_BURST_OFF_MS = 45000;
+const DEFAULT_SMOKE_VOLUME = 55;
 
 function normalizePercent(v: number): number {
     if (!Number.isFinite(v)) {
         return 0;
     }
     return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+function clampMs(v: number, min: number, max: number, fallback: number): number {
+    const n = Number.isFinite(v) ? Math.round(v) : fallback;
+    return Math.max(min, Math.min(max, n));
+}
+
+function smokeDraftFromConfig(config: DMXPartyConfig): PartySmokeDraft {
+    const onMs = clampMs(config.smokeBurstOnMs ?? DEFAULT_SMOKE_BURST_ON_MS, 200, 15000, DEFAULT_SMOKE_BURST_ON_MS);
+    const offMs = clampMs(config.smokeBurstOffMs ?? DEFAULT_SMOKE_BURST_OFF_MS, 1000, 300000, DEFAULT_SMOKE_BURST_OFF_MS);
+    return {
+        burstOnSec: onMs / 1000,
+        burstOffSec: offMs / 1000,
+        volume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
+    };
+}
+
+function isAtmosphereFixture(fixture: DMXFixture): boolean {
+    return fixture.type === "smoke" || fixture.type === "hazer";
 }
 
 function inferAudioSourcePreset(config: DMXPartyConfig, devices: DMXPartyAudioInputDevice[]): DMXPartyAudioSourcePreset {
@@ -68,6 +97,18 @@ export function PartyModeView({
     const allWledSelected = wledDevices.length > 0 && wledDevices.every((device) => selectedWledIDs.has(device.id));
     const hasTargets = selectedFixtureIDs.size > 0 || selectedWledIDs.size > 0;
 
+    const hasSmokeFixtures = fixtures.some(isAtmosphereFixture);
+    const atmosphereFixtures = useMemo(
+        () => fixtures.filter(isAtmosphereFixture),
+        [fixtures],
+    );
+    const selectedSmokeCount = atmosphereFixtures.filter((fixture) =>
+        selectedFixtureIDs.has(fixture.id),
+    ).length;
+    const smokeAutoIncluded = atmosphereFixtures.filter(
+        (fixture) => (config.smokeVolume ?? DEFAULT_SMOKE_VOLUME) > 0,
+    );
+
     const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
         inferAudioSourcePreset(config, audioInputDevices),
     );
@@ -76,7 +117,9 @@ export function PartyModeView({
         speed: normalizePercent(config.speed),
         colorVariation: normalizePercent(config.colorVariation),
         audioSensitivity: normalizePercent(config.audioSensitivity),
+        smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
     });
+    const [smokeDraft, setSmokeDraft] = useState<PartySmokeDraft>(() => smokeDraftFromConfig(config));
 
     useEffect(() => {
         setAudioSourcePreset(inferAudioSourcePreset(config, audioInputDevices));
@@ -88,8 +131,18 @@ export function PartyModeView({
             speed: normalizePercent(config.speed),
             colorVariation: normalizePercent(config.colorVariation),
             audioSensitivity: normalizePercent(config.audioSensitivity),
+            smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
         });
-    }, [config.intensity, config.speed, config.colorVariation, config.audioSensitivity]);
+        setSmokeDraft(smokeDraftFromConfig(config));
+    }, [
+        config.intensity,
+        config.speed,
+        config.colorVariation,
+        config.audioSensitivity,
+        config.smokeVolume,
+        config.smokeBurstOnMs,
+        config.smokeBurstOffMs,
+    ]);
 
     useEffect(() => {
         if (mode === "audio") {
@@ -126,7 +179,21 @@ export function PartyModeView({
     };
 
     const setSlider = (field: PartySliderField, raw: number) => {
+        if (field === "smokeVolume") {
+            void onUpdateConfig({smokeVolume: normalizePercent(raw)});
+            return;
+        }
         void onUpdateConfig({[field]: normalizePercent(raw)});
+    };
+
+    const setSmokeBurstOnSec = (rawSec: number) => {
+        const sec = Math.max(0.2, Math.min(15, rawSec));
+        void onUpdateConfig({smokeBurstOnMs: Math.round(sec * 1000)});
+    };
+
+    const setSmokeBurstOffSec = (rawSec: number) => {
+        const sec = Math.max(5, Math.min(300, rawSec));
+        void onUpdateConfig({smokeBurstOffMs: Math.round(sec * 1000)});
     };
 
     const toggleFixture = (fixtureId: string) => {
@@ -234,6 +301,63 @@ export function PartyModeView({
                 {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                 {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
             </div>
+
+            {hasSmokeFixtures && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                    <div>
+                        <h3 className="text-sm font-medium">Smoke / fog bursts</h3>
+                        <p className="text-xs text-muted-foreground">
+                            Short bursts with pauses between them. When burst volume is above 0, all smoke and
+                            hazer fixtures run automatically
+                            {smokeAutoIncluded.length > 0
+                                ? `: ${smokeAutoIncluded.map((f) => f.name).join(", ")}.`
+                                : "."}
+                            {selectedSmokeCount > 0 ? ` ${selectedSmokeCount} also checked in DMX targets.` : ""}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <span className="font-medium">
+                                Burst duration: {smokeDraft.burstOnSec.toFixed(1)} s
+                            </span>
+                            <Slider
+                                min={0.2}
+                                max={15}
+                                step={0.1}
+                                value={[smokeDraft.burstOnSec]}
+                                disabled={busy}
+                                onValueChange={([next]) =>
+                                    setSmokeDraft((prev) => ({
+                                        ...prev,
+                                        burstOnSec: Math.max(0.2, Math.min(15, next ?? prev.burstOnSec)),
+                                    }))
+                                }
+                                onValueCommit={([next]) => setSmokeBurstOnSec(next ?? smokeDraft.burstOnSec)}
+                            />
+                        </label>
+                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <span className="font-medium">
+                                Pause between bursts: {Math.round(smokeDraft.burstOffSec)} s
+                            </span>
+                            <Slider
+                                min={5}
+                                max={300}
+                                step={1}
+                                value={[smokeDraft.burstOffSec]}
+                                disabled={busy}
+                                onValueChange={([next]) =>
+                                    setSmokeDraft((prev) => ({
+                                        ...prev,
+                                        burstOffSec: Math.max(5, Math.min(300, next ?? prev.burstOffSec)),
+                                    }))
+                                }
+                                onValueCommit={([next]) => setSmokeBurstOffSec(next ?? smokeDraft.burstOffSec)}
+                            />
+                        </label>
+                        {renderSlider("smokeVolume", "Burst volume", sliderDraft.smokeVolume)}
+                    </div>
+                </div>
+            )}
 
             {mode === "audio" && (
                 <div className="space-y-2 rounded-md border bg-muted/30 p-2">
