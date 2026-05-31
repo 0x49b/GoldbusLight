@@ -103,14 +103,17 @@ function sanitizePresetSequenceForSave(
     if (!seq) return undefined;
     const presets = (seq.presets ?? []).filter((p) => p && p.values);
     // Only persist when there is something meaningful to step through.
-    if (!seq.enabled && presets.length === 0) {
+    if (!seq.enabled && presets.length === 0 && !seq.idlePresetId) {
         return undefined;
     }
+    const idlePresetId = seq.idlePresetId && presets.some((p) => p.id === seq.idlePresetId) ? seq.idlePresetId : undefined;
     return {
         enabled: !!seq.enabled && presets.length > 0,
+        loop: seq.loop ?? true,
         stepMs: Math.max(100, Math.min(600000, Math.round(seq.stepMs ?? 2000) || 2000)),
         fadeMs: Math.max(0, Math.min(600000, Math.round(seq.fadeMs ?? 0) || 0)),
         presets,
+        ...(idlePresetId ? {idlePresetId} : {}),
         ...(seq.channelBehaviors && Object.keys(seq.channelBehaviors).length > 0
             ? {channelBehaviors: seq.channelBehaviors}
             : {}),

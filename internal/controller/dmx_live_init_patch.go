@@ -4,6 +4,7 @@ import (
 	"goldbus/internal/dmx"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -97,6 +98,16 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 		out = append(out, dmx.DMXOutputUpdate{Address: addr, Value: 0})
 	}
 
+	// Overlay the fixture's idle pose (if configured) so live output starts in a chosen
+	// static position instead of bare channel defaults.
+	if idle, ok := fixtureIdlePresetOverlay(fixture, base); ok {
+		for i := range out {
+			if v, has := idle[out[i].Address]; has {
+				out[i].Value = clampDMXByte(v)
+			}
+		}
+	}
+
 	slices.SortFunc(out, func(a, b dmx.DMXOutputUpdate) int {
 		if a.Address < b.Address {
 			return -1
@@ -107,6 +118,35 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 		return 0
 	})
 	return out
+}
+
+// fixtureIdlePresetOverlay returns the idle pose's values keyed by absolute DMX address,
+// or ok=false when the fixture has no valid idle preset.
+func fixtureIdlePresetOverlay(fixture DMXFixture, base int) (map[int]int, bool) {
+	seq := normalizeFixturePresetSequence(fixture.Party.PresetSequence)
+	if seq.IdlePresetID == "" {
+		return nil, false
+	}
+	preset, ok := presetByID(seq.Presets, seq.IdlePresetID)
+	if !ok || len(preset.Values) == 0 {
+		return nil, false
+	}
+	overlay := make(map[int]int, len(preset.Values))
+	for k, v := range preset.Values {
+		off, err := strconv.Atoi(strings.TrimSpace(k))
+		if err != nil || off < 1 {
+			continue
+		}
+		addr := base + off - 1
+		if addr < 1 || addr > 512 {
+			continue
+		}
+		overlay[addr] = clampDMXByte(v)
+	}
+	if len(overlay) == 0 {
+		return nil, false
+	}
+	return overlay, true
 }
 
 func liveInitCustomOutputByte(ch *DMXChannel) int {

@@ -218,6 +218,10 @@ export type DMXFixturePresetSequence = {
     stepMs?: number;
     /** Crossfade time into each pose (milliseconds). 0 = snap instantly. */
     fadeMs?: number;
+    /** When true, restart from the first pose after the last; when false, hold the final pose. */
+    loop?: boolean;
+    /** Pose applied as the fixture's static "idle" position when live output starts (empty = none). */
+    idlePresetId?: string;
     /**
      * Fixture-relative channel offset (string key) → behavior for channels not pinned by a pose.
      * Channels absent from this map default to "exclude" (left untouched by the sequence).

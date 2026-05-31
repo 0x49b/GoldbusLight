@@ -44,10 +44,30 @@ type DMXFixturePresetSequence struct {
 	StepMS int `json:"stepMs,omitempty"`
 	// FadeMs is the crossfade time into each pose (milliseconds). 0 = snap instantly.
 	FadeMS int `json:"fadeMs,omitempty"`
+	// Loop, when true, restarts the sequence from the first pose after the last one plays.
+	// When false the sequence plays through once and then holds the final pose.
+	Loop bool `json:"loop"`
+	// IdlePresetID names a pose to apply as the fixture's static "idle" position when DMX
+	// live output starts and the fixture is not under party control. Empty = no idle pose.
+	IdlePresetID string `json:"idlePresetId,omitempty"`
 	// ChannelBehaviors maps a fixture-relative channel offset (string key) to a behavior
 	// ("random" or "exclude") for channels that are not pinned by any pose. Channels absent
 	// from this map default to "exclude" (left untouched by the sequence).
 	ChannelBehaviors map[string]string `json:"channelBehaviors,omitempty"`
+}
+
+// presetByID returns the preset with the given id, if present.
+func presetByID(presets []DMXFixturePreset, id string) (DMXFixturePreset, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return DMXFixturePreset{}, false
+	}
+	for _, p := range presets {
+		if p.ID == id {
+			return p, true
+		}
+	}
+	return DMXFixturePreset{}, false
 }
 
 func normalizePresetChannelBehavior(v string) string {
@@ -148,6 +168,14 @@ func normalizeFixturePresetSequence(in DMXFixturePresetSequence) DMXFixturePrese
 	if len(out.Presets) == 0 {
 		out.Enabled = false
 	}
+
+	// Drop a dangling idle reference if its pose was deleted.
+	out.IdlePresetID = strings.TrimSpace(out.IdlePresetID)
+	if out.IdlePresetID != "" {
+		if _, ok := presetByID(out.Presets, out.IdlePresetID); !ok {
+			out.IdlePresetID = ""
+		}
+	}
 	return out
 }
 
@@ -182,6 +210,12 @@ func computePresetSequenceFrame(seq DMXFixturePresetSequence, anchor, now time.T
 	}
 	absStep := elapsed / int64(step)
 	within := elapsed % int64(step)
+
+	// When looping is off, the sequence plays through once and then holds the final pose.
+	if !seq.Loop && absStep >= int64(n) {
+		last := seq.Presets[n-1]
+		return presetSequenceFrame{curr: last, prev: last, absStep: int64(n - 1), fade: 1}, true
+	}
 
 	currIdx := int(absStep % int64(n))
 	prevAbs := absStep - 1

@@ -201,6 +201,15 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                         </div>
                     </div>
 
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            checked={value.loop ?? true}
+                            disabled={busy}
+                            onCheckedChange={(v) => patch({loop: v === true})}
+                        />
+                        <span>Loop — restart after the last pose (otherwise hold the final pose)</span>
+                    </label>
+
                     <Separator/>
 
                     <div className="space-y-2">

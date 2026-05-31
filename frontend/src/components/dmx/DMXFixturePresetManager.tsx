@@ -15,6 +15,7 @@ import {
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
+import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import type {DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
 
 export type DMXFixturePresetManagerProps = {
@@ -23,6 +24,10 @@ export type DMXFixturePresetManagerProps = {
     captureValues: () => Record<string, number>;
     /** Persists the updated sequence; returns true on success. */
     onSave: (next: DMXFixturePresetSequence) => Promise<boolean>;
+    /** Recalls a preset into the live controls (sets the fixture to that static position). */
+    onApplyPreset?: (preset: DMXFixturePreset) => void;
+    /** Whether recalling a preset to live output is currently possible. */
+    canApply?: boolean;
     busy?: boolean;
 };
 
@@ -36,10 +41,12 @@ type DialogState =
     | null;
 
 export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
-    const {sequence, captureValues, onSave, busy} = props;
+    const {sequence, captureValues, onSave, onApplyPreset, canApply, busy} = props;
 
     const presets = sequence?.presets ?? [];
     const enabled = !!sequence?.enabled;
+    const loop = sequence?.loop ?? true;
+    const idlePresetId = sequence?.idlePresetId ?? "";
     const stepMs = typeof sequence?.stepMs === "number" && sequence.stepMs > 0 ? sequence.stepMs : 2000;
     const fadeMs = typeof sequence?.fadeMs === "number" && sequence.fadeMs >= 0 ? sequence.fadeMs : 0;
 
@@ -63,12 +70,14 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
     const baseSequence = useCallback(
         (): DMXFixturePresetSequence => ({
             enabled,
+            loop,
             stepMs,
             fadeMs,
             presets,
+            ...(idlePresetId ? {idlePresetId} : {}),
             ...(sequence?.channelBehaviors ? {channelBehaviors: sequence.channelBehaviors} : {}),
         }),
-        [enabled, fadeMs, presets, sequence?.channelBehaviors, stepMs],
+        [enabled, fadeMs, idlePresetId, loop, presets, sequence?.channelBehaviors, stepMs],
     );
 
     const confirmDialog = useCallback(async () => {
@@ -139,6 +148,20 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
         [baseSequence, persist],
     );
 
+    const setLoop = useCallback(
+        (on: boolean) => {
+            void persist({...baseSequence(), loop: on});
+        },
+        [baseSequence, persist],
+    );
+
+    const setIdlePreset = useCallback(
+        (id: string) => {
+            void persist({...baseSequence(), idlePresetId: id});
+        },
+        [baseSequence, persist],
+    );
+
     return (
         <Card>
             <CardContent className="space-y-3 py-4">
@@ -169,6 +192,36 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             />
                             <span>Play these presets in party mode (preset chase)</span>
                         </label>
+
+                        <label className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                                checked={loop}
+                                disabled={disabled}
+                                onCheckedChange={(v) => setLoop(v === true)}
+                            />
+                            <span>Loop — restart from the first pose after the last (otherwise hold the final pose)</span>
+                        </label>
+
+                        <div className="space-y-1">
+                            <Label htmlFor="preset-mgr-idle">Idle / startup position</Label>
+                            <NativeSelect
+                                id="preset-mgr-idle"
+                                value={idlePresetId}
+                                disabled={disabled}
+                                onChange={(e) => setIdlePreset(e.target.value)}
+                            >
+                                <NativeSelectOption value="">None (channel defaults)</NativeSelectOption>
+                                {presets.map((p, i) => (
+                                    <NativeSelectOption key={p.id} value={p.id}>
+                                        {p.label || `Pose ${i + 1}`}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                            <p className="text-xs text-muted-foreground">
+                                Applied automatically when live output starts, so the fixture rests in this position
+                                when no party is running.
+                            </p>
+                        </div>
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1">
@@ -240,6 +293,22 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                     >
                                         <PiArrowDown className="size-4"/>
                                     </Button>
+                                    {onApplyPreset && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondary"
+                                            disabled={disabled || !canApply}
+                                            onClick={() => onApplyPreset(preset)}
+                                            title={
+                                                canApply
+                                                    ? "Move the fixture to this position now"
+                                                    : "Connect live output (and stop party) to apply"
+                                            }
+                                        >
+                                            Apply
+                                        </Button>
+                                    )}
                                     <Button
                                         type="button"
                                         size="sm"

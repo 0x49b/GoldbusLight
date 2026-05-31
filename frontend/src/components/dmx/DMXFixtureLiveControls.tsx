@@ -6,6 +6,7 @@ import {
     channelOutputByte,
     defaultDmxLiveControlState,
     defaultEntryStateForChannel,
+    dmxLiveControlStateFromPreset,
     legacyFocus01,
     legacyPan01,
     legacyTilt01,
@@ -25,7 +26,7 @@ import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
 import {DMXFixturePresetManager} from "./DMXFixturePresetManager";
 import {LiveChannelControl} from "./LiveChannelControl";
-import type {DMXFixturePresetSequence} from "@/types/controller.ts";
+import type {DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -150,7 +151,12 @@ export function DMXFixtureLiveControls({
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
 
     useEffect(() => {
-        setLiveState(defaultDmxLiveControlState(fixture));
+        // Start from the fixture's idle pose (if configured) so it opens in the saved
+        // static position rather than bare defaults.
+        const seq = fixture.party?.presetSequence;
+        const idle = seq?.idlePresetId ? seq.presets?.find((p) => p.id === seq.idlePresetId) : undefined;
+        setLiveState(idle ? dmxLiveControlStateFromPreset(fixture, idle.values) : defaultDmxLiveControlState(fixture));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fixture.id]);
 
     useEffect(() => {
@@ -257,6 +263,13 @@ export function DMXFixtureLiveControls({
         return values;
     }, [fixture, liveState]);
 
+    const applyPreset = useCallback(
+        (preset: DMXFixturePreset) => {
+            setLiveState(dmxLiveControlStateFromPreset(fixture, preset.values));
+        },
+        [fixture],
+    );
+
     const renderSlot = useCallback(
         (id: string) =>
             renderLiveTile(id, fixture, liveState, setLiveState, {
@@ -324,6 +337,8 @@ export function DMXFixtureLiveControls({
                     sequence={fixture.party?.presetSequence}
                     captureValues={captureCurrentValues}
                     onSave={onSavePresetSequence}
+                    onApplyPreset={applyPreset}
+                    canApply={connected && !partyRunning}
                     busy={busy}
                 />
             )}

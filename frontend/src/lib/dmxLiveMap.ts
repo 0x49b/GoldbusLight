@@ -177,10 +177,19 @@ export function getChannelSlotIdx(state: DMXLiveControlState, ch: DMXChannel, fa
 }
 
 export function defaultEntryStateForChannel(ch: DMXChannel): EntryChannelLiveState {
+    return entryStateForChannelByte(ch, channelDefaultByte(ch));
+}
+
+/**
+ * Builds the live-control state for a channel that reproduces a specific output byte
+ * (the inverse of channelOutputByte). Used to recall a saved preset into the live UI.
+ * Pass undefined to fall back to the channel's neutral defaults.
+ */
+export function entryStateForChannelByte(ch: DMXChannel, targetByte: number | undefined): EntryChannelLiveState {
     const widget = resolveLiveWidget(ch);
     const props = ch.properties as JSONMap | undefined;
     const entries = parseFixtureEntries(props);
-    const defaultByte = channelDefaultByte(ch);
+    const defaultByte = targetByte === undefined ? undefined : clamp255(targetByte);
     const linear01 = ch.type === "dimmer" || ch.type === "dimmerFine" ? 1 : 0.5;
     const base: EntryChannelLiveState = {
         slotIdx: 0,
@@ -475,6 +484,31 @@ export function defaultDmxLiveControlState(fixture?: DMXFixture): DMXLiveControl
         entryChannels: initEntryChannelStates(fixture),
         fog01: 0,
     };
+}
+
+/**
+ * Builds a live-control state that reproduces a saved preset's channel values
+ * (keyed by fixture-relative offset as a string). Channels not present in the
+ * preset fall back to their neutral defaults.
+ */
+export function dmxLiveControlStateFromPreset(
+    fixture: DMXFixture,
+    values: Record<string, number> | undefined,
+): DMXLiveControlState {
+    const entryChannels: Record<number, EntryChannelLiveState> = {};
+    let fog01 = 0;
+    for (const ch of fixture.channels) {
+        if (resolveLiveWidget(ch) === "hidden") {
+            continue;
+        }
+        const raw = values?.[String(ch.channel)];
+        const target = typeof raw === "number" && Number.isFinite(raw) ? clamp255(raw) : undefined;
+        entryChannels[ch.channel] = entryStateForChannelByte(ch, target);
+        if (ch.type === "fog" && target !== undefined) {
+            fog01 = clamp(target / 255, 0, 1);
+        }
+    }
+    return {entryChannels, fog01};
 }
 
 export function patchEntryChannel(

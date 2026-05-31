@@ -64,6 +64,7 @@ func TestNormalizeFixturePresetSequenceDisablesWithoutPresets(t *testing.T) {
 func TestComputePresetSequenceFrameStepping(t *testing.T) {
 	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
 		Enabled: true,
+		Loop:    true,
 		StepMS:  1000,
 		FadeMS:  0,
 		Presets: []DMXFixturePreset{
@@ -92,6 +93,90 @@ func TestComputePresetSequenceFrameStepping(t *testing.T) {
 		if frame.curr.ID != tc.wantIdx {
 			t.Fatalf("ms=%d: curr=%s, want %s", tc.ms, frame.curr.ID, tc.wantIdx)
 		}
+	}
+}
+
+func TestComputePresetSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		Enabled: true,
+		Loop:    false,
+		StepMS:  1000,
+		Presets: []DMXFixturePreset{
+			{ID: "a", Values: map[string]int{"1": 10}},
+			{ID: "b", Values: map[string]int{"1": 20}},
+		},
+	})
+	anchor := time.Unix(0, 0)
+
+	// Plays a (t=0) then b (t=1000); past the end it holds the final pose b.
+	for _, ms := range []int64{2000, 5000, 60000} {
+		frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(time.Duration(ms)*time.Millisecond))
+		if !ok {
+			t.Fatalf("ms=%d: frame not ok", ms)
+		}
+		if frame.curr.ID != "b" || frame.fade != 1 {
+			t.Fatalf("ms=%d: curr=%s fade=%v, want b/1 (held)", ms, frame.curr.ID, frame.fade)
+		}
+	}
+}
+
+func TestComputePresetSequenceFrameLoopWraps(t *testing.T) {
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		Enabled: true,
+		Loop:    true,
+		StepMS:  1000,
+		Presets: []DMXFixturePreset{
+			{ID: "a", Values: map[string]int{"1": 10}},
+			{ID: "b", Values: map[string]int{"1": 20}},
+		},
+	})
+	anchor := time.Unix(0, 0)
+	// t=2000 wraps back to the first pose.
+	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(2000*time.Millisecond))
+	if frame.curr.ID != "a" {
+		t.Fatalf("looped curr=%s, want a", frame.curr.ID)
+	}
+}
+
+func TestFixtureIdlePresetOverlay(t *testing.T) {
+	fixture := DMXFixture{
+		ID:         "fx",
+		DMXAddress: 10,
+		Party: DMXFixtureParty{
+			PresetSequence: DMXFixturePresetSequence{
+				IdlePresetID: "home",
+				StepMS:       1000,
+				Presets: []DMXFixturePreset{
+					{ID: "home", Values: map[string]int{"1": 200, "2": 50}},
+				},
+			},
+		},
+		Channels: []DMXChannel{
+			{Channel: 1, Type: "pan"},
+			{Channel: 2, Type: "tilt"},
+		},
+	}
+	updates := buildDMXLiveInitUpdatesForFixture(fixture)
+	byAddr := map[int]int{}
+	for _, u := range updates {
+		byAddr[u.Address] = u.Value
+	}
+	if byAddr[10] != 200 {
+		t.Fatalf("addr 10 = %d, want 200 (idle overlay)", byAddr[10])
+	}
+	if byAddr[11] != 50 {
+		t.Fatalf("addr 11 = %d, want 50 (idle overlay)", byAddr[11])
+	}
+}
+
+func TestFixtureIdlePresetOverlayClearedWhenMissing(t *testing.T) {
+	// A dangling idle reference should be normalized away (no panic, no overlay).
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		IdlePresetID: "gone",
+		Presets:      []DMXFixturePreset{{ID: "a", Values: map[string]int{"1": 5}}},
+	})
+	if seq.IdlePresetID != "" {
+		t.Fatalf("dangling idle id should be cleared, got %q", seq.IdlePresetID)
 	}
 }
 
