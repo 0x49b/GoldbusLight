@@ -16,6 +16,7 @@ import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
+import {cn} from "@/lib/utils";
 import type {DMXFixture, DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
 import {fixtureSupportsMovingHeadShow, generateMovingHeadShow} from "@/lib/movingHeadPresetShow.ts";
 
@@ -30,6 +31,8 @@ export type DMXFixturePresetManagerProps = {
     onApplyPreset?: (preset: DMXFixturePreset) => void;
     /** Whether recalling a preset to live output is currently possible. */
     canApply?: boolean;
+    /** ID of the preset most recently applied to live; used to highlight it. */
+    activePresetId?: string | null;
     busy?: boolean;
 };
 
@@ -43,7 +46,7 @@ type DialogState =
     | null;
 
 export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
-    const {fixture, sequence, captureValues, onSave, onApplyPreset, canApply, busy} = props;
+    const {fixture, sequence, captureValues, onSave, onApplyPreset, canApply, activePresetId, busy} = props;
 
     const presets = sequence?.presets ?? [];
     const enabled = !!sequence?.enabled;
@@ -306,16 +309,32 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             Reorder with the arrows to set how poses play through the show. Set a pose's Hold/Fade to
                             vary its timing (0 = use the defaults above).
                         </p>
+                        {onApplyPreset && (
+                            <p className="text-xs text-muted-foreground">
+                                Shortcuts: press <kbd className="rounded border bg-muted px-1">1</kbd>–<kbd className="rounded border bg-muted px-1">9</kbd> / <kbd className="rounded border bg-muted px-1">0</kbd> to recall presets 1–10, or <kbd className="rounded border bg-muted px-1">Shift</kbd>+<kbd className="rounded border bg-muted px-1">↑</kbd>/<kbd className="rounded border bg-muted px-1">↓</kbd> to step.
+                            </p>
+                        )}
                         <ol className="space-y-1.5">
                             {presets.map((preset, idx) => (
                                 <li
                                     key={preset.id}
-                                    className="flex flex-col gap-1.5 rounded-md border bg-background/50 px-2 py-1.5"
+                                    className={cn(
+                                        "flex flex-col gap-1.5 rounded-md border bg-background/50 px-2 py-1.5",
+                                        activePresetId === preset.id && "border-primary ring-1 ring-primary/40 bg-primary/5",
+                                    )}
                                 >
                                     <div className="flex items-center gap-2">
                                     <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground">
                                         {idx + 1}
                                     </span>
+                                    {onApplyPreset && idx < 10 && (
+                                        <kbd
+                                            className="hidden shrink-0 rounded border bg-muted px-1 text-[10px] font-semibold text-muted-foreground sm:inline-block"
+                                            title={`Press ${idx === 9 ? 0 : idx + 1} to recall this preset`}
+                                        >
+                                            {idx === 9 ? 0 : idx + 1}
+                                        </kbd>
+                                    )}
                                     <span className="min-w-0 flex-1 truncate text-sm">
                                         {preset.label || `Pose ${idx + 1}`}
                                     </span>

@@ -263,12 +263,65 @@ export function DMXFixtureLiveControls({
         return values;
     }, [fixture, liveState]);
 
+    const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
     const applyPreset = useCallback(
         (preset: DMXFixturePreset) => {
             setLiveState(dmxLiveControlStateFromPreset(fixture, preset.values));
+            setActivePresetId(preset.id);
         },
         [fixture],
     );
+
+    const presets = useMemo(() => fixture.party?.presetSequence?.presets ?? [], [fixture.party?.presetSequence?.presets]);
+    const canApplyPreset = connected && !partyRunning && !busy;
+
+    useEffect(() => {
+        setActivePresetId(null);
+    }, [fixture.id]);
+
+    useEffect(() => {
+        if (!canApplyPreset || presets.length === 0) {
+            return;
+        }
+        const onKey = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
+                    return;
+                }
+            }
+            if (e.altKey || e.ctrlKey || e.metaKey) {
+                return;
+            }
+
+            if (e.shiftKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                e.preventDefault();
+                const currentIdx = activePresetId ? presets.findIndex((p) => p.id === activePresetId) : -1;
+                const dir = e.key === "ArrowDown" ? 1 : -1;
+                let nextIdx: number;
+                if (currentIdx < 0) {
+                    nextIdx = dir === 1 ? 0 : presets.length - 1;
+                } else {
+                    nextIdx = (currentIdx + dir + presets.length) % presets.length;
+                }
+                applyPreset(presets[nextIdx]);
+                return;
+            }
+
+            if (!e.shiftKey && e.key.length === 1 && e.key >= "0" && e.key <= "9") {
+                const digit = Number(e.key);
+                const idx = digit === 0 ? 9 : digit - 1;
+                if (idx < presets.length) {
+                    e.preventDefault();
+                    applyPreset(presets[idx]);
+                }
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [activePresetId, applyPreset, canApplyPreset, presets]);
 
     const renderSlot = useCallback(
         (id: string) =>
@@ -340,6 +393,7 @@ export function DMXFixtureLiveControls({
                     onSave={onSavePresetSequence}
                     onApplyPreset={applyPreset}
                     canApply={connected && !partyRunning}
+                    activePresetId={activePresetId}
                     busy={busy}
                 />
             )}

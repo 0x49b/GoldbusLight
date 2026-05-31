@@ -398,6 +398,13 @@ export class DMXFixtureParty {
      */
     "strobeOffMs"?: number;
 
+    /**
+     * PresetSequence, when enabled, steps the fixture through a series of saved poses
+     * (e.g. moving-head pan/tilt positions) during party mode, overriding the generative
+     * algorithm for the channels it covers.
+     */
+    "presetSequence"?: DMXFixturePresetSequence;
+
     /** Creates a new DMXFixtureParty instance. */
     constructor($$source: Partial<DMXFixtureParty> = {}) {
 
@@ -409,11 +416,135 @@ export class DMXFixtureParty {
      */
     static createFrom($$source: any = {}): DMXFixtureParty {
         const $$createField0_0 = $$createType16;
+        const $$createField4_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("channelWeights" in $$parsedSource) {
             $$parsedSource["channelWeights"] = $$createField0_0($$parsedSource["channelWeights"]);
         }
+        if ("presetSequence" in $$parsedSource) {
+            $$parsedSource["presetSequence"] = $$createField4_0($$parsedSource["presetSequence"]);
+        }
         return new DMXFixtureParty($$parsedSource as Partial<DMXFixtureParty>);
+    }
+}
+
+/**
+ * DMXFixturePreset is a single saved pose: a set of channel values keyed by the
+ * fixture-relative channel offset (same convention as DMXChannel.Channel), as a JSON string.
+ */
+export class DMXFixturePreset {
+    "id": string;
+    "label"?: string;
+
+    /**
+     * Values maps fixture-relative channel offset (string key) to a DMX value 0–255.
+     */
+    "values": { [_ in string]?: number };
+
+    /**
+     * HoldMS overrides how long this pose is held before advancing (milliseconds).
+     * 0 = inherit the sequence-level StepMS.
+     */
+    "holdMs"?: number;
+
+    /**
+     * FadeMS overrides the crossfade time into this pose (milliseconds).
+     * 0 = inherit the sequence-level FadeMS.
+     */
+    "fadeMs"?: number;
+
+    /** Creates a new DMXFixturePreset instance. */
+    constructor($$source: Partial<DMXFixturePreset> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("values" in $$source)) {
+            this["values"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXFixturePreset instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXFixturePreset {
+        const $$createField2_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("values" in $$parsedSource) {
+            $$parsedSource["values"] = $$createField2_0($$parsedSource["values"]);
+        }
+        return new DMXFixturePreset($$parsedSource as Partial<DMXFixturePreset>);
+    }
+}
+
+/**
+ * DMXFixturePresetSequence drives a fixture through an ordered list of poses during party mode.
+ */
+export class DMXFixturePresetSequence {
+    /**
+     * Enabled turns on preset-sequence mode for this fixture, overriding the generative
+     * party algorithm for the channels the sequence covers.
+     */
+    "enabled"?: boolean;
+
+    /**
+     * Presets is the ordered list of poses to step through.
+     */
+    "presets"?: DMXFixturePreset[];
+
+    /**
+     * StepMs is how long each pose is held before advancing (milliseconds).
+     */
+    "stepMs"?: number;
+
+    /**
+     * FadeMs is the crossfade time into each pose (milliseconds). 0 = snap instantly.
+     */
+    "fadeMs"?: number;
+
+    /**
+     * Loop, when true, restarts the sequence from the first pose after the last one plays.
+     * When false the sequence plays through once and then holds the final pose.
+     */
+    "loop": boolean;
+
+    /**
+     * IdlePresetID names a pose to apply as the fixture's static "idle" position when DMX
+     * live output starts and the fixture is not under party control. Empty = no idle pose.
+     */
+    "idlePresetId"?: string;
+
+    /**
+     * ChannelBehaviors maps a fixture-relative channel offset (string key) to a behavior
+     * ("random" or "exclude") for channels that are not pinned by any pose. Channels absent
+     * from this map default to "exclude" (left untouched by the sequence).
+     */
+    "channelBehaviors"?: { [_ in string]?: string };
+
+    /** Creates a new DMXFixturePresetSequence instance. */
+    constructor($$source: Partial<DMXFixturePresetSequence> = {}) {
+        if (!("loop" in $$source)) {
+            this["loop"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXFixturePresetSequence instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXFixturePresetSequence {
+        const $$createField1_0 = $$createType19;
+        const $$createField6_0 = $$createType20;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("presets" in $$parsedSource) {
+            $$parsedSource["presets"] = $$createField1_0($$parsedSource["presets"]);
+        }
+        if ("channelBehaviors" in $$parsedSource) {
+            $$parsedSource["channelBehaviors"] = $$createField6_0($$parsedSource["channelBehaviors"]);
+        }
+        return new DMXFixturePresetSequence($$parsedSource as Partial<DMXFixturePresetSequence>);
     }
 }
 
@@ -536,6 +667,12 @@ export class DMXPartyConfig {
     "wledDeviceIds"?: string[];
     "intensity": number;
     "speed": number;
+
+    /**
+     * MovementRange controls how wide pan/tilt sweeps are (0–100): 100 sweeps the full
+     * mechanical range, lower values sweep a tighter arc around the centre.
+     */
+    "movementRange"?: number;
     "colorVariation": number;
     "audioSensitivity": number;
     "audioInputDeviceId"?: string;
@@ -583,8 +720,8 @@ export class DMXPartyConfig {
      * Creates a new DMXPartyConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXPartyConfig {
-        const $$createField2_0 = $$createType17;
-        const $$createField3_0 = $$createType17;
+        const $$createField2_0 = $$createType21;
+        const $$createField3_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtureIds" in $$parsedSource) {
             $$parsedSource["fixtureIds"] = $$createField2_0($$parsedSource["fixtureIds"]);
@@ -630,9 +767,9 @@ export class DMXPartyState {
      * Creates a new DMXPartyState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXPartyState {
-        const $$createField0_0 = $$createType18;
-        const $$createField1_0 = $$createType19;
-        const $$createField2_0 = $$createType20;
+        const $$createField0_0 = $$createType22;
+        const $$createField1_0 = $$createType23;
+        const $$createField2_0 = $$createType24;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("config" in $$parsedSource) {
             $$parsedSource["config"] = $$createField0_0($$parsedSource["config"]);
@@ -717,9 +854,9 @@ export class DMXSettings {
      * Creates a new DMXSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXSettings {
-        const $$createField1_0 = $$createType21;
-        const $$createField2_0 = $$createType22;
-        const $$createField3_0 = $$createType23;
+        const $$createField1_0 = $$createType25;
+        const $$createField2_0 = $$createType26;
+        const $$createField3_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("usb" in $$parsedSource) {
             $$parsedSource["usb"] = $$createField1_0($$parsedSource["usb"]);
@@ -764,9 +901,9 @@ export class DMXState {
      * Creates a new DMXState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXState {
-        const $$createField0_0 = $$createType25;
-        const $$createField2_0 = $$createType26;
-        const $$createField3_0 = $$createType27;
+        const $$createField0_0 = $$createType29;
+        const $$createField2_0 = $$createType30;
+        const $$createField3_0 = $$createType31;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtures" in $$parsedSource) {
             $$parsedSource["fixtures"] = $$createField0_0($$parsedSource["fixtures"]);
@@ -850,7 +987,7 @@ export class DiscoverySettings {
      * Creates a new DiscoverySettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType17;
+        const $$createField1_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serviceTypes" in $$parsedSource) {
             $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
@@ -950,8 +1087,8 @@ export class NetworkApplyResult {
      * Creates a new NetworkApplyResult instance from a string or object.
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
-        const $$createField1_0 = $$createType17;
-        const $$createField2_0 = $$createType29;
+        const $$createField1_0 = $$createType21;
+        const $$createField2_0 = $$createType33;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -1227,8 +1364,8 @@ export class WLEDDeviceDetail {
     static createFrom($$source: any = {}): WLEDDeviceDetail {
         const $$createField2_0 = $$createType11;
         const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType17;
-        const $$createField5_0 = $$createType17;
+        const $$createField4_0 = $$createType21;
+        const $$createField5_0 = $$createType21;
         const $$createField6_0 = $$createType11;
         const $$createField7_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -1317,16 +1454,20 @@ const $$createType13 = DMXFixtureParty.createFrom;
 const $$createType14 = DMXChannel.createFrom;
 const $$createType15 = $Create.Array($$createType14);
 const $$createType16 = $Create.Map($Create.Any, $Create.Any);
-const $$createType17 = $Create.Array($Create.Any);
-const $$createType18 = DMXPartyConfig.createFrom;
-const $$createType19 = DMXPartyStatus.createFrom;
-const $$createType20 = DMXPartyAudioFeatures.createFrom;
-const $$createType21 = USBTransportSettings.createFrom;
-const $$createType22 = ArtNetSettings.createFrom;
-const $$createType23 = DMXTestingSettings.createFrom;
-const $$createType24 = DMXFixture.createFrom;
-const $$createType25 = $Create.Array($$createType24);
-const $$createType26 = DMXPartyState.createFrom;
-const $$createType27 = $Create.Array($Create.Any);
-const $$createType28 = NetworkCommandResult.createFrom;
+const $$createType17 = DMXFixturePresetSequence.createFrom;
+const $$createType18 = DMXFixturePreset.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $Create.Map($Create.Any, $Create.Any);
+const $$createType21 = $Create.Array($Create.Any);
+const $$createType22 = DMXPartyConfig.createFrom;
+const $$createType23 = DMXPartyStatus.createFrom;
+const $$createType24 = DMXPartyAudioFeatures.createFrom;
+const $$createType25 = USBTransportSettings.createFrom;
+const $$createType26 = ArtNetSettings.createFrom;
+const $$createType27 = DMXTestingSettings.createFrom;
+const $$createType28 = DMXFixture.createFrom;
 const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = DMXPartyState.createFrom;
+const $$createType31 = $Create.Array($Create.Any);
+const $$createType32 = NetworkCommandResult.createFrom;
+const $$createType33 = $Create.Array($$createType32);
