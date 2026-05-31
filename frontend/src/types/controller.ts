@@ -265,6 +265,8 @@ export type DMXPartyConfig = {
     wledDeviceIds?: string[];
     intensity: number;
     speed: number;
+    /** How wide pan/tilt sweeps are (0–100); larger = bigger sweeps. */
+    movementRange?: number;
     colorVariation: number;
     audioSensitivity: number;
     audioInputDeviceId?: string;

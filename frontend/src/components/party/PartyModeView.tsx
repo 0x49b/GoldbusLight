@@ -24,7 +24,9 @@ type PartyModeViewProps = {
     onStop: () => Promise<void>;
 };
 
-type PartySliderField = "intensity" | "speed" | "colorVariation" | "audioSensitivity" | "smokeVolume";
+type PartySliderField = "intensity" | "speed" | "movementRange" | "colorVariation" | "audioSensitivity" | "smokeVolume";
+
+const DEFAULT_MOVEMENT_RANGE = 70;
 
 type PartySmokeDraft = {
     burstOnSec: number;
@@ -115,6 +117,7 @@ export function PartyModeView({
     const [sliderDraft, setSliderDraft] = useState<Record<PartySliderField, number>>({
         intensity: normalizePercent(config.intensity),
         speed: normalizePercent(config.speed),
+        movementRange: normalizePercent(config.movementRange ?? DEFAULT_MOVEMENT_RANGE),
         colorVariation: normalizePercent(config.colorVariation),
         audioSensitivity: normalizePercent(config.audioSensitivity),
         smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
@@ -129,6 +132,7 @@ export function PartyModeView({
         setSliderDraft({
             intensity: normalizePercent(config.intensity),
             speed: normalizePercent(config.speed),
+            movementRange: normalizePercent(config.movementRange ?? DEFAULT_MOVEMENT_RANGE),
             colorVariation: normalizePercent(config.colorVariation),
             audioSensitivity: normalizePercent(config.audioSensitivity),
             smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
@@ -137,6 +141,7 @@ export function PartyModeView({
     }, [
         config.intensity,
         config.speed,
+        config.movementRange,
         config.colorVariation,
         config.audioSensitivity,
         config.smokeVolume,
@@ -298,6 +303,7 @@ export function PartyModeView({
                 </label>
                 {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
                 {renderSlider("speed", "Speed", sliderDraft.speed)}
+                {renderSlider("movementRange", "Movement range (pan/tilt sweep)", sliderDraft.movementRange)}
                 {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                 {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
             </div>

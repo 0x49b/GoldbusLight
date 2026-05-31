@@ -19,15 +19,18 @@ const (
 )
 
 type DMXPartyConfig struct {
-	Enabled            bool         `json:"enabled"`
-	Mode               DMXPartyMode `json:"mode"`
-	FixtureIDs         []string     `json:"fixtureIds,omitempty"`
-	WLEDDeviceIDs      []string     `json:"wledDeviceIds,omitempty"`
-	Intensity          int          `json:"intensity"`
-	Speed              int          `json:"speed"`
-	ColorVariation     int          `json:"colorVariation"`
-	AudioSensitivity   int          `json:"audioSensitivity"`
-	AudioInputDeviceID string       `json:"audioInputDeviceId,omitempty"`
+	Enabled       bool         `json:"enabled"`
+	Mode          DMXPartyMode `json:"mode"`
+	FixtureIDs    []string     `json:"fixtureIds,omitempty"`
+	WLEDDeviceIDs []string     `json:"wledDeviceIds,omitempty"`
+	Intensity     int          `json:"intensity"`
+	Speed         int          `json:"speed"`
+	// MovementRange controls how wide pan/tilt sweeps are (0–100): 100 sweeps the full
+	// mechanical range, lower values sweep a tighter arc around the centre.
+	MovementRange      int    `json:"movementRange,omitempty"`
+	ColorVariation     int    `json:"colorVariation"`
+	AudioSensitivity   int    `json:"audioSensitivity"`
+	AudioInputDeviceID string `json:"audioInputDeviceId,omitempty"`
 	// SmokeBurstOnMS is how long each smoke/hazer burst stays on (milliseconds).
 	SmokeBurstOnMS int `json:"smokeBurstOnMs,omitempty"`
 	// SmokeBurstOffMS is the pause between smoke/hazer bursts (milliseconds).
@@ -74,6 +77,7 @@ func defaultDMXPartyConfig() DMXPartyConfig {
 		WLEDDeviceIDs:    []string{},
 		Intensity:        80,
 		Speed:            55,
+		MovementRange:    defaultPartyMovementRange,
 		ColorVariation:   70,
 		AudioSensitivity: 60,
 		SmokeBurstOnMS:   defaultPartySmokeBurstOnMS,
@@ -117,6 +121,12 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 	out.Mode = normalizeDMXPartyMode(out.Mode)
 	out.Intensity = clampPercent(out.Intensity)
 	out.Speed = clampPercent(out.Speed)
+	// 0 means "unset" (e.g. configs saved before this field existed); fall back to the
+	// default so moving heads still sweep rather than freezing at centre.
+	if out.MovementRange <= 0 {
+		out.MovementRange = defaultPartyMovementRange
+	}
+	out.MovementRange = clampPercent(out.MovementRange)
 	out.ColorVariation = clampPercent(out.ColorVariation)
 	out.AudioSensitivity = clampPercent(out.AudioSensitivity)
 	out.AudioInputDeviceID = strings.TrimSpace(out.AudioInputDeviceID)
@@ -602,6 +612,7 @@ func partyValueForFixtureChannel(
 ) (int, bool) {
 	normType := strings.ToLower(strings.TrimSpace(ch.Type))
 	entries := parseDMXPartyEntries(ch.Properties)
+	sweepRange := partySweepRange(state.Config)
 	oscSlow := (math.Sin(motionPhase) + 1) * 0.5
 	oscFast := (math.Sin(motionPhase*2.5) + 1) * 0.5
 	colorOsc := (math.Sin(colorPhase) + 1) * 0.5
@@ -630,13 +641,16 @@ func partyValueForFixtureChannel(
 			return partySmokeFixtureOutput(state.Config, ch, normType, burstAnchor, now), true
 		}
 		return 0, false
-	case "pan", "tilt", "infinitepan", "infinitetilt":
-		v := oscSlow * (0.25 + 0.75*intensity)
-		return clampDMXByte(int(v * 255)), true
-	case "panfine", "tiltfine":
-		return clampDMXByte(int(oscFast * 255)), true
+	case "pan", "infinitepan":
+		return int(partySweepPosition16(motionPhase, false, sweepRange) >> 8), true
+	case "panfine":
+		return int(partySweepPosition16(motionPhase, false, sweepRange) & 0xFF), true
+	case "tilt", "infinitetilt":
+		return int(partySweepPosition16(motionPhase, true, sweepRange) >> 8), true
+	case "tiltfine":
+		return int(partySweepPosition16(motionPhase, true, sweepRange) & 0xFF), true
 	case "movementspeed":
-		return clampDMXByte(int((0.2 + 0.8*oscFast) * 255)), true
+		return partyMovementSpeedByte(state.Config), true
 	case "colorcomponent":
 		blend := colorVariation
 		r := colorOsc*(0.4+0.6*blend) + audioBoost*0.2 + audioTreble*0.15
