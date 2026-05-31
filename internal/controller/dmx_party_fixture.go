@@ -18,6 +18,10 @@ type DMXFixtureParty struct {
 	StrobeOnMS int `json:"strobeOnMs,omitempty"`
 	// StrobeOffMs is the pause between bursts (milliseconds).
 	StrobeOffMS int `json:"strobeOffMs,omitempty"`
+	// PresetSequence, when enabled, steps the fixture through a series of saved poses
+	// (e.g. moving-head pan/tilt positions) during party mode, overriding the generative
+	// algorithm for the channels it covers.
+	PresetSequence DMXFixturePresetSequence `json:"presetSequence,omitempty"`
 }
 
 func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
@@ -53,6 +57,7 @@ func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
 	if out.StrobeOffMS > 15000 {
 		out.StrobeOffMS = 15000
 	}
+	out.PresetSequence = normalizeFixturePresetSequence(out.PresetSequence)
 	return out
 }
 
@@ -115,7 +120,48 @@ const (
 	defaultPartySmokeBurstOnMS  = 2500
 	defaultPartySmokeBurstOffMS = 45000
 	defaultPartySmokeVolume     = 55
+	defaultPartyMovementRange   = 70
 )
+
+// partySweepRange maps the configured MovementRange (0–100) to a 0..1 sweep amplitude.
+func partySweepRange(cfg DMXPartyConfig) float64 {
+	r := cfg.MovementRange
+	if r <= 0 {
+		r = defaultPartyMovementRange
+	}
+	if r > 100 {
+		r = 100
+	}
+	return float64(r) / 100.0
+}
+
+// partySweepPosition16 computes a smooth 16-bit pan/tilt position (0..65535) for one axis,
+// centred at mid-scale and sweeping symmetrically by sweepRange (0..1). Pan and tilt use
+// slightly different frequencies so the head traces a smooth figure instead of moving in a
+// rigid diagonal. Crucially, the coarse and fine bytes are split from this single value, so a
+// 16-bit fixture tracks one smooth curve rather than two decoupled oscillators (the old bug
+// that drove the fine channel from a faster, independent sine and caused visible jitter).
+func partySweepPosition16(phase float64, tilt bool, sweepRange float64) uint16 {
+	if sweepRange < 0 {
+		sweepRange = 0
+	}
+	if sweepRange > 1 {
+		sweepRange = 1
+	}
+	s := math.Sin(phase)
+	if tilt {
+		s = math.Sin(phase*0.65 + math.Pi/2)
+	}
+	pos01 := clampFloat(0.5+0.5*sweepRange*s, 0, 1)
+	return uint16(math.Round(pos01 * 65535))
+}
+
+// partyMovementSpeedByte returns a stable (non-oscillating) motor-speed value so the head
+// faithfully follows the smooth DMX sweep we emit. Higher party speed → faster motor.
+func partyMovementSpeedByte(cfg DMXPartyConfig) int {
+	speed := clampPercent(cfg.Speed)
+	return clampDMXByte(int(math.Round((1.0 - float64(speed)/100.0) * 120)))
+}
 
 func normalizePartySmokeBurstMS(onMS, offMS int) (int, int) {
 	if onMS <= 0 {

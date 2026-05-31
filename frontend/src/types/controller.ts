@@ -197,12 +197,50 @@ export type DMXChannelType =
     | "operatingMode"
     | "custom";
 
+/** A single saved pose: channel values keyed by fixture-relative channel offset (string key). */
+export type DMXFixturePreset = {
+    id: string;
+    label?: string;
+    /** Fixture-relative channel offset (string key) → DMX value 0–255. */
+    values: Record<string, number>;
+    /** Per-pose dwell time in ms; 0/undefined inherits the sequence-level stepMs. */
+    holdMs?: number;
+    /** Per-pose crossfade-in time in ms; 0/undefined inherits the sequence-level fadeMs. */
+    fadeMs?: number;
+};
+
+/** Behavior for a fixture channel that is not pinned by a preset pose. */
+export type DMXPresetChannelBehavior = "random" | "exclude";
+
+/** Steps a fixture through an ordered list of poses during party mode. */
+export type DMXFixturePresetSequence = {
+    /** Turns on preset-sequence mode for this fixture (overrides the generative algorithm). */
+    enabled?: boolean;
+    /** Ordered poses to step through. */
+    presets?: DMXFixturePreset[];
+    /** How long each pose is held before advancing (milliseconds). */
+    stepMs?: number;
+    /** Crossfade time into each pose (milliseconds). 0 = snap instantly. */
+    fadeMs?: number;
+    /** When true, restart from the first pose after the last; when false, hold the final pose. */
+    loop?: boolean;
+    /** Pose applied as the fixture's static "idle" position when live output starts (empty = none). */
+    idlePresetId?: string;
+    /**
+     * Fixture-relative channel offset (string key) → behavior for channels not pinned by a pose.
+     * Channels absent from this map default to "exclude" (left untouched by the sequence).
+     */
+    channelBehaviors?: Record<string, DMXPresetChannelBehavior>;
+};
+
 export type DMXFixtureParty = {
     /** Fixture-relative channel offset (string key) → 0–100; 100 = full motion (default). */
     channelWeights?: Record<string, number>;
     strobeEnabled?: boolean;
     strobeOnMs?: number;
     strobeOffMs?: number;
+    /** Preset-sequence (pose chase) configuration for this fixture. */
+    presetSequence?: DMXFixturePresetSequence;
 };
 
 export type DMXFixture = {
@@ -231,6 +269,8 @@ export type DMXPartyConfig = {
     wledDeviceIds?: string[];
     intensity: number;
     speed: number;
+    /** How wide pan/tilt sweeps are (0–100); larger = bigger sweeps. */
+    movementRange?: number;
     colorVariation: number;
     audioSensitivity: number;
     audioInputDeviceId?: string;

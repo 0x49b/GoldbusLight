@@ -10,6 +10,8 @@ export {
     DMXChannel,
     DMXFixture,
     DMXFixtureParty,
+    DMXFixturePreset,
+    DMXFixturePresetSequence,
     DMXFixtureType,
     DMXPartyAudioFeatures,
     DMXPartyAudioInputDevice,
