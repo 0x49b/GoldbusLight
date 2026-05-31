@@ -535,6 +535,20 @@ function defaultInitialChannels(): DMXChannel[] {
     return [{channel: 1, type: "pan", defaultValue: 128, properties: {min: 1, max: 255}}];
 }
 
+function fixtureToUpsertInput(f: DMXFixture): UpsertDMXFixtureInput {
+    return {
+        id: f.id,
+        type: f.type,
+        brand: f.brand,
+        name: f.name,
+        dmxAddress: f.dmxAddress,
+        maxPan: Math.max(0, Math.round(f.movingHead?.maxPan ?? 0)),
+        maxTilt: Math.max(0, Math.round(f.movingHead?.maxTilt ?? 0)),
+        party: f.party,
+        channels: cloneChannels(f.channels),
+    };
+}
+
 function parseEntries(props: JSONMap | undefined): SlotEntry[] {
     const raw = props?.entries;
     if (!Array.isArray(raw) || raw.length === 0) {
@@ -871,6 +885,26 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         props.fixture?.id,
     ]);
 
+    const handleSavePresetSequence = useCallback(
+        async (next: DMXFixturePresetSequence): Promise<boolean> => {
+            const current = props.fixture;
+            if (!current) {
+                return false;
+            }
+            const sanitized = sanitizePresetSequenceForSave(next);
+            const input: UpsertDMXFixtureInput = {
+                ...fixtureToUpsertInput(current),
+                party: {
+                    ...(current.party ?? {}),
+                    presetSequence: sanitized,
+                },
+            };
+            const saved = await props.onUpdate(input);
+            return saved != null;
+        },
+        [props.fixture, props.onUpdate],
+    );
+
     const handleSave = async () => {
         setSaveHint(null);
         const trimmedBrand = brand.trim();
@@ -1197,6 +1231,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     queueDmxLivePatch={props.queueDmxLivePatch}
                     liveUniverse={props.dmxState.liveUniverse}
                     pullDMXState={props.pullDMXState}
+                    onSavePresetSequence={handleSavePresetSequence}
                 />
             ) : (
                 <>

@@ -15,7 +15,7 @@ func TestNormalizeFixturePresetSequence(t *testing.T) {
 		},
 		ChannelBehaviors: map[string]string{
 			"3":   "RANDOM",
-			"4":   "exclude", // default → dropped
+			"4":   "exclude", // kept (overrides any stored pose value)
 			"5":   "bogus",   // invalid → dropped
 			"bad": "random",  // non-numeric key → dropped
 		},
@@ -44,8 +44,10 @@ func TestNormalizeFixturePresetSequence(t *testing.T) {
 	if _, ok := p.Values["x"]; ok {
 		t.Fatal("non-numeric value key should be dropped")
 	}
-	if len(out.ChannelBehaviors) != 1 || out.ChannelBehaviors["3"] != PresetChannelBehaviorRandom {
-		t.Fatalf("ChannelBehaviors = %#v, want only {3: random}", out.ChannelBehaviors)
+	if len(out.ChannelBehaviors) != 2 ||
+		out.ChannelBehaviors["3"] != PresetChannelBehaviorRandom ||
+		out.ChannelBehaviors["4"] != PresetChannelBehaviorExclude {
+		t.Fatalf("ChannelBehaviors = %#v, want {3: random, 4: exclude}", out.ChannelBehaviors)
 	}
 }
 
@@ -150,6 +152,34 @@ func TestPresetSequenceChannelValueBehaviors(t *testing.T) {
 	// Channel 3 is unspecified → excluded (not owned).
 	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 3); owned {
 		t.Fatal("unspecified channel should be excluded")
+	}
+}
+
+func TestPresetSequenceBehaviorOverridesStoredValue(t *testing.T) {
+	// A pose captured from live stores a value for every channel; the per-channel
+	// behavior must still win so those channels can be randomized or excluded.
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		Enabled: true,
+		StepMS:  1000,
+		Presets: []DMXFixturePreset{
+			{ID: "a", Values: map[string]int{"1": 200, "2": 100, "3": 50}},
+		},
+		ChannelBehaviors: map[string]string{"2": "random", "3": "exclude"},
+	})
+	anchor := time.Unix(0, 0)
+	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(100*time.Millisecond))
+
+	// Channel 1 has no behavior → replays its stored pose value.
+	if v, owned := presetSequenceChannelValue(seq, frame, "fx", 1); !owned || v != 200 {
+		t.Fatalf("pose channel: v=%d owned=%v, want 200/true", v, owned)
+	}
+	// Channel 2 is random despite having a stored value → owned, ignores 100.
+	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 2); !owned {
+		t.Fatal("random channel with stored value should still be owned")
+	}
+	// Channel 3 is excluded despite having a stored value → not owned.
+	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 3); owned {
+		t.Fatal("excluded channel with stored value should not be owned")
 	}
 }
 

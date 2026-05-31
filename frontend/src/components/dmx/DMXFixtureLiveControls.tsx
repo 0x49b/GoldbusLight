@@ -23,7 +23,9 @@ import {
 import {loadFixtureLiveLayoutDocument, saveFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
+import {DMXFixturePresetManager} from "./DMXFixturePresetManager";
 import {LiveChannelControl} from "./LiveChannelControl";
+import type {DMXFixturePresetSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -33,6 +35,7 @@ type DMXFixtureLiveControlsProps = {
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
     liveUniverse?: number[];
     pullDMXState?: () => Promise<unknown>;
+    onSavePresetSequence?: (next: DMXFixturePresetSequence) => Promise<boolean>;
 };
 
 function renderLiveTile(
@@ -141,6 +144,7 @@ export function DMXFixtureLiveControls({
     queueDmxLivePatch,
     liveUniverse,
     pullDMXState,
+    onSavePresetSequence,
 }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
@@ -241,6 +245,18 @@ export function DMXFixtureLiveControls({
 
     const sliderDisabled = busy || !connected || partyRunning;
 
+    const captureCurrentValues = useCallback((): Record<string, number> => {
+        const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
+        const values: Record<string, number> = {};
+        for (const {address, value} of buildDmxLivePatch(fixture, liveState)) {
+            const offset = address - base + 1;
+            if (offset >= 1) {
+                values[String(offset)] = value;
+            }
+        }
+        return values;
+    }, [fixture, liveState]);
+
     const renderSlot = useCallback(
         (id: string) =>
             renderLiveTile(id, fixture, liveState, setLiveState, {
@@ -300,6 +316,15 @@ export function DMXFixtureLiveControls({
                     tiles={layoutTiles}
                     onTilesChange={setLayoutTiles}
                     renderSlot={renderSlot}
+                />
+            )}
+
+            {onSavePresetSequence && (
+                <DMXFixturePresetManager
+                    sequence={fixture.party?.presetSequence}
+                    captureValues={captureCurrentValues}
+                    onSave={onSavePresetSequence}
+                    busy={busy}
                 />
             )}
         </div>

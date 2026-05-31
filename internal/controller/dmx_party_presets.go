@@ -128,8 +128,9 @@ func normalizeFixturePresetSequence(in DMXFixturePresetSequence) DMXFixturePrese
 				continue
 			}
 			b := normalizePresetChannelBehavior(v)
-			// "exclude" is the default, so storing it adds no information.
-			if b == "" || b == PresetChannelBehaviorExclude {
+			// Both "random" and "exclude" are meaningful: a pose captured from live stores
+			// a value for every channel, so "exclude" must persist to override that value.
+			if b == "" {
 				continue
 			}
 			next[key] = b
@@ -235,17 +236,11 @@ func presetSequenceChannelValue(
 ) (value int, owned bool) {
 	key := strconv.Itoa(channelOffset)
 
-	// A pose pin always wins, regardless of any behavior override.
-	currV, pinnedCurr := frame.curr.Values[key]
-	if pinnedCurr {
-		prevV, pinnedPrev := frame.prev.Values[key]
-		if !pinnedPrev {
-			prevV = currV
-		}
-		return lerpByte(prevV, currV, frame.fade), true
-	}
-
+	// The per-channel behavior is the master switch and takes precedence over any stored
+	// pose value, so a captured snapshot can still be randomized or excluded per channel.
 	switch normalizePresetChannelBehavior(behaviorForChannel(seq, key)) {
+	case PresetChannelBehaviorExclude:
+		return 0, false
 	case PresetChannelBehaviorRandom:
 		curr := presetSequenceRandomByte(fixtureID, channelOffset, frame.absStep)
 		if frame.absStep <= 0 || frame.fade >= 1 {
@@ -253,10 +248,19 @@ func presetSequenceChannelValue(
 		}
 		prev := presetSequenceRandomByte(fixtureID, channelOffset, frame.absStep-1)
 		return lerpByte(prev, curr, frame.fade), true
-	default:
-		// Excluded (the default): leave the channel alone.
+	}
+
+	// Default ("pose"): replay the value stored for this pose, crossfading from the
+	// previous pose. A channel with no stored value is left untouched.
+	currV, pinnedCurr := frame.curr.Values[key]
+	if !pinnedCurr {
 		return 0, false
 	}
+	prevV, pinnedPrev := frame.prev.Values[key]
+	if !pinnedPrev {
+		prevV = currV
+	}
+	return lerpByte(prevV, currV, frame.fade), true
 }
 
 func behaviorForChannel(seq DMXFixturePresetSequence, key string) string {

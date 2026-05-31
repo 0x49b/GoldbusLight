@@ -45,10 +45,11 @@ function defaultValueFor(ch: DMXChannel): number {
 }
 
 function roleForChannel(seq: DMXFixturePresetSequence, key: string): ChannelRole {
-    const pinned = (seq.presets ?? []).some((p) => p.values && Object.prototype.hasOwnProperty.call(p.values, key));
-    if (pinned) return "pose";
-    if (seq.channelBehaviors?.[key] === "random") return "random";
-    return "exclude";
+    const b = seq.channelBehaviors?.[key];
+    if (b === "random") return "random";
+    if (b === "exclude") return "exclude";
+    // Default: the channel replays the value stored in each pose.
+    return "pose";
 }
 
 function newPresetId(): string {
@@ -77,20 +78,18 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
     const setRole = useCallback(
         (ch: DMXChannel, role: ChannelRole) => {
             const key = channelKey(ch);
-            const nextPresets: DMXFixturePreset[] = (value.presets ?? []).map((p) => {
-                const values = {...(p.values ?? {})};
-                if (role === "pose") {
-                    if (!(key in values)) values[key] = defaultValueFor(ch);
-                } else {
-                    delete values[key];
-                }
-                return {...p, values};
-            });
             const behaviors: Record<string, DMXPresetChannelBehavior> = {...(value.channelBehaviors ?? {})};
-            if (role === "random") {
-                behaviors[key] = "random";
-            } else {
+            let nextPresets = value.presets ?? [];
+            if (role === "pose") {
                 delete behaviors[key];
+                // Make sure every pose has a value for a channel that now replays it.
+                nextPresets = nextPresets.map((p) => {
+                    const values = {...(p.values ?? {})};
+                    if (!(key in values)) values[key] = defaultValueFor(ch);
+                    return {...p, values};
+                });
+            } else {
+                behaviors[key] = role;
             }
             patch({
                 presets: nextPresets,
