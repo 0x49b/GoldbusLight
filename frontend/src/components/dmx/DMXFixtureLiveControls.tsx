@@ -37,6 +37,12 @@ type DMXFixtureLiveControlsProps = {
     liveUniverse?: number[];
     pullDMXState?: () => Promise<unknown>;
     onSavePresetSequence?: (next: DMXFixturePresetSequence) => Promise<boolean>;
+    /**
+     * Which section to display. The component stays mounted in both modes so
+     * live state (and the active preset) survives switching between the Live
+     * and Presets tabs.
+     */
+    displayMode?: "live" | "presets";
 };
 
 function renderLiveTile(
@@ -57,6 +63,12 @@ function renderLiveTile(
         previewSmokeIntensity: number;
         hasPan: boolean;
         hasTilt: boolean;
+        activePresetLabel: string | null;
+        activePresetIndex: number | null;
+        activePresetDirty: boolean;
+        canUpdateActivePreset: boolean;
+        savingActivePreset: boolean;
+        onUpdateActivePreset: () => void;
     },
 ) {
     if (id === "preview") {
@@ -65,7 +77,46 @@ function renderLiveTile(
         }
         return (
             <div className="flex h-full min-h-0 flex-col gap-1.5">
-                <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</span>
+                    {opts.activePresetLabel ? (
+                        <>
+                            <span
+                                className={
+                                    opts.activePresetDirty
+                                        ? "inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
+                                        : "inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                                }
+                                title={opts.activePresetDirty ? "Live values differ from this preset" : "Currently applied preset"}
+                            >
+                                {opts.activePresetIndex != null && (
+                                    <span className="font-semibold opacity-80">#{opts.activePresetIndex + 1}</span>
+                                )}
+                                <span className="max-w-[12rem] truncate">{opts.activePresetLabel}</span>
+                                {opts.activePresetDirty && <span className="font-semibold">•</span>}
+                            </span>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[11px]"
+                                disabled={!opts.canUpdateActivePreset || opts.savingActivePreset || !opts.activePresetDirty}
+                                onClick={opts.onUpdateActivePreset}
+                                title={
+                                    !opts.canUpdateActivePreset
+                                        ? "Connect live output (and stop party) to update"
+                                        : !opts.activePresetDirty
+                                            ? "Live values already match this preset"
+                                            : "Overwrite this preset with the current live values"
+                                }
+                            >
+                                {opts.savingActivePreset ? "Updating…" : "Update preset"}
+                            </Button>
+                        </>
+                    ) : (
+                        <span className="text-[11px] text-muted-foreground/70">no preset applied</span>
+                    )}
+                </div>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <DMXFixturePreview3D
                         fillGridCell
@@ -146,6 +197,7 @@ export function DMXFixtureLiveControls({
     liveUniverse,
     pullDMXState,
     onSavePresetSequence,
+    displayMode = "live",
 }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
@@ -264,24 +316,64 @@ export function DMXFixtureLiveControls({
     }, [fixture, liveState]);
 
     const [activePresetId, setActivePresetId] = useState<string | null>(null);
+    const [activePresetDirty, setActivePresetDirty] = useState(false);
+    const appliedLiveStateRef = useRef<DMXLiveControlState | null>(null);
 
     const applyPreset = useCallback(
         (preset: DMXFixturePreset) => {
-            setLiveState(dmxLiveControlStateFromPreset(fixture, preset.values));
+            const nextState = dmxLiveControlStateFromPreset(fixture, preset.values);
+            appliedLiveStateRef.current = nextState;
+            setLiveState(nextState);
             setActivePresetId(preset.id);
+            setActivePresetDirty(false);
         },
         [fixture],
     );
 
+    useEffect(() => {
+        if (!activePresetId || activePresetDirty) return;
+        if (appliedLiveStateRef.current && appliedLiveStateRef.current !== liveState) {
+            // User changed something after applying the preset — preset is now "dirty".
+            setActivePresetDirty(true);
+        }
+    }, [activePresetDirty, activePresetId, liveState]);
+
     const presets = useMemo(() => fixture.party?.presetSequence?.presets ?? [], [fixture.party?.presetSequence?.presets]);
     const canApplyPreset = connected && !partyRunning && !busy;
 
+    const [savingActivePreset, setSavingActivePreset] = useState(false);
+    const updateActivePresetFromLive = useCallback(async () => {
+        if (!activePresetId || !onSavePresetSequence) return;
+        const seq = fixture.party?.presetSequence;
+        if (!seq) return;
+        const existing = seq.presets ?? [];
+        if (!existing.some((p) => p.id === activePresetId)) return;
+        setSavingActivePreset(true);
+        try {
+            const nextValues = captureCurrentValues();
+            const next: DMXFixturePresetSequence = {
+                ...seq,
+                presets: existing.map((p) => (p.id === activePresetId ? {...p, values: nextValues} : p)),
+            };
+            const ok = await onSavePresetSequence(next);
+            if (ok) {
+                // The applied baseline is now the current state, so we're back in sync.
+                appliedLiveStateRef.current = liveState;
+                setActivePresetDirty(false);
+            }
+        } finally {
+            setSavingActivePreset(false);
+        }
+    }, [activePresetId, captureCurrentValues, fixture.party?.presetSequence, liveState, onSavePresetSequence]);
+
     useEffect(() => {
         setActivePresetId(null);
+        setActivePresetDirty(false);
+        appliedLiveStateRef.current = null;
     }, [fixture.id]);
 
     useEffect(() => {
-        if (!canApplyPreset || presets.length === 0) {
+        if (displayMode !== "live" || !canApplyPreset || presets.length === 0) {
             return;
         }
         const onKey = (e: KeyboardEvent) => {
@@ -321,7 +413,18 @@ export function DMXFixtureLiveControls({
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [activePresetId, applyPreset, canApplyPreset, presets]);
+    }, [activePresetId, applyPreset, canApplyPreset, displayMode, presets]);
+
+    const activePresetIndex = useMemo(() => {
+        if (!activePresetId) return null;
+        const idx = presets.findIndex((p) => p.id === activePresetId);
+        return idx >= 0 ? idx : null;
+    }, [activePresetId, presets]);
+    const activePresetLabel = useMemo(() => {
+        if (activePresetIndex == null) return null;
+        const p = presets[activePresetIndex];
+        return p.label?.trim() ? p.label : `Pose ${activePresetIndex + 1}`;
+    }, [activePresetIndex, presets]);
 
     const renderSlot = useCallback(
         (id: string) =>
@@ -338,6 +441,12 @@ export function DMXFixtureLiveControls({
                 previewSmokeIntensity: previewSmoke01,
                 hasPan,
                 hasTilt,
+                activePresetLabel,
+                activePresetIndex,
+                activePresetDirty,
+                canUpdateActivePreset: canApplyPreset && !!onSavePresetSequence,
+                savingActivePreset,
+                onUpdateActivePreset: () => void updateActivePresetFromLive(),
             }),
         [
             fixture,
@@ -351,8 +460,18 @@ export function DMXFixtureLiveControls({
             previewSmoke01,
             hasPan,
             hasTilt,
+            activePresetLabel,
+            activePresetIndex,
+            activePresetDirty,
+            canApplyPreset,
+            onSavePresetSequence,
+            savingActivePreset,
+            updateActivePresetFromLive,
         ],
     );
+
+    const showLive = displayMode === "live";
+    const showPresets = displayMode === "presets";
 
     return (
         <div className="space-y-4">
@@ -362,40 +481,44 @@ export function DMXFixtureLiveControls({
                 </div>
             )}
 
-            {!noneConfigured && (
-                <div className="flex justify-end">
-                    <Button type="button" size="sm" variant={editLayout ? "default" : "outline"} onClick={() => setEditLayout((v) => !v)}>
-                        {editLayout ? "Done" : "Edit layout"}
-                    </Button>
-                </div>
-            )}
+            <div className={showLive ? "space-y-4" : "hidden"} aria-hidden={!showLive}>
+                {!noneConfigured && (
+                    <div className="flex justify-end">
+                        <Button type="button" size="sm" variant={editLayout ? "default" : "outline"} onClick={() => setEditLayout((v) => !v)}>
+                            {editLayout ? "Done" : "Edit layout"}
+                        </Button>
+                    </div>
+                )}
 
-            {noneConfigured ? (
-                <Card>
-                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                        No mappable channels found for live control (configure channels in the fixture editor).
-                    </CardContent>
-                </Card>
-            ) : (
-                <DMXFixtureLiveLayoutGrid
-                    editMode={editLayout}
-                    tiles={layoutTiles}
-                    onTilesChange={setLayoutTiles}
-                    renderSlot={renderSlot}
-                />
-            )}
+                {noneConfigured ? (
+                    <Card>
+                        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                            No mappable channels found for live control (configure channels in the fixture editor).
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <DMXFixtureLiveLayoutGrid
+                        editMode={editLayout}
+                        tiles={layoutTiles}
+                        onTilesChange={setLayoutTiles}
+                        renderSlot={renderSlot}
+                    />
+                )}
+            </div>
 
             {onSavePresetSequence && (
-                <DMXFixturePresetManager
-                    fixture={fixture}
-                    sequence={fixture.party?.presetSequence}
-                    captureValues={captureCurrentValues}
-                    onSave={onSavePresetSequence}
-                    onApplyPreset={applyPreset}
-                    canApply={connected && !partyRunning}
-                    activePresetId={activePresetId}
-                    busy={busy}
-                />
+                <div className={showPresets ? "" : "hidden"} aria-hidden={!showPresets}>
+                    <DMXFixturePresetManager
+                        fixture={fixture}
+                        sequence={fixture.party?.presetSequence}
+                        captureValues={captureCurrentValues}
+                        onSave={onSavePresetSequence}
+                        onApplyPreset={applyPreset}
+                        canApply={connected && !partyRunning}
+                        activePresetId={activePresetId}
+                        busy={busy}
+                    />
+                </div>
             )}
         </div>
     );

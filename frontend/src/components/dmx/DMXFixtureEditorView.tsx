@@ -76,7 +76,7 @@ import {ButtonGroup} from "../ui/button-group";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixturePresetSequenceEditor} from "./DMXFixturePresetSequenceEditor";
 
-type FixturePageMode = "editor" | "live";
+type FixturePageMode = "editor" | "live" | "presets";
 
 const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string }> = [
     {value: "colorChanger", label: "Color Changer"},
@@ -727,7 +727,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     }, [props.fixture?.id]);
 
     useEffect(() => {
-        if (props.fixture && pageMode === "live") {
+        if (props.fixture && pageMode !== "editor") {
             void props.pullDMXLiveStatus();
         }
     }, [pageMode, props.fixture?.id, props.pullDMXLiveStatus]);
@@ -1105,6 +1105,15 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 <Button
                                     type="button"
                                     variant="outline"
+                                    className={pageMode === "presets" ? "btn-active" : ""}
+                                    aria-pressed={pageMode === "presets"}
+                                    onClick={() => setPageMode("presets")}
+                                >
+                                    Presets
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
                                     className={pageMode === "editor" ? "btn-active" : ""}
                                     aria-pressed={pageMode === "editor"}
                                     onClick={() => setPageMode("editor")}
@@ -1225,7 +1234,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 </DialogContent>
             </Dialog>
 
-            {props.fixture && pageMode === "live" ? (
+            {props.fixture && pageMode !== "editor" ? (
                 <DMXFixtureLiveControls
                     fixture={props.fixture}
                     busy={props.busy}
@@ -1235,6 +1244,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     liveUniverse={props.dmxState.liveUniverse}
                     pullDMXState={props.pullDMXState}
                     onSavePresetSequence={handleSavePresetSequence}
+                    displayMode={pageMode}
                 />
             ) : (
                 <>
