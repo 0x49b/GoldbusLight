@@ -65,6 +65,7 @@ import type {
     DMXChannelType,
     DMXFixture,
     DMXFixtureParty,
+    DMXFixturePresetSequence,
     DMXFixtureType,
     DMXState,
     JSONMap,
@@ -73,6 +74,7 @@ import type {
 } from "@/types/controller.ts";
 import {ButtonGroup} from "../ui/button-group";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
+import {DMXFixturePresetSequenceEditor} from "./DMXFixturePresetSequenceEditor";
 
 type FixturePageMode = "editor" | "live";
 
@@ -95,12 +97,33 @@ const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string
 
 const PAN_TILT_FIXTURE_TYPES = new Set<DMXFixtureType>(["movingHead", "scanner", "laser"]);
 
+function sanitizePresetSequenceForSave(
+    seq: DMXFixturePresetSequence | undefined,
+): DMXFixturePresetSequence | undefined {
+    if (!seq) return undefined;
+    const presets = (seq.presets ?? []).filter((p) => p && p.values);
+    // Only persist when there is something meaningful to step through.
+    if (!seq.enabled && presets.length === 0) {
+        return undefined;
+    }
+    return {
+        enabled: !!seq.enabled && presets.length > 0,
+        stepMs: Math.max(100, Math.min(600000, Math.round(seq.stepMs ?? 2000) || 2000)),
+        fadeMs: Math.max(0, Math.min(600000, Math.round(seq.fadeMs ?? 0) || 0)),
+        presets,
+        ...(seq.channelBehaviors && Object.keys(seq.channelBehaviors).length > 0
+            ? {channelBehaviors: seq.channelBehaviors}
+            : {}),
+    };
+}
+
 function buildFixturePartySavePayload(
     channels: DMXChannel[],
     partyChannelWeights: Record<string, number>,
     partyStrobeEnabled: boolean,
     partyStrobeOnMs: number,
     partyStrobeOffMs: number,
+    partyPresetSequence: DMXFixturePresetSequence | undefined,
 ): DMXFixtureParty {
     const cw: Record<string, number> = {};
     for (const ch of channels) {
@@ -111,11 +134,13 @@ function buildFixturePartySavePayload(
             cw[k] = Math.max(0, Math.min(100, w));
         }
     }
+    const presetSequence = sanitizePresetSequenceForSave(partyPresetSequence);
     return {
         ...(Object.keys(cw).length > 0 ? {channelWeights: cw} : {}),
         strobeEnabled: partyStrobeEnabled,
         strobeOnMs: Math.max(20, Math.round(partyStrobeOnMs) || 120),
         strobeOffMs: Math.max(20, Math.round(partyStrobeOffMs) || 500),
+        ...(presetSequence ? {presetSequence} : {}),
     };
 }
 
@@ -638,6 +663,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [partyStrobeEnabled, setPartyStrobeEnabled] = useState(false);
     const [partyStrobeOnMs, setPartyStrobeOnMs] = useState(120);
     const [partyStrobeOffMs, setPartyStrobeOffMs] = useState(500);
+    const [partyPresetSequence, setPartyPresetSequence] = useState<DMXFixturePresetSequence>({});
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -661,6 +687,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeEnabled(!!props.fixture.party?.strobeEnabled);
             setPartyStrobeOnMs(Math.max(20, props.fixture.party?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, props.fixture.party?.strobeOffMs ?? 500));
+            setPartyPresetSequence(props.fixture.party?.presetSequence ? {...props.fixture.party.presetSequence} : {});
             setSaveHint(null);
             return;
         }
@@ -675,6 +702,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeEnabled(false);
         setPartyStrobeOnMs(120);
         setPartyStrobeOffMs(500);
+        setPartyPresetSequence({});
     }, [props.fixture?.id, props.fixture?.updatedAt]);
 
     useEffect(() => {
@@ -824,6 +852,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             partyStrobeEnabled,
             partyStrobeOnMs,
             partyStrobeOffMs,
+            partyPresetSequence,
         ),
         channels: cloneChannels(channels),
     }), [
@@ -835,6 +864,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         maxTilt,
         name,
         partyChannelWeights,
+        partyPresetSequence,
         partyStrobeEnabled,
         partyStrobeOffMs,
         partyStrobeOnMs,
@@ -930,6 +960,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 partyStrobeEnabled,
                 partyStrobeOnMs,
                 partyStrobeOffMs,
+                partyPresetSequence,
             ),
             channels: cloneChannels(channels),
         };
@@ -991,6 +1022,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeEnabled(!!impParty?.strobeEnabled);
             setPartyStrobeOnMs(Math.max(20, impParty?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, impParty?.strobeOffMs ?? 500));
+            setPartyPresetSequence(impParty?.presetSequence ? {...impParty.presetSequence} : {});
             setPageMode("editor");
             setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
         } catch (e) {
@@ -3140,6 +3172,16 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         </div>
                                     </div>
                                 ) : null}
+                            </div>
+                            <Separator/>
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-foreground">Preset chase (pose sequence)</p>
+                                <DMXFixturePresetSequenceEditor
+                                    channels={channels}
+                                    value={partyPresetSequence}
+                                    onChange={setPartyPresetSequence}
+                                    busy={props.busy}
+                                />
                             </div>
                         </CardContent>
                     </Card>

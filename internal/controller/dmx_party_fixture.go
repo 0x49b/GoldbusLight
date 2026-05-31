@@ -18,6 +18,10 @@ type DMXFixtureParty struct {
 	StrobeOnMS int `json:"strobeOnMs,omitempty"`
 	// StrobeOffMs is the pause between bursts (milliseconds).
 	StrobeOffMS int `json:"strobeOffMs,omitempty"`
+	// PresetSequence, when enabled, steps the fixture through a series of saved poses
+	// (e.g. moving-head pan/tilt positions) during party mode, overriding the generative
+	// algorithm for the channels it covers.
+	PresetSequence DMXFixturePresetSequence `json:"presetSequence,omitempty"`
 }
 
 func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
@@ -53,6 +57,7 @@ func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
 	if out.StrobeOffMS > 15000 {
 		out.StrobeOffMS = 15000
 	}
+	out.PresetSequence = normalizeFixturePresetSequence(out.PresetSequence)
 	return out
 }
 

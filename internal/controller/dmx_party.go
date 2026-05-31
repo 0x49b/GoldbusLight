@@ -533,6 +533,14 @@ func (c *WLEDController) buildDMXPartyFrame(
 	for idx, fixture := range targeted {
 		offset := float64(idx) * 0.4
 		fixtureType := normalizeFixtureType(fixture.Type)
+
+		// A fixture with an enabled preset sequence steps through saved poses instead of
+		// running the generative algorithm.
+		if seq := normalizeFixturePresetSequence(fixture.Party.PresetSequence); presetSequenceActive(seq) {
+			updates = append(updates, buildPresetSequenceUpdates(fixture, seq, burstAnchor, now, &owned)...)
+			continue
+		}
+
 		for _, ch := range fixture.Channels {
 			if !partyAllowsChannel(fixtureType, ch.Type) {
 				continue
