@@ -1,5 +1,5 @@
 import {useCallback, useState} from "react";
-import {PiArrowDown, PiArrowUp, PiFloppyDisk, PiPencilSimple, PiTrash} from "react-icons/pi";
+import {PiArrowDown, PiArrowUp, PiFloppyDisk, PiMagicWand, PiPencilSimple, PiTrash} from "react-icons/pi";
 
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
@@ -16,9 +16,11 @@ import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
-import type {DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
+import type {DMXFixture, DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
+import {fixtureSupportsMovingHeadShow, generateMovingHeadShow} from "@/lib/movingHeadPresetShow.ts";
 
 export type DMXFixturePresetManagerProps = {
+    fixture: DMXFixture;
     sequence: DMXFixturePresetSequence | undefined;
     /** Captures the current live channel values as fixture-relative offset → 0–255. */
     captureValues: () => Record<string, number>;
@@ -41,7 +43,7 @@ type DialogState =
     | null;
 
 export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
-    const {sequence, captureValues, onSave, onApplyPreset, canApply, busy} = props;
+    const {fixture, sequence, captureValues, onSave, onApplyPreset, canApply, busy} = props;
 
     const presets = sequence?.presets ?? [];
     const enabled = !!sequence?.enabled;
@@ -162,6 +164,24 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
         [baseSequence, persist],
     );
 
+    const generateShow = useCallback(() => {
+        const generated = generateMovingHeadShow(fixture);
+        if (generated.length === 0) {
+            return;
+        }
+        const next = baseSequence();
+        void persist({
+            ...next,
+            enabled: true,
+            presets: [...presets, ...generated],
+            // Seed sensible chase timing for a fresh sequence; keep the user's when appending.
+            stepMs: presets.length > 0 ? next.stepMs : 3000,
+            fadeMs: presets.length > 0 ? next.fadeMs : 800,
+        });
+    }, [baseSequence, fixture, persist, presets]);
+
+    const canGenerateShow = fixtureSupportsMovingHeadShow(fixture);
+
     return (
         <Card>
             <CardContent className="space-y-3 py-4">
@@ -172,14 +192,28 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             Move the fixture above, then capture its current position as a pose.
                         </p>
                     </div>
-                    <Button
-                        type="button"
-                        size="sm"
-                        disabled={disabled}
-                        onClick={() => setDialog({mode: "create", name: ""})}
-                    >
-                        <PiFloppyDisk className="size-4"/> Save as preset
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                        {canGenerateShow && (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={disabled}
+                                onClick={generateShow}
+                                title="Add 10 ready-made moving-head poses (home, sweeps, crosses, sky, floor, diagonals)"
+                            >
+                                <PiMagicWand className="size-4"/> Generate show
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={disabled}
+                            onClick={() => setDialog({mode: "create", name: ""})}
+                        >
+                            <PiFloppyDisk className="size-4"/> Save as preset
+                        </Button>
+                    </div>
                 </div>
 
                 {presets.length > 0 ? (

@@ -334,6 +334,7 @@ export function DMXFixtureLiveControls({
 
             {onSavePresetSequence && (
                 <DMXFixturePresetManager
+                    fixture={fixture}
                     sequence={fixture.party?.presetSequence}
                     captureValues={captureCurrentValues}
                     onSave={onSavePresetSequence}
