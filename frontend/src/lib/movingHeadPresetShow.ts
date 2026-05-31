@@ -259,6 +259,9 @@ export function generateMovingHeadShow(fixture: DMXFixture): DMXFixturePreset[] 
             id: `preset-show-${stamp}-${idx}`,
             label: pose.label,
             values,
+            // Washes breathe; beam looks snap. (Per-pose overrides; the sequence keeps a default too.)
+            holdMs: pose.beam ? 2400 : 5000,
+            fadeMs: pose.beam ? 450 : 1400,
         };
     });
 }

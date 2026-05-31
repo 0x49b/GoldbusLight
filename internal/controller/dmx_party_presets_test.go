@@ -120,6 +120,63 @@ func TestComputePresetSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
 	}
 }
 
+func TestComputePresetSequenceFramePerPoseHold(t *testing.T) {
+	// Poses have different dwell times: 1000ms, 2000ms, 1000ms (total 4000ms).
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		Enabled: true,
+		Loop:    true,
+		StepMS:  1000, // default; pose 2 overrides to 2000
+		Presets: []DMXFixturePreset{
+			{ID: "a", Values: map[string]int{"1": 10}},
+			{ID: "b", HoldMS: 2000, Values: map[string]int{"1": 20}},
+			{ID: "c", Values: map[string]int{"1": 30}},
+		},
+	})
+	anchor := time.Unix(0, 0)
+	cases := []struct {
+		ms   int64
+		want string
+	}{
+		{500, "a"},
+		{1500, "b"}, // still in b's 2000ms window (1000..3000)
+		{2900, "b"},
+		{3500, "c"}, // 3000..4000
+		{4500, "a"}, // wrapped, pos 500
+	}
+	for _, tc := range cases {
+		frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(time.Duration(tc.ms)*time.Millisecond))
+		if !ok || frame.curr.ID != tc.want {
+			t.Fatalf("ms=%d: curr=%s, want %s", tc.ms, frame.curr.ID, tc.want)
+		}
+	}
+}
+
+func TestComputePresetSequenceFramePerPoseFade(t *testing.T) {
+	// Pose b carries its own 400ms crossfade overriding the sequence default of 0 (snap).
+	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+		Enabled: true,
+		Loop:    true,
+		StepMS:  1000,
+		FadeMS:  0,
+		Presets: []DMXFixturePreset{
+			{ID: "a", Values: map[string]int{"1": 0}},
+			{ID: "b", FadeMS: 400, Values: map[string]int{"1": 100}},
+		},
+	})
+	anchor := time.Unix(0, 0)
+	// Enter b at t=1000; halfway through its 400ms fade (t=1200) → midway 0→100.
+	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(1200*time.Millisecond))
+	v, _ := presetSequenceChannelValue(seq, frame, "fx", 1)
+	if v < 45 || v > 55 {
+		t.Fatalf("per-pose fade value = %d, want ~50", v)
+	}
+	// Pose a uses the sequence default (snap), so it is fully settled immediately.
+	frame, _ = computePresetSequenceFrame(seq, anchor, anchor.Add(2050*time.Millisecond))
+	if frame.curr.ID != "a" || frame.fade != 1 {
+		t.Fatalf("pose a should snap: curr=%s fade=%v", frame.curr.ID, frame.fade)
+	}
+}
+
 func TestComputePresetSequenceFrameLoopWraps(t *testing.T) {
 	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
 		Enabled: true,

@@ -203,6 +203,10 @@ export type DMXFixturePreset = {
     label?: string;
     /** Fixture-relative channel offset (string key) → DMX value 0–255. */
     values: Record<string, number>;
+    /** Per-pose dwell time in ms; 0/undefined inherits the sequence-level stepMs. */
+    holdMs?: number;
+    /** Per-pose crossfade-in time in ms; 0/undefined inherits the sequence-level fadeMs. */
+    fadeMs?: number;
 };
 
 /** Behavior for a fixture channel that is not pinned by a preset pose. */

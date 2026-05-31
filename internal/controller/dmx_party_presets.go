@@ -31,6 +31,12 @@ type DMXFixturePreset struct {
 	Label string `json:"label,omitempty"`
 	// Values maps fixture-relative channel offset (string key) to a DMX value 0–255.
 	Values map[string]int `json:"values"`
+	// HoldMS overrides how long this pose is held before advancing (milliseconds).
+	// 0 = inherit the sequence-level StepMS.
+	HoldMS int `json:"holdMs,omitempty"`
+	// FadeMS overrides the crossfade time into this pose (milliseconds).
+	// 0 = inherit the sequence-level FadeMS.
+	FadeMS int `json:"fadeMs,omitempty"`
 }
 
 // DMXFixturePresetSequence drives a fixture through an ordered list of poses during party mode.
@@ -108,8 +114,10 @@ func normalizeFixturePresetSequence(in DMXFixturePresetSequence) DMXFixturePrese
 		presets := make([]DMXFixturePreset, 0, len(out.Presets))
 		for i, p := range out.Presets {
 			np := DMXFixturePreset{
-				ID:    strings.TrimSpace(p.ID),
-				Label: strings.TrimSpace(p.Label),
+				ID:     strings.TrimSpace(p.ID),
+				Label:  strings.TrimSpace(p.Label),
+				HoldMS: normalizePresetOverrideMS(p.HoldMS, minPresetStepMS, maxPresetStepMS),
+				FadeMS: normalizePresetOverrideMS(p.FadeMS, 0, maxPresetFadeMS),
 			}
 			if np.ID == "" {
 				np.ID = "preset-" + strconv.Itoa(i+1)
@@ -193,46 +201,113 @@ type presetSequenceFrame struct {
 	fade float64
 }
 
+// normalizePresetOverrideMS clamps a per-pose timing override; 0 (or negative) means "inherit
+// the sequence-level value".
+func normalizePresetOverrideMS(v, lo, hi int) int {
+	if v <= 0 {
+		return 0
+	}
+	if v < lo {
+		v = lo
+	}
+	if v > hi {
+		v = hi
+	}
+	return v
+}
+
+// presetHoldMS is how long a pose is held: its own HoldMS override, else the sequence StepMS.
+func presetHoldMS(seq DMXFixturePresetSequence, p DMXFixturePreset) int64 {
+	h := p.HoldMS
+	if h <= 0 {
+		h = seq.StepMS
+	}
+	if h < minPresetStepMS {
+		h = minPresetStepMS
+	}
+	if h > maxPresetStepMS {
+		h = maxPresetStepMS
+	}
+	return int64(h)
+}
+
+// presetFadeMS is the crossfade into a pose: its own FadeMS override, else the sequence FadeMS,
+// never longer than the pose's hold.
+func presetFadeMS(seq DMXFixturePresetSequence, p DMXFixturePreset, hold int64) int64 {
+	f := p.FadeMS
+	if f <= 0 {
+		f = seq.FadeMS
+	}
+	if f < 0 {
+		f = 0
+	}
+	if int64(f) > hold {
+		return hold
+	}
+	return int64(f)
+}
+
 // computePresetSequenceFrame resolves which pose is active and how far into its crossfade
-// playback currently is, purely as a function of elapsed time since anchor (stateless).
+// playback currently is, purely as a function of elapsed time since anchor (stateless). Each pose
+// may carry its own hold/fade, so the timeline is built by walking cumulative per-pose durations.
 func computePresetSequenceFrame(seq DMXFixturePresetSequence, anchor, now time.Time) (presetSequenceFrame, bool) {
 	n := len(seq.Presets)
 	if n == 0 {
 		return presetSequenceFrame{}, false
 	}
-	step := seq.StepMS
-	if step < minPresetStepMS {
-		step = minPresetStepMS
+
+	holds := make([]int64, n)
+	var total int64
+	for i := range seq.Presets {
+		holds[i] = presetHoldMS(seq, seq.Presets[i])
+		total += holds[i]
 	}
+	if total <= 0 {
+		first := seq.Presets[0]
+		return presetSequenceFrame{curr: first, prev: first, absStep: 0, fade: 1}, true
+	}
+
 	elapsed := now.Sub(anchor).Milliseconds()
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	absStep := elapsed / int64(step)
-	within := elapsed % int64(step)
 
 	// When looping is off, the sequence plays through once and then holds the final pose.
-	if !seq.Loop && absStep >= int64(n) {
+	if !seq.Loop && elapsed >= total {
 		last := seq.Presets[n-1]
 		return presetSequenceFrame{curr: last, prev: last, absStep: int64(n - 1), fade: 1}, true
 	}
 
-	currIdx := int(absStep % int64(n))
-	prevAbs := absStep - 1
+	cycle := elapsed / total
+	pos := elapsed % total
+
+	currIdx := n - 1
+	var acc int64
+	for i := 0; i < n; i++ {
+		if pos < acc+holds[i] {
+			currIdx = i
+			break
+		}
+		acc += holds[i]
+	}
+	within := pos - acc
+
+	// A monotonic step index so "random" channels reseed once per pose, even across cycles.
+	absStep := cycle*int64(n) + int64(currIdx)
 	frame := presetSequenceFrame{
 		curr:    seq.Presets[currIdx],
 		absStep: absStep,
 		fade:    1,
 	}
-	if prevAbs < 0 {
+	if absStep <= 0 {
 		// First pose since start: nothing to fade from.
 		frame.prev = seq.Presets[currIdx]
 		return frame, true
 	}
-	prevIdx := int(((prevAbs % int64(n)) + int64(n)) % int64(n))
+	prevIdx := (currIdx - 1 + n) % n
 	frame.prev = seq.Presets[prevIdx]
-	if seq.FadeMS > 0 && within < int64(seq.FadeMS) {
-		frame.fade = float64(within) / float64(seq.FadeMS)
+	if fade := presetFadeMS(seq, frame.curr, holds[currIdx]); fade > 0 && within < fade {
+		frame.fade = float64(within) / float64(fade)
 	}
 	return frame, true
 }

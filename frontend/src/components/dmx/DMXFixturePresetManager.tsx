@@ -136,6 +136,16 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
         [baseSequence, persist, presets],
     );
 
+    const setPresetTiming = useCallback(
+        (presetId: string, patch: {holdMs?: number; fadeMs?: number}) => {
+            void persist({
+                ...baseSequence(),
+                presets: presets.map((p) => (p.id === presetId ? {...p, ...patch} : p)),
+            });
+        },
+        [baseSequence, persist, presets],
+    );
+
     const setEnabled = useCallback(
         (on: boolean) => {
             void persist({...baseSequence(), enabled: on});
@@ -259,7 +269,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1">
-                                <Label htmlFor="preset-mgr-step">Time per pose (ms)</Label>
+                                <Label htmlFor="preset-mgr-step">Default time per pose (ms)</Label>
                                 <Input
                                     id="preset-mgr-step"
                                     type="number"
@@ -274,7 +284,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                 />
                             </div>
                             <div className="space-y-1">
-                                <Label htmlFor="preset-mgr-fade">Crossfade (ms)</Label>
+                                <Label htmlFor="preset-mgr-fade">Default crossfade (ms)</Label>
                                 <Input
                                     id="preset-mgr-fade"
                                     type="number"
@@ -293,14 +303,16 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                         <Separator/>
 
                         <p className="text-xs text-muted-foreground">
-                            Drag order with the arrows to set how poses play through the show.
+                            Reorder with the arrows to set how poses play through the show. Set a pose's Hold/Fade to
+                            vary its timing (0 = use the defaults above).
                         </p>
                         <ol className="space-y-1.5">
                             {presets.map((preset, idx) => (
                                 <li
                                     key={preset.id}
-                                    className="flex items-center gap-2 rounded-md border bg-background/50 px-2 py-1.5"
+                                    className="flex flex-col gap-1.5 rounded-md border bg-background/50 px-2 py-1.5"
                                 >
+                                    <div className="flex items-center gap-2">
                                     <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground">
                                         {idx + 1}
                                     </span>
@@ -373,6 +385,46 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                     >
                                         <PiTrash className="size-4"/>
                                     </Button>
+                                    </div>
+                                    <div className="flex items-center gap-3 pl-7 text-xs text-muted-foreground">
+                                        <label className="flex items-center gap-1">
+                                            <span>Hold</span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={600000}
+                                                step={100}
+                                                value={preset.holdMs ?? 0}
+                                                disabled={disabled}
+                                                onChange={(e) =>
+                                                    setPresetTiming(preset.id, {
+                                                        holdMs: Math.max(0, Math.min(600000, Math.round(Number(e.target.value) || 0))),
+                                                    })
+                                                }
+                                                className="h-7 w-20"
+                                            />
+                                            <span>ms</span>
+                                        </label>
+                                        <label className="flex items-center gap-1">
+                                            <span>Fade</span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={600000}
+                                                step={50}
+                                                value={preset.fadeMs ?? 0}
+                                                disabled={disabled}
+                                                onChange={(e) =>
+                                                    setPresetTiming(preset.id, {
+                                                        fadeMs: Math.max(0, Math.min(600000, Math.round(Number(e.target.value) || 0))),
+                                                    })
+                                                }
+                                                className="h-7 w-20"
+                                            />
+                                            <span>ms</span>
+                                        </label>
+                                        <span className="text-[11px] opacity-70">0 = use default</span>
+                                    </div>
                                 </li>
                             ))}
                         </ol>
