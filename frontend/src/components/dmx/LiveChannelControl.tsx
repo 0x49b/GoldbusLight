@@ -23,6 +23,14 @@ import {Button} from "@/components/ui/button";
 import {Slider} from "@/components/ui/slider";
 import {Switch} from "@/components/ui/switch";
 import {cn} from "@/lib/utils";
+import {
+    defaultScrollWithin01,
+    inferScrollRamp,
+    isColorWheelScrollSlot,
+    scrollRangeSlowFastDmx,
+    scrollSlotDmxByte,
+    scrollVelocityLiveLabels,
+} from "@/lib/colorWheelSlot";
 import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
 import {LiveControlLabel} from "./LiveControlLabel";
@@ -85,15 +93,54 @@ export function LiveChannelControl({
 
     if (widget === "colorWheel" && entries.length > 0) {
         const max = Math.max(0, entries.length - 1);
+        const slotIdx = Math.min(st.slotIdx, max);
+        const activeEntry = entries[slotIdx];
+        const scrollActive = isColorWheelScrollSlot(activeEntry);
+        const ramp = scrollActive ? inferScrollRamp(activeEntry) : "fastToSlow";
+        const velLabels = scrollVelocityLiveLabels();
+        const slowFast = scrollActive
+            ? scrollRangeSlowFastDmx(activeEntry, ramp)
+            : {slow: 0, fast: 255};
+        const velByte = scrollActive ? scrollSlotDmxByte(activeEntry, st.within01, ramp) : outputByte;
         return (
             <div className="space-y-2">
                 {labelRow}
                 <ColorWheelSegmentControl
                     entries={entries}
-                    value={Math.min(st.slotIdx, max)}
-                    onChange={(idx) => patch({slotIdx: idx})}
+                    value={slotIdx}
+                    onChange={(idx) => {
+                        const entry = entries[idx];
+                        if (isColorWheelScrollSlot(entry)) {
+                            patch({slotIdx: idx, within01: defaultScrollWithin01()});
+                        } else {
+                            patch({slotIdx: idx, within01: 0});
+                        }
+                    }}
                     disabled={disabled}
                 />
+                {scrollActive ? (
+                    <div className="space-y-1 rounded-md border border-border/80 bg-muted/30 px-2 py-2">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>
+                                {velLabels.left}{" "}
+                                <span className="text-muted-foreground/80">({slowFast.slow})</span>
+                            </span>
+                            <span className="tabular-nums">{velByte}</span>
+                            <span>
+                                {velLabels.right}{" "}
+                                <span className="text-muted-foreground/80">({slowFast.fast})</span>
+                            </span>
+                        </div>
+                        <Slider
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={[Math.round(st.within01 * 100)]}
+                            onValueChange={([v]) => patch({slotIdx, within01: (v ?? 0) / 100})}
+                            disabled={disabled}
+                        />
+                    </div>
+                ) : null}
             </div>
         );
     }
@@ -467,6 +514,12 @@ export function liveWidgetPreviewLine(ch: DMXChannel): string {
         const props = ch.properties as JSONMap | undefined;
         const mode = readLiveSliderLabelMode(props, ch);
         return `Live tab: Slider (value label: ${liveSliderLabelModeHint(mode)})`;
+    }
+    if (w === "colorWheel" && entries.length > 0) {
+        const scrollCount = entries.filter((e) => isColorWheelScrollSlot(e)).length;
+        if (scrollCount > 0) {
+            return `Live tab: Color wheel (${entries.length} slots, ${scrollCount} with speed slider)`;
+        }
     }
     return `Live tab: ${w === "shutterModes" ? "Shutter modes" : w.charAt(0).toUpperCase() + w.slice(1)}`;
 }

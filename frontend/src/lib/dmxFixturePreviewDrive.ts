@@ -1,4 +1,5 @@
 import type {DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
+import {isColorWheelScrollSlot} from "./colorWheelSlot";
 import {
     legacyColorWheelIdx,
     legacyDimmer01,
@@ -71,8 +72,7 @@ function fixtureEntryForIndex(entries: ReturnType<typeof parseFixtureEntries>, i
 type PreviewColorEntry = ReturnType<typeof parseFixtureEntries>[number] | undefined;
 
 function isRainbowEntry(entry: PreviewColorEntry): boolean {
-    const hay = `${entry?.color ?? ""} ${entry?.label ?? ""} ${entry?.mode ?? ""}`.toLowerCase();
-    return hay.includes("rainbow");
+    return isColorWheelScrollSlot(entry);
 }
 
 function previewBeamColor(entry: PreviewColorEntry): string | undefined {

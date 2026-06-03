@@ -253,6 +253,12 @@ func (g *GoldbusLightService) StopDMXParty() {
 	})
 }
 
+func (g *GoldbusLightService) DMXEmergencyStop() error {
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.DMXEmergencyStop()
+	})
+}
+
 func (g *GoldbusLightService) ListDMXPartyAudioInputDevices() ([]ctrlpkg.DMXPartyAudioInputDevice, error) {
 	return withControllerResult(g, func(c *ctrlpkg.WLEDController) ([]ctrlpkg.DMXPartyAudioInputDevice, error) {
 		return c.ListDMXPartyAudioInputDevices()

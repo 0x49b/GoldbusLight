@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "type": "colorChanger",
+  "version": 1,
+  "type": "other",
   "brand": "Renkforce",
   "name": "RGBW LEDSpot",
   "dmxAddress": 1,
@@ -12,72 +12,58 @@
     {
       "channel": 1,
       "type": "custom",
-      "defaultValue": 0,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Anteil %",
+            "label": "Rot",
             "to": 255
           }
-        ],
-        "label": "Rot",
-        "liveWidget": "slider"
+        ]
       }
     },
     {
       "channel": 2,
       "type": "custom",
-      "defaultValue": 0,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Anteil %",
+            "label": "Grün",
             "to": 255
           }
-        ],
-        "label": "Grün",
-        "liveWidget": "slider",
-        "partyInclude": false
+        ]
       }
     },
     {
       "channel": 3,
       "type": "custom",
-      "defaultValue": 0,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Anteil %",
+            "label": "Blau",
             "to": 255
           }
-        ],
-        "label": "Blau",
-        "liveWidget": "slider"
+        ]
       }
     },
     {
       "channel": 4,
       "type": "custom",
-      "defaultValue": 255,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Anteil %",
+            "label": "Weiss",
             "to": 255
           }
-        ],
-        "label": "Weiss",
-        "liveWidget": "slider"
+        ]
       }
     },
     {
       "channel": 5,
       "type": "dimmer",
-      "defaultValue": 0,
       "properties": {
         "entries": [
           {
@@ -85,14 +71,12 @@
             "label": "Helligkeit",
             "to": 255
           }
-        ],
-        "liveWidget": "slider"
+        ]
       }
     },
     {
       "channel": 6,
       "type": "custom",
-      "defaultValue": 0,
       "properties": {
         "entries": [
           {
@@ -102,25 +86,16 @@
           },
           {
             "from": 6,
-            "label": "Strobo Geschwindigkeit",
-            "liveSlotKind": "slider",
+            "label": "Strobo",
             "to": 250
           },
           {
             "from": 251,
             "label": "Sound-to-light",
-            "liveSlotKind": "slider",
             "to": 255
           }
-        ],
-        "label": "Strobo & Sound-To-Light",
-        "liveWidget": "buttonSlider"
+        ]
       }
     }
-  ],
-  "party": {
-    "strobeEnabled": false,
-    "strobeOnMs": 120,
-    "strobeOffMs": 500
-  }
+  ]
 }

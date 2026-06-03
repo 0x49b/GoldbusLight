@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "type": "smoke",
+  "brand": "Eliminator",
+  "name": "VF1600 EP",
+  "dmxAddress": 23,
+  "movingHead": {
+    "maxPan": 540,
+    "maxTilt": 270
+  },
+  "channels": [
+    {
+      "channel": 1,
+      "type": "fog",
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Off",
+            "to": 0
+          },
+          {
+            "from": 1,
+            "label": "Volume",
+            "liveSlotKind": "slider",
+            "to": 255
+          }
+        ],
+        "liveWidget": "buttonSlider"
+      }
+    }
+  ],
+  "party": {
+    "strobeEnabled": false,
+    "strobeOnMs": 120,
+    "strobeOffMs": 500
+  }
+}

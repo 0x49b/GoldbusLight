@@ -56,6 +56,10 @@ export function CreateDMXFixture(input: controller$0.UpsertDMXFixtureInput): $Ca
     });
 }
 
+export function DMXEmergencyStop(): $CancellablePromise<void> {
+    return $Call.ByID(3841795376);
+}
+
 export function DefaultControllerSettings(): $CancellablePromise<controller$0.ControllerSettings> {
     return $Call.ByID(2351146182).then(($result: any) => {
         return $$createType2($result);

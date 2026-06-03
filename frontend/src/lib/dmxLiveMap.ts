@@ -1,5 +1,11 @@
 import type {DMXChannel, DMXFixture, JSONMap} from "../types/controller";
 import {
+    inferScrollRamp,
+    isColorWheelScrollSlot,
+    scrollSlotDmxByte,
+    within01ForScrollEntry,
+} from "./colorWheelSlot";
+import {
     findOffButtonSlotIndex,
     firstSliderSlotIndex,
     parseEntryLiveSlotKinds,
@@ -47,6 +53,8 @@ export type FixtureEntryRow = {
     label?: string;
     mode?: string;
     color?: string;
+    direction?: string;
+    scrollRamp?: "fastToSlow" | "slowToFast";
     goboIdentifier?: string;
     goboName?: string;
     goboImage?: string;
@@ -119,12 +127,17 @@ export function parseFixtureEntries(props: JSONMap | undefined): FixtureEntryRow
         const e = item as Record<string, unknown>;
         const from = typeof e.from === "number" ? e.from : 0;
         const to = typeof e.to === "number" ? e.to : 255;
+        const scrollRampRaw = e.scrollRamp;
+        const scrollRamp =
+            scrollRampRaw === "fastToSlow" || scrollRampRaw === "slowToFast" ? scrollRampRaw : undefined;
         out.push({
             from,
             to,
             label: typeof e.label === "string" ? e.label : undefined,
             mode: typeof e.mode === "string" ? e.mode : undefined,
             color: typeof e.color === "string" ? e.color : undefined,
+            direction: typeof e.direction === "string" ? e.direction : undefined,
+            scrollRamp,
             goboIdentifier: typeof e.goboIdentifier === "string" ? e.goboIdentifier : undefined,
             goboName: typeof e.goboName === "string" ? e.goboName : undefined,
             goboImage: typeof e.goboImage === "string" ? e.goboImage : undefined,
@@ -251,7 +264,11 @@ export function entryStateForChannelByte(ch: DMXChannel, targetByte: number | un
     }
     const idx = slotIndexForOutputByte(entries, defaultByte);
     base.slotIdx = idx;
-    base.within01 = withinForOutputByte(entries[idx], defaultByte);
+    if (widget === "colorWheel" && isColorWheelScrollSlot(entries[idx])) {
+        base.within01 = within01ForScrollEntry(entries[idx], defaultByte, inferScrollRamp(entries[idx]));
+    } else {
+        base.within01 = withinForOutputByte(entries[idx], defaultByte);
+    }
     return base;
 }
 
@@ -431,7 +448,13 @@ export function channelOutputByte(ch: DMXChannel, st: EntryChannelLiveState, wid
             const idx = pickShutterEntryIndex(entries, mode);
             return slotMid(entries, idx);
         }
-        case "colorWheel":
+        case "colorWheel": {
+            const idx = clamp(Math.floor(st.slotIdx), 0, Math.max(0, entries.length - 1));
+            if (entries.length > 0 && isColorWheelScrollSlot(entries[idx])) {
+                return scrollSlotDmxByte(entries[idx], st.within01, inferScrollRamp(entries[idx]));
+            }
+            return slotMid(entries, idx);
+        }
         case "goboWheel":
         case "buttons":
             return slotMid(entries, st.slotIdx);

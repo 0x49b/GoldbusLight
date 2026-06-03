@@ -597,8 +597,9 @@ type WLEDController struct {
 	settings        ControllerSettings
 	devices         map[string]WLEDDevice
 	generalTabState GeneralTabState
-	dmxState        DMXState
-	updated         time.Time
+	dmxState           DMXState
+	dmxPersistEnabled  bool // false when dmx.json failed to load — avoids overwriting fixtures on disk
+	updated            time.Time
 
 	probeMu     sync.Mutex
 	probeRecent map[string]time.Time
@@ -783,8 +784,9 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		generalTab = defaultGeneralTabState()
 	}
 	dmxState, err := c.dmxPersistence.Load()
+	dmxPersistEnabled := err == nil
 	if err != nil {
-		c.logger.Printf("dmx state load failed, using defaults: %v", err)
+		c.logger.Printf("dmx state load failed, using defaults (existing dmx.json will not be overwritten until you change DMX data): %v", err)
 		dmxState = defaultDMXState()
 	}
 
@@ -799,13 +801,14 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	c.devices = loaded.Devices
 	c.generalTabState = clampGeneralTabState(generalTab)
 	c.dmxState = normDMX
+	c.dmxPersistEnabled = dmxPersistEnabled
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 
 	c.StopDMXParty()
 
-	if normDMX.SelectedUSBDeviceID != oldUSB && normDMX.SelectedUSBDeviceID != "" {
+	if dmxPersistEnabled && normDMX.SelectedUSBDeviceID != oldUSB && normDMX.SelectedUSBDeviceID != "" {
 		if err := c.persistDMX(); err != nil {
 			c.logger.Printf("dmx: persist migrated usb selection: %v", err)
 		}
@@ -1334,6 +1337,7 @@ func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 	c.mu.Lock()
 	c.dmxState.Fixtures = append(c.dmxState.Fixtures, fixture)
 	c.dmxState = normalizeDMXState(c.dmxState)
+	c.dmxPersistEnabled = true
 	c.updated = time.Now()
 	c.mu.Unlock()
 	if err := c.persistDMX(); err != nil {
@@ -1369,6 +1373,7 @@ func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 	}
 	c.dmxState.Fixtures[idx] = updated
 	c.dmxState = normalizeDMXState(c.dmxState)
+	c.dmxPersistEnabled = true
 	c.updated = time.Now()
 	c.mu.Unlock()
 	if err := c.persistDMX(); err != nil {
@@ -1401,6 +1406,7 @@ func (c *WLEDController) DeleteDMXFixture(id string) error {
 	}
 	c.dmxState.Fixtures = next
 	c.dmxState = normalizeDMXState(c.dmxState)
+	c.dmxPersistEnabled = true
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persistDMX()
@@ -1425,6 +1431,7 @@ func (c *WLEDController) SetSelectedUSBSerialDevice(deviceID string) error {
 	c.mu.Lock()
 	c.dmxState.SelectedUSBDeviceID = deviceID
 	c.dmxState = normalizeDMXState(c.dmxState)
+	c.dmxPersistEnabled = true
 	c.updated = time.Now()
 	c.mu.Unlock()
 	if err := c.persistDMX(); err != nil {
@@ -2809,6 +2816,10 @@ func (c *WLEDController) persist() error {
 
 func (c *WLEDController) persistDMX() error {
 	c.mu.RLock()
+	if !c.dmxPersistEnabled {
+		c.mu.RUnlock()
+		return nil
+	}
 	state := cloneDMXState(c.dmxState)
 	c.mu.RUnlock()
 	state.Party = stripDMXPartyRuntimeForPersistence(state.Party)

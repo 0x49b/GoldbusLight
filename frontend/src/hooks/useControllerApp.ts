@@ -1193,6 +1193,47 @@ export function useControllerApp() {
         }
     }, []);
 
+    const triggerDMXEmergency = useCallback(async () => {
+        if (dmxLiveFlushTimerRef.current !== undefined) {
+            window.clearTimeout(dmxLiveFlushTimerRef.current);
+            dmxLiveFlushTimerRef.current = undefined;
+        }
+        dmxLivePendingRef.current.clear();
+        setDMXState((prev) => ({
+            ...prev,
+            party: {
+                ...prev.party,
+                config: {...prev.party.config, enabled: false},
+                status: {
+                    ...prev.party.status,
+                    running: false,
+                    partyBlocksManualPatch: false,
+                },
+            },
+        }));
+        setBusy(true);
+        try {
+            await GreetService.DMXEmergencyStop();
+            await pullDMXState();
+            const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+            setDMXState((prev) => ({...prev, party: state}));
+            await pullDMXLiveStatus();
+            setStatus("Emergency stop: party off, DMX blackout, output stopped");
+            setError("");
+        } catch (err) {
+            setError(String(err));
+            try {
+                const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+                setDMXState((prev) => ({...prev, party: state}));
+            } catch {
+                /* ignore follow-up read failure */
+            }
+            await pullDMXLiveStatus();
+        } finally {
+            setBusy(false);
+        }
+    }, [pullDMXLiveStatus, pullDMXState, setBusy, setDMXState, setError, setStatus]);
+
     const flushDmxLivePatch = useCallback(async () => {
         const m = dmxLivePendingRef.current;
         if (m.size === 0) {
@@ -1728,6 +1769,7 @@ export function useControllerApp() {
         setDMXPartyConfig,
         startDMXPartyMode,
         stopDMXPartyMode,
+        triggerDMXEmergency,
         pullDMXLiveStatus,
         queueDmxLivePatch,
         startDMXLiveOutput,

@@ -118,6 +118,7 @@ function App() {
                 startDMXLiveOutput={app.startDMXLiveOutput}
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
                 queueDmxLivePatch={app.queueDmxLivePatch}
+                onEmergency={app.triggerDMXEmergency}
             />
         );
     } else if ((app.route.kind === "dmxAddFixture" || app.route.kind === "dmxFixture") && app.dmxEnabled) {
@@ -141,6 +142,7 @@ function App() {
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
                 partyRunning={app.dmxPartyState?.status?.running === true}
                 pullDMXState={app.pullDMXState}
+                onEmergency={app.triggerDMXEmergency}
             />
         );
     } else if (app.route.kind === "device" && app.wledEnabled) {
