@@ -54,24 +54,70 @@
         ],
         "label": "Dimmer & Strobe",
         "liveWidget": "buttonSlider",
-        "partyInclude": false
+        "partyInclude": true
       }
     },
     {
       "channel": 5,
-      "type": "custom",
+      "type": "colorWheel",
       "defaultValue": 0,
       "properties": {
         "entries": [
           {
+            "color": "#ffffff",
             "from": 0,
-            "label": "Slot 1",
+            "label": "Open / white",
+            "to": 21
+          },
+          {
+            "color": "#1a5fb4",
+            "from": 22,
+            "label": "Slot 2",
+            "to": 43
+          },
+          {
+            "color": "#f9f06b",
+            "from": 44,
+            "label": "Slot 3",
+            "to": 65
+          },
+          {
+            "color": "#76ff36",
+            "from": 66,
+            "label": "Slot 4",
+            "to": 87
+          },
+          {
+            "color": "#813d9c",
+            "from": 88,
+            "label": "Slot 5",
+            "to": 109
+          },
+          {
+            "color": "#1a5fb4",
+            "from": 110,
+            "label": "Slot 6",
+            "to": 127
+          },
+          {
+            "color": "#888888",
+            "direction": "ccw",
+            "from": 128,
+            "label": "Slot 7",
+            "mode": "scroll",
+            "scrollRamp": "fastToSlow",
+            "to": 191
+          },
+          {
+            "color": "#888888",
+            "direction": "cw",
+            "from": 192,
+            "label": "Slot 8",
+            "mode": "scroll",
+            "scrollRamp": "slowToFast",
             "to": 255
           }
-        ],
-        "label": "",
-        "liveWidget": "slider",
-        "partyInclude": false
+        ]
       }
     },
     {
@@ -149,19 +195,52 @@
     },
     {
       "channel": 7,
-      "type": "custom",
+      "type": "goboWheel",
       "defaultValue": 0,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Slot 1",
-            "to": 255
+            "goboIdentifier": "",
+            "goboImage": "",
+            "goboName": "Open",
+            "label": "Open",
+            "to": 25
+          },
+          {
+            "from": 26,
+            "goboIdentifier": "77152",
+            "goboImage": "/gobos/images/77152.jpg",
+            "goboName": "Snowberry",
+            "label": "Snowberry",
+            "to": 51
+          },
+          {
+            "from": 52,
+            "goboIdentifier": "74011",
+            "goboImage": "/gobos/images/74011.jpg",
+            "goboName": "Symmetric 11",
+            "label": "Symmetric 11",
+            "to": 77
+          },
+          {
+            "from": 78,
+            "goboIdentifier": "78091",
+            "goboImage": "/gobos/images/78091.jpg",
+            "goboName": "Butterfly",
+            "label": "Butterfly",
+            "to": 103
+          },
+          {
+            "from": 104,
+            "goboIdentifier": "77438",
+            "goboImage": "/gobos/images/77438.jpg",
+            "goboName": "European Stars",
+            "label": "European Stars",
+            "numeric": 0,
+            "to": 127
           }
-        ],
-        "label": "",
-        "liveWidget": "slider",
-        "partyInclude": false
+        ]
       }
     },
     {
@@ -261,19 +340,22 @@
     },
     {
       "channel": 13,
-      "type": "custom",
+      "type": "focus",
       "defaultValue": 0,
       "properties": {
         "entries": [
           {
             "from": 0,
-            "label": "Slot 1",
+            "label": "Big - Small",
+            "to": 199
+          },
+          {
+            "from": 200,
+            "label": "slow -> fast",
             "to": 255
           }
         ],
-        "label": "",
-        "liveWidget": "slider",
-        "partyInclude": false
+        "liveWidget": "buttonSlider"
       }
     },
     {
@@ -382,37 +464,393 @@
     }
   ],
   "party": {
-    "strobeEnabled": false,
-    "strobeOnMs": 120,
-    "strobeOffMs": 500,
+    "channelWeights": {
+      "6": 0
+    },
+    "strobeEnabled": true,
+    "strobeOnMs": 5000,
+    "strobeOffMs": 15000,
     "presetSequence": {
       "enabled": true,
-      "loop": false,
+      "loop": true,
       "stepMs": 2000,
       "fadeMs": 0,
       "presets": [
         {
-          "id": "preset-mpyg5cd9-em",
-          "label": "CalibrationPose",
+          "id": "preset-show-mpyi12l8-0",
+          "label": "Home Center",
           "values": {
-            "1": 166,
-            "2": 193,
-            "3": 0,
+            "1": 128,
+            "2": 141,
             "4": 255,
-            "5": 0,
-            "6": 0,
-            "7": 0,
+            "5": 11,
+            "6": 8,
+            "7": 13,
             "9": 5,
-            "10": 0,
+            "10": 128,
             "11": 16,
-            "12": 0,
-            "13": 0,
-            "14": 5,
-            "15": 1,
-            "16": 0
-          }
+            "13": 100,
+            "14": 5
+          },
+          "holdMs": 2100,
+          "fadeMs": 1400
+        },
+        {
+          "id": "preset-show-mpyi12l8-1",
+          "label": "Audience Wash",
+          "values": {
+            "1": 128,
+            "2": 90,
+            "4": 255,
+            "5": 55,
+            "6": 120,
+            "7": 13,
+            "9": 5,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 122
+          },
+          "holdMs": 2000,
+          "fadeMs": 1400
+        },
+        {
+          "id": "preset-show-mpyi12l8-2",
+          "label": "Sweep Left",
+          "values": {
+            "1": 47,
+            "2": 141,
+            "4": 255,
+            "5": 33,
+            "6": 104,
+            "7": 91,
+            "9": 49,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 212
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-3",
+          "label": "Sweep Right",
+          "values": {
+            "1": 209,
+            "2": 141,
+            "4": 255,
+            "5": 33,
+            "6": 104,
+            "7": 116,
+            "9": 64,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 182
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-4",
+          "label": "Cross Beam Left",
+          "values": {
+            "1": 103,
+            "2": 184,
+            "4": 255,
+            "5": 99,
+            "6": 24,
+            "7": 39,
+            "9": 79,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 167
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-5",
+          "label": "Cross Beam Right",
+          "values": {
+            "1": 153,
+            "2": 184,
+            "4": 255,
+            "5": 99,
+            "6": 120,
+            "7": 65,
+            "9": 18,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 62
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-6",
+          "label": "Sky Search",
+          "values": {
+            "1": 128,
+            "2": 235,
+            "4": 255,
+            "5": 11,
+            "6": 8,
+            "7": 13,
+            "9": 5,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 5
+          },
+          "holdMs": 5000,
+          "fadeMs": 1400
+        },
+        {
+          "id": "preset-show-mpyi12l8-7",
+          "label": "Floor Spot",
+          "values": {
+            "1": 128,
+            "2": 39,
+            "4": 255,
+            "5": 77,
+            "6": 88,
+            "7": 116,
+            "9": 49,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 47
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-8",
+          "label": "Wide Diagonal Left",
+          "values": {
+            "1": 57,
+            "2": 204,
+            "4": 255,
+            "5": 99,
+            "6": 24,
+            "7": 39,
+            "9": 64,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 212
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi12l8-9",
+          "label": "Wide Diagonal Right",
+          "values": {
+            "1": 199,
+            "2": 204,
+            "4": 255,
+            "5": 55,
+            "6": 120,
+            "7": 65,
+            "9": 79,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 122
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-1",
+          "label": "Audience Wash",
+          "values": {
+            "1": 128,
+            "2": 90,
+            "4": 255,
+            "5": 55,
+            "6": 120,
+            "7": 13,
+            "9": 5,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 122
+          },
+          "holdMs": 5000,
+          "fadeMs": 1400
+        },
+        {
+          "id": "preset-show-mpyi3ep0-2",
+          "label": "Sweep Left",
+          "values": {
+            "1": 47,
+            "2": 141,
+            "4": 255,
+            "5": 33,
+            "6": 104,
+            "7": 91,
+            "9": 49,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 212
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-3",
+          "label": "Sweep Right",
+          "values": {
+            "1": 209,
+            "2": 141,
+            "4": 255,
+            "5": 33,
+            "6": 104,
+            "7": 116,
+            "9": 64,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 182
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-4",
+          "label": "Cross Beam Left",
+          "values": {
+            "1": 103,
+            "2": 184,
+            "4": 255,
+            "5": 99,
+            "6": 24,
+            "7": 39,
+            "9": 79,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 167
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-5",
+          "label": "Cross Beam Right",
+          "values": {
+            "1": 153,
+            "2": 184,
+            "4": 255,
+            "5": 99,
+            "6": 120,
+            "7": 65,
+            "9": 18,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 62
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-6",
+          "label": "Sky Search",
+          "values": {
+            "1": 128,
+            "2": 235,
+            "4": 255,
+            "5": 11,
+            "6": 8,
+            "7": 13,
+            "9": 5,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 5
+          },
+          "holdMs": 5000,
+          "fadeMs": 1400
+        },
+        {
+          "id": "preset-show-mpyi3ep0-7",
+          "label": "Floor Spot",
+          "values": {
+            "1": 128,
+            "2": 39,
+            "4": 255,
+            "5": 77,
+            "6": 88,
+            "7": 116,
+            "9": 49,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 47
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-8",
+          "label": "Wide Diagonal Left",
+          "values": {
+            "1": 57,
+            "2": 204,
+            "4": 255,
+            "5": 99,
+            "6": 24,
+            "7": 39,
+            "9": 64,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 212
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
+        },
+        {
+          "id": "preset-show-mpyi3ep0-9",
+          "label": "Wide Diagonal Right",
+          "values": {
+            "1": 199,
+            "2": 204,
+            "4": 255,
+            "5": 55,
+            "6": 120,
+            "7": 65,
+            "9": 79,
+            "10": 128,
+            "11": 16,
+            "13": 100,
+            "14": 122
+          },
+          "holdMs": 2400,
+          "fadeMs": 450
         }
-      ]
+      ],
+      "channelBehaviors": {
+        "1": "random",
+        "2": "random",
+        "4": "random",
+        "5": "random",
+        "6": "random",
+        "7": "random",
+        "9": "random",
+        "10": "random",
+        "11": "random",
+        "13": "random",
+        "14": "random"
+      }
     }
   }
 }
