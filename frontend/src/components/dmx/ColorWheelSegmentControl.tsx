@@ -1,3 +1,4 @@
+import {isColorWheelScrollSlot} from "@/lib/colorWheelSlot";
 import {useId} from "react";
 import {cn} from "@/lib/utils";
 
@@ -20,9 +21,7 @@ function fallbackWheelColor(idx: number, count: number): string {
 }
 
 function isRainbowEntry(entry: ColorWheelSegmentEntry): boolean {
-    const colorText = typeof entry.color === "string" ? entry.color.toLowerCase() : "";
-    const labelText = typeof entry.label === "string" ? entry.label.toLowerCase() : "";
-    return colorText.includes("rainbow") || labelText.includes("rainbow");
+    return isColorWheelScrollSlot(entry);
 }
 
 function rainbowDirectionLabel(entry: ColorWheelSegmentEntry): "CW" | "CCW" | "RBW" {

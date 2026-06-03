@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { DMXEmergencyButton } from "./DMXEmergencyButton";
 import { parseFixtureEntries } from "@/lib/dmxLiveMap";
 import {
     DMX_UNIVERSE_GRID_COLS,
@@ -26,6 +27,7 @@ export type DMXUniverseViewProps = {
     startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
     stopDMXLiveOutput: () => Promise<void>;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
+    onEmergency: () => void | Promise<void>;
 };
 
 function padChannel(n: number): string {
@@ -395,6 +397,7 @@ export function DMXUniverseView({
                                     startDMXLiveOutput,
                                     stopDMXLiveOutput,
                                     queueDmxLivePatch,
+                                    onEmergency,
                                 }: DMXUniverseViewProps) {
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
@@ -511,16 +514,18 @@ export function DMXUniverseView({
             {subtitle}
           </span>
                 </div>
-                <Button
-                    type="button"
-                    variant={anyLive ? "destructive" : "secondary"}
-                    size="sm"
-                    className="ml-auto shrink-0"
-                    onClick={() => void handleToggleAllLive()}
-                    disabled={busy || dropBusy || sortedFixtures.length === 0}
-                >
-                    DMX Output - {anyLive ? "ON" : "OFF"}
-                </Button>
+                <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <DMXEmergencyButton busy={busy || dropBusy} onEmergency={onEmergency}/>
+                    <Button
+                        type="button"
+                        variant={anyLive ? "destructive" : "secondary"}
+                        size="sm"
+                        onClick={() => void handleToggleAllLive()}
+                        disabled={busy || dropBusy || sortedFixtures.length === 0}
+                    >
+                        DMX Output - {anyLive ? "ON" : "OFF"}
+                    </Button>
+                </div>
             </div>
             
             <div

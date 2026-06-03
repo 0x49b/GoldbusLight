@@ -43,6 +43,9 @@ type DMXFixtureLiveControlsProps = {
      * and Presets tabs.
      */
     displayMode?: "live" | "presets";
+    /** When set with `setEditLayout`, layout edit mode is controlled by the parent (e.g. top bar). */
+    editLayout?: boolean;
+    setEditLayout?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 function renderLiveTile(
@@ -198,6 +201,7 @@ export function DMXFixtureLiveControls({
     pullDMXState,
     onSavePresetSequence,
     displayMode = "live",
+    editLayout: editLayoutProp,
 }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
@@ -264,7 +268,8 @@ export function DMXFixtureLiveControls({
     const noneConfigured = liveTileIds.length === 0;
 
     const [layoutTiles, setLayoutTiles] = useState<LiveLayoutTile[]>([]);
-    const [editLayout, setEditLayout] = useState(false);
+    const [editLayoutInternal] = useState(false);
+    const editLayout = editLayoutProp ?? editLayoutInternal;
     const prevEditRef = useRef(false);
     const layoutTilesRef = useRef<LiveLayoutTile[]>([]);
 
@@ -482,14 +487,6 @@ export function DMXFixtureLiveControls({
             )}
 
             <div className={showLive ? "space-y-4" : "hidden"} aria-hidden={!showLive}>
-                {!noneConfigured && (
-                    <div className="flex justify-end">
-                        <Button type="button" size="sm" variant={editLayout ? "default" : "outline"} onClick={() => setEditLayout((v) => !v)}>
-                            {editLayout ? "Done" : "Edit layout"}
-                        </Button>
-                    </div>
-                )}
-
                 {noneConfigured ? (
                     <Card>
                         <CardContent className="py-8 text-center text-sm text-muted-foreground">

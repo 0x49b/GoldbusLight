@@ -1,0 +1,36 @@
+{
+  "fixtures": [],
+  "selectedUSBDeviceId": "",
+  "party": {
+    "config": {
+      "enabled": false,
+      "mode": "auto",
+      "intensity": 80,
+      "speed": 55,
+      "movementRange": 70,
+      "colorVariation": 70,
+      "audioSensitivity": 60,
+      "smokeBurstOnMs": 2500,
+      "smokeBurstOffMs": 45000,
+      "smokeVolume": 55
+    },
+    "status": {
+      "running": false,
+      "mode": "auto",
+      "lastFrameAt": "0001-01-01T00:00:00Z",
+      "lastAudioAt": "0001-01-01T00:00:00Z",
+      "partyBlocksManualPatch": false,
+      "audioCapturing": false,
+      "audioNoSignal": false
+    },
+    "audio": {
+      "level": 0,
+      "bass": 0,
+      "mid": 0,
+      "treble": 0,
+      "beat": 0,
+      "bpm": 0,
+      "capturedAt": "0001-01-01T00:00:00Z"
+    }
+  }
+}

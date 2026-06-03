@@ -73,6 +73,12 @@ import type {
     USBSerialDevice,
 } from "@/types/controller.ts";
 import {ButtonGroup} from "../ui/button-group";
+import {DMXEmergencyButton} from "./DMXEmergencyButton";
+import {
+    type ColorWheelScrollRamp,
+    isColorWheelScrollSlot,
+} from "@/lib/colorWheelSlot";
+import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixturePresetSequenceEditor} from "./DMXFixturePresetSequenceEditor";
 
@@ -166,6 +172,7 @@ type DMXFixtureEditorViewProps = {
     onSelectUSBSerialDevice: (deviceID: string) => Promise<void>;
     partyRunning: boolean;
     pullDMXState: () => Promise<unknown>;
+    onEmergency: () => void | Promise<void>;
 };
 
 const DMX_CHANNEL_TYPES: DMXChannelType[] = [
@@ -236,6 +243,8 @@ type SlotEntry = {
     mode?: string;
     color?: string;
     direction?: string;
+    /** Rainbow/scroll slot: whether DMX rises from fast→slow or slow→fast within the range. */
+    scrollRamp?: ColorWheelScrollRamp;
     numeric?: number;
     goboIdentifier?: string;
     goboName?: string;
@@ -276,9 +285,7 @@ const RAINBOW_SWATCH_CONIC =
     "conic-gradient(from 0deg, hsl(0,100%,55%), hsl(45,100%,52%), hsl(90,100%,48%), hsl(135,100%,48%), hsl(180,100%,50%), hsl(225,100%,52%), hsl(270,100%,55%), hsl(315,100%,55%), hsl(360,100%,55%))";
 
 function isRainbowColorSlot(slot: Pick<SlotEntry, "label" | "mode">): boolean {
-    const label = (slot.label ?? "").toLowerCase();
-    const mode = (slot.mode ?? "").toLowerCase();
-    return label.includes("rainbow") || mode === "rainbow" || mode === "scroll";
+    return isColorWheelScrollSlot(slot);
 }
 
 function isRainbowModeExplicit(slot: Pick<SlotEntry, "mode">): boolean {
@@ -573,6 +580,10 @@ function parseEntries(props: JSONMap | undefined): SlotEntry[] {
             mode: typeof e.mode === "string" ? e.mode : undefined,
             color: typeof e.color === "string" ? e.color : undefined,
             direction: typeof e.direction === "string" ? e.direction : undefined,
+            scrollRamp:
+                e.scrollRamp === "fastToSlow" || e.scrollRamp === "slowToFast"
+                    ? e.scrollRamp
+                    : undefined,
             numeric: typeof e.numeric === "number" ? e.numeric : undefined,
             goboIdentifier: typeof e.goboIdentifier === "string" ? e.goboIdentifier : undefined,
             goboName: typeof e.goboName === "string" ? e.goboName : undefined,
@@ -683,12 +694,18 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [partyPresetSequence, setPartyPresetSequence] = useState<DMXFixturePresetSequence>({});
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
+    const [editLayout, setEditLayout] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const importInputRef = useRef<HTMLInputElement | null>(null);
     const isCurrentFixtureLive = props.fixture != null && props.dmxLiveStatus?.connected === true;
     const fixturePartyIncluded = props.fixture ? isFixtureInParty(props.fixture.id, props.dmxState.party?.config) : false;
+    const liveLayoutConfigurable = props.fixture != null && liveTileIdsForFixture(props.fixture).length > 0;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
     const showPanTiltInputs     = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
+
+    useEffect(() => {
+        setEditLayout(false);
+    }, [props.fixture?.id, pageMode]);
 
     useEffect(() => {
         if (props.fixture) {
@@ -1129,6 +1146,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <DMXEmergencyButton busy={props.busy} onEmergency={props.onEmergency}/>
                     {props.fixture && (
                         <Button
                             type="button"
@@ -1140,6 +1158,17 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             {props.partyRunning && fixturePartyIncluded
                                 ? "Party active"
                                 : isCurrentFixtureLive ? "Stop live" : "Start live"}
+                        </Button>
+                    )}
+                    {props.fixture && pageMode === "live" && liveLayoutConfigurable && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={editLayout ? "default" : "outline"}
+                            disabled={props.busy}
+                            onClick={() => setEditLayout((v) => !v)}
+                        >
+                            {editLayout ? "Done" : "Edit layout"}
                         </Button>
                     )}
                     {!props.fixture && (
@@ -1245,6 +1274,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     pullDMXState={props.pullDMXState}
                     onSavePresetSequence={handleSavePresetSequence}
                     displayMode={pageMode}
+                    editLayout={editLayout}
+                    setEditLayout={setEditLayout}
                 />
             ) : (
                 <>
@@ -1741,7 +1772,13 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                             const next = [...slots];
                                                                                             next[si] = {
                                                                                                 ...slot,
-                                                                                                mode: "rainbow",
+                                                                                                mode: "scroll",
+                                                                                                scrollRamp:
+                                                                                                    slot.scrollRamp ??
+                                                                                                    "fastToSlow",
+                                                                                                direction:
+                                                                                                    slot.direction ??
+                                                                                                    "cw",
                                                                                             };
                                                                                             updateChannelAt(originalIdx, {
                                                                                                 properties: {
@@ -1865,17 +1902,24 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 <TableCell
                                                                     className="text-right align-middle">
                                                                     <div
-                                                                        className="flex items-center justify-end gap-1">
+                                                                        className="flex flex-wrap items-center justify-end gap-1">
                                                                         <NativeSelect
                                                                             className="h-8 max-w-[5.5rem] text-xs"
-                                                                            value={slot.direction ?? "none"}
+                                                                            value={
+                                                                                isRainbowColorSlot(slot)
+                                                                                    ? slot.direction ?? "cw"
+                                                                                    : slot.direction ?? "none"
+                                                                            }
                                                                             onChange={(e) => {
                                                                                 const v = e.target.value;
                                                                                 const next = [...slots];
                                                                                 next[si] = {
                                                                                     ...slot,
                                                                                     direction:
-                                                                                        v === "none" ? undefined : v,
+                                                                                        !isRainbowColorSlot(slot) &&
+                                                                                        v === "none"
+                                                                                            ? undefined
+                                                                                            : v,
                                                                                 };
                                                                                 updateChannelAt(originalIdx, {
                                                                                     properties: {
@@ -1885,57 +1929,47 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <NativeSelectOption
-                                                                                value="none">—</NativeSelectOption>
-                                                                            <NativeSelectOption
-                                                                                value="cw">CW</NativeSelectOption>
-                                                                            <NativeSelectOption
-                                                                                value="ccw">CCW</NativeSelectOption>
+                                                                            {!isRainbowColorSlot(slot) ? (
+                                                                                <NativeSelectOption value="none">
+                                                                                    —
+                                                                                </NativeSelectOption>
+                                                                            ) : null}
+                                                                            <NativeSelectOption value="cw">
+                                                                                CW
+                                                                            </NativeSelectOption>
+                                                                            <NativeSelectOption value="ccw">
+                                                                                CCW
+                                                                            </NativeSelectOption>
                                                                         </NativeSelect>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="icon-sm"
-                                                                            className="size-8"
-                                                                            onClick={() => {
-                                                                                const next = [...slots];
-                                                                                const base = slot.numeric ?? 0;
-                                                                                next[si] = {
-                                                                                    ...slot,
-                                                                                    numeric: clamp255(base - 1),
-                                                                                };
-                                                                                updateChannelAt(originalIdx, {
-                                                                                    properties: {
-                                                                                        ...propsMap,
-                                                                                        entries: next,
-                                                                                    },
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            −
-                                                                        </Button>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="icon-sm"
-                                                                            className="size-8"
-                                                                            onClick={() => {
-                                                                                const next = [...slots];
-                                                                                const base = slot.numeric ?? 0;
-                                                                                next[si] = {
-                                                                                    ...slot,
-                                                                                    numeric: clamp255(base + 1),
-                                                                                };
-                                                                                updateChannelAt(originalIdx, {
-                                                                                    properties: {
-                                                                                        ...propsMap,
-                                                                                        entries: next,
-                                                                                    },
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            +
-                                                                        </Button>
+                                                                        {isRainbowColorSlot(slot) ? (
+                                                                            <NativeSelect
+                                                                                className="h-8 max-w-[7.5rem] text-xs"
+                                                                                value={slot.scrollRamp ?? "fastToSlow"}
+                                                                                title="Velocity ramp within this DMX range"
+                                                                                onChange={(e) => {
+                                                                                    const v = e.target
+                                                                                        .value as ColorWheelScrollRamp;
+                                                                                    const next = [...slots];
+                                                                                    next[si] = {
+                                                                                        ...slot,
+                                                                                        scrollRamp: v,
+                                                                                    };
+                                                                                    updateChannelAt(originalIdx, {
+                                                                                        properties: {
+                                                                                            ...propsMap,
+                                                                                            entries: next,
+                                                                                        },
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                <NativeSelectOption value="fastToSlow">
+                                                                                    Fast→slow
+                                                                                </NativeSelectOption>
+                                                                                <NativeSelectOption value="slowToFast">
+                                                                                    Slow→fast
+                                                                                </NativeSelectOption>
+                                                                            </NativeSelect>
+                                                                        ) : null}
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell
