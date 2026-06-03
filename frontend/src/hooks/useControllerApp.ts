@@ -903,6 +903,39 @@ export function useControllerApp() {
         });
     }, [withBusy]);
 
+    const onExportConfigurationBackup = useCallback(async (): Promise<string> => {
+        try {
+            const path = await GreetService.ExportConfigurationBackup();
+            const msg = `Configuration exported to ${path}`;
+            setStatus(msg);
+            setError("");
+            return msg;
+        } catch (err) {
+            if (String(err).includes("configuration backup cancelled")) {
+                return "Export cancelled.";
+            }
+            throw err;
+        }
+    }, [setStatus, setError]);
+
+    const onImportConfigurationBackup = useCallback(async (): Promise<string> => {
+        try {
+            await GreetService.ImportConfigurationBackup();
+            await pullSnapshot();
+            await pullDMXState();
+            await pullDMXPartyState();
+            const msg = "Configuration imported. Review settings and reconnect USB or network devices on this host if needed.";
+            setStatus(msg);
+            setError("");
+            return msg;
+        } catch (err) {
+            if (String(err).includes("configuration backup cancelled")) {
+                return "Import cancelled.";
+            }
+            throw err;
+        }
+    }, [pullSnapshot, pullDMXState, pullDMXPartyState, setStatus, setError]);
+
     const onCreateDMXFixture = useCallback(
         async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
             if (!ensureDMXEnabled()) {
@@ -1781,6 +1814,8 @@ export function useControllerApp() {
         onClearConsole,
         openDetachedConsoleWindow,
         closeDetachedConsoleWindow,
+        onExportConfigurationBackup,
+        onImportConfigurationBackup,
     };
 }
 

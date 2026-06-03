@@ -8,6 +8,8 @@ import (
 	"goldbus/internal/console"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -25,6 +27,7 @@ type GoldbusLightService struct {
 	openDetachedConsoleWindow  func() error
 	closeDetachedConsoleWindow func() error
 	isConsoleWindowDetached    func() bool
+	backupCallbacks            ConfigurationBackupCallbacks
 }
 
 type ConsoleWindowCallbacks struct {
@@ -33,12 +36,19 @@ type ConsoleWindowCallbacks struct {
 	IsDetached func() bool
 }
 
-func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks) *GoldbusLightService {
+// ConfigurationBackupCallbacks prompts for backup file paths in the GUI layer.
+type ConfigurationBackupCallbacks struct {
+	PromptSavePath func(suggestedFilename string) (path string, err error)
+	PromptOpenPath func() (path string, err error)
+}
+
+func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks) *GoldbusLightService {
 	return &GoldbusLightService{
 		controller:                 controller,
 		openDetachedConsoleWindow:  callbacks.Open,
 		closeDetachedConsoleWindow: callbacks.Close,
 		isConsoleWindowDetached:    callbacks.IsDetached,
+		backupCallbacks:            backup,
 	}
 }
 
@@ -374,6 +384,57 @@ func (g *GoldbusLightService) IsConsoleWindowDetached() bool {
 		return false
 	}
 	return g.isConsoleWindowDetached()
+}
+
+// ExportConfigurationBackup prompts for a destination file and writes the full configuration bundle.
+func (g *GoldbusLightService) ExportConfigurationBackup() (string, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (string, error) {
+		if g.backupCallbacks.PromptSavePath == nil {
+			return "", errors.New("configuration backup export is unavailable")
+		}
+		data, err := c.ExportConfigurationBackup(goldbus.AppVersion)
+		if err != nil {
+			return "", err
+		}
+		suggested := "goldbus-config-" + time.Now().UTC().Format("20060102-150405") + ctrlpkg.ConfigurationBackupExtension()
+		path, err := g.backupCallbacks.PromptSavePath(suggested)
+		if err != nil {
+			return "", err
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return "", ctrlpkg.ErrConfigurationBackupCancelled
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			return "", fmt.Errorf("write backup: %w", err)
+		}
+		return path, nil
+	})
+}
+
+// ImportConfigurationBackup prompts for a backup file and restores all persisted configuration.
+func (g *GoldbusLightService) ImportConfigurationBackup() (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if g.backupCallbacks.PromptOpenPath == nil {
+			return ctrlpkg.ControllerSnapshot{}, errors.New("configuration backup import is unavailable")
+		}
+		path, err := g.backupCallbacks.PromptOpenPath()
+		if err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return ctrlpkg.ControllerSnapshot{}, ctrlpkg.ErrConfigurationBackupCancelled
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return ctrlpkg.ControllerSnapshot{}, fmt.Errorf("read backup: %w", err)
+		}
+		if err := c.ImportConfigurationBackup(data); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
 }
 
 func (g *GoldbusLightService) requireController() (*ctrlpkg.WLEDController, error) {
