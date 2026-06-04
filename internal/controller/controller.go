@@ -311,6 +311,10 @@ func NewStatePersistenceManager() *StatePersistenceManager {
 	}
 }
 
+func (s *GeneralTabStatePersistenceManager) Path() string {
+	return s.path
+}
+
 func NewGeneralTabStatePersistenceManager() *GeneralTabStatePersistenceManager {
 	cfgDir, err := os.UserConfigDir()
 	if err != nil || cfgDir == "" {

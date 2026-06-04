@@ -102,6 +102,8 @@ function App() {
                 onClearConsole={app.onClearConsole}
                 consoleDetached={app.consoleDetached}
                 onToggleConsoleDetach={app.openDetachedConsoleWindow}
+                onExportConfigurationBackup={app.onExportConfigurationBackup}
+                onImportConfigurationBackup={app.onImportConfigurationBackup}
             />
         );
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {

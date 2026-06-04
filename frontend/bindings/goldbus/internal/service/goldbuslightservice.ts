@@ -76,6 +76,13 @@ export function DiscoverDevicesNow(): $CancellablePromise<controller$0.WLEDDevic
     });
 }
 
+/**
+ * ExportConfigurationBackup prompts for a destination file and writes the full configuration bundle.
+ */
+export function ExportConfigurationBackup(): $CancellablePromise<string> {
+    return $Call.ByID(4179458988);
+}
+
 export function GetControllerSnapshot(): $CancellablePromise<controller$0.ControllerSnapshot> {
     return $Call.ByID(4123599706).then(($result: any) => {
         return $$createType5($result);
@@ -118,6 +125,15 @@ export function GetIgnoredDevices(): $CancellablePromise<controller$0.WLEDDevice
 
 export function Greet(name: string): $CancellablePromise<string> {
     return $Call.ByID(1436929455, name);
+}
+
+/**
+ * ImportConfigurationBackup prompts for a backup file and restores all persisted configuration.
+ */
+export function ImportConfigurationBackup(): $CancellablePromise<controller$0.ControllerSnapshot> {
+    return $Call.ByID(2680155405).then(($result: any) => {
+        return $$createType5($result);
+    });
 }
 
 /**

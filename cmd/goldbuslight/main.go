@@ -106,10 +106,30 @@ func main() {
 		return consoleWindow != nil
 	}
 
+	backupFilter := application.FileFilter{
+		DisplayName: "Goldbus configuration backup",
+		Pattern:     "*.goldbus-backup.json;*.json",
+	}
+
 	greetService := service.NewGreetService(controller, service.ConsoleWindowCallbacks{
 		Open:       openDetachedConsoleWindow,
 		Close:      closeDetachedConsoleWindow,
 		IsDetached: isDetachedConsoleWindow,
+	}, service.ConfigurationBackupCallbacks{
+		PromptSavePath: func(suggestedFilename string) (string, error) {
+			dialog := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+				Title:    "Export Goldbus configuration",
+				Filename: suggestedFilename,
+				Filters:  []application.FileFilter{backupFilter},
+			})
+			return dialog.PromptForSingleSelection()
+		},
+		PromptOpenPath: func() (string, error) {
+			return app.Dialog.OpenFile().
+				SetTitle("Import Goldbus configuration").
+				AddFilter(backupFilter.DisplayName, backupFilter.Pattern).
+				PromptForSingleSelection()
+		},
 	})
 	app.RegisterService(application.NewService(greetService))
 

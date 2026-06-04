@@ -8,7 +8,8 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { PiDownloadSimple, PiUploadSimple } from "react-icons/pi";
 import { PiArrowsClockwise, PiBinoculars, PiWifiHigh } from "react-icons/pi";
 import { prettyJSON, readNumber } from "../../lib/json";
 import type {
@@ -54,6 +55,8 @@ export type ControllerSettingsViewProps = {
     onClearConsole: () => void;
     consoleDetached: boolean;
     onToggleConsoleDetach: () => void;
+    onExportConfigurationBackup: () => Promise<string>;
+    onImportConfigurationBackup: () => Promise<string>;
 };
 
 export function ControllerSettingsView({
@@ -87,7 +90,11 @@ export function ControllerSettingsView({
                                            onClearConsole,
                                            consoleDetached,
                                            onToggleConsoleDetach,
+                                           onExportConfigurationBackup,
+                                           onImportConfigurationBackup,
                                        }: ControllerSettingsViewProps) {
+    const [backupBusy, setBackupBusy] = useState(false);
+    const [backupMessage, setBackupMessage] = useState<string | null>(null);
     if (!settings) {
         return <p className="opacity-70">Loading settings…</p>;
     }
@@ -198,6 +205,56 @@ export function ControllerSettingsView({
                                 Updates are installed from the Pi shell with
                                 <code> scripts/install-release.sh &lt;tag&gt;</code>.
                             </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="w-full max-w-none">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-semibold">Configuration backup</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-sm opacity-70">
+                                Export or import all persisted data: controller settings, WLED devices,
+                                DMX fixtures and party config, general tab state, and per-fixture live layouts.
+                                Use this to copy a complete setup from one host to another.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={busy || backupBusy}
+                                    onClick={() => {
+                                        setBackupMessage(null);
+                                        setBackupBusy(true);
+                                        void onExportConfigurationBackup()
+                                            .then((msg) => setBackupMessage(msg))
+                                            .catch((err: unknown) => setError(String(err)))
+                                            .finally(() => setBackupBusy(false));
+                                    }}
+                                >
+                                    <PiDownloadSimple />
+                                    Export backup
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={busy || backupBusy}
+                                    onClick={() => {
+                                        setBackupMessage(null);
+                                        setBackupBusy(true);
+                                        void onImportConfigurationBackup()
+                                            .then((msg) => setBackupMessage(msg))
+                                            .catch((err: unknown) => setError(String(err)))
+                                            .finally(() => setBackupBusy(false));
+                                    }}
+                                >
+                                    <PiUploadSimple />
+                                    Import backup
+                                </Button>
+                            </div>
+                            {backupMessage && (
+                                <p className="text-xs text-muted-foreground">{backupMessage}</p>
+                            )}
                         </CardContent>
                     </Card>
 
