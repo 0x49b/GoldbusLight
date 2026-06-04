@@ -1,9 +1,26 @@
-/** Live tab: 3-column masonry layout with free pixel heights (no row grid). */
+/** Live tab: masonry layout (3 columns by default, up to 4 when the container is wide enough). */
 
 import type {DMXFixture} from "../types/controller";
 import {channelLiveTileId, resolveLiveWidget} from "./dmxLiveWidget";
 
+/** Minimum column count (also used as fallback when width is unknown). */
 export const LIVE_LAYOUT_COLUMNS = 3;
+export const LIVE_LAYOUT_MIN_COLUMNS = LIVE_LAYOUT_COLUMNS;
+export const LIVE_LAYOUT_MAX_COLUMNS = 4;
+/** Target minimum width per column before adding another column. */
+export const LIVE_LAYOUT_MIN_COLUMN_WIDTH_PX = 260;
+
+/** Responsive column count from container width (clamped to 3–4). */
+export function liveLayoutColumnsForWidth(widthPx: number): number {
+    if (!Number.isFinite(widthPx) || widthPx <= 0) {
+        return LIVE_LAYOUT_MIN_COLUMNS;
+    }
+    const fromWidth = Math.floor(widthPx / LIVE_LAYOUT_MIN_COLUMN_WIDTH_PX);
+    return Math.min(
+        LIVE_LAYOUT_MAX_COLUMNS,
+        Math.max(LIVE_LAYOUT_MIN_COLUMNS, fromWidth),
+    );
+}
 export const LIVE_LAYOUT_GAP_PX = 8;
 export const LIVE_LAYOUT_MIN_HEIGHT_PX = 72;
 export const LIVE_LAYOUT_MAX_HEIGHT_PX = 720;
@@ -15,7 +32,7 @@ export type LiveTileWidth = 1 | 2 | 3;
 
 export type LiveLayoutTile = {
     id: string;
-    /** Start column 0..2 */
+    /** Start column index (0 .. columnCount - 1) */
     col: number;
     w: LiveTileWidth;
     /** Top offset in px from masonry container origin */

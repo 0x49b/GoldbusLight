@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/grandcat/zeroconf"
@@ -598,6 +599,7 @@ type WLEDController struct {
 	console                  *console.Bus
 
 	mu              sync.RWMutex
+	importingConfig atomic.Bool // suppresses periodic persist while ImportConfigurationBackup runs
 	settings        ControllerSettings
 	devices         map[string]WLEDDevice
 	generalTabState GeneralTabState
@@ -2807,6 +2809,9 @@ func (c *WLEDController) touch() {
 }
 
 func (c *WLEDController) persist() error {
+	if c.importingConfig.Load() {
+		return nil
+	}
 	c.mu.RLock()
 	state := persistentState{
 		Version:  persistentStateVersion,
@@ -2819,6 +2824,9 @@ func (c *WLEDController) persist() error {
 }
 
 func (c *WLEDController) persistDMX() error {
+	if c.importingConfig.Load() {
+		return nil
+	}
 	c.mu.RLock()
 	if !c.dmxPersistEnabled {
 		c.mu.RUnlock()

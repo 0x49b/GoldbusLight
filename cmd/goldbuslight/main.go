@@ -106,9 +106,16 @@ func main() {
 		return consoleWindow != nil
 	}
 
+	// Save dialog: compound suffix is fine (macOS save panel ignores Filters today).
 	backupFilter := application.FileFilter{
 		DisplayName: "Goldbus configuration backup",
 		Pattern:     "*.goldbus-backup.json;*.json",
+	}
+	// Open dialog: macOS UTType only accepts simple extensions; "*.goldbus-backup.json"
+	// becomes "goldbus-backup.json" and yields a nil UTType → NSInvalidArgumentException crash.
+	importBackupFilter := application.FileFilter{
+		DisplayName: "Goldbus configuration backup",
+		Pattern:     "*.json",
 	}
 
 	greetService := service.NewGreetService(controller, service.ConsoleWindowCallbacks{
@@ -125,10 +132,10 @@ func main() {
 			return dialog.PromptForSingleSelection()
 		},
 		PromptOpenPath: func() (string, error) {
-			return app.Dialog.OpenFile().
-				SetTitle("Import Goldbus configuration").
-				AddFilter(backupFilter.DisplayName, backupFilter.Pattern).
-				PromptForSingleSelection()
+			return app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+				Message: "Import Goldbus configuration",
+				Filters: []application.FileFilter{importBackupFilter},
+			}).PromptForSingleSelection()
 		},
 	})
 	app.RegisterService(application.NewService(greetService))

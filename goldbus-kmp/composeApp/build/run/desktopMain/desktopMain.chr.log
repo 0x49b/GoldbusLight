@@ -1,0 +1,161 @@
+ | 16:14:54.975 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:14:55.617 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Starting a Gradle Daemon, 1 busy and 1 stopped Daemons could not be reused, use --status for details
+ | 16:14:57.017 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Calculating task graph as configuration cache cannot be reused because file 'composeApp/build.gradle.kts' has changed.
+ | 16:15:04.217 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:04.217 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:15:04.217 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:15:05.017 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:05.111 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:05.111 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 10s
+ | 16:15:05.111 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:15:05.111 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry stored.
+ | 16:15:05.304 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 2.575209ms
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:15:53.041 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:15:53.594 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:15:56.390 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:56.390 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:15:56.390 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:15:56.889 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:56.914 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:15:56.914 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:15:56.914 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:15:56.914 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:15:57.087 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 900.541us
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:16:32.818 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:16:33.371 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:16:36.670 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:16:36.670 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:16:36.670 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:16:37.117 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:16:37.117 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:16:37.117 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 4s
+ | 16:16:37.117 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:16:37.117 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:16:37.284 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 832.583us
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:17:04.201 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:17:04.743 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:17:07.441 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:07.441 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:17:07.441 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:17:07.941 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:07.962 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:07.962 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:17:07.962 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:17:07.962 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:17:08.135 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 1.006125ms
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:17:41.531 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:17:42.076 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:17:44.577 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:44.577 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:17:44.577 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:17:44.869 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:44.869 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:17:44.869 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:17:44.869 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:17:44.869 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:17:45.018 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 1.001833ms
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:18:41.799 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:18:42.351 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:18:45.156 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:18:45.156 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:18:45.156 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:18:45.768 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 24.416us
+    |   ~ No @Composable is dirty
+    | 
+ | 16:18:45.805 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:18:45.805 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:18:45.805 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:18:45.805 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 4 executed, 3 up-to-date
+ | 16:18:45.805 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:20:58.873 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:20:59.419 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 23.625us
+    |   ~ No @Composable is dirty
+    | 
+ | 16:20:59.453 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:20:59.454 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:20:59.454 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 471ms
+ | 16:20:59.454 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 3 executed, 4 up-to-date
+ | 16:20:59.454 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:21:50.655 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:21:51.168 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:21:53.667 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:21:53.667 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:21:53.667 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:21:54.365 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:21:54.399 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:21:54.399 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:21:54.399 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:21:54.399 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:21:54.595 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 1.097833ms
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt$ColorWheelSelector$2$1$1$1.invoke$lambda$0 (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt$ColorWheelSelector$2$1$1$1.invoke (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:22:33.338 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:22:33.890 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:22:36.287 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:22:36.287 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:22:36.287 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:22:37.286 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:22:37.286 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:22:37.286 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 3s
+ | 16:22:37.286 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:22:37.286 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:22:37.502 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 1.001291ms
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 
+ | 16:23:12.297 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:23:12.852 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:23:15.950 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:15.950 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:23:15.950 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:23:16.847 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:16.885 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:16.885 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 4s
+ | 16:23:16.885 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:23:16.885 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:23:17.051 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 796.5us
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (2)
+    | 
+ | 16:23:45.086 | DevTools | Info  | RecompilerKt | Recompiler | Running 'Gradle'...
+ | 16:23:45.628 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Reusing configuration cache.
+ | 16:23:48.528 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:48.528 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:301:86 No cast needed.
+ | 16:23:48.528 | Build    | Warn  | Gradle | DefaultDispatcher-worker-7 | w: file:///Users/florianthievent/workspace/private/GoldbusLight/goldbus-kmp/composeApp/src/commonMain/kotlin/goldbus/ui/GoldbusApp.kt:333:80 No cast needed.
+ | 16:23:49.373 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:49.373 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 
+ | 16:23:49.373 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | BUILD SUCCESSFUL in 4s
+ | 16:23:49.373 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | 7 actionable tasks: 5 executed, 2 up-to-date
+ | 16:23:49.373 | Build    | Info  | Gradle | DefaultDispatcher-worker-7 | Configuration cache entry reused.
+ | 16:23:49.520 | App      | Info  | ResolveDirtyKt | Compose Runtime Analyzer
+    | Resolved 'dirty' @Composable scopes within 944.084us
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector (1)
+    |     - goldbus.ui.pages.DmxFixtureLiveDashboardKt.ColorWheelSelector$lambda$1$0$1$0 (1)
+    | 

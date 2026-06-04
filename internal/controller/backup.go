@@ -39,21 +39,22 @@ func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, e
 	if err := c.persist(); err != nil {
 		return nil, fmt.Errorf("persist state: %w", err)
 	}
-	if err := c.persistDMX(); err != nil {
+	if err := c.persistDMXForBackup(); err != nil {
 		return nil, fmt.Errorf("persist dmx: %w", err)
 	}
 	if err := c.generalTabPersistence.Save(generalTab); err != nil {
 		return nil, fmt.Errorf("persist general tab: %w", err)
 	}
 
-	files := make(map[string]json.RawMessage, 4)
-	for name, path := range configurationBackupFilePaths(c) {
-		raw, err := readJSONFileRaw(path)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", name, err)
-		}
-		files[name] = raw
+	files, err := c.readConfigurationBackupFiles()
+	if err != nil {
+		return nil, err
 	}
+	dmxRaw, err := c.marshalDMXStateForBackup()
+	if err != nil {
+		return nil, fmt.Errorf("marshal dmx: %w", err)
+	}
+	files[dmxStateFileName] = dmxRaw
 
 	bundle := ConfigurationBackup{
 		Version:    configurationBackupVersion,
@@ -77,11 +78,18 @@ func (c *WLEDController) ImportConfigurationBackup(data []byte) error {
 		return fmt.Errorf("backup contains no files")
 	}
 
+	c.importingConfig.Store(true)
+	defer c.importingConfig.Store(false)
+
 	paths := configurationBackupFilePaths(c)
 	for name, path := range paths {
 		raw, ok := bundle.Files[name]
 		if !ok {
-			return fmt.Errorf("backup missing %s", name)
+			if name == dmxFixtureLiveLayoutsFileName {
+				raw = json.RawMessage(`{"version":1,"layouts":{}}`)
+			} else {
+				return fmt.Errorf("backup missing %s", name)
+			}
 		}
 		if err := validateBackupFileJSON(name, raw); err != nil {
 			return err
@@ -98,7 +106,11 @@ func (c *WLEDController) ImportConfigurationBackup(data []byte) error {
 	c.StopDMXParty()
 	c.StopDMXLive()
 
-	return c.reloadFromPersistence()
+	if err := c.reloadFromImportBundle(bundle); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func configurationBackupFilePaths(c *WLEDController) map[string]string {
@@ -190,6 +202,10 @@ func (c *WLEDController) reloadFromPersistence() error {
 		c.wled.Stop()
 	}
 
+	c.mu.Lock()
+	c.dmxPersistEnabled = true
+	c.mu.Unlock()
+
 	if !dmxEnabled {
 		c.StopDMXLive()
 	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
@@ -197,4 +213,98 @@ func (c *WLEDController) reloadFromPersistence() error {
 	}
 
 	return nil
+}
+
+// reloadFromImportBundle applies persisted state/general tab from disk and DMX from the backup bundle.
+// DMX is taken from the bundle (not re-read from disk) so a concurrent periodic persist cannot
+// overwrite dmx.json with stale in-memory fixtures between the import write and this reload.
+func (c *WLEDController) reloadFromImportBundle(bundle ConfigurationBackup) error {
+	loaded, err := c.persistence.Load()
+	if err != nil {
+		return fmt.Errorf("load state: %w", err)
+	}
+	generalTab, err := c.generalTabPersistence.Load()
+	if err != nil {
+		return fmt.Errorf("load general tab: %w", err)
+	}
+	raw, ok := bundle.Files[dmxStateFileName]
+	if !ok {
+		return fmt.Errorf("backup missing %s", dmxStateFileName)
+	}
+	var dmxState DMXState
+	if err := json.Unmarshal(raw, &dmxState); err != nil {
+		return fmt.Errorf("parse dmx from backup: %w", err)
+	}
+
+	normDMX := normalizeDMXState(dmxState)
+	normDMX.Party = stripDMXPartyRuntimeForPersistence(normalizeDMXPartyState(normDMX.Party))
+	normDMX.Party.Config.Enabled = false
+
+	c.mu.Lock()
+	wledWas := c.settings.WLED.Enabled
+	c.settings = mergeWithDefaults(loaded.Settings)
+	c.devices = loaded.Devices
+	c.generalTabState = clampGeneralTabState(generalTab)
+	c.dmxState = normDMX
+	c.dmxPersistEnabled = true
+	c.syncSimulatedDeviceLocked()
+	c.updated = time.Now()
+	wledNow := c.settings.WLED.Enabled
+	dmxEnabled := c.settings.DMX.Enabled
+	c.mu.Unlock()
+
+	switch {
+	case wledNow && !wledWas:
+		ctx := c.rootCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		c.wled.Start(ctx)
+	case !wledNow && wledWas:
+		c.wled.Stop()
+	}
+
+	if !dmxEnabled {
+		c.StopDMXLive()
+	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
+		c.logger.Printf("dmx live reconcile after import: %v", err)
+	}
+
+	if err := c.persistDMXForBackup(); err != nil {
+		return fmt.Errorf("persist dmx after import: %w", err)
+	}
+	return nil
+}
+
+// persistDMXForBackup writes the in-memory DMX state even when dmx.json previously failed to load.
+func (c *WLEDController) persistDMXForBackup() error {
+	c.mu.RLock()
+	state := cloneDMXState(c.dmxState)
+	c.mu.RUnlock()
+	state.Party = stripDMXPartyRuntimeForPersistence(state.Party)
+	return c.dmxPersistence.Save(state)
+}
+
+func (c *WLEDController) marshalDMXStateForBackup() (json.RawMessage, error) {
+	c.mu.RLock()
+	state := cloneDMXState(c.dmxState)
+	c.mu.RUnlock()
+	state.Party = stripDMXPartyRuntimeForPersistence(normalizeDMXPartyState(state.Party))
+	payload, err := json.MarshalIndent(normalizeDMXState(state), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(payload), nil
+}
+
+func (c *WLEDController) readConfigurationBackupFiles() (map[string]json.RawMessage, error) {
+	files := make(map[string]json.RawMessage, 4)
+	for name, path := range configurationBackupFilePaths(c) {
+		raw, err := readJSONFileRaw(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", name, err)
+		}
+		files[name] = raw
+	}
+	return files, nil
 }

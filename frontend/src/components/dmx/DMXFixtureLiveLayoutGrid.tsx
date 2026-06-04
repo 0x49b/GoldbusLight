@@ -7,6 +7,7 @@ import {
     LIVE_LAYOUT_COLUMNS,
     LIVE_LAYOUT_GAP_PX,
     LIVE_LAYOUT_MIN_HEIGHT_PX,
+    liveLayoutColumnsForWidth,
     masonryContainerHeight,
     packMasonryTiles,
     snapMasonryDrop,
@@ -67,9 +68,8 @@ export function DMXFixtureLiveLayoutGrid({
         if (!container) {
             return;
         }
-        const MIN_COLUMN_WIDTH_PX = 320;
         const updateColumns = (width: number) => {
-            const next = Math.max(LIVE_LAYOUT_COLUMNS, Math.floor(width / MIN_COLUMN_WIDTH_PX));
+            const next = liveLayoutColumnsForWidth(width);
             setColumns((prev) => (prev === next ? prev : next));
         };
         updateColumns(container.getBoundingClientRect().width);
@@ -133,8 +133,9 @@ export function DMXFixtureLiveLayoutGrid({
                     if (w < 1) {
                         w = 1;
                     }
-                    if (w > 3) {
-                        w = 3;
+                    const maxW = Math.min(3, columns) as LiveTileWidth;
+                    if (w > maxW) {
+                        w = maxW;
                     }
                     const col = clampTileCol(d.start.col, w, columns);
                     const next = updateTile(d.pending, d.id, {w, col});
@@ -200,7 +201,7 @@ export function DMXFixtureLiveLayoutGrid({
     return (
         <div
             className={cn(
-                "relative w-full max-w-5xl",
+                "relative w-full min-w-0",
                 editMode && "rounded-xl border-2 border-dashed border-primary/35 bg-muted/15 p-2",
             )}
         >

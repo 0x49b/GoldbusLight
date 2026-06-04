@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -76,5 +77,61 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 	}
 	if len(c2.dmxState.Fixtures) != 1 || c2.dmxState.Fixtures[0].ID != "fx-1" {
 		t.Fatalf("dmx fixtures = %+v", c2.dmxState.Fixtures)
+	}
+}
+
+func TestExportConfigurationBackupIncludesInMemoryDMXWhenPersistDisabled(t *testing.T) {
+	dir := t.TempDir()
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.persistence = &StatePersistenceManager{path: filepath.Join(dir, defaultStateFileName)}
+	c.generalTabPersistence = &GeneralTabStatePersistenceManager{path: filepath.Join(dir, generalTabStateFileName)}
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(dir, dmxStateFileName)}
+	c.dmxLiveLayoutPersistence = &DMXFixtureLiveLayoutPersistenceManager{path: filepath.Join(dir, dmxFixtureLiveLayoutsFileName)}
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.dmxState = defaultDMXState()
+	c.dmxState.Fixtures = []DMXFixture{{ID: "fx-mem", Name: "In RAM", DMXAddress: 10, Type: DMXFixtureTypeDimmer}}
+	c.dmxPersistEnabled = false
+	c.mu.Unlock()
+
+	data, err := c.ExportConfigurationBackup("test")
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	var bundle ConfigurationBackup
+	if err := json.Unmarshal(data, &bundle); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var dmx DMXState
+	if err := json.Unmarshal(bundle.Files[dmxStateFileName], &dmx); err != nil {
+		t.Fatalf("dmx json: %v", err)
+	}
+	if len(dmx.Fixtures) != 1 || dmx.Fixtures[0].ID != "fx-mem" {
+		t.Fatalf("fixtures in export = %+v", dmx.Fixtures)
+	}
+}
+
+func TestImportConfigurationBackupFromFixtureFile(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "fixtures", "goldbus-config-20260604-101603.goldbus-backup.json"))
+	if err != nil {
+		t.Skipf("fixture backup not present: %v", err)
+	}
+	dir := t.TempDir()
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.persistence = &StatePersistenceManager{path: filepath.Join(dir, defaultStateFileName)}
+	c.generalTabPersistence = &GeneralTabStatePersistenceManager{path: filepath.Join(dir, generalTabStateFileName)}
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(dir, dmxStateFileName)}
+	c.dmxLiveLayoutPersistence = &DMXFixtureLiveLayoutPersistenceManager{path: filepath.Join(dir, dmxFixtureLiveLayoutsFileName)}
+
+	if err := c.ImportConfigurationBackup(data); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	c.mu.RLock()
+	n := len(c.dmxState.Fixtures)
+	c.mu.RUnlock()
+	if n < 1 {
+		t.Fatalf("expected fixtures after import, got %d", n)
 	}
 }
