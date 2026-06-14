@@ -1,0 +1,3 @@
+[submodule "kmp"]
+	path = kmp
+	url = git@github.com:0x49b/GoldbusLightning.git
