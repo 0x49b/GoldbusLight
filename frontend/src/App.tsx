@@ -132,6 +132,7 @@ function App() {
                 onUpdate={app.onUpdateDMXFixture}
                 onDelete={app.onDeleteDMXFixture}
                 onOpenFixture={(fixtureID) => app.setRoute({kind: "dmxFixture", id: fixtureID})}
+                onExportFixtureConfig={app.onExportDMXFixtureConfig}
                 dmxState={app.dmxState}
                 usbSerialDevices={app.usbSerialDevices}
                 dmxLiveStatus={app.dmxLiveStatus}

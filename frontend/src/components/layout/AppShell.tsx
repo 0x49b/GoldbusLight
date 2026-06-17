@@ -68,7 +68,7 @@ export function AppShell({
             <div className={cn("relative flex min-h-screen w-full", partyRunning && "party-running-shell")}>
             {partyRunning && (
                 <div
-                    className="pointer-events-none absolute inset-0 z-50 rounded-xl border-2 border-violet-500/70 animate-party-hue"
+                    className="pointer-events-none absolute inset-0 z-50  border-violet-500/70 party-border animate-party-hue"
                     aria-hidden
                 />
             )}

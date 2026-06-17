@@ -918,6 +918,24 @@ export function useControllerApp() {
         }
     }, [setStatus, setError]);
 
+    const onExportDMXFixtureConfig = useCallback(
+        async (suggestedFilename: string, contents: string): Promise<string> => {
+            try {
+                const path = await GreetService.ExportDMXFixtureConfig(suggestedFilename, contents);
+                const msg = `Fixture exported to ${path}`;
+                setStatus(msg);
+                setError("");
+                return msg;
+            } catch (err) {
+                if (String(err).includes("configuration backup cancelled")) {
+                    return "Export cancelled.";
+                }
+                throw err;
+            }
+        },
+        [setStatus, setError],
+    );
+
     const onImportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
             await GreetService.ImportConfigurationBackup();
@@ -1815,6 +1833,7 @@ export function useControllerApp() {
         openDetachedConsoleWindow,
         closeDetachedConsoleWindow,
         onExportConfigurationBackup,
+        onExportDMXFixtureConfig,
         onImportConfigurationBackup,
     };
 }

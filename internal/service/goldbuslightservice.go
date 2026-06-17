@@ -40,6 +40,9 @@ type ConsoleWindowCallbacks struct {
 type ConfigurationBackupCallbacks struct {
 	PromptSavePath func(suggestedFilename string) (path string, err error)
 	PromptOpenPath func() (path string, err error)
+	// PromptSaveFixturePath asks for a destination when exporting a single DMX
+	// fixture config. Optional; falls back to PromptSavePath when nil.
+	PromptSaveFixturePath func(suggestedFilename string) (path string, err error)
 }
 
 func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks) *GoldbusLightService {
@@ -410,6 +413,35 @@ func (g *GoldbusLightService) ExportConfigurationBackup() (string, error) {
 		}
 		return path, nil
 	})
+}
+
+// ExportDMXFixtureConfig prompts for a destination file and writes the provided
+// fixture configuration JSON to it. The contents are produced by the GUI layer.
+// Returns the chosen path, or ErrConfigurationBackupCancelled when dismissed.
+func (g *GoldbusLightService) ExportDMXFixtureConfig(suggestedFilename string, contents string) (string, error) {
+	prompt := g.backupCallbacks.PromptSaveFixturePath
+	if prompt == nil {
+		prompt = g.backupCallbacks.PromptSavePath
+	}
+	if prompt == nil {
+		return "", errors.New("fixture export is unavailable")
+	}
+	suggested := strings.TrimSpace(suggestedFilename)
+	if suggested == "" {
+		suggested = "dmx-fixture.json"
+	}
+	path, err := prompt(suggested)
+	if err != nil {
+		return "", err
+	}
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", ctrlpkg.ErrConfigurationBackupCancelled
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		return "", fmt.Errorf("write fixture config: %w", err)
+	}
+	return path, nil
 }
 
 // ImportConfigurationBackup prompts for a backup file and restores all persisted configuration.

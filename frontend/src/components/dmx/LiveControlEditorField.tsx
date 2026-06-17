@@ -1,15 +1,18 @@
 import {EyeOff} from "lucide-react";
 import {Badge} from "@/components/ui/badge";
+import {Checkbox} from "@/components/ui/checkbox";
 import {Label} from "@/components/ui/label";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {
     DMX_LIVE_WIDGET_OPTIONS,
     isDegreeSliderChannel,
     LIVE_SLIDER_LABEL_OPTIONS,
+    liveWidgetHasOrientableSlider,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     liveWidgetLabel,
     readLiveSliderLabelMode,
+    readLiveSliderOrientation,
     readLiveWidgetOverride,
     resolveLiveWidget,
     type DMXLiveWidget,
@@ -36,7 +39,9 @@ export function LiveControlEditorField({
     const resolved = resolveLiveWidget(channel);
     const override = readLiveWidgetOverride(properties);
     const showSliderLabelMode = resolved === "slider" && !isDegreeSliderChannel(channel);
+    const showOrientation = liveWidgetHasOrientableSlider(channel);
     const sliderLabelMode = readLiveSliderLabelMode(properties, channel);
+    const sliderHorizontal = readLiveSliderOrientation(properties) === "horizontal";
 
     return (
         <div
@@ -104,6 +109,25 @@ export function LiveControlEditorField({
                         ))}
                     </NativeSelect>
                 </div>
+            ) : null}
+            {showOrientation ? (
+                <label className="flex cursor-pointer items-center gap-2 pt-0.5 text-xs">
+                    <Checkbox
+                        checked={sliderHorizontal}
+                        disabled={busy}
+                        onCheckedChange={(checked) => {
+                            const nextProps = {...properties};
+                            if (checked === true) {
+                                nextProps.liveSliderOrientation = "horizontal";
+                            } else {
+                                delete nextProps.liveSliderOrientation;
+                            }
+                            onPropertiesChange(nextProps);
+                        }}
+                    />
+                    <span>Horizontal slider</span>
+                    <span className="text-[10px] text-muted-foreground">(unchecked = vertical fader)</span>
+                </label>
             ) : null}
             <p
                 className={cn(

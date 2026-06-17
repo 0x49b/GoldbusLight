@@ -1,25 +1,41 @@
-/** Live tab: masonry layout (3 columns by default, up to 4 when the container is wide enough). */
+/**
+ * Live tab: masonry layout on a fine column grid.
+ *
+ * The grid is subdivided into {@link LIVE_LAYOUT_SUBDIVISIONS} fine units per "coarse" column
+ * (3 coarse columns by default, up to 4 when the container is wide enough). A standard control
+ * occupies one coarse column ({@link LIVE_LAYOUT_DEFAULT_WIDTH} fine units), but tiles can be
+ * resized down to a single fine unit — so e.g. three narrow vertical faders fit side by side in
+ * the width that previously held one control.
+ */
 
 import type {DMXFixture} from "../types/controller";
-import {channelLiveTileId, resolveLiveWidget} from "./dmxLiveWidget";
+import {channelLiveTileId, readLiveSliderOrientation, resolveLiveWidget} from "./dmxLiveWidget";
 
-/** Minimum column count (also used as fallback when width is unknown). */
-export const LIVE_LAYOUT_COLUMNS = 3;
+/** Fine units per coarse column. A standard tile is this many units wide. */
+export const LIVE_LAYOUT_SUBDIVISIONS = 3;
+/** Coarse (visual) column counts, before subdivision. */
+export const LIVE_LAYOUT_MIN_COARSE_COLUMNS = 3;
+export const LIVE_LAYOUT_MAX_COARSE_COLUMNS = 4;
+/** Minimum fine column count (also used as fallback when width is unknown). */
+export const LIVE_LAYOUT_COLUMNS = LIVE_LAYOUT_MIN_COARSE_COLUMNS * LIVE_LAYOUT_SUBDIVISIONS;
 export const LIVE_LAYOUT_MIN_COLUMNS = LIVE_LAYOUT_COLUMNS;
-export const LIVE_LAYOUT_MAX_COLUMNS = 4;
-/** Target minimum width per column before adding another column. */
+export const LIVE_LAYOUT_MAX_COLUMNS = LIVE_LAYOUT_MAX_COARSE_COLUMNS * LIVE_LAYOUT_SUBDIVISIONS;
+/** Default tile width in fine units (one coarse column). */
+export const LIVE_LAYOUT_DEFAULT_WIDTH = LIVE_LAYOUT_SUBDIVISIONS;
+/** Target minimum width per coarse column before adding another column. */
 export const LIVE_LAYOUT_MIN_COLUMN_WIDTH_PX = 260;
 
-/** Responsive column count from container width (clamped to 3–4). */
+/** Responsive fine column count from container width (coarse 3–4, times subdivisions). */
 export function liveLayoutColumnsForWidth(widthPx: number): number {
     if (!Number.isFinite(widthPx) || widthPx <= 0) {
         return LIVE_LAYOUT_MIN_COLUMNS;
     }
     const fromWidth = Math.floor(widthPx / LIVE_LAYOUT_MIN_COLUMN_WIDTH_PX);
-    return Math.min(
-        LIVE_LAYOUT_MAX_COLUMNS,
-        Math.max(LIVE_LAYOUT_MIN_COLUMNS, fromWidth),
+    const coarse = Math.min(
+        LIVE_LAYOUT_MAX_COARSE_COLUMNS,
+        Math.max(LIVE_LAYOUT_MIN_COARSE_COLUMNS, fromWidth),
     );
+    return coarse * LIVE_LAYOUT_SUBDIVISIONS;
 }
 export const LIVE_LAYOUT_GAP_PX = 8;
 export const LIVE_LAYOUT_MIN_HEIGHT_PX = 72;
@@ -28,7 +44,8 @@ export const LIVE_LAYOUT_DEFAULT_HEIGHT_PX = 160;
 /** Legacy v2: one row unit in pixels when migrating */
 export const LIVE_LAYOUT_LEGACY_ROW_PX = 48;
 
-export type LiveTileWidth = 1 | 2 | 3;
+/** Tile width in fine grid units (>= 1, up to the active column count). */
+export type LiveTileWidth = number;
 
 export type LiveLayoutTile = {
     id: string;
@@ -42,11 +59,11 @@ export type LiveLayoutTile = {
 };
 
 export type LiveLayoutDocument = {
-    version: 2 | 3;
+    version: 2 | 3 | 4;
     tiles: LiveLayoutTile[];
 };
 
-export const LIVE_LAYOUT_DOC_VERSION = 3 as const;
+export const LIVE_LAYOUT_DOC_VERSION = 4 as const;
 
 export type MasonryPlacedTile = LiveLayoutTile & {
     bottom: number;
@@ -71,7 +88,7 @@ export function clampTileCol(col: number, w: LiveTileWidth, columns = LIVE_LAYOU
 
 function normalizeTile(t: LiveLayoutTile, columns = LIVE_LAYOUT_COLUMNS): LiveLayoutTile {
     const safeColumns = Math.max(LIVE_LAYOUT_COLUMNS, Math.round(columns) || LIVE_LAYOUT_COLUMNS);
-    const w = (t.w === 2 || t.w === 3 ? t.w : 1) as LiveTileWidth;
+    const w = Math.max(1, Math.min(safeColumns, Math.round(t.w) || 1));
     const maxCol = Math.max(0, safeColumns - w);
     const roundedCol = Math.round(t.col);
     const wrappedCol = roundedCol > maxCol
@@ -192,22 +209,47 @@ export function sortTileIdsForPack(ids: string[]): string[] {
     return [...new Set(ids)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
-function defaultWidthForId(id: string): LiveTileWidth {
-    if (id === "preview") {
-        return 3;
+/** A `slider` channel rendered as a vertical fader (the default orientation). */
+function isVerticalFaderChannel(fixture: DMXFixture | undefined, id: string): boolean {
+    if (!fixture || !id.startsWith("ch-")) {
+        return false;
     }
-    return 1;
+    const ch = fixture.channels.find((c) => c.channel === Number(id.slice(3)));
+    if (!ch || resolveLiveWidget(ch) !== "slider") {
+        return false;
+    }
+    return readLiveSliderOrientation(ch.properties as Record<string, unknown> | undefined) === "vertical";
+}
+
+function defaultWidthForId(id: string, fixture?: DMXFixture): LiveTileWidth {
+    if (id === "preview") {
+        return LIVE_LAYOUT_COLUMNS;
+    }
+    // Vertical faders are narrow so several fit side by side in one coarse column.
+    if (isVerticalFaderChannel(fixture, id)) {
+        return 1;
+    }
+    return LIVE_LAYOUT_DEFAULT_WIDTH;
 }
 
 function defaultHeightPxForId(id: string, fixture?: DMXFixture): number {
     if (id === "preview") {
         return 280;
     }
+    if (isVerticalFaderChannel(fixture, id)) {
+        return 240;
+    }
     if (id.startsWith("ch-") && fixture) {
         const offset = Number(id.slice(3));
         const ch = fixture.channels.find((c) => c.channel === offset);
         if (ch) {
             const w = resolveLiveWidget(ch);
+            const vertical =
+                readLiveSliderOrientation(ch.properties as Record<string, unknown> | undefined) === "vertical";
+            // Vertical fader banks need height for the tall sliders.
+            if (vertical && (w === "slotSlider" || w === "buttonSlider")) {
+                return 240;
+            }
             if (w === "colorWheel" || w === "goboWheel") {
                 return 220;
             }
@@ -224,7 +266,7 @@ export function defaultLiveLayoutForIds(activeIds: string[], fixture?: DMXFixtur
     const drafts: LiveLayoutTile[] = [];
 
     for (const id of ids) {
-        const w = defaultWidthForId(id);
+        const w = defaultWidthForId(id, fixture);
         drafts.push({
             id,
             col: 0,
@@ -250,13 +292,13 @@ function parseTileV3(raw: unknown): LiveLayoutTile | null {
     const w = Number(o.w);
     const y = Number(o.y);
     const heightPx = Number(o.heightPx ?? o.hPx);
-    if (!Number.isInteger(col) || (w !== 1 && w !== 2 && w !== 3)) {
+    if (!Number.isInteger(col) || !Number.isInteger(w) || w < 1) {
         return null;
     }
     const tile: LiveLayoutTile = {
         id,
         col: Math.max(0, Math.round(col)),
-        w: w as LiveTileWidth,
+        w: Math.max(1, Math.round(w)),
         y: Number.isFinite(y) ? Math.max(0, y) : 0,
         heightPx: Number.isFinite(heightPx) ? heightPx : LIVE_LAYOUT_DEFAULT_HEIGHT_PX,
     };
@@ -338,7 +380,7 @@ export function parseLiveLayoutDocument(raw: string): LiveLayoutDocument | null 
             return null;
         }
 
-        if (version === 3) {
+        if (version === 3 || version === 4) {
             const tiles: LiveLayoutTile[] = [];
             for (const x of tilesRaw) {
                 const t = parseTileV3(x);
@@ -346,7 +388,7 @@ export function parseLiveLayoutDocument(raw: string): LiveLayoutDocument | null 
                     tiles.push(t);
                 }
             }
-            return {version: 3, tiles};
+            return {version, tiles};
         }
 
         // v1/v2: col, row, w, h
@@ -387,7 +429,7 @@ export function parseLiveLayoutDocument(raw: string): LiveLayoutDocument | null 
 
 export function serializeLiveLayoutDocument(doc: LiveLayoutDocument): string {
     const tiles = doc.tiles.map((t) => normalizeTile(t));
-    return JSON.stringify({version: 3, tiles});
+    return JSON.stringify({version: LIVE_LAYOUT_DOC_VERSION, tiles});
 }
 
 export function mergeLiveLayoutWithActiveIds(
@@ -400,10 +442,19 @@ export function mergeLiveLayoutWithActiveIds(
     const byId = new Map(defaults.map((t) => [t.id, t]));
 
     if (saved) {
-        let savedTiles = saved.tiles.map((t) => normalizeTile(t));
+        let savedTiles = saved.tiles;
         if (saved.version < 3) {
             savedTiles = migrateV2Tiles(savedTiles);
         }
+        // v1–v3 used coarse columns (1 unit = 1 visual column); scale up to fine units.
+        if (saved.version < 4) {
+            savedTiles = savedTiles.map((t) => ({
+                ...t,
+                col: t.col * LIVE_LAYOUT_SUBDIVISIONS,
+                w: t.w * LIVE_LAYOUT_SUBDIVISIONS,
+            }));
+        }
+        savedTiles = savedTiles.map((t) => normalizeTile(t));
         savedTiles = migrateLegacyTileIds(savedTiles, fixture, ids);
         for (const t of savedTiles) {
             if (!ids.includes(t.id)) {

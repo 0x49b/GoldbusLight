@@ -238,6 +238,19 @@ export function liveSliderLabelModeHint(mode: LiveSliderLabelMode): string {
     return mode === "percent" ? "%" : "0–255";
 }
 
+/** Orientation of a linear `slider` widget on the live tab. Vertical (fader-style) is the default. */
+export type LiveSliderOrientation = "vertical" | "horizontal";
+
+export function readLiveSliderOrientation(props: JSONMap | undefined): LiveSliderOrientation {
+    return props?.liveSliderOrientation === "horizontal" ? "horizontal" : "vertical";
+}
+
+/** Live widgets that render one or more orientable range sliders (so the orientation toggle applies). */
+export function liveWidgetHasOrientableSlider(ch: DMXChannel): boolean {
+    const w = resolveLiveWidget(ch);
+    return w === "slider" || w === "slotSlider" || w === "buttonSlider";
+}
+
 export function channelLiveTileId(ch: DMXChannel): string {
     return `ch-${ch.channel}`;
 }
@@ -278,17 +291,13 @@ function inferEntryLiveSlotKind(
     return "slider";
 }
 
-/** Resolve stored slot kind; wide DMX ranges must stay sliders even if saved as switches. */
+/** Resolve stored slot kind: an explicit per-slot choice always wins; otherwise infer from the range. */
 export function effectiveEntryLiveSlotKind(
     entry: { from: number; to: number; label?: string; mode?: string },
     explicit: LiveSlotKind | undefined,
     index = 0,
 ): LiveSlotKind {
-    const inferred = inferEntryLiveSlotKind(entry, index);
-    if (explicit === "button" && inferred === "slider") {
-        return "slider";
-    }
-    return explicit ?? inferred;
+    return explicit ?? inferEntryLiveSlotKind(entry, index);
 }
 
 /** Per-entry live control: switch vs range slider (for `buttonSlider` widget). */

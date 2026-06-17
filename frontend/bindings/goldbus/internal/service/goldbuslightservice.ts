@@ -83,6 +83,15 @@ export function ExportConfigurationBackup(): $CancellablePromise<string> {
     return $Call.ByID(4179458988);
 }
 
+/**
+ * ExportDMXFixtureConfig prompts for a destination file and writes the provided
+ * fixture configuration JSON to it. The contents are produced by the GUI layer.
+ * Returns the chosen path, or ErrConfigurationBackupCancelled when dismissed.
+ */
+export function ExportDMXFixtureConfig(suggestedFilename: string, contents: string): $CancellablePromise<string> {
+    return $Call.ByID(3174069144, suggestedFilename, contents);
+}
+
 export function GetControllerSnapshot(): $CancellablePromise<controller$0.ControllerSnapshot> {
     return $Call.ByID(4123599706).then(($result: any) => {
         return $$createType5($result);

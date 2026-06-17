@@ -160,6 +160,8 @@ type DMXFixtureEditorViewProps = {
     onUpdate: (input: UpsertDMXFixtureInput) => Promise<DMXFixture | null>;
     onDelete: (fixtureID: string) => Promise<boolean>;
     onOpenFixture: (fixtureID: string) => void;
+    /** Prompt for a destination and write the exported fixture config; returns a status message. */
+    onExportFixtureConfig?: (suggestedFilename: string, contents: string) => Promise<string>;
     dmxState: DMXState;
     usbSerialDevices: USBSerialDevice[];
     dmxLiveStatus: DMXLiveStatus | null;
@@ -1025,20 +1027,33 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         if (!props.fixture) {
             return;
         }
         setSaveHint(null);
         const input = buildDraftInput(false);
         const payload = buildDMXFixtureConfigPayload(input);
-        const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
-            type: "application/json",
-        });
+        const contents = `${JSON.stringify(payload, null, 2)}\n`;
+        const filename = safeDMXFixtureConfigFilename(input.brand, input.name);
+
+        // Native desktop save dialog (lets the user choose the destination).
+        if (props.onExportFixtureConfig) {
+            try {
+                const msg = await props.onExportFixtureConfig(filename, contents);
+                setSaveHint(msg);
+            } catch (err) {
+                setSaveHint(`Export failed: ${String(err)}`);
+            }
+            return;
+        }
+
+        // Fallback (e.g. browser build without the desktop runtime): download to the default location.
+        const blob = new Blob([contents], {type: "application/json"});
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = safeDMXFixtureConfigFilename(input.brand, input.name);
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -1211,7 +1226,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 <DropdownMenuContent align="end" className="w-40">
                                     <DropdownMenuItem
                                         disabled={actionGroupDisabled}
-                                        onClick={handleExport}
+                                        onClick={() => void handleExport()}
                                     >
                                         Export
                                     </DropdownMenuItem>

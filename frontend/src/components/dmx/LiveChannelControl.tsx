@@ -1,3 +1,4 @@
+import type {ReactNode} from "react";
 import type {DMXChannel, DMXFixture, JSONMap} from "@/types/controller.ts";
 import type {DMXLiveShutterMode, DMXLiveControlState, EntryChannelLiveState} from "@/lib/dmxLiveMap.ts";
 import {
@@ -15,6 +16,7 @@ import {
     parseEntryLiveSlotKinds,
     liveSliderLabelModeHint,
     readLiveSliderLabelMode,
+    readLiveSliderOrientation,
     resolveLiveWidget,
     type LiveSlotKind,
 } from "@/lib/dmxLiveWidget.ts";
@@ -58,6 +60,50 @@ function useEntryState(
     return liveState.entryChannels[channel.channel] ?? defaultEntryStateForChannel(channel);
 }
 
+/** A single labelled vertical (fader-style) slider that fills the height of its container. */
+function VerticalFader({
+    label,
+    valueLabel,
+    min,
+    max,
+    step = 1,
+    value,
+    onValueChange,
+    disabled,
+}: {
+    label?: ReactNode;
+    valueLabel?: ReactNode;
+    min: number;
+    max: number;
+    step?: number;
+    value: number;
+    onValueChange: (v: number) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center gap-1">
+            {label != null ? (
+                <div className="w-full truncate text-center text-xs text-muted-foreground">{label}</div>
+            ) : null}
+            <div className="flex min-h-0 w-full flex-1 justify-center py-1">
+                <Slider
+                    orientation="vertical"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={[value]}
+                    onValueChange={([v]) => onValueChange(v ?? min)}
+                    disabled={disabled}
+                    className="h-full"
+                />
+            </div>
+            {valueLabel != null ? (
+                <span className="text-center text-xs tabular-nums text-muted-foreground">{valueLabel}</span>
+            ) : null}
+        </div>
+    );
+}
+
 export function LiveChannelControl({
     fixture,
     channel,
@@ -77,6 +123,7 @@ export function LiveChannelControl({
     const party = channelIncludedInParty(fixture, channel);
     const outputByte = channelOutputByte(channel, st, widget);
     const title = channelLiveLabel(channel);
+    const vertical = readLiveSliderOrientation(props) === "vertical";
 
     const patch = (partial: Partial<EntryChannelLiveState>) => {
         onStateChange(patchEntryChannel(liveState, channel.channel, partial));
@@ -105,19 +152,21 @@ export function LiveChannelControl({
         return (
             <div className="space-y-2">
                 {labelRow}
-                <ColorWheelSegmentControl
-                    entries={entries}
-                    value={slotIdx}
-                    onChange={(idx) => {
-                        const entry = entries[idx];
-                        if (isColorWheelScrollSlot(entry)) {
-                            patch({slotIdx: idx, within01: defaultScrollWithin01()});
-                        } else {
-                            patch({slotIdx: idx, within01: 0});
-                        }
-                    }}
-                    disabled={disabled}
-                />
+                <div className="flex justify-center">
+                    <ColorWheelSegmentControl
+                        entries={entries}
+                        value={slotIdx}
+                        onChange={(idx) => {
+                            const entry = entries[idx];
+                            if (isColorWheelScrollSlot(entry)) {
+                                patch({slotIdx: idx, within01: defaultScrollWithin01()});
+                            } else {
+                                patch({slotIdx: idx, within01: 0});
+                            }
+                        }}
+                        disabled={disabled}
+                    />
+                </div>
                 {scrollActive ? (
                     <div className="space-y-1 rounded-md border border-border/80 bg-muted/30 px-2 py-2">
                         <div className="flex justify-between text-xs text-muted-foreground">
@@ -150,12 +199,14 @@ export function LiveChannelControl({
         return (
             <div className="space-y-2">
                 {labelRow}
-                <GoboWheelSegmentControl
-                    entries={entries}
-                    value={Math.min(st.slotIdx, max)}
-                    onChange={(idx) => patch({slotIdx: idx})}
-                    disabled={disabled}
-                />
+                <div className="flex justify-center">
+                    <GoboWheelSegmentControl
+                        entries={entries}
+                        value={Math.min(st.slotIdx, max)}
+                        onChange={(idx) => patch({slotIdx: idx})}
+                        disabled={disabled}
+                    />
+                </div>
             </div>
         );
     }
@@ -207,96 +258,118 @@ export function LiveChannelControl({
         const sliderIdx = st.activeSliderIdx ?? firstSliderSlotIndex(kinds);
         const isOff = offIdx >= 0 && buttonSlot === offIdx;
 
+        const slotLabel = (idx: number) => entries[idx]?.label?.trim() || `Slot ${idx + 1}`;
+
+        const onSwitchChange = (idx: number, nextChecked: boolean) => {
+            if (offIdx >= 0 && idx === offIdx) {
+                if (!nextChecked) {
+                    patch({buttonSlotIdx: offIdx, slotIdx: offIdx, within01: 0});
+                    return;
+                }
+                const fallbackSlider = firstSliderSlotIndex(kinds);
+                const nextSliderIdx = sliderIdx >= 0 ? sliderIdx : fallbackSlider;
+                if (nextSliderIdx >= 0) {
+                    patch({activeSliderIdx: nextSliderIdx, buttonSlotIdx: -1, slotIdx: nextSliderIdx, within01: st.within01});
+                } else {
+                    patch({buttonSlotIdx: -1, slotIdx: idx, within01: 0});
+                }
+                return;
+            }
+            if (nextChecked) {
+                patch({buttonSlotIdx: idx, slotIdx: idx, within01: 0});
+                return;
+            }
+            if (offIdx >= 0) {
+                patch({buttonSlotIdx: offIdx, slotIdx: offIdx, within01: 0});
+                return;
+            }
+            const fallbackSlider = firstSliderSlotIndex(kinds);
+            if (fallbackSlider >= 0) {
+                patch({activeSliderIdx: fallbackSlider, buttonSlotIdx: -1, slotIdx: fallbackSlider, within01: st.within01});
+            } else {
+                patch({buttonSlotIdx: -1, within01: 0});
+            }
+        };
+
+        const renderSwitch = (idx: number) => {
+            const active = buttonSlot === idx;
+            const checked = offIdx >= 0 && idx === offIdx ? !isOff : active;
+            return (
+                <div key={`sw-${idx}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                    <LiveControlLabel party={party} className="text-xs">
+                        {offIdx >= 0 && idx === offIdx ? "Output enabled" : slotLabel(idx)}
+                    </LiveControlLabel>
+                    <Switch
+                        checked={checked}
+                        disabled={disabled}
+                        onCheckedChange={(nextChecked) => onSwitchChange(idx, nextChecked)}
+                    />
+                </div>
+            );
+        };
+
+        const sliderSlot = (idx: number) => {
+            const entry = entries[idx];
+            const showSlider = sliderIdx === idx;
+            const t01 = showSlider ? st.within01 : 0;
+            const lo = Math.min(entry.from, entry.to);
+            const hi = Math.max(entry.from, entry.to);
+            const span = hi - lo;
+            const byteVal = Math.round(lo + t01 * span);
+            const onChange = (v: number) => {
+                const byte = Math.round(v);
+                const next01 = span === 0 ? 0 : (byte - lo) / span;
+                patch({activeSliderIdx: idx, buttonSlotIdx: -1, within01: next01, slotIdx: idx});
+            };
+            return {lo, hi, byteVal, onChange};
+        };
+
+        const slotKind = (idx: number): LiveSlotKind => kinds[idx] ?? "button";
+        const buttonIdxs = entries.map((_, i) => i).filter((i) => slotKind(i) === "button");
+        const sliderIdxs = entries.map((_, i) => i).filter((i) => slotKind(i) === "slider");
+
+        if (vertical) {
+            return (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                    {labelRow}
+                    {buttonIdxs.length > 0 ? (
+                        <div className="space-y-2">{buttonIdxs.map(renderSwitch)}</div>
+                    ) : null}
+                    {sliderIdxs.length > 0 ? (
+                        <div className="flex min-h-0 flex-1 items-stretch gap-3">
+                            {sliderIdxs.map((idx) => {
+                                const {lo, hi, byteVal, onChange} = sliderSlot(idx);
+                                return (
+                                    <VerticalFader
+                                        key={`fd-${idx}`}
+                                        label={slotLabel(idx)}
+                                        valueLabel={isOff ? "—" : byteVal}
+                                        min={lo}
+                                        max={hi}
+                                        value={isOff ? lo : byteVal}
+                                        onValueChange={onChange}
+                                        disabled={disabled || isOff}
+                                    />
+                                );
+                            })}
+                        </div>
+                    ) : null}
+                </div>
+            );
+        }
+
         return (
             <div className="space-y-3">
                 {labelRow}
-                {entries.map((entry, idx) => {
-                    const kind: LiveSlotKind = kinds[idx] ?? "button";
-                    const label = entry.label?.trim() || `Slot ${idx + 1}`;
-                    if (kind === "button") {
-                        const active = buttonSlot === idx;
-                        const checked = offIdx >= 0 && idx === offIdx ? !isOff : active;
-                        return (
-                            <div key={idx} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                                <LiveControlLabel party={party} className="text-xs">
-                                    {offIdx >= 0 && idx === offIdx ? "Output enabled" : label}
-                                </LiveControlLabel>
-                                <Switch
-                                    checked={checked}
-                                    disabled={disabled}
-                                    onCheckedChange={(nextChecked) => {
-                                        if (offIdx >= 0 && idx === offIdx) {
-                                            if (!nextChecked) {
-                                                patch({
-                                                    buttonSlotIdx: offIdx,
-                                                    slotIdx: offIdx,
-                                                    within01: 0,
-                                                });
-                                                return;
-                                            }
-                                            const fallbackSlider = firstSliderSlotIndex(kinds);
-                                            const nextSliderIdx = sliderIdx >= 0 ? sliderIdx : fallbackSlider;
-                                            if (nextSliderIdx >= 0) {
-                                                patch({
-                                                    activeSliderIdx: nextSliderIdx,
-                                                    buttonSlotIdx: -1,
-                                                    slotIdx: nextSliderIdx,
-                                                    within01: st.within01,
-                                                });
-                                            } else {
-                                                patch({
-                                                    buttonSlotIdx: -1,
-                                                    slotIdx: idx,
-                                                    within01: 0,
-                                                });
-                                            }
-                                            return;
-                                        }
-                                        if (nextChecked) {
-                                            patch({
-                                                buttonSlotIdx: idx,
-                                                slotIdx: idx,
-                                                within01: 0,
-                                            });
-                                            return;
-                                        }
-                                        if (offIdx >= 0) {
-                                            patch({
-                                                buttonSlotIdx: offIdx,
-                                                slotIdx: offIdx,
-                                                within01: 0,
-                                            });
-                                            return;
-                                        }
-                                        const fallbackSlider = firstSliderSlotIndex(kinds);
-                                        if (fallbackSlider >= 0) {
-                                            patch({
-                                                activeSliderIdx: fallbackSlider,
-                                                buttonSlotIdx: -1,
-                                                slotIdx: fallbackSlider,
-                                                within01: st.within01,
-                                            });
-                                        } else {
-                                            patch({
-                                                buttonSlotIdx: -1,
-                                                within01: 0,
-                                            });
-                                        }
-                                    }}
-                                />
-                            </div>
-                        );
+                {entries.map((_entry, idx) => {
+                    if (slotKind(idx) === "button") {
+                        return renderSwitch(idx);
                     }
-                    const showSlider = sliderIdx === idx;
-                    const t01 = showSlider ? st.within01 : 0;
-                    const lo = Math.min(entry.from, entry.to);
-                    const hi = Math.max(entry.from, entry.to);
-                    const span = hi - lo;
-                    const byteVal = Math.round(lo + t01 * span);
+                    const {lo, hi, byteVal, onChange} = sliderSlot(idx);
                     return (
                         <div key={idx} className="space-y-1">
                             <div className="flex justify-between text-xs">
-                                <LiveControlLabel party={party}>{label}</LiveControlLabel>
+                                <LiveControlLabel party={party}>{slotLabel(idx)}</LiveControlLabel>
                                 <span className="tabular-nums text-muted-foreground">
                                     {isOff ? "—" : byteVal}
                                 </span>
@@ -306,16 +379,7 @@ export function LiveChannelControl({
                                 max={hi}
                                 step={1}
                                 value={[isOff ? lo : byteVal]}
-                                onValueChange={([v]) => {
-                                    const byte = Math.round(v ?? lo);
-                                    const next01 = span === 0 ? 0 : (byte - lo) / span;
-                                    patch({
-                                        activeSliderIdx: idx,
-                                        buttonSlotIdx: -1,
-                                        within01: next01,
-                                        slotIdx: idx,
-                                    });
-                                }}
+                                onValueChange={([v]) => onChange(v ?? lo)}
                                 disabled={disabled || isOff}
                             />
                         </div>
@@ -355,31 +419,77 @@ export function LiveChannelControl({
     if (widget === "slotSlider" && entries.length > 0) {
         const maxIdx = Math.max(0, entries.length - 1);
         const isFrost = channel.type === "frost";
+        const activeSlotIdx = Math.min(st.slotIdx, maxIdx);
+        const slotPickerLabel = entries[activeSlotIdx]?.label ?? `Slot ${st.slotIdx + 1}`;
+        const frostModeButtons = isFrost ? (
+            <div className={cn("flex flex-wrap gap-2", vertical && "justify-center")}>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={(st.frostCurve ?? "linear") === "linear" ? "secondary" : "outline"}
+                    onClick={() => patch({frostCurve: "linear"})}
+                    disabled={disabled}
+                >
+                    Linear
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={st.frostCurve === "pulse" ? "secondary" : "outline"}
+                    onClick={() => patch({frostCurve: "pulse"})}
+                    disabled={disabled}
+                >
+                    Pulse
+                </Button>
+            </div>
+        ) : null;
+
+        if (vertical) {
+            return (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                    {labelRow}
+                    {frostModeButtons}
+                    {isFrost ? (
+                        <div className="flex min-h-0 flex-1 items-stretch">
+                            <VerticalFader
+                                min={0}
+                                max={100}
+                                value={Math.round(st.linear01 * 100)}
+                                valueLabel={`${Math.round(st.linear01 * 100)}%`}
+                                onValueChange={(v) => patch({linear01: v / 100})}
+                                disabled={disabled}
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex min-h-0 flex-1 items-stretch gap-3">
+                            <VerticalFader
+                                label="Slot"
+                                min={0}
+                                max={maxIdx}
+                                value={activeSlotIdx}
+                                valueLabel={`${activeSlotIdx + 1}/${entries.length}`}
+                                onValueChange={(v) => patch({slotIdx: Math.round(v)})}
+                                disabled={disabled}
+                            />
+                            <VerticalFader
+                                label={slotPickerLabel}
+                                min={0}
+                                max={100}
+                                value={Math.round(st.within01 * 100)}
+                                valueLabel={`${Math.round(st.within01 * 100)}%`}
+                                onValueChange={(v) => patch({within01: v / 100})}
+                                disabled={disabled}
+                            />
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
         return (
             <div className="space-y-2">
                 {labelRow}
-                {isFrost && (
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant={(st.frostCurve ?? "linear") === "linear" ? "secondary" : "outline"}
-                            onClick={() => patch({frostCurve: "linear"})}
-                            disabled={disabled}
-                        >
-                            Linear
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant={st.frostCurve === "pulse" ? "secondary" : "outline"}
-                            onClick={() => patch({frostCurve: "pulse"})}
-                            disabled={disabled}
-                        >
-                            Pulse
-                        </Button>
-                    </div>
-                )}
+                {frostModeButtons}
                 {isFrost ? (
                     <Slider
                         min={0}
@@ -392,7 +502,7 @@ export function LiveChannelControl({
                 ) : (
                     <>
                         <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{entries[Math.min(st.slotIdx, maxIdx)]?.label ?? `Slot ${st.slotIdx + 1}`}</span>
+                            <span>{slotPickerLabel}</span>
                             <span>
                                 {st.slotIdx + 1} / {entries.length}
                             </span>
@@ -401,7 +511,7 @@ export function LiveChannelControl({
                             min={0}
                             max={maxIdx}
                             step={1}
-                            value={[Math.min(st.slotIdx, maxIdx)]}
+                            value={[activeSlotIdx]}
                             onValueChange={([v]) => patch({slotIdx: Math.round(v ?? 0)})}
                             disabled={disabled}
                         />
@@ -447,6 +557,50 @@ export function LiveChannelControl({
           ? `${Math.round(st.linear01 * 100)}%`
           : `${outputByte}`;
 
+    const onSliderChange = ([v]: number[]) => {
+        const raw = Math.round(v ?? sliderMin);
+        if (useDmxSteps) {
+            patch({linear01: span === 0 ? 0 : (raw - min) / span});
+            return;
+        }
+        if (useDegreeSteps) {
+            const degMax = channel.type === "tilt" || channel.type === "infiniteTilt" ? maxTilt : maxPan;
+            patch({linear01: degMax === 0 ? 0 : raw / degMax});
+            return;
+        }
+        patch({linear01: (raw ?? 0) / 100});
+    };
+    const dmxHint =
+        !compact && (min !== 0 || max !== 255) ? (
+            <p className="text-[10px] text-muted-foreground">
+                DMX {min}–{max}
+            </p>
+        ) : null;
+
+    if (vertical) {
+        return (
+            <div className="flex h-full min-h-0 flex-col gap-2">
+                <LiveControlLabel party={party} className={cn("justify-center", compact ? "text-xs" : "text-sm")}>
+                    {title}
+                </LiveControlLabel>
+                <div className="flex min-h-0 flex-1 justify-center py-1">
+                    <Slider
+                        orientation="vertical"
+                        min={sliderMin}
+                        max={sliderMax}
+                        step={1}
+                        value={[sliderValue]}
+                        onValueChange={onSliderChange}
+                        disabled={disabled}
+                        className="h-full"
+                    />
+                </div>
+                <span className="shrink-0 text-center tabular-nums text-muted-foreground">{valueLabel}</span>
+                {dmxHint}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-2">
             <div className={cn("flex justify-between gap-2", compact ? "text-xs" : "text-sm")}>
@@ -460,27 +614,10 @@ export function LiveChannelControl({
                 max={sliderMax}
                 step={1}
                 value={[sliderValue]}
-                onValueChange={([v]) => {
-                    const raw = Math.round(v ?? sliderMin);
-                    if (useDmxSteps) {
-                        patch({linear01: span === 0 ? 0 : (raw - min) / span});
-                        return;
-                    }
-                    if (useDegreeSteps) {
-                        const degMax =
-                            channel.type === "tilt" || channel.type === "infiniteTilt" ? maxTilt : maxPan;
-                        patch({linear01: degMax === 0 ? 0 : raw / degMax});
-                        return;
-                    }
-                    patch({linear01: (raw ?? 0) / 100});
-                }}
+                onValueChange={onSliderChange}
                 disabled={disabled}
             />
-            {!compact && (min !== 0 || max !== 255) ? (
-                <p className="text-[10px] text-muted-foreground">
-                    DMX {min}–{max}
-                </p>
-            ) : null}
+            {dmxHint}
         </div>
     );
 }
@@ -498,22 +635,27 @@ export function liveWidgetPreviewLine(ch: DMXChannel): string {
         return "Not shown on live tab.";
     }
     const entries = parseFixtureEntries(ch.properties as JSONMap | undefined);
+    const orient = readLiveSliderOrientation(ch.properties as JSONMap | undefined) === "vertical" ? "vertical" : "horizontal";
     if (w === "buttons" && entries.length > 0) {
         return `Live tab: Buttons (${entries.length} slots)`;
     }
     if (w === "slotSlider" && entries.length > 0) {
-        return `Live tab: Slot slider (${entries.length} slots)`;
+        return `Live tab: Slot slider (${entries.length} slots, ${orient})`;
     }
     if (w === "buttonSlider" && entries.length > 0) {
         const kinds = parseEntryLiveSlotKinds(ch.properties as JSONMap | undefined, entries);
         const buttons = kinds.filter((k) => k === "button").length;
         const sliders = kinds.filter((k) => k === "slider").length;
-        return `Live tab: Switch + slider (${buttons} switch${buttons === 1 ? "" : "es"}, ${sliders} slider${sliders === 1 ? "" : "s"})`;
+        return `Live tab: Switch + slider (${buttons} switch${buttons === 1 ? "" : "es"}, ${sliders} slider${sliders === 1 ? "" : "s"}${sliders > 0 ? `, ${orient}` : ""})`;
     }
-    if (w === "slider" && !isDegreeSliderChannel(ch)) {
+    if (w === "slider") {
         const props = ch.properties as JSONMap | undefined;
+        const label = orient === "vertical" ? "vertical fader" : "horizontal";
+        if (isDegreeSliderChannel(ch)) {
+            return `Live tab: Slider (${label})`;
+        }
         const mode = readLiveSliderLabelMode(props, ch);
-        return `Live tab: Slider (value label: ${liveSliderLabelModeHint(mode)})`;
+        return `Live tab: Slider (${label}, value label: ${liveSliderLabelModeHint(mode)})`;
     }
     if (w === "colorWheel" && entries.length > 0) {
         const scrollCount = entries.filter((e) => isColorWheelScrollSlot(e)).length;

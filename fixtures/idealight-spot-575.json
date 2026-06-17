@@ -53,6 +53,7 @@
           }
         ],
         "label": "Dimmer & Strobe",
+        "liveSliderOrientation": "horizontal",
         "liveWidget": "buttonSlider",
         "partyInclude": true
       }

@@ -98,6 +98,12 @@
     .animate-party-hue {
         animation : partyHueSpin 2.4s linear infinite;
     }
+
+    .party-border{
+        border : 5px solid var(--border);
+        border-bottom-left-radius:  16px;
+        border-bottom-right-radius:  16px;
+    }
 }
 
 @layer components {

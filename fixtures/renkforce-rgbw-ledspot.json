@@ -98,6 +98,7 @@
           {
             "from": 0,
             "label": "Dauerlicht",
+            "liveSlotKind": "button",
             "to": 5
           },
           {
@@ -109,7 +110,7 @@
           {
             "from": 251,
             "label": "Sound-to-light",
-            "liveSlotKind": "slider",
+            "liveSlotKind": "button",
             "to": 255
           }
         ],

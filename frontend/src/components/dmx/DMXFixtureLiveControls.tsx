@@ -17,6 +17,7 @@ import {Card, CardContent} from "@/components/ui/card";
 import {parseChannelLiveTileId, resolveLiveWidget} from "@/lib/dmxLiveWidget.ts";
 import {fixturePreviewDrive} from "@/lib/dmxFixturePreviewDrive.ts";
 import {
+    LIVE_LAYOUT_DOC_VERSION,
     liveTileIdsForFixture,
     mergeLiveLayoutWithActiveIds,
     type LiveLayoutTile,
@@ -293,7 +294,7 @@ export function DMXFixtureLiveControls({
 
     useEffect(() => {
         if (prevEditRef.current && !editLayout) {
-            void saveFixtureLiveLayoutDocument(fixture.id, {version: 3, tiles: layoutTilesRef.current});
+            void saveFixtureLiveLayoutDocument(fixture.id, {version: LIVE_LAYOUT_DOC_VERSION, tiles: layoutTilesRef.current});
         }
         prevEditRef.current = editLayout;
     }, [editLayout, fixture.id]);
@@ -301,7 +302,7 @@ export function DMXFixtureLiveControls({
     useEffect(() => {
         return () => {
             if (editLayout) {
-                void saveFixtureLiveLayoutDocument(fixture.id, {version: 3, tiles: layoutTilesRef.current});
+                void saveFixtureLiveLayoutDocument(fixture.id, {version: LIVE_LAYOUT_DOC_VERSION, tiles: layoutTilesRef.current});
             }
         };
     }, [editLayout, fixture.id]);

@@ -7,6 +7,7 @@ import {
     LIVE_LAYOUT_COLUMNS,
     LIVE_LAYOUT_GAP_PX,
     LIVE_LAYOUT_MIN_HEIGHT_PX,
+    LIVE_LAYOUT_SUBDIVISIONS,
     liveLayoutColumnsForWidth,
     masonryContainerHeight,
     packMasonryTiles,
@@ -129,13 +130,12 @@ export function DMXFixtureLiveLayoutGrid({
                 if (d.mode === "resizeW") {
                     const colUnit = rect.width / columns;
                     const deltaCols = Math.round((e.clientX - d.startX) / colUnit);
-                    let w = (d.start.w + deltaCols) as LiveTileWidth;
+                    let w: LiveTileWidth = d.start.w + deltaCols;
                     if (w < 1) {
                         w = 1;
                     }
-                    const maxW = Math.min(3, columns) as LiveTileWidth;
-                    if (w > maxW) {
-                        w = maxW;
+                    if (w > columns) {
+                        w = columns;
                     }
                     const col = clampTileCol(d.start.col, w, columns);
                     const next = updateTile(d.pending, d.id, {w, col});
@@ -207,8 +207,8 @@ export function DMXFixtureLiveLayoutGrid({
         >
             {editMode && (
                 <p className="mb-2 text-xs text-muted-foreground">
-                    Masonry layout ({columns} columns): drag cards to move; drag bottom-right for width, bottom edge for
-                    height (pixels).
+                    Masonry layout ({columns} fine columns): drag cards to move; drag bottom-right for width
+                    (narrow it to fit several faders side by side), bottom edge for height (pixels).
                 </p>
             )}
             <div
@@ -217,17 +217,19 @@ export function DMXFixtureLiveLayoutGrid({
                 style={{minHeight: totalHeight}}
             >
                 {editMode &&
-                    Array.from({length: columns}, (_, col) => (
-                        <div
-                            key={col}
-                            className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-primary/20 first:border-l-0"
-                            style={{
-                                left: leftPercent(col, columns),
-                                width: colWidthPercent(1, columns),
-                            }}
-                            aria-hidden
-                        />
-                    ))}
+                    Array.from({length: columns}, (_, col) => col)
+                        .filter((col) => col % LIVE_LAYOUT_SUBDIVISIONS === 0)
+                        .map((col) => (
+                            <div
+                                key={col}
+                                className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-primary/20 first:border-l-0"
+                                style={{
+                                    left: leftPercent(col, columns),
+                                    width: colWidthPercent(1, columns),
+                                }}
+                                aria-hidden
+                            />
+                        ))}
                 {placed.map((t) => (
                     <Card
                         key={t.id}

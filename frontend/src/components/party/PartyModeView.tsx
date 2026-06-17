@@ -9,7 +9,12 @@ import type {
     DMXPartyState,
     WLEDDevice,
 } from "@/types/controller.ts";
-import {formatPartyTimestamp, listUSBMicDevices, pickLoopbackDevice, pickUSBMicDevice} from "@/lib/dmxPartyAudio";
+import {
+    formatPartyTimestamp,
+    listUSBMicDevices,
+    pickLoopbackDevice,
+    pickUSBMicDevice
+} from "@/lib/dmxPartyAudio";
 import {PartyAudioEqualizer} from "@/components/party/PartyAudioEqualizer";
 
 type PartyModeViewProps = {
@@ -24,7 +29,13 @@ type PartyModeViewProps = {
     onStop: () => Promise<void>;
 };
 
-type PartySliderField = "intensity" | "speed" | "movementRange" | "colorVariation" | "audioSensitivity" | "smokeVolume";
+type PartySliderField =
+    "intensity"
+    | "speed"
+    | "movementRange"
+    | "colorVariation"
+    | "audioSensitivity"
+    | "smokeVolume";
 
 const DEFAULT_MOVEMENT_RANGE = 70;
 
@@ -80,16 +91,16 @@ function inferAudioSourcePreset(config: DMXPartyConfig, devices: DMXPartyAudioIn
 }
 
 export function PartyModeView({
-    fixtures,
-    wledDevices,
-    party,
-    busy,
-    audioInputDevices,
-    onRefreshAudioDevices,
-    onUpdateConfig,
-    onStart,
-    onStop,
-}: PartyModeViewProps) {
+                                  fixtures,
+                                  wledDevices,
+                                  party,
+                                  busy,
+                                  audioInputDevices,
+                                  onRefreshAudioDevices,
+                                  onUpdateConfig,
+                                  onStart,
+                                  onStop,
+                              }: PartyModeViewProps) {
     const config = party.config;
     const running = party.status.running;
     const mode = config.mode || "auto";
@@ -252,6 +263,14 @@ export function PartyModeView({
                     <h2 className="text-base font-semibold">Party Mode</h2>
                     <p className="text-xs text-muted-foreground">
                         Unified automode for selected WLED devices and DMX fixtures.
+                        {running && (
+                            <>
+                                <span>&nbsp;Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
+                                <>{mode === "audio" && (
+                                    <span>&nbsp;Last audio: {formatPartyTimestamp(party.status.lastAudioAt)}</span>
+                                )}</>
+                            </>
+                        )}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -276,14 +295,6 @@ export function PartyModeView({
                 </div>
             </div>
 
-            {running && (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
-                    {mode === "audio" && (
-                        <span>Last audio: {formatPartyTimestamp(party.status.lastAudioAt)}</span>
-                    )}
-                </div>
-            )}
 
             <div className="flex flex-wrap gap-3">
                 <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
@@ -303,7 +314,7 @@ export function PartyModeView({
                 </label>
                 {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
                 {renderSlider("speed", "Speed", sliderDraft.speed)}
-                {renderSlider("movementRange", "Movement range (pan/tilt sweep)", sliderDraft.movementRange)}
+                {renderSlider("movementRange", "Movement range", sliderDraft.movementRange)}
                 {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                 {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
             </div>
@@ -313,7 +324,8 @@ export function PartyModeView({
                     <div>
                         <h3 className="text-sm font-medium">Smoke / fog bursts</h3>
                         <p className="text-xs text-muted-foreground">
-                            Short bursts with pauses between them. When burst volume is above 0, all smoke and
+                            Short bursts with pauses between them. When burst volume is above 0, all
+                            smoke and
                             hazer fixtures run automatically
                             {smokeAutoIncluded.length > 0
                                 ? `: ${smokeAutoIncluded.map((f) => f.name).join(", ")}.`
@@ -322,7 +334,8 @@ export function PartyModeView({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                        <label
+                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">
                                 Burst duration: {smokeDraft.burstOnSec.toFixed(1)} s
                             </span>
@@ -341,7 +354,8 @@ export function PartyModeView({
                                 onValueCommit={([next]) => setSmokeBurstOnSec(next ?? smokeDraft.burstOnSec)}
                             />
                         </label>
-                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                        <label
+                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">
                                 Pause between bursts: {Math.round(smokeDraft.burstOffSec)} s
                             </span>
@@ -368,7 +382,8 @@ export function PartyModeView({
             {mode === "audio" && (
                 <div className="space-y-2 rounded-md border bg-muted/30 p-2">
                     <div className="flex flex-wrap items-end gap-2">
-                        <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
+                        <label
+                            className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">Source preset</span>
                             <select
                                 className="rounded-md border bg-background px-2 py-1 text-sm"
@@ -387,7 +402,8 @@ export function PartyModeView({
                         </label>
 
                         {audioSourcePreset === "usbMic" && (
-                            <label className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <label
+                                className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                                 <span className="font-medium">USB microphone</span>
                                 <select
                                     className="rounded-md border bg-background px-2 py-1 text-sm"
@@ -412,7 +428,8 @@ export function PartyModeView({
                         )}
 
                         {audioSourcePreset === "custom" && (
-                            <label className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <label
+                                className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                                 <span className="font-medium">Input device</span>
                                 <select
                                     className="rounded-md border bg-background px-2 py-1 text-sm"
@@ -449,7 +466,8 @@ export function PartyModeView({
                         <span>
                             Capture: {party.status.audioCapturing ? "active (native)" : running ? "starting…" : "starts with Party"}
                         </span>
-                        {party.status.audioNoSignal && <span className="text-amber-600">No signal detected</span>}
+                        {party.status.audioNoSignal &&
+                            <span className="text-amber-600">No signal detected</span>}
                     </div>
 
                     {audioSourcePreset === "loopback" && loopbackDevices.length === 0 && (
@@ -464,7 +482,8 @@ export function PartyModeView({
             <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-md border bg-muted/20 p-2">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">WLED targets</span>
+                        <span
+                            className="text-xs font-medium text-muted-foreground">WLED targets</span>
                         <Button
                             type="button"
                             size="sm"
@@ -477,7 +496,8 @@ export function PartyModeView({
                     </div>
                     <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
                         {wledDevices.map((device) => (
-                            <label key={device.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
+                            <label key={device.id}
+                                   className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
                                 <input
                                     type="checkbox"
                                     checked={selectedWledIDs.has(device.id)}
@@ -488,14 +508,16 @@ export function PartyModeView({
                             </label>
                         ))}
                         {wledDevices.length === 0 && (
-                            <p className="text-xs text-muted-foreground">No online WLED devices available.</p>
+                            <p className="text-xs text-muted-foreground">No online WLED devices
+                                available.</p>
                         )}
                     </div>
                 </div>
 
                 <div className="rounded-md border bg-muted/20 p-2">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">DMX targets</span>
+                        <span
+                            className="text-xs font-medium text-muted-foreground">DMX targets</span>
                         <Button
                             type="button"
                             size="sm"
@@ -508,7 +530,8 @@ export function PartyModeView({
                     </div>
                     <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
                         {fixtures.map((fixture) => (
-                            <label key={fixture.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
+                            <label key={fixture.id}
+                                   className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
                                 <input
                                     type="checkbox"
                                     checked={selectedFixtureIDs.has(fixture.id)}
@@ -519,7 +542,8 @@ export function PartyModeView({
                             </label>
                         ))}
                         {fixtures.length === 0 && (
-                            <p className="text-xs text-muted-foreground">No DMX fixtures available.</p>
+                            <p className="text-xs text-muted-foreground">No DMX fixtures
+                                available.</p>
                         )}
                     </div>
                 </div>

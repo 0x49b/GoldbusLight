@@ -348,15 +348,36 @@ func (c *WLEDController) stopDMXPartyWithReason(reason string) {
 	c.stopDMXPartyInternal(reason, true)
 }
 
-// stopDMXPartyInternal tears down party mode. When wait is true (normal UI/shutdown path),
-// it waits for the worker goroutine to exit. When wait is false (called from the worker
-// itself, e.g. DMX disconnect), it must not wait — otherwise the worker deadlocks on its
-// own WaitGroup.
-func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
-	c.stopPartyAudioCapture()
+// partyStopCleanupTimeout bounds the potentially-blocking cleanup during stop
+// (native audio backend shutdown, joining the worker goroutine) so that turning
+// party mode off can never hang the caller.
+const partyStopCleanupTimeout = 2 * time.Second
 
-	// Mark stopped before waiting so GetDMXState/GetDMXPartyState and the UI poll path
-	// see party off immediately (worker may still be finishing one frame).
+// runWithTimeout runs fn, returning once it finishes or after timeout — whichever
+// comes first. If fn overruns it keeps running in the background; the caller is
+// never blocked beyond timeout.
+func runWithTimeout(fn func(), timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		fn()
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
+}
+
+// stopDMXPartyInternal tears down party mode. When wait is true (normal UI/shutdown path),
+// it joins the worker goroutine. When wait is false (called from the worker itself, e.g.
+// DMX disconnect), it must not join — otherwise the worker deadlocks on its own WaitGroup.
+//
+// Stopping must ALWAYS succeed promptly: the running flag is cleared and the worker is
+// cancelled up front, and the blocking cleanup (audio backend, worker join) runs under a
+// timeout so a stuck audio device or a wedged DMX write can never prevent turning party off.
+func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
+	// Mark stopped and cancel the worker FIRST so GetDMXState/GetDMXPartyState and the UI
+	// poll path see party off immediately (worker may still be finishing one frame).
 	c.mu.Lock()
 	party := normalizeDMXPartyState(c.dmxState.Party)
 	party.Config.Enabled = false
@@ -379,8 +400,11 @@ func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 	if cancel != nil {
 		cancel()
 	}
+
+	// Cleanup that can block on external resources — bounded so stop never hangs.
+	runWithTimeout(c.stopPartyAudioCapture, partyStopCleanupTimeout)
 	if running && wait {
-		c.dmxPartyWG.Wait()
+		runWithTimeout(c.dmxPartyWG.Wait, partyStopCleanupTimeout)
 	}
 
 	// Worker may have set Running=true on its last frame; force stopped again.

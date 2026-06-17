@@ -137,6 +137,14 @@ func main() {
 				Filters: []application.FileFilter{importBackupFilter},
 			}).PromptForSingleSelection()
 		},
+		PromptSaveFixturePath: func(suggestedFilename string) (string, error) {
+			dialog := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+				Title:    "Export DMX fixture",
+				Filename: suggestedFilename,
+				Filters:  []application.FileFilter{importBackupFilter},
+			})
+			return dialog.PromptForSingleSelection()
+		},
 	})
 	app.RegisterService(application.NewService(greetService))
 
