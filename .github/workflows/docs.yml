@@ -1,0 +1,66 @@
+# Build the user manual with MkDocs and deploy to GitHub Pages.
+# Preserves pages/stable/update.json from the live site when present so
+# release-published update metadata is not overwritten by doc-only deploys.
+
+name: Deploy documentation
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
+
+      - name: Build documentation site
+        run: mkdocs build -d site
+
+      - name: Preserve release update manifest
+        env:
+          PAGES_URL: https://0x49b.github.io/GoldbusLight/stable/update.json
+        run: |
+          mkdir -p site/stable
+          if curl -fsSL "$PAGES_URL" -o site/stable/update.json; then
+            echo "Merged existing stable/update.json from GitHub Pages"
+          else
+            echo "No existing update.json on GitHub Pages (skipped)"
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

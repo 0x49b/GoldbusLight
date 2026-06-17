@@ -2,6 +2,12 @@
 
 Wails v3 desktop app for controlling WLED lights in the Goldbus environment.
 
+## User manual
+
+End-user documentation is published on **GitHub Pages**: [Goldbus Light Controller manual](https://0x49b.github.io/GoldbusLight/).
+
+Source lives in [`docs/`](docs/) and is built with [MkDocs](https://www.mkdocs.org/). Pushes to `master` that touch `docs/` deploy automatically via [`.github/workflows/docs.yml`](.github/workflows/docs.yml). Release tags also bundle the manual into the Pages artifact alongside `stable/update.json`.
+
 ## Development
 
 See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, NetworkManager, toolchain versions).
