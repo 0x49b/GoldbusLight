@@ -17,6 +17,29 @@ type PreviewDragState = {
     height: number;
 };
 
+/** Moving head hangs from a ceiling truss near the top of the view. */
+const MOVING_HEAD_LIFT_Y = 1.9;
+/** Truss bar height in the lifted fixture's local space (just above the fixture body). */
+const CEILING_LOCAL_Y = 0.82;
+/** Orbit/camera focus, biased below the fixture so the down-pointing beam stays in frame. */
+const MOVING_HEAD_FOCUS_Y = 0.45;
+
+/** A fixed ceiling truss bar with a mounting clamp the fixture hangs from. */
+function CeilingMount() {
+    return (
+        <group position={[0, CEILING_LOCAL_Y, 0]}>
+            <mesh castShadow receiveShadow>
+                <boxGeometry args={[3.2, 0.12, 0.55]}/>
+                <meshStandardMaterial color="#2b2b2e" metalness={0.55} roughness={0.5}/>
+            </mesh>
+            <mesh position={[0, -0.13, 0]} castShadow>
+                <boxGeometry args={[0.2, 0.16, 0.2]}/>
+                <meshStandardMaterial color="#3a3a3f" metalness={0.5} roughness={0.6}/>
+            </mesh>
+        </group>
+    );
+}
+
 
 function PreviewFixture(props: DMXFixturePreview3DProps) {
     if (props.variant === "smoke") {
@@ -112,9 +135,21 @@ export function DMXFixturePreview3D(props: DMXFixturePreview3DProps) {
                     <ambientLight intensity={0.6}/>
                     <directionalLight castShadow position={[3.5, 6, 4]} intensity={1.15}/>
                     <Suspense fallback={null}>
-                        <PreviewFixture {...props} />
+                        {props.variant === "movingHead" ? (
+                            <group position={[0, MOVING_HEAD_LIFT_Y, 0]}>
+                                <PreviewFixture {...props} />
+                                <CeilingMount/>
+                            </group>
+                        ) : (
+                            <PreviewFixture {...props} />
+                        )}
                     </Suspense>
-                    <OrbitControls enablePan={false} enableRotate={props.variant !== "movingHead"} minDistance={1.4} maxDistance={7}/>
+                    <OrbitControls
+                        enablePan={false}
+                        enableZoom={false}
+                        enableRotate={props.variant !== "movingHead"}
+                        target={props.variant === "movingHead" ? [0, MOVING_HEAD_FOCUS_Y, 0] : [0, 0, 0]}
+                    />
                 </Canvas>
             </div>
         </div>

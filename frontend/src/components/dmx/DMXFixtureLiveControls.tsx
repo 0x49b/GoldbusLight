@@ -206,6 +206,9 @@ export function DMXFixtureLiveControls({
 }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
+    // Live DMX buffer sourced directly from the poll (see effect below) so the party
+    // mirror does not depend on the parent re-passing `liveUniverse` in time.
+    const [polledUniverse, setPolledUniverse] = useState<number[] | undefined>(undefined);
 
     useEffect(() => {
         // Start from the fixture's idle pose (if configured) so it opens in the saved
@@ -238,31 +241,64 @@ export function DMXFixtureLiveControls({
     }, [connected, fixture, liveState, partyRunning, queueDmxLivePatch]);
 
     useEffect(() => {
-        if (!connected || !pullDMXState) {
+        if ((!connected && !partyRunning) || !pullDMXState) {
             return;
         }
-        const id = window.setInterval(() => {
-            void pullDMXState();
-        }, 200);
-        return () => window.clearInterval(id);
-    }, [connected, pullDMXState]);
+        let active = true;
+        const tick = async () => {
+            const st = (await pullDMXState()) as {liveUniverse?: number[]} | undefined;
+            if (active && st && Array.isArray(st.liveUniverse)) {
+                setPolledUniverse(st.liveUniverse);
+            }
+        };
+        void tick();
+        const id = window.setInterval(() => void tick(), 200);
+        return () => {
+            active = false;
+            window.clearInterval(id);
+        };
+    }, [connected, partyRunning, pullDMXState]);
+
+    // While party mode runs it drives the universe directly. Reconstruct a read-only
+    // control state from the live DMX output so opening the Live view shows what party
+    // is currently doing. The user's manual `liveState` is left untouched and returns
+    // when party stops.
+    const universe = partyRunning ? (polledUniverse ?? liveUniverse) : liveUniverse;
+    const partyDisplayState = useMemo(() => {
+        if (!partyRunning || !universe || universe.length < 512) {
+            return null;
+        }
+        const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
+        const values: Record<string, number> = {};
+        for (const ch of fixture.channels) {
+            const addr = base + Math.round(ch.channel) - 1;
+            if (addr >= 1 && addr <= 512) {
+                const v = universe[addr - 1];
+                if (typeof v === "number" && Number.isFinite(v)) {
+                    values[String(ch.channel)] = v;
+                }
+            }
+        }
+        return dmxLiveControlStateFromPreset(fixture, values);
+    }, [partyRunning, universe, fixture]);
+    const displayState = partyDisplayState ?? liveState;
 
     const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
-    const previewDrive = fixturePreviewDrive(fixture, liveUniverse, liveState);
-    const previewPanDeg = legacyPan01(fixture, liveState) * maxPanDeg;
-    const previewTiltDeg = legacyTilt01(fixture, liveState) * maxTiltDeg;
+    const previewDrive = fixturePreviewDrive(fixture, universe, displayState);
+    const previewPanDeg = legacyPan01(fixture, displayState) * maxPanDeg;
+    const previewTiltDeg = legacyTilt01(fixture, displayState) * maxTiltDeg;
     const hasPan = fixture.channels.some((c) => (c.type === "pan" || c.type === "infinitePan") && resolveLiveWidget(c) !== "hidden");
     const hasTilt = fixture.channels.some((c) => (c.type === "tilt" || c.type === "infiniteTilt") && resolveLiveWidget(c) !== "hidden");
 
     const fogChannel = fixture.channels.find((c) => c.type === "fog");
     const previewSmoke01 = useMemo(() => {
         if (!fogChannel) {
-            return liveState.fog01;
+            return displayState.fog01;
         }
-        const st = liveState.entryChannels[fogChannel.channel] ?? defaultEntryStateForChannel(fogChannel);
+        const st = displayState.entryChannels[fogChannel.channel] ?? defaultEntryStateForChannel(fogChannel);
         return channelOutputByte(fogChannel, st) / 255;
-    }, [fogChannel, liveState]);
+    }, [fogChannel, displayState]);
 
     const liveTileIds = useMemo(() => liveTileIdsForFixture(fixture), [fixture]);
     const liveTileIdsKey = liveTileIds.join("|");
@@ -434,13 +470,13 @@ export function DMXFixtureLiveControls({
 
     const renderSlot = useCallback(
         (id: string) =>
-            renderLiveTile(id, fixture, liveState, setLiveState, {
+            renderLiveTile(id, fixture, displayState, setLiveState, {
                 sliderDisabled,
                 maxPanDeg,
                 maxTiltDeg,
                 previewPanDeg,
                 previewTiltDeg,
-                previewFocus: legacyFocus01(fixture, liveState),
+                previewFocus: legacyFocus01(fixture, displayState),
                 previewBeamColor: previewDrive.beamColor ?? "#ffffff",
                 previewBeamRainbow: previewDrive.beamRainbow,
                 previewIntensity: previewDrive.dimmer01,
@@ -456,7 +492,7 @@ export function DMXFixtureLiveControls({
             }),
         [
             fixture,
-            liveState,
+            displayState,
             sliderDisabled,
             maxPanDeg,
             maxTiltDeg,
