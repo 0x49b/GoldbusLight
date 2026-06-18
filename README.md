@@ -8,6 +8,8 @@ End-user documentation is published on **GitHub Pages**: [Goldbus Light Controll
 
 Source lives in [`docs/`](docs/) and is built with [MkDocs](https://www.mkdocs.org/). Pushes to `master` that touch `docs/` deploy automatically via [`.github/workflows/docs.yml`](.github/workflows/docs.yml). Release tags also bundle the manual into the Pages artifact alongside `stable/update.json`.
 
+To generate similar documentation for other projects, use the reusable agent skill at [`.cursor/skills/comprehensive-user-docs/`](.cursor/skills/comprehensive-user-docs/SKILL.md).
+
 ## Development
 
 See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, NetworkManager, toolchain versions).
