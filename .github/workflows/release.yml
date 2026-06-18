@@ -283,6 +283,8 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
       - name: Fetch release payload
         id: release_json
         env:
@@ -297,6 +299,13 @@ jobs:
             echo "$payload"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
 
       - name: Build stable update.json for GitHub Pages
         env:
@@ -355,6 +364,11 @@ jobs:
               json.dump(manifest, f, indent=2)
               f.write("\n")
           PY
+
+      - name: Build documentation site into pages artifact
+        run: |
+          mkdocs build -d pages_docs
+          rsync -a pages_docs/ pages/
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3

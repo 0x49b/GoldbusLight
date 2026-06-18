@@ -1,0 +1,78 @@
+site_name: Goldbus Light Controller
+site_description: User manual for the Goldbus Light Controller desktop application
+site_url: https://0x49b.github.io/GoldbusLight/
+repo_url: https://github.com/0x49b/GoldbusLight
+repo_name: 0x49b/GoldbusLight
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Installation:
+      - installation/index.md
+      - Raspberry Pi: installation/raspberry-pi.md
+      - Desktop (Linux, macOS, Windows): installation/desktop.md
+  - Interface:
+      - interface/navigation.md
+  - WLED:
+      - wled/index.md
+      - Discovery & provisioning: wled/discovery.md
+      - Device control: wled/devices.md
+      - General presets: wled/general-presets.md
+  - DMX:
+      - dmx/index.md
+      - Universe view: dmx/universe.md
+      - Fixtures: dmx/fixtures.md
+      - Live mode: dmx/live-mode.md
+      - Presets & sequences: dmx/presets.md
+  - Party mode: party-mode/index.md
+  - Settings:
+      - settings/index.md
+      - Backup & restore: settings/backup-restore.md
+      - Network & access point: settings/network.md
+      - Transport console: settings/console.md
+  - Troubleshooting: troubleshooting.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/0x49b/GoldbusLight
