@@ -568,10 +568,10 @@ func (c *WLEDController) buildDMXPartyFrame(
 		offset := float64(idx) * 0.4
 		fixtureType := normalizeFixtureType(fixture.Type)
 
-		// A fixture with an enabled preset sequence steps through saved poses instead of
+		// A fixture with an enabled cue sequence steps through saved poses instead of
 		// running the generative algorithm.
-		if seq := normalizeFixturePresetSequence(fixture.Party.PresetSequence); presetSequenceActive(seq) {
-			updates = append(updates, buildPresetSequenceUpdates(fixture, seq, burstAnchor, now, &owned)...)
+		if seq := normalizeFixtureCueSequence(fixture.Party.CueSequence); cueSequenceActive(seq) {
+			updates = append(updates, buildCueSequenceUpdates(fixture, seq, burstAnchor, now, &owned)...)
 			continue
 		}
 

@@ -1,4 +1,4 @@
-import type {DMXChannel, DMXFixture, DMXFixturePreset} from "@/types/controller.ts";
+import type {DMXChannel, DMXFixture, DMXFixtureCue} from "@/types/controller.ts";
 import {
     buildDmxLivePatch,
     defaultDmxLiveControlState,
@@ -168,13 +168,13 @@ export function fixtureSupportsMovingHeadShow(fixture: DMXFixture): boolean {
 
 /**
  * Builds 10 ready-made poses for a moving head. Pan/tilt/dimmer/shutter are rendered through the
- * same live-control path the manual "Save as preset" capture uses (defaultDmxLiveControlState +
+ * same live-control path the manual "Save as cue" capture uses (defaultDmxLiveControlState +
  * buildDmxLivePatch). On top of that each pose carries a palette colour — mapped onto colour-wheel
  * slots (nearest entry colour) and RGB colour-component channels (by label, or positional R/G/B…
  * order) — and beam looks engage gobo patterns and prisms while washes stay open. Any channel type
  * the fixture lacks is simply skipped.
  */
-export function generateMovingHeadShow(fixture: DMXFixture): DMXFixturePreset[] {
+export function generateMovingHeadShow(fixture: DMXFixture): DMXFixtureCue[] {
     const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
     const channels = fixture.channels ?? [];
     const stamp = Date.now().toString(36);
@@ -256,7 +256,7 @@ export function generateMovingHeadShow(fixture: DMXFixture): DMXFixturePreset[] 
         }
 
         return {
-            id: `preset-show-${stamp}-${idx}`,
+            id: `cue-show-${stamp}-${idx}`,
             label: pose.label,
             values,
             // Washes breathe; beam looks snap. (Per-pose overrides; the sequence keeps a default too.)

@@ -65,7 +65,7 @@ import type {
     DMXChannelType,
     DMXFixture,
     DMXFixtureParty,
-    DMXFixturePresetSequence,
+    DMXFixtureCueSequence,
     DMXFixtureType,
     DMXState,
     JSONMap,
@@ -80,9 +80,9 @@ import {
 } from "@/lib/colorWheelSlot";
 import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
-import {DMXFixturePresetSequenceEditor} from "./DMXFixturePresetSequenceEditor";
+import {DMXFixtureCueSequenceEditor} from "./DMXFixtureCueSequenceEditor";
 
-type FixturePageMode = "editor" | "live" | "presets";
+type FixturePageMode = "editor" | "live" | "cues";
 
 const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string }> = [
     {value: "colorChanger", label: "Color Changer"},
@@ -103,23 +103,23 @@ const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string
 
 const PAN_TILT_FIXTURE_TYPES = new Set<DMXFixtureType>(["movingHead", "scanner", "laser"]);
 
-function sanitizePresetSequenceForSave(
-    seq: DMXFixturePresetSequence | undefined,
-): DMXFixturePresetSequence | undefined {
+function sanitizeCueSequenceForSave(
+    seq: DMXFixtureCueSequence | undefined,
+): DMXFixtureCueSequence | undefined {
     if (!seq) return undefined;
-    const presets = (seq.presets ?? []).filter((p) => p && p.values);
+    const cues = (seq.cues ?? []).filter((p) => p && p.values);
     // Only persist when there is something meaningful to step through.
-    if (!seq.enabled && presets.length === 0 && !seq.idlePresetId) {
+    if (!seq.enabled && cues.length === 0 && !seq.idleCueId) {
         return undefined;
     }
-    const idlePresetId = seq.idlePresetId && presets.some((p) => p.id === seq.idlePresetId) ? seq.idlePresetId : undefined;
+    const idleCueId = seq.idleCueId && cues.some((p) => p.id === seq.idleCueId) ? seq.idleCueId : undefined;
     return {
-        enabled: !!seq.enabled && presets.length > 0,
+        enabled: !!seq.enabled && cues.length > 0,
         loop: seq.loop ?? true,
         stepMs: Math.max(100, Math.min(600000, Math.round(seq.stepMs ?? 2000) || 2000)),
         fadeMs: Math.max(0, Math.min(600000, Math.round(seq.fadeMs ?? 0) || 0)),
-        presets,
-        ...(idlePresetId ? {idlePresetId} : {}),
+        cues,
+        ...(idleCueId ? {idleCueId} : {}),
         ...(seq.channelBehaviors && Object.keys(seq.channelBehaviors).length > 0
             ? {channelBehaviors: seq.channelBehaviors}
             : {}),
@@ -132,7 +132,7 @@ function buildFixturePartySavePayload(
     partyStrobeEnabled: boolean,
     partyStrobeOnMs: number,
     partyStrobeOffMs: number,
-    partyPresetSequence: DMXFixturePresetSequence | undefined,
+    partyCueSequence: DMXFixtureCueSequence | undefined,
 ): DMXFixtureParty {
     const cw: Record<string, number> = {};
     for (const ch of channels) {
@@ -143,13 +143,13 @@ function buildFixturePartySavePayload(
             cw[k] = Math.max(0, Math.min(100, w));
         }
     }
-    const presetSequence = sanitizePresetSequenceForSave(partyPresetSequence);
+    const cueSequence = sanitizeCueSequenceForSave(partyCueSequence);
     return {
         ...(Object.keys(cw).length > 0 ? {channelWeights: cw} : {}),
         strobeEnabled: partyStrobeEnabled,
         strobeOnMs: Math.max(20, Math.round(partyStrobeOnMs) || 120),
         strobeOffMs: Math.max(20, Math.round(partyStrobeOffMs) || 500),
-        ...(presetSequence ? {presetSequence} : {}),
+        ...(cueSequence ? {cueSequence} : {}),
     };
 }
 
@@ -376,7 +376,7 @@ const MOTION_TABLE_TYPES = new Set<DMXChannelType>([
     "goboRotationFine",
 ]);
 
-function motionStatePresetId(slot: Pick<SlotEntry, "mode" | "direction">): string {
+function motionStateCueId(slot: Pick<SlotEntry, "mode" | "direction">): string {
     const m = (slot.mode ?? "").toLowerCase();
     const d = (slot.direction ?? "").toLowerCase();
     if (m === "tracking") {
@@ -693,7 +693,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [partyStrobeEnabled, setPartyStrobeEnabled] = useState(false);
     const [partyStrobeOnMs, setPartyStrobeOnMs] = useState(120);
     const [partyStrobeOffMs, setPartyStrobeOffMs] = useState(500);
-    const [partyPresetSequence, setPartyPresetSequence] = useState<DMXFixturePresetSequence>({});
+    const [partyCueSequence, setPartyCueSequence] = useState<DMXFixtureCueSequence>({});
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [editLayout, setEditLayout] = useState(false);
@@ -723,7 +723,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeEnabled(!!props.fixture.party?.strobeEnabled);
             setPartyStrobeOnMs(Math.max(20, props.fixture.party?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, props.fixture.party?.strobeOffMs ?? 500));
-            setPartyPresetSequence(props.fixture.party?.presetSequence ? {...props.fixture.party.presetSequence} : {});
+            setPartyCueSequence(props.fixture.party?.cueSequence ? {...props.fixture.party.cueSequence} : {});
             setSaveHint(null);
             return;
         }
@@ -738,7 +738,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeEnabled(false);
         setPartyStrobeOnMs(120);
         setPartyStrobeOffMs(500);
-        setPartyPresetSequence({});
+        setPartyCueSequence({});
     }, [props.fixture?.id, props.fixture?.updatedAt]);
 
     useEffect(() => {
@@ -888,7 +888,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             partyStrobeEnabled,
             partyStrobeOnMs,
             partyStrobeOffMs,
-            partyPresetSequence,
+            partyCueSequence,
         ),
         channels: cloneChannels(channels),
     }), [
@@ -900,25 +900,25 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         maxTilt,
         name,
         partyChannelWeights,
-        partyPresetSequence,
+        partyCueSequence,
         partyStrobeEnabled,
         partyStrobeOffMs,
         partyStrobeOnMs,
         props.fixture?.id,
     ]);
 
-    const handleSavePresetSequence = useCallback(
-        async (next: DMXFixturePresetSequence): Promise<boolean> => {
+    const handleSaveCueSequence = useCallback(
+        async (next: DMXFixtureCueSequence): Promise<boolean> => {
             const current = props.fixture;
             if (!current) {
                 return false;
             }
-            const sanitized = sanitizePresetSequenceForSave(next);
+            const sanitized = sanitizeCueSequenceForSave(next);
             const input: UpsertDMXFixtureInput = {
                 ...fixtureToUpsertInput(current),
                 party: {
                     ...(current.party ?? {}),
-                    presetSequence: sanitized,
+                    cueSequence: sanitized,
                 },
             };
             const saved = await props.onUpdate(input);
@@ -1016,7 +1016,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 partyStrobeEnabled,
                 partyStrobeOnMs,
                 partyStrobeOffMs,
-                partyPresetSequence,
+                partyCueSequence,
             ),
             channels: cloneChannels(channels),
         };
@@ -1091,7 +1091,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeEnabled(!!impParty?.strobeEnabled);
             setPartyStrobeOnMs(Math.max(20, impParty?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, impParty?.strobeOffMs ?? 500));
-            setPartyPresetSequence(impParty?.presetSequence ? {...impParty.presetSequence} : {});
+            setPartyCueSequence(impParty?.cueSequence ? {...impParty.cueSequence} : {});
             setPageMode("editor");
             setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
         } catch (e) {
@@ -1137,11 +1137,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className={pageMode === "presets" ? "btn-active" : ""}
-                                    aria-pressed={pageMode === "presets"}
-                                    onClick={() => setPageMode("presets")}
+                                    className={pageMode === "cues" ? "btn-active" : ""}
+                                    aria-pressed={pageMode === "cues"}
+                                    onClick={() => setPageMode("cues")}
                                 >
-                                    Presets
+                                    Cues
                                 </Button>
                                 <Button
                                     type="button"
@@ -1287,7 +1287,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     queueDmxLivePatch={props.queueDmxLivePatch}
                     liveUniverse={props.dmxState.liveUniverse}
                     pullDMXState={props.pullDMXState}
-                    onSavePresetSequence={handleSavePresetSequence}
+                    onSaveCueSequence={handleSaveCueSequence}
                     displayMode={pageMode}
                     editLayout={editLayout}
                     setEditLayout={setEditLayout}
@@ -2428,7 +2428,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                 value={shutterSelectValue(slot.mode)}
                                                                                 onChange={(e) => {
                                                                                     const v = e.target.value;
-                                                                                    const preset =
+                                                                                    const cue =
                                                                                         SHUTTER_MODE_OPTIONS.find(
                                                                                             (o) => o.value === v,
                                                                                         );
@@ -2437,7 +2437,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                         ...slot,
                                                                                         mode: v,
                                                                                         label:
-                                                                                            preset?.label ?? slot.label,
+                                                                                            cue?.label ?? slot.label,
                                                                                     };
                                                                                     updateChannelAt(originalIdx, {
                                                                                         properties: {
@@ -2736,7 +2736,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         className="align-middle">
                                                                         <NativeSelect
                                                                             className="h-8 w-full min-w-0 text-sm"
-                                                                            value={motionStatePresetId(slot)}
+                                                                            value={motionStateCueId(slot)}
                                                                             onChange={(e) => {
                                                                                 const id = e.target.value;
                                                                                 const opt = MOTION_STATE_OPTIONS.find(
@@ -3272,11 +3272,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             </div>
                             <Separator/>
                             <div className="space-y-2">
-                                <p className="text-xs font-medium text-foreground">Preset chase (pose sequence)</p>
-                                <DMXFixturePresetSequenceEditor
+                                <p className="text-xs font-medium text-foreground">Cue chase (pose sequence)</p>
+                                <DMXFixtureCueSequenceEditor
                                     channels={channels}
-                                    value={partyPresetSequence}
-                                    onChange={setPartyPresetSequence}
+                                    value={partyCueSequence}
+                                    onChange={setPartyCueSequence}
                                     busy={props.busy}
                                 />
                             </div>

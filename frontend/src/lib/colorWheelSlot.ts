@@ -77,7 +77,7 @@ export function scrollSlotDmxByte(
     return clamp255(slow + t * (fast - slow));
 }
 
-/** Inverse of scrollSlotDmxByte for preset recall / live state init. */
+/** Inverse of scrollSlotDmxByte for cue recall / live state init. */
 export function within01ForScrollEntry(
     entry: ColorWheelSlotLike,
     outputByte: number,

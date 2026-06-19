@@ -195,7 +195,7 @@ export function defaultEntryStateForChannel(ch: DMXChannel): EntryChannelLiveSta
 
 /**
  * Builds the live-control state for a channel that reproduces a specific output byte
- * (the inverse of channelOutputByte). Used to recall a saved preset into the live UI.
+ * (the inverse of channelOutputByte). Used to recall a saved cue into the live UI.
  * Pass undefined to fall back to the channel's neutral defaults.
  */
 export function entryStateForChannelByte(ch: DMXChannel, targetByte: number | undefined): EntryChannelLiveState {
@@ -510,11 +510,11 @@ export function defaultDmxLiveControlState(fixture?: DMXFixture): DMXLiveControl
 }
 
 /**
- * Builds a live-control state that reproduces a saved preset's channel values
+ * Builds a live-control state that reproduces a saved cue's channel values
  * (keyed by fixture-relative offset as a string). Channels not present in the
- * preset fall back to their neutral defaults.
+ * cue fall back to their neutral defaults.
  */
-export function dmxLiveControlStateFromPreset(
+export function dmxLiveControlStateFromCue(
     fixture: DMXFixture,
     values: Record<string, number> | undefined,
 ): DMXLiveControlState {

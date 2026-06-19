@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"math"
 	"strconv"
 	"strings"
@@ -18,10 +19,31 @@ type DMXFixtureParty struct {
 	StrobeOnMS int `json:"strobeOnMs,omitempty"`
 	// StrobeOffMs is the pause between bursts (milliseconds).
 	StrobeOffMS int `json:"strobeOffMs,omitempty"`
-	// PresetSequence, when enabled, steps the fixture through a series of saved poses
+	// CueSequence, when enabled, steps the fixture through a series of saved poses
 	// (e.g. moving-head pan/tilt positions) during party mode, overriding the generative
 	// algorithm for the channels it covers.
-	PresetSequence DMXFixturePresetSequence `json:"presetSequence,omitempty"`
+	CueSequence DMXFixtureCueSequence `json:"cueSequence,omitempty"`
+}
+
+// UnmarshalJSON accepts both the current "cueSequence" key and the legacy
+// "presetSequence" key (cues were formerly called presets), so saved state written
+// before the rename still loads. The current key takes precedence when both appear.
+func (p *DMXFixtureParty) UnmarshalJSON(data []byte) error {
+	type alias DMXFixtureParty
+	aux := struct {
+		alias
+		LegacyCueSequence *DMXFixtureCueSequence `json:"presetSequence"`
+	}{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*p = DMXFixtureParty(aux.alias)
+	// Old files carry only "presetSequence"; new files only "cueSequence". Adopt the
+	// legacy value when the current key did not populate anything.
+	if aux.LegacyCueSequence != nil && len(p.CueSequence.Cues) == 0 && !p.CueSequence.Enabled {
+		p.CueSequence = *aux.LegacyCueSequence
+	}
+	return nil
 }
 
 func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
@@ -57,7 +79,7 @@ func normalizeFixtureParty(p DMXFixtureParty) DMXFixtureParty {
 	if out.StrobeOffMS > 15000 {
 		out.StrobeOffMS = 15000
 	}
-	out.PresetSequence = normalizeFixturePresetSequence(out.PresetSequence)
+	out.CueSequence = normalizeFixtureCueSequence(out.CueSequence)
 	return out
 }
 

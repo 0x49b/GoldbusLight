@@ -1,16 +1,65 @@
 package controller
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
 
-func TestNormalizeFixturePresetSequence(t *testing.T) {
-	in := DMXFixturePresetSequence{
+// TestCueSequenceLegacyJSONMigration verifies that state saved before cues were renamed
+// from "presets" still loads: the legacy presetSequence/presets/idlePresetId keys map onto
+// the current cueSequence/cues/idleCueId fields.
+func TestCueSequenceLegacyJSONMigration(t *testing.T) {
+	legacy := `{
+		"strobeEnabled": true,
+		"presetSequence": {
+			"enabled": true,
+			"presets": [
+				{"id": "p1", "label": "Home", "values": {"1": 128}},
+				{"id": "p2", "values": {"1": 200}}
+			],
+			"idlePresetId": "p1"
+		}
+	}`
+
+	var party DMXFixtureParty
+	if err := json.Unmarshal([]byte(legacy), &party); err != nil {
+		t.Fatalf("unmarshal legacy party: %v", err)
+	}
+	if !party.StrobeEnabled {
+		t.Errorf("StrobeEnabled = false, want true")
+	}
+	seq := party.CueSequence
+	if !seq.Enabled {
+		t.Errorf("CueSequence.Enabled = false, want true")
+	}
+	if len(seq.Cues) != 2 {
+		t.Fatalf("len(Cues) = %d, want 2", len(seq.Cues))
+	}
+	if seq.Cues[0].ID != "p1" || seq.Cues[0].Label != "Home" || seq.Cues[0].Values["1"] != 128 {
+		t.Errorf("Cues[0] = %+v, unexpected", seq.Cues[0])
+	}
+	if seq.IdleCueID != "p1" {
+		t.Errorf("IdleCueID = %q, want %q", seq.IdleCueID, "p1")
+	}
+
+	// Current-format JSON must keep working too.
+	current := `{"cueSequence": {"enabled": true, "cues": [{"id": "c1", "values": {"2": 50}}], "idleCueId": "c1"}}`
+	var party2 DMXFixtureParty
+	if err := json.Unmarshal([]byte(current), &party2); err != nil {
+		t.Fatalf("unmarshal current party: %v", err)
+	}
+	if party2.CueSequence.IdleCueID != "c1" || len(party2.CueSequence.Cues) != 1 {
+		t.Errorf("current-format round trip failed: %+v", party2.CueSequence)
+	}
+}
+
+func TestNormalizeFixtureCueSequence(t *testing.T) {
+	in := DMXFixtureCueSequence{
 		Enabled: true,
 		StepMS:  10, // below min
 		FadeMS:  -5,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{Values: map[string]int{"1": 300, "2": -4, "x": 10, " ": 5}},
 		},
 		ChannelBehaviors: map[string]string{
@@ -20,20 +69,20 @@ func TestNormalizeFixturePresetSequence(t *testing.T) {
 			"bad": "random",  // non-numeric key → dropped
 		},
 	}
-	out := normalizeFixturePresetSequence(in)
+	out := normalizeFixtureCueSequence(in)
 
-	if out.StepMS != minPresetStepMS {
-		t.Fatalf("StepMS = %d, want %d", out.StepMS, minPresetStepMS)
+	if out.StepMS != minCueStepMS {
+		t.Fatalf("StepMS = %d, want %d", out.StepMS, minCueStepMS)
 	}
 	if out.FadeMS != 0 {
 		t.Fatalf("FadeMS = %d, want 0", out.FadeMS)
 	}
-	if len(out.Presets) != 1 {
-		t.Fatalf("Presets len = %d, want 1", len(out.Presets))
+	if len(out.Cues) != 1 {
+		t.Fatalf("Cues len = %d, want 1", len(out.Cues))
 	}
-	p := out.Presets[0]
+	p := out.Cues[0]
 	if p.ID == "" {
-		t.Fatal("preset ID should be auto-assigned")
+		t.Fatal("cue ID should be auto-assigned")
 	}
 	if got := p.Values["1"]; got != 255 {
 		t.Fatalf("value[1] = %d, want 255 (clamped)", got)
@@ -45,29 +94,29 @@ func TestNormalizeFixturePresetSequence(t *testing.T) {
 		t.Fatal("non-numeric value key should be dropped")
 	}
 	if len(out.ChannelBehaviors) != 2 ||
-		out.ChannelBehaviors["3"] != PresetChannelBehaviorRandom ||
-		out.ChannelBehaviors["4"] != PresetChannelBehaviorExclude {
+		out.ChannelBehaviors["3"] != CueChannelBehaviorRandom ||
+		out.ChannelBehaviors["4"] != CueChannelBehaviorExclude {
 		t.Fatalf("ChannelBehaviors = %#v, want {3: random, 4: exclude}", out.ChannelBehaviors)
 	}
 }
 
-func TestNormalizeFixturePresetSequenceDisablesWithoutPresets(t *testing.T) {
-	out := normalizeFixturePresetSequence(DMXFixturePresetSequence{Enabled: true})
+func TestNormalizeFixtureCueSequenceDisablesWithoutCues(t *testing.T) {
+	out := normalizeFixtureCueSequence(DMXFixtureCueSequence{Enabled: true})
 	if out.Enabled {
-		t.Fatal("sequence with no presets must be disabled")
+		t.Fatal("sequence with no cues must be disabled")
 	}
-	if presetSequenceActive(out) {
-		t.Fatal("presetSequenceActive should be false without presets")
+	if cueSequenceActive(out) {
+		t.Fatal("cueSequenceActive should be false without cues")
 	}
 }
 
-func TestComputePresetSequenceFrameStepping(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestComputeCueSequenceFrameStepping(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		Loop:    true,
 		StepMS:  1000,
 		FadeMS:  0,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 10}},
 			{ID: "b", Values: map[string]int{"1": 20}},
 			{ID: "c", Values: map[string]int{"1": 30}},
@@ -86,7 +135,7 @@ func TestComputePresetSequenceFrameStepping(t *testing.T) {
 		{3000, "a"}, // wraps around
 	}
 	for _, tc := range cases {
-		frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(time.Duration(tc.ms)*time.Millisecond))
+		frame, ok := computeCueSequenceFrame(seq, anchor, anchor.Add(time.Duration(tc.ms)*time.Millisecond))
 		if !ok {
 			t.Fatalf("ms=%d: frame not ok", tc.ms)
 		}
@@ -96,12 +145,12 @@ func TestComputePresetSequenceFrameStepping(t *testing.T) {
 	}
 }
 
-func TestComputePresetSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestComputeCueSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		Loop:    false,
 		StepMS:  1000,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 10}},
 			{ID: "b", Values: map[string]int{"1": 20}},
 		},
@@ -110,7 +159,7 @@ func TestComputePresetSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
 
 	// Plays a (t=0) then b (t=1000); past the end it holds the final pose b.
 	for _, ms := range []int64{2000, 5000, 60000} {
-		frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(time.Duration(ms)*time.Millisecond))
+		frame, ok := computeCueSequenceFrame(seq, anchor, anchor.Add(time.Duration(ms)*time.Millisecond))
 		if !ok {
 			t.Fatalf("ms=%d: frame not ok", ms)
 		}
@@ -120,13 +169,13 @@ func TestComputePresetSequenceFrameNoLoopHoldsFinalPose(t *testing.T) {
 	}
 }
 
-func TestComputePresetSequenceFramePerPoseHold(t *testing.T) {
+func TestComputeCueSequenceFramePerPoseHold(t *testing.T) {
 	// Poses have different dwell times: 1000ms, 2000ms, 1000ms (total 4000ms).
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		Loop:    true,
 		StepMS:  1000, // default; pose 2 overrides to 2000
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 10}},
 			{ID: "b", HoldMS: 2000, Values: map[string]int{"1": 20}},
 			{ID: "c", Values: map[string]int{"1": 30}},
@@ -144,66 +193,66 @@ func TestComputePresetSequenceFramePerPoseHold(t *testing.T) {
 		{4500, "a"}, // wrapped, pos 500
 	}
 	for _, tc := range cases {
-		frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(time.Duration(tc.ms)*time.Millisecond))
+		frame, ok := computeCueSequenceFrame(seq, anchor, anchor.Add(time.Duration(tc.ms)*time.Millisecond))
 		if !ok || frame.curr.ID != tc.want {
 			t.Fatalf("ms=%d: curr=%s, want %s", tc.ms, frame.curr.ID, tc.want)
 		}
 	}
 }
 
-func TestComputePresetSequenceFramePerPoseFade(t *testing.T) {
+func TestComputeCueSequenceFramePerPoseFade(t *testing.T) {
 	// Pose b carries its own 400ms crossfade overriding the sequence default of 0 (snap).
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		Loop:    true,
 		StepMS:  1000,
 		FadeMS:  0,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 0}},
 			{ID: "b", FadeMS: 400, Values: map[string]int{"1": 100}},
 		},
 	})
 	anchor := time.Unix(0, 0)
 	// Enter b at t=1000; halfway through its 400ms fade (t=1200) → midway 0→100.
-	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(1200*time.Millisecond))
-	v, _ := presetSequenceChannelValue(seq, frame, "fx", 1)
+	frame, _ := computeCueSequenceFrame(seq, anchor, anchor.Add(1200*time.Millisecond))
+	v, _ := cueSequenceChannelValue(seq, frame, "fx", 1)
 	if v < 45 || v > 55 {
 		t.Fatalf("per-pose fade value = %d, want ~50", v)
 	}
 	// Pose a uses the sequence default (snap), so it is fully settled immediately.
-	frame, _ = computePresetSequenceFrame(seq, anchor, anchor.Add(2050*time.Millisecond))
+	frame, _ = computeCueSequenceFrame(seq, anchor, anchor.Add(2050*time.Millisecond))
 	if frame.curr.ID != "a" || frame.fade != 1 {
 		t.Fatalf("pose a should snap: curr=%s fade=%v", frame.curr.ID, frame.fade)
 	}
 }
 
-func TestComputePresetSequenceFrameLoopWraps(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestComputeCueSequenceFrameLoopWraps(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		Loop:    true,
 		StepMS:  1000,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 10}},
 			{ID: "b", Values: map[string]int{"1": 20}},
 		},
 	})
 	anchor := time.Unix(0, 0)
 	// t=2000 wraps back to the first pose.
-	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(2000*time.Millisecond))
+	frame, _ := computeCueSequenceFrame(seq, anchor, anchor.Add(2000*time.Millisecond))
 	if frame.curr.ID != "a" {
 		t.Fatalf("looped curr=%s, want a", frame.curr.ID)
 	}
 }
 
-func TestFixtureIdlePresetOverlay(t *testing.T) {
+func TestFixtureIdleCueOverlay(t *testing.T) {
 	fixture := DMXFixture{
 		ID:         "fx",
 		DMXAddress: 10,
 		Party: DMXFixtureParty{
-			PresetSequence: DMXFixturePresetSequence{
-				IdlePresetID: "home",
+			CueSequence: DMXFixtureCueSequence{
+				IdleCueID: "home",
 				StepMS:       1000,
-				Presets: []DMXFixturePreset{
+				Cues: []DMXFixtureCue{
 					{ID: "home", Values: map[string]int{"1": 200, "2": 50}},
 				},
 			},
@@ -226,23 +275,23 @@ func TestFixtureIdlePresetOverlay(t *testing.T) {
 	}
 }
 
-func TestFixtureIdlePresetOverlayClearedWhenMissing(t *testing.T) {
+func TestFixtureIdleCueOverlayClearedWhenMissing(t *testing.T) {
 	// A dangling idle reference should be normalized away (no panic, no overlay).
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
-		IdlePresetID: "gone",
-		Presets:      []DMXFixturePreset{{ID: "a", Values: map[string]int{"1": 5}}},
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
+		IdleCueID: "gone",
+		Cues:      []DMXFixtureCue{{ID: "a", Values: map[string]int{"1": 5}}},
 	})
-	if seq.IdlePresetID != "" {
-		t.Fatalf("dangling idle id should be cleared, got %q", seq.IdlePresetID)
+	if seq.IdleCueID != "" {
+		t.Fatalf("dangling idle id should be cleared, got %q", seq.IdleCueID)
 	}
 }
 
-func TestPresetSequenceChannelValueCrossfade(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestCueSequenceChannelValueCrossfade(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		StepMS:  1000,
 		FadeMS:  500,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 0}},
 			{ID: "b", Values: map[string]int{"1": 100}},
 		},
@@ -251,11 +300,11 @@ func TestPresetSequenceChannelValueCrossfade(t *testing.T) {
 
 	// At t=1000ms we enter pose b; halfway through the 500ms fade (t=1250ms) the
 	// channel should be midway between pose a (0) and pose b (100).
-	frame, ok := computePresetSequenceFrame(seq, anchor, anchor.Add(1250*time.Millisecond))
+	frame, ok := computeCueSequenceFrame(seq, anchor, anchor.Add(1250*time.Millisecond))
 	if !ok {
 		t.Fatal("frame not ok")
 	}
-	v, owned := presetSequenceChannelValue(seq, frame, "fx", 1)
+	v, owned := cueSequenceChannelValue(seq, frame, "fx", 1)
 	if !owned {
 		t.Fatal("pinned channel should be owned")
 	}
@@ -264,72 +313,72 @@ func TestPresetSequenceChannelValueCrossfade(t *testing.T) {
 	}
 
 	// After the fade completes the value settles on pose b.
-	frame, _ = computePresetSequenceFrame(seq, anchor, anchor.Add(1800*time.Millisecond))
-	v, _ = presetSequenceChannelValue(seq, frame, "fx", 1)
+	frame, _ = computeCueSequenceFrame(seq, anchor, anchor.Add(1800*time.Millisecond))
+	v, _ = cueSequenceChannelValue(seq, frame, "fx", 1)
 	if v != 100 {
 		t.Fatalf("settled value = %d, want 100", v)
 	}
 }
 
-func TestPresetSequenceChannelValueBehaviors(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestCueSequenceChannelValueBehaviors(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		StepMS:  1000,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 200}},
 		},
 		ChannelBehaviors: map[string]string{"2": "random"},
 	})
 	anchor := time.Unix(0, 0)
-	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(100*time.Millisecond))
+	frame, _ := computeCueSequenceFrame(seq, anchor, anchor.Add(100*time.Millisecond))
 
 	// Channel 1 is pinned by the pose.
-	if v, owned := presetSequenceChannelValue(seq, frame, "fx", 1); !owned || v != 200 {
+	if v, owned := cueSequenceChannelValue(seq, frame, "fx", 1); !owned || v != 200 {
 		t.Fatalf("pinned channel: v=%d owned=%v, want 200/true", v, owned)
 	}
 	// Channel 2 is random → owned, value within range.
-	if v, owned := presetSequenceChannelValue(seq, frame, "fx", 2); !owned || v < 0 || v > 255 {
+	if v, owned := cueSequenceChannelValue(seq, frame, "fx", 2); !owned || v < 0 || v > 255 {
 		t.Fatalf("random channel: v=%d owned=%v", v, owned)
 	}
 	// Channel 3 is unspecified → excluded (not owned).
-	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 3); owned {
+	if _, owned := cueSequenceChannelValue(seq, frame, "fx", 3); owned {
 		t.Fatal("unspecified channel should be excluded")
 	}
 }
 
-func TestPresetSequenceBehaviorOverridesStoredValue(t *testing.T) {
+func TestCueSequenceBehaviorOverridesStoredValue(t *testing.T) {
 	// A pose captured from live stores a value for every channel; the per-channel
 	// behavior must still win so those channels can be randomized or excluded.
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		StepMS:  1000,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 200, "2": 100, "3": 50}},
 		},
 		ChannelBehaviors: map[string]string{"2": "random", "3": "exclude"},
 	})
 	anchor := time.Unix(0, 0)
-	frame, _ := computePresetSequenceFrame(seq, anchor, anchor.Add(100*time.Millisecond))
+	frame, _ := computeCueSequenceFrame(seq, anchor, anchor.Add(100*time.Millisecond))
 
 	// Channel 1 has no behavior → replays its stored pose value.
-	if v, owned := presetSequenceChannelValue(seq, frame, "fx", 1); !owned || v != 200 {
+	if v, owned := cueSequenceChannelValue(seq, frame, "fx", 1); !owned || v != 200 {
 		t.Fatalf("pose channel: v=%d owned=%v, want 200/true", v, owned)
 	}
 	// Channel 2 is random despite having a stored value → owned, ignores 100.
-	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 2); !owned {
+	if _, owned := cueSequenceChannelValue(seq, frame, "fx", 2); !owned {
 		t.Fatal("random channel with stored value should still be owned")
 	}
 	// Channel 3 is excluded despite having a stored value → not owned.
-	if _, owned := presetSequenceChannelValue(seq, frame, "fx", 3); owned {
+	if _, owned := cueSequenceChannelValue(seq, frame, "fx", 3); owned {
 		t.Fatal("excluded channel with stored value should not be owned")
 	}
 }
 
-func TestBuildPresetSequenceUpdates(t *testing.T) {
-	seq := normalizeFixturePresetSequence(DMXFixturePresetSequence{
+func TestBuildCueSequenceUpdates(t *testing.T) {
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{
 		Enabled: true,
 		StepMS:  1000,
-		Presets: []DMXFixturePreset{
+		Cues: []DMXFixtureCue{
 			{ID: "a", Values: map[string]int{"1": 11, "2": 22}},
 		},
 		ChannelBehaviors: map[string]string{"3": "random"},
@@ -346,7 +395,7 @@ func TestBuildPresetSequenceUpdates(t *testing.T) {
 	}
 	anchor := time.Unix(0, 0)
 	var owned [512]bool
-	updates := buildPresetSequenceUpdates(fixture, seq, anchor, anchor.Add(100*time.Millisecond), &owned)
+	updates := buildCueSequenceUpdates(fixture, seq, anchor, anchor.Add(100*time.Millisecond), &owned)
 
 	byAddr := map[int]int{}
 	for _, u := range updates {

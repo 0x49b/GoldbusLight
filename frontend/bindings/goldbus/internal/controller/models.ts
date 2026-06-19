@@ -374,6 +374,126 @@ export class DMXFixture {
 }
 
 /**
+ * DMXFixtureCue is a single saved pose: a set of channel values keyed by the
+ * fixture-relative channel offset (same convention as DMXChannel.Channel), as a JSON string.
+ */
+export class DMXFixtureCue {
+    "id": string;
+    "label"?: string;
+
+    /**
+     * Values maps fixture-relative channel offset (string key) to a DMX value 0–255.
+     */
+    "values": { [_ in string]?: number };
+
+    /**
+     * HoldMS overrides how long this pose is held before advancing (milliseconds).
+     * 0 = inherit the sequence-level StepMS.
+     */
+    "holdMs"?: number;
+
+    /**
+     * FadeMS overrides the crossfade time into this pose (milliseconds).
+     * 0 = inherit the sequence-level FadeMS.
+     */
+    "fadeMs"?: number;
+
+    /** Creates a new DMXFixtureCue instance. */
+    constructor($$source: Partial<DMXFixtureCue> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("values" in $$source)) {
+            this["values"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXFixtureCue instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXFixtureCue {
+        const $$createField2_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("values" in $$parsedSource) {
+            $$parsedSource["values"] = $$createField2_0($$parsedSource["values"]);
+        }
+        return new DMXFixtureCue($$parsedSource as Partial<DMXFixtureCue>);
+    }
+}
+
+/**
+ * DMXFixtureCueSequence drives a fixture through an ordered list of poses during party mode.
+ */
+export class DMXFixtureCueSequence {
+    /**
+     * Enabled turns on cue-sequence mode for this fixture, overriding the generative
+     * party algorithm for the channels the sequence covers.
+     */
+    "enabled"?: boolean;
+
+    /**
+     * Cues is the ordered list of poses to step through.
+     */
+    "cues"?: DMXFixtureCue[];
+
+    /**
+     * StepMs is how long each pose is held before advancing (milliseconds).
+     */
+    "stepMs"?: number;
+
+    /**
+     * FadeMs is the crossfade time into each pose (milliseconds). 0 = snap instantly.
+     */
+    "fadeMs"?: number;
+
+    /**
+     * Loop, when true, restarts the sequence from the first pose after the last one plays.
+     * When false the sequence plays through once and then holds the final pose.
+     */
+    "loop": boolean;
+
+    /**
+     * IdleCueID names a pose to apply as the fixture's static "idle" position when DMX
+     * live output starts and the fixture is not under party control. Empty = no idle pose.
+     */
+    "idleCueId"?: string;
+
+    /**
+     * ChannelBehaviors maps a fixture-relative channel offset (string key) to a behavior
+     * ("random" or "exclude") for channels that are not pinned by any pose. Channels absent
+     * from this map default to "exclude" (left untouched by the sequence).
+     */
+    "channelBehaviors"?: { [_ in string]?: string };
+
+    /** Creates a new DMXFixtureCueSequence instance. */
+    constructor($$source: Partial<DMXFixtureCueSequence> = {}) {
+        if (!("loop" in $$source)) {
+            this["loop"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXFixtureCueSequence instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXFixtureCueSequence {
+        const $$createField1_0 = $$createType18;
+        const $$createField6_0 = $$createType19;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("cues" in $$parsedSource) {
+            $$parsedSource["cues"] = $$createField1_0($$parsedSource["cues"]);
+        }
+        if ("channelBehaviors" in $$parsedSource) {
+            $$parsedSource["channelBehaviors"] = $$createField6_0($$parsedSource["channelBehaviors"]);
+        }
+        return new DMXFixtureCueSequence($$parsedSource as Partial<DMXFixtureCueSequence>);
+    }
+}
+
+/**
  * DMXFixtureParty holds per-fixture tuning for the party algorithm (auto and audio).
  */
 export class DMXFixtureParty {
@@ -399,11 +519,11 @@ export class DMXFixtureParty {
     "strobeOffMs"?: number;
 
     /**
-     * PresetSequence, when enabled, steps the fixture through a series of saved poses
+     * CueSequence, when enabled, steps the fixture through a series of saved poses
      * (e.g. moving-head pan/tilt positions) during party mode, overriding the generative
      * algorithm for the channels it covers.
      */
-    "presetSequence"?: DMXFixturePresetSequence;
+    "cueSequence"?: DMXFixtureCueSequence;
 
     /** Creates a new DMXFixtureParty instance. */
     constructor($$source: Partial<DMXFixtureParty> = {}) {
@@ -416,135 +536,15 @@ export class DMXFixtureParty {
      */
     static createFrom($$source: any = {}): DMXFixtureParty {
         const $$createField0_0 = $$createType16;
-        const $$createField4_0 = $$createType17;
+        const $$createField4_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("channelWeights" in $$parsedSource) {
             $$parsedSource["channelWeights"] = $$createField0_0($$parsedSource["channelWeights"]);
         }
-        if ("presetSequence" in $$parsedSource) {
-            $$parsedSource["presetSequence"] = $$createField4_0($$parsedSource["presetSequence"]);
+        if ("cueSequence" in $$parsedSource) {
+            $$parsedSource["cueSequence"] = $$createField4_0($$parsedSource["cueSequence"]);
         }
         return new DMXFixtureParty($$parsedSource as Partial<DMXFixtureParty>);
-    }
-}
-
-/**
- * DMXFixturePreset is a single saved pose: a set of channel values keyed by the
- * fixture-relative channel offset (same convention as DMXChannel.Channel), as a JSON string.
- */
-export class DMXFixturePreset {
-    "id": string;
-    "label"?: string;
-
-    /**
-     * Values maps fixture-relative channel offset (string key) to a DMX value 0–255.
-     */
-    "values": { [_ in string]?: number };
-
-    /**
-     * HoldMS overrides how long this pose is held before advancing (milliseconds).
-     * 0 = inherit the sequence-level StepMS.
-     */
-    "holdMs"?: number;
-
-    /**
-     * FadeMS overrides the crossfade time into this pose (milliseconds).
-     * 0 = inherit the sequence-level FadeMS.
-     */
-    "fadeMs"?: number;
-
-    /** Creates a new DMXFixturePreset instance. */
-    constructor($$source: Partial<DMXFixturePreset> = {}) {
-        if (!("id" in $$source)) {
-            this["id"] = "";
-        }
-        if (!("values" in $$source)) {
-            this["values"] = {};
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new DMXFixturePreset instance from a string or object.
-     */
-    static createFrom($$source: any = {}): DMXFixturePreset {
-        const $$createField2_0 = $$createType16;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("values" in $$parsedSource) {
-            $$parsedSource["values"] = $$createField2_0($$parsedSource["values"]);
-        }
-        return new DMXFixturePreset($$parsedSource as Partial<DMXFixturePreset>);
-    }
-}
-
-/**
- * DMXFixturePresetSequence drives a fixture through an ordered list of poses during party mode.
- */
-export class DMXFixturePresetSequence {
-    /**
-     * Enabled turns on preset-sequence mode for this fixture, overriding the generative
-     * party algorithm for the channels the sequence covers.
-     */
-    "enabled"?: boolean;
-
-    /**
-     * Presets is the ordered list of poses to step through.
-     */
-    "presets"?: DMXFixturePreset[];
-
-    /**
-     * StepMs is how long each pose is held before advancing (milliseconds).
-     */
-    "stepMs"?: number;
-
-    /**
-     * FadeMs is the crossfade time into each pose (milliseconds). 0 = snap instantly.
-     */
-    "fadeMs"?: number;
-
-    /**
-     * Loop, when true, restarts the sequence from the first pose after the last one plays.
-     * When false the sequence plays through once and then holds the final pose.
-     */
-    "loop": boolean;
-
-    /**
-     * IdlePresetID names a pose to apply as the fixture's static "idle" position when DMX
-     * live output starts and the fixture is not under party control. Empty = no idle pose.
-     */
-    "idlePresetId"?: string;
-
-    /**
-     * ChannelBehaviors maps a fixture-relative channel offset (string key) to a behavior
-     * ("random" or "exclude") for channels that are not pinned by any pose. Channels absent
-     * from this map default to "exclude" (left untouched by the sequence).
-     */
-    "channelBehaviors"?: { [_ in string]?: string };
-
-    /** Creates a new DMXFixturePresetSequence instance. */
-    constructor($$source: Partial<DMXFixturePresetSequence> = {}) {
-        if (!("loop" in $$source)) {
-            this["loop"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new DMXFixturePresetSequence instance from a string or object.
-     */
-    static createFrom($$source: any = {}): DMXFixturePresetSequence {
-        const $$createField1_0 = $$createType19;
-        const $$createField6_0 = $$createType20;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("presets" in $$parsedSource) {
-            $$parsedSource["presets"] = $$createField1_0($$parsedSource["presets"]);
-        }
-        if ("channelBehaviors" in $$parsedSource) {
-            $$parsedSource["channelBehaviors"] = $$createField6_0($$parsedSource["channelBehaviors"]);
-        }
-        return new DMXFixturePresetSequence($$parsedSource as Partial<DMXFixturePresetSequence>);
     }
 }
 
@@ -1454,10 +1454,10 @@ const $$createType13 = DMXFixtureParty.createFrom;
 const $$createType14 = DMXChannel.createFrom;
 const $$createType15 = $Create.Array($$createType14);
 const $$createType16 = $Create.Map($Create.Any, $Create.Any);
-const $$createType17 = DMXFixturePresetSequence.createFrom;
-const $$createType18 = DMXFixturePreset.createFrom;
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = $Create.Map($Create.Any, $Create.Any);
+const $$createType17 = DMXFixtureCue.createFrom;
+const $$createType18 = $Create.Array($$createType17);
+const $$createType19 = $Create.Map($Create.Any, $Create.Any);
+const $$createType20 = DMXFixtureCueSequence.createFrom;
 const $$createType21 = $Create.Array($Create.Any);
 const $$createType22 = DMXPartyConfig.createFrom;
 const $$createType23 = DMXPartyStatus.createFrom;

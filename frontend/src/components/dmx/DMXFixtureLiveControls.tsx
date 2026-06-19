@@ -6,7 +6,7 @@ import {
     channelOutputByte,
     defaultDmxLiveControlState,
     defaultEntryStateForChannel,
-    dmxLiveControlStateFromPreset,
+    dmxLiveControlStateFromCue,
     legacyFocus01,
     legacyPan01,
     legacyTilt01,
@@ -25,9 +25,9 @@ import {
 import {loadFixtureLiveLayoutDocument, saveFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
-import {DMXFixturePresetManager} from "./DMXFixturePresetManager";
+import {DMXFixtureCueManager} from "./DMXFixtureCueManager";
 import {LiveChannelControl} from "./LiveChannelControl";
-import type {DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
+import type {DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -37,13 +37,13 @@ type DMXFixtureLiveControlsProps = {
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
     liveUniverse?: number[];
     pullDMXState?: () => Promise<unknown>;
-    onSavePresetSequence?: (next: DMXFixturePresetSequence) => Promise<boolean>;
+    onSaveCueSequence?: (next: DMXFixtureCueSequence) => Promise<boolean>;
     /**
      * Which section to display. The component stays mounted in both modes so
-     * live state (and the active preset) survives switching between the Live
-     * and Presets tabs.
+     * live state (and the active cue) survives switching between the Live
+     * and Cues tabs.
      */
-    displayMode?: "live" | "presets";
+    displayMode?: "live" | "cues";
     /** When set with `setEditLayout`, layout edit mode is controlled by the parent (e.g. top bar). */
     editLayout?: boolean;
     setEditLayout?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -67,12 +67,12 @@ function renderLiveTile(
         previewSmokeIntensity: number;
         hasPan: boolean;
         hasTilt: boolean;
-        activePresetLabel: string | null;
-        activePresetIndex: number | null;
-        activePresetDirty: boolean;
-        canUpdateActivePreset: boolean;
-        savingActivePreset: boolean;
-        onUpdateActivePreset: () => void;
+        activeCueLabel: string | null;
+        activeCueIndex: number | null;
+        activeCueDirty: boolean;
+        canUpdateActiveCue: boolean;
+        savingActiveCue: boolean;
+        onUpdateActiveCue: () => void;
     },
 ) {
     if (id === "preview") {
@@ -83,42 +83,42 @@ function renderLiveTile(
             <div className="flex h-full min-h-0 flex-col gap-1.5">
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</span>
-                    {opts.activePresetLabel ? (
+                    {opts.activeCueLabel ? (
                         <>
                             <span
                                 className={
-                                    opts.activePresetDirty
+                                    opts.activeCueDirty
                                         ? "inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
                                         : "inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
                                 }
-                                title={opts.activePresetDirty ? "Live values differ from this preset" : "Currently applied preset"}
+                                title={opts.activeCueDirty ? "Live values differ from this cue" : "Currently applied cue"}
                             >
-                                {opts.activePresetIndex != null && (
-                                    <span className="font-semibold opacity-80">#{opts.activePresetIndex + 1}</span>
+                                {opts.activeCueIndex != null && (
+                                    <span className="font-semibold opacity-80">#{opts.activeCueIndex + 1}</span>
                                 )}
-                                <span className="max-w-[12rem] truncate">{opts.activePresetLabel}</span>
-                                {opts.activePresetDirty && <span className="font-semibold">•</span>}
+                                <span className="max-w-[12rem] truncate">{opts.activeCueLabel}</span>
+                                {opts.activeCueDirty && <span className="font-semibold">•</span>}
                             </span>
                             <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
                                 className="h-6 px-2 text-[11px]"
-                                disabled={!opts.canUpdateActivePreset || opts.savingActivePreset || !opts.activePresetDirty}
-                                onClick={opts.onUpdateActivePreset}
+                                disabled={!opts.canUpdateActiveCue || opts.savingActiveCue || !opts.activeCueDirty}
+                                onClick={opts.onUpdateActiveCue}
                                 title={
-                                    !opts.canUpdateActivePreset
+                                    !opts.canUpdateActiveCue
                                         ? "Connect live output (and stop party) to update"
-                                        : !opts.activePresetDirty
-                                            ? "Live values already match this preset"
-                                            : "Overwrite this preset with the current live values"
+                                        : !opts.activeCueDirty
+                                            ? "Live values already match this cue"
+                                            : "Overwrite this cue with the current live values"
                                 }
                             >
-                                {opts.savingActivePreset ? "Updating…" : "Update preset"}
+                                {opts.savingActiveCue ? "Updating…" : "Update cue"}
                             </Button>
                         </>
                     ) : (
-                        <span className="text-[11px] text-muted-foreground/70">no preset applied</span>
+                        <span className="text-[11px] text-muted-foreground/70">no cue applied</span>
                     )}
                 </div>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -200,7 +200,7 @@ export function DMXFixtureLiveControls({
     queueDmxLivePatch,
     liveUniverse,
     pullDMXState,
-    onSavePresetSequence,
+    onSaveCueSequence,
     displayMode = "live",
     editLayout: editLayoutProp,
 }: DMXFixtureLiveControlsProps) {
@@ -213,9 +213,9 @@ export function DMXFixtureLiveControls({
     useEffect(() => {
         // Start from the fixture's idle pose (if configured) so it opens in the saved
         // static position rather than bare defaults.
-        const seq = fixture.party?.presetSequence;
-        const idle = seq?.idlePresetId ? seq.presets?.find((p) => p.id === seq.idlePresetId) : undefined;
-        setLiveState(idle ? dmxLiveControlStateFromPreset(fixture, idle.values) : defaultDmxLiveControlState(fixture));
+        const seq = fixture.party?.cueSequence;
+        const idle = seq?.idleCueId ? seq.cues?.find((p) => p.id === seq.idleCueId) : undefined;
+        setLiveState(idle ? dmxLiveControlStateFromCue(fixture, idle.values) : defaultDmxLiveControlState(fixture));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fixture.id]);
 
@@ -279,7 +279,7 @@ export function DMXFixtureLiveControls({
                 }
             }
         }
-        return dmxLiveControlStateFromPreset(fixture, values);
+        return dmxLiveControlStateFromCue(fixture, values);
     }, [partyRunning, universe, fixture]);
     const displayState = partyDisplayState ?? liveState;
 
@@ -357,65 +357,65 @@ export function DMXFixtureLiveControls({
         return values;
     }, [fixture, liveState]);
 
-    const [activePresetId, setActivePresetId] = useState<string | null>(null);
-    const [activePresetDirty, setActivePresetDirty] = useState(false);
+    const [activeCueId, setActiveCueId] = useState<string | null>(null);
+    const [activeCueDirty, setActiveCueDirty] = useState(false);
     const appliedLiveStateRef = useRef<DMXLiveControlState | null>(null);
 
-    const applyPreset = useCallback(
-        (preset: DMXFixturePreset) => {
-            const nextState = dmxLiveControlStateFromPreset(fixture, preset.values);
+    const applyCue = useCallback(
+        (cue: DMXFixtureCue) => {
+            const nextState = dmxLiveControlStateFromCue(fixture, cue.values);
             appliedLiveStateRef.current = nextState;
             setLiveState(nextState);
-            setActivePresetId(preset.id);
-            setActivePresetDirty(false);
+            setActiveCueId(cue.id);
+            setActiveCueDirty(false);
         },
         [fixture],
     );
 
     useEffect(() => {
-        if (!activePresetId || activePresetDirty) return;
+        if (!activeCueId || activeCueDirty) return;
         if (appliedLiveStateRef.current && appliedLiveStateRef.current !== liveState) {
-            // User changed something after applying the preset — preset is now "dirty".
-            setActivePresetDirty(true);
+            // User changed something after applying the cue — cue is now "dirty".
+            setActiveCueDirty(true);
         }
-    }, [activePresetDirty, activePresetId, liveState]);
+    }, [activeCueDirty, activeCueId, liveState]);
 
-    const presets = useMemo(() => fixture.party?.presetSequence?.presets ?? [], [fixture.party?.presetSequence?.presets]);
-    const canApplyPreset = connected && !partyRunning && !busy;
+    const cues = useMemo(() => fixture.party?.cueSequence?.cues ?? [], [fixture.party?.cueSequence?.cues]);
+    const canApplyCue = connected && !partyRunning && !busy;
 
-    const [savingActivePreset, setSavingActivePreset] = useState(false);
-    const updateActivePresetFromLive = useCallback(async () => {
-        if (!activePresetId || !onSavePresetSequence) return;
-        const seq = fixture.party?.presetSequence;
+    const [savingActiveCue, setSavingActiveCue] = useState(false);
+    const updateActiveCueFromLive = useCallback(async () => {
+        if (!activeCueId || !onSaveCueSequence) return;
+        const seq = fixture.party?.cueSequence;
         if (!seq) return;
-        const existing = seq.presets ?? [];
-        if (!existing.some((p) => p.id === activePresetId)) return;
-        setSavingActivePreset(true);
+        const existing = seq.cues ?? [];
+        if (!existing.some((p) => p.id === activeCueId)) return;
+        setSavingActiveCue(true);
         try {
             const nextValues = captureCurrentValues();
-            const next: DMXFixturePresetSequence = {
+            const next: DMXFixtureCueSequence = {
                 ...seq,
-                presets: existing.map((p) => (p.id === activePresetId ? {...p, values: nextValues} : p)),
+                cues: existing.map((p) => (p.id === activeCueId ? {...p, values: nextValues} : p)),
             };
-            const ok = await onSavePresetSequence(next);
+            const ok = await onSaveCueSequence(next);
             if (ok) {
                 // The applied baseline is now the current state, so we're back in sync.
                 appliedLiveStateRef.current = liveState;
-                setActivePresetDirty(false);
+                setActiveCueDirty(false);
             }
         } finally {
-            setSavingActivePreset(false);
+            setSavingActiveCue(false);
         }
-    }, [activePresetId, captureCurrentValues, fixture.party?.presetSequence, liveState, onSavePresetSequence]);
+    }, [activeCueId, captureCurrentValues, fixture.party?.cueSequence, liveState, onSaveCueSequence]);
 
     useEffect(() => {
-        setActivePresetId(null);
-        setActivePresetDirty(false);
+        setActiveCueId(null);
+        setActiveCueDirty(false);
         appliedLiveStateRef.current = null;
     }, [fixture.id]);
 
     useEffect(() => {
-        if (displayMode !== "live" || !canApplyPreset || presets.length === 0) {
+        if (displayMode !== "live" || !canApplyCue || cues.length === 0) {
             return;
         }
         const onKey = (e: KeyboardEvent) => {
@@ -432,41 +432,41 @@ export function DMXFixtureLiveControls({
 
             if (e.shiftKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
                 e.preventDefault();
-                const currentIdx = activePresetId ? presets.findIndex((p) => p.id === activePresetId) : -1;
+                const currentIdx = activeCueId ? cues.findIndex((p) => p.id === activeCueId) : -1;
                 const dir = e.key === "ArrowDown" ? 1 : -1;
                 let nextIdx: number;
                 if (currentIdx < 0) {
-                    nextIdx = dir === 1 ? 0 : presets.length - 1;
+                    nextIdx = dir === 1 ? 0 : cues.length - 1;
                 } else {
-                    nextIdx = (currentIdx + dir + presets.length) % presets.length;
+                    nextIdx = (currentIdx + dir + cues.length) % cues.length;
                 }
-                applyPreset(presets[nextIdx]);
+                applyCue(cues[nextIdx]);
                 return;
             }
 
             if (!e.shiftKey && e.key.length === 1 && e.key >= "0" && e.key <= "9") {
                 const digit = Number(e.key);
                 const idx = digit === 0 ? 9 : digit - 1;
-                if (idx < presets.length) {
+                if (idx < cues.length) {
                     e.preventDefault();
-                    applyPreset(presets[idx]);
+                    applyCue(cues[idx]);
                 }
             }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [activePresetId, applyPreset, canApplyPreset, displayMode, presets]);
+    }, [activeCueId, applyCue, canApplyCue, displayMode, cues]);
 
-    const activePresetIndex = useMemo(() => {
-        if (!activePresetId) return null;
-        const idx = presets.findIndex((p) => p.id === activePresetId);
+    const activeCueIndex = useMemo(() => {
+        if (!activeCueId) return null;
+        const idx = cues.findIndex((p) => p.id === activeCueId);
         return idx >= 0 ? idx : null;
-    }, [activePresetId, presets]);
-    const activePresetLabel = useMemo(() => {
-        if (activePresetIndex == null) return null;
-        const p = presets[activePresetIndex];
-        return p.label?.trim() ? p.label : `Pose ${activePresetIndex + 1}`;
-    }, [activePresetIndex, presets]);
+    }, [activeCueId, cues]);
+    const activeCueLabel = useMemo(() => {
+        if (activeCueIndex == null) return null;
+        const p = cues[activeCueIndex];
+        return p.label?.trim() ? p.label : `Pose ${activeCueIndex + 1}`;
+    }, [activeCueIndex, cues]);
 
     const renderSlot = useCallback(
         (id: string) =>
@@ -483,12 +483,12 @@ export function DMXFixtureLiveControls({
                 previewSmokeIntensity: previewSmoke01,
                 hasPan,
                 hasTilt,
-                activePresetLabel,
-                activePresetIndex,
-                activePresetDirty,
-                canUpdateActivePreset: canApplyPreset && !!onSavePresetSequence,
-                savingActivePreset,
-                onUpdateActivePreset: () => void updateActivePresetFromLive(),
+                activeCueLabel,
+                activeCueIndex,
+                activeCueDirty,
+                canUpdateActiveCue: canApplyCue && !!onSaveCueSequence,
+                savingActiveCue,
+                onUpdateActiveCue: () => void updateActiveCueFromLive(),
             }),
         [
             fixture,
@@ -502,18 +502,18 @@ export function DMXFixtureLiveControls({
             previewSmoke01,
             hasPan,
             hasTilt,
-            activePresetLabel,
-            activePresetIndex,
-            activePresetDirty,
-            canApplyPreset,
-            onSavePresetSequence,
-            savingActivePreset,
-            updateActivePresetFromLive,
+            activeCueLabel,
+            activeCueIndex,
+            activeCueDirty,
+            canApplyCue,
+            onSaveCueSequence,
+            savingActiveCue,
+            updateActiveCueFromLive,
         ],
     );
 
     const showLive = displayMode === "live";
-    const showPresets = displayMode === "presets";
+    const showCues = displayMode === "cues";
 
     return (
         <div className="space-y-4">
@@ -540,16 +540,16 @@ export function DMXFixtureLiveControls({
                 )}
             </div>
 
-            {onSavePresetSequence && (
-                <div className={showPresets ? "" : "hidden"} aria-hidden={!showPresets}>
-                    <DMXFixturePresetManager
+            {onSaveCueSequence && (
+                <div className={showCues ? "" : "hidden"} aria-hidden={!showCues}>
+                    <DMXFixtureCueManager
                         fixture={fixture}
-                        sequence={fixture.party?.presetSequence}
+                        sequence={fixture.party?.cueSequence}
                         captureValues={captureCurrentValues}
-                        onSave={onSavePresetSequence}
-                        onApplyPreset={applyPreset}
+                        onSave={onSaveCueSequence}
+                        onApplyCue={applyCue}
                         canApply={connected && !partyRunning}
-                        activePresetId={activePresetId}
+                        activeCueId={activeCueId}
                         busy={busy}
                     />
                 </div>

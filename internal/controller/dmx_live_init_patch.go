@@ -100,7 +100,7 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 
 	// Overlay the fixture's idle pose (if configured) so live output starts in a chosen
 	// static position instead of bare channel defaults.
-	if idle, ok := fixtureIdlePresetOverlay(fixture, base); ok {
+	if idle, ok := fixtureIdleCueOverlay(fixture, base); ok {
 		for i := range out {
 			if v, has := idle[out[i].Address]; has {
 				out[i].Value = clampDMXByte(v)
@@ -120,19 +120,19 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 	return out
 }
 
-// fixtureIdlePresetOverlay returns the idle pose's values keyed by absolute DMX address,
-// or ok=false when the fixture has no valid idle preset.
-func fixtureIdlePresetOverlay(fixture DMXFixture, base int) (map[int]int, bool) {
-	seq := normalizeFixturePresetSequence(fixture.Party.PresetSequence)
-	if seq.IdlePresetID == "" {
+// fixtureIdleCueOverlay returns the idle pose's values keyed by absolute DMX address,
+// or ok=false when the fixture has no valid idle cue.
+func fixtureIdleCueOverlay(fixture DMXFixture, base int) (map[int]int, bool) {
+	seq := normalizeFixtureCueSequence(fixture.Party.CueSequence)
+	if seq.IdleCueID == "" {
 		return nil, false
 	}
-	preset, ok := presetByID(seq.Presets, seq.IdlePresetID)
-	if !ok || len(preset.Values) == 0 {
+	cue, ok := cueByID(seq.Cues, seq.IdleCueID)
+	if !ok || len(cue.Values) == 0 {
 		return nil, false
 	}
-	overlay := make(map[int]int, len(preset.Values))
-	for k, v := range preset.Values {
+	overlay := make(map[int]int, len(cue.Values))
+	for k, v := range cue.Values {
 		off, err := strconv.Atoi(strings.TrimSpace(k))
 		if err != nil || off < 1 {
 			continue

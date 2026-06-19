@@ -10,17 +10,17 @@ import {Separator} from "@/components/ui/separator";
 import {Slider} from "@/components/ui/slider";
 import type {
     DMXChannel,
-    DMXFixturePreset,
-    DMXFixturePresetSequence,
-    DMXPresetChannelBehavior,
+    DMXFixtureCue,
+    DMXFixtureCueSequence,
+    DMXCueChannelBehavior,
 } from "@/types/controller.ts";
 
 type ChannelRole = "pose" | "random" | "exclude";
 
-export type DMXFixturePresetSequenceEditorProps = {
+export type DMXFixtureCueSequenceEditorProps = {
     channels: DMXChannel[];
-    value: DMXFixturePresetSequence;
-    onChange: (next: DMXFixturePresetSequence) => void;
+    value: DMXFixtureCueSequence;
+    onChange: (next: DMXFixtureCueSequence) => void;
     busy?: boolean;
 };
 
@@ -44,7 +44,7 @@ function defaultValueFor(ch: DMXChannel): number {
     return 0;
 }
 
-function roleForChannel(seq: DMXFixturePresetSequence, key: string): ChannelRole {
+function roleForChannel(seq: DMXFixtureCueSequence, key: string): ChannelRole {
     const b = seq.channelBehaviors?.[key];
     if (b === "random") return "random";
     if (b === "exclude") return "exclude";
@@ -52,14 +52,14 @@ function roleForChannel(seq: DMXFixturePresetSequence, key: string): ChannelRole
     return "pose";
 }
 
-function newPresetId(): string {
-    return `preset-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+function newCueId(): string {
+    return `cue-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
 }
 
-export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEditorProps) {
+export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorProps) {
     const {channels, value, onChange, busy} = props;
 
-    const presets = value.presets ?? [];
+    const cues = value.cues ?? [];
     const stepMs = typeof value.stepMs === "number" && value.stepMs > 0 ? value.stepMs : 2000;
     const fadeMs = typeof value.fadeMs === "number" && value.fadeMs >= 0 ? value.fadeMs : 0;
 
@@ -69,7 +69,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
     );
 
     const patch = useCallback(
-        (next: Partial<DMXFixturePresetSequence>) => {
+        (next: Partial<DMXFixtureCueSequence>) => {
             onChange({...value, ...next});
         },
         [onChange, value],
@@ -78,12 +78,12 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
     const setRole = useCallback(
         (ch: DMXChannel, role: ChannelRole) => {
             const key = channelKey(ch);
-            const behaviors: Record<string, DMXPresetChannelBehavior> = {...(value.channelBehaviors ?? {})};
-            let nextPresets = value.presets ?? [];
+            const behaviors: Record<string, DMXCueChannelBehavior> = {...(value.channelBehaviors ?? {})};
+            let nextCues = value.cues ?? [];
             if (role === "pose") {
                 delete behaviors[key];
                 // Make sure every pose has a value for a channel that now replays it.
-                nextPresets = nextPresets.map((p) => {
+                nextCues = nextCues.map((p) => {
                     const values = {...(p.values ?? {})};
                     if (!(key in values)) values[key] = defaultValueFor(ch);
                     return {...p, values};
@@ -92,60 +92,60 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                 behaviors[key] = role;
             }
             patch({
-                presets: nextPresets,
+                cues: nextCues,
                 channelBehaviors: Object.keys(behaviors).length > 0 ? behaviors : undefined,
             });
         },
-        [patch, value.channelBehaviors, value.presets],
+        [patch, value.channelBehaviors, value.cues],
     );
 
-    const addPreset = useCallback(() => {
+    const addCue = useCallback(() => {
         const values: Record<string, number> = {};
         for (const ch of poseChannels) {
             values[channelKey(ch)] = defaultValueFor(ch);
         }
-        const next: DMXFixturePreset = {
-            id: newPresetId(),
-            label: `Pose ${presets.length + 1}`,
+        const next: DMXFixtureCue = {
+            id: newCueId(),
+            label: `Pose ${cues.length + 1}`,
             values,
         };
-        patch({presets: [...presets, next]});
-    }, [patch, poseChannels, presets]);
+        patch({cues: [...cues, next]});
+    }, [patch, poseChannels, cues]);
 
-    const removePreset = useCallback(
+    const removeCue = useCallback(
         (idx: number) => {
-            patch({presets: presets.filter((_, i) => i !== idx)});
+            patch({cues: cues.filter((_, i) => i !== idx)});
         },
-        [patch, presets],
+        [patch, cues],
     );
 
-    const movePreset = useCallback(
+    const moveCue = useCallback(
         (idx: number, dir: -1 | 1) => {
             const target = idx + dir;
-            if (target < 0 || target >= presets.length) return;
-            const next = [...presets];
+            if (target < 0 || target >= cues.length) return;
+            const next = [...cues];
             [next[idx], next[target]] = [next[target], next[idx]];
-            patch({presets: next});
+            patch({cues: next});
         },
-        [patch, presets],
+        [patch, cues],
     );
 
-    const setPresetLabel = useCallback(
+    const setCueLabel = useCallback(
         (idx: number, label: string) => {
-            patch({presets: presets.map((p, i) => (i === idx ? {...p, label} : p))});
+            patch({cues: cues.map((p, i) => (i === idx ? {...p, label} : p))});
         },
-        [patch, presets],
+        [patch, cues],
     );
 
-    const setPresetValue = useCallback(
+    const setCueValue = useCallback(
         (idx: number, key: string, v: number) => {
             patch({
-                presets: presets.map((p, i) =>
+                cues: cues.map((p, i) =>
                     i === idx ? {...p, values: {...(p.values ?? {}), [key]: clampByte(v)}} : p,
                 ),
             });
         },
-        [patch, presets],
+        [patch, cues],
     );
 
     const enabled = !!value.enabled;
@@ -158,7 +158,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                     disabled={busy}
                     onCheckedChange={(v) => patch({enabled: v === true})}
                 />
-                <span>Step this fixture through saved poses (preset chase)</span>
+                <span>Step this fixture through saved poses (cue chase)</span>
             </label>
             <p className="text-xs text-muted-foreground">
                 When enabled and the fixture is included in party mode, it cycles through the poses below instead of the
@@ -170,9 +170,9 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                 <>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
-                            <Label htmlFor="preset-step-ms">Time per pose (ms)</Label>
+                            <Label htmlFor="cue-step-ms">Time per pose (ms)</Label>
                             <Input
-                                id="preset-step-ms"
+                                id="cue-step-ms"
                                 type="number"
                                 min={100}
                                 max={600000}
@@ -185,9 +185,9 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="preset-fade-ms">Crossfade (ms)</Label>
+                            <Label htmlFor="cue-fade-ms">Crossfade (ms)</Label>
                             <Input
-                                id="preset-fade-ms"
+                                id="cue-fade-ms"
                                 type="number"
                                 min={0}
                                 max={Math.min(600000, stepMs)}
@@ -248,27 +248,27 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <p className="text-xs font-medium text-foreground">Poses ({presets.length})</p>
-                            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={addPreset}>
+                            <p className="text-xs font-medium text-foreground">Poses ({cues.length})</p>
+                            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={addCue}>
                                 <PiPlus className="size-4"/> Add pose
                             </Button>
                         </div>
 
-                        {presets.length === 0 ? (
+                        {cues.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
                                 No poses yet. Add a pose, then set its values for the channels marked “Pose”.
                             </p>
                         ) : null}
 
-                        {presets.map((preset, idx) => (
-                            <div key={preset.id} className="space-y-2 rounded-md border bg-background/50 p-2">
+                        {cues.map((cue, idx) => (
+                            <div key={cue.id} className="space-y-2 rounded-md border bg-background/50 p-2">
                                 <div className="flex items-center gap-2">
                                     <Input
                                         aria-label={`Pose ${idx + 1} label`}
-                                        value={preset.label ?? ""}
+                                        value={cue.label ?? ""}
                                         placeholder={`Pose ${idx + 1}`}
                                         disabled={busy}
-                                        onChange={(e) => setPresetLabel(idx, e.target.value)}
+                                        onChange={(e) => setCueLabel(idx, e.target.value)}
                                         className="h-8"
                                     />
                                     <Button
@@ -276,7 +276,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                         size="icon"
                                         variant="ghost"
                                         disabled={busy || idx === 0}
-                                        onClick={() => movePreset(idx, -1)}
+                                        onClick={() => moveCue(idx, -1)}
                                         aria-label="Move pose up"
                                     >
                                         <PiArrowUp className="size-4"/>
@@ -285,8 +285,8 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                         type="button"
                                         size="icon"
                                         variant="ghost"
-                                        disabled={busy || idx === presets.length - 1}
-                                        onClick={() => movePreset(idx, 1)}
+                                        disabled={busy || idx === cues.length - 1}
+                                        onClick={() => moveCue(idx, 1)}
                                         aria-label="Move pose down"
                                     >
                                         <PiArrowDown className="size-4"/>
@@ -296,7 +296,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                         size="icon"
                                         variant="ghost"
                                         disabled={busy}
-                                        onClick={() => removePreset(idx)}
+                                        onClick={() => removeCue(idx)}
                                         aria-label="Remove pose"
                                     >
                                         <PiTrash className="size-4"/>
@@ -311,10 +311,10 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                     <div className="grid gap-2">
                                         {poseChannels.map((ch) => {
                                             const key = channelKey(ch);
-                                            const v = clampByte(preset.values?.[key] ?? defaultValueFor(ch));
+                                            const v = clampByte(cue.values?.[key] ?? defaultValueFor(ch));
                                             return (
                                                 <label
-                                                    key={`${preset.id}-${key}`}
+                                                    key={`${cue.id}-${key}`}
                                                     className="flex flex-col gap-1 text-xs text-muted-foreground"
                                                 >
                                                     <span className="font-medium text-foreground">
@@ -327,7 +327,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                                             step={1}
                                                             value={[v]}
                                                             disabled={busy}
-                                                            onValueChange={([nv]) => setPresetValue(idx, key, nv ?? 0)}
+                                                            onValueChange={([nv]) => setCueValue(idx, key, nv ?? 0)}
                                                         />
                                                         <Input
                                                             type="number"
@@ -335,7 +335,7 @@ export function DMXFixturePresetSequenceEditor(props: DMXFixturePresetSequenceEd
                                                             max={255}
                                                             value={v}
                                                             disabled={busy}
-                                                            onChange={(e) => setPresetValue(idx, key, Number(e.target.value) || 0)}
+                                                            onChange={(e) => setCueValue(idx, key, Number(e.target.value) || 0)}
                                                             className="h-8 w-20"
                                                         />
                                                     </div>

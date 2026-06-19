@@ -17,41 +17,41 @@ import {Label} from "@/components/ui/label";
 import {Separator} from "@/components/ui/separator";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {cn} from "@/lib/utils";
-import type {DMXFixture, DMXFixturePreset, DMXFixturePresetSequence} from "@/types/controller.ts";
-import {fixtureSupportsMovingHeadShow, generateMovingHeadShow} from "@/lib/movingHeadPresetShow.ts";
+import type {DMXFixture, DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
+import {fixtureSupportsMovingHeadShow, generateMovingHeadShow} from "@/lib/movingHeadCueShow.ts";
 
-export type DMXFixturePresetManagerProps = {
+export type DMXFixtureCueManagerProps = {
     fixture: DMXFixture;
-    sequence: DMXFixturePresetSequence | undefined;
+    sequence: DMXFixtureCueSequence | undefined;
     /** Captures the current live channel values as fixture-relative offset → 0–255. */
     captureValues: () => Record<string, number>;
     /** Persists the updated sequence; returns true on success. */
-    onSave: (next: DMXFixturePresetSequence) => Promise<boolean>;
-    /** Recalls a preset into the live controls (sets the fixture to that static position). */
-    onApplyPreset?: (preset: DMXFixturePreset) => void;
-    /** Whether recalling a preset to live output is currently possible. */
+    onSave: (next: DMXFixtureCueSequence) => Promise<boolean>;
+    /** Recalls a cue into the live controls (sets the fixture to that static position). */
+    onApplyCue?: (cue: DMXFixtureCue) => void;
+    /** Whether recalling a cue to live output is currently possible. */
     canApply?: boolean;
-    /** ID of the preset most recently applied to live; used to highlight it. */
-    activePresetId?: string | null;
+    /** ID of the cue most recently applied to live; used to highlight it. */
+    activeCueId?: string | null;
     busy?: boolean;
 };
 
-function newPresetId(): string {
-    return `preset-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+function newCueId(): string {
+    return `cue-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
 }
 
 type DialogState =
     | {mode: "create"; name: string}
-    | {mode: "rename"; name: string; presetId: string}
+    | {mode: "rename"; name: string; cueId: string}
     | null;
 
-export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
-    const {fixture, sequence, captureValues, onSave, onApplyPreset, canApply, activePresetId, busy} = props;
+export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
+    const {fixture, sequence, captureValues, onSave, onApplyCue, canApply, activeCueId, busy} = props;
 
-    const presets = sequence?.presets ?? [];
+    const cues = sequence?.cues ?? [];
     const enabled = !!sequence?.enabled;
     const loop = sequence?.loop ?? true;
-    const idlePresetId = sequence?.idlePresetId ?? "";
+    const idleCueId = sequence?.idleCueId ?? "";
     const stepMs = typeof sequence?.stepMs === "number" && sequence.stepMs > 0 ? sequence.stepMs : 2000;
     const fadeMs = typeof sequence?.fadeMs === "number" && sequence.fadeMs >= 0 ? sequence.fadeMs : 0;
 
@@ -61,7 +61,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
     const disabled = !!busy || saving;
 
     const persist = useCallback(
-        async (next: DMXFixturePresetSequence) => {
+        async (next: DMXFixtureCueSequence) => {
             setSaving(true);
             try {
                 return await onSave(next);
@@ -73,80 +73,80 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
     );
 
     const baseSequence = useCallback(
-        (): DMXFixturePresetSequence => ({
+        (): DMXFixtureCueSequence => ({
             enabled,
             loop,
             stepMs,
             fadeMs,
-            presets,
-            ...(idlePresetId ? {idlePresetId} : {}),
+            cues,
+            ...(idleCueId ? {idleCueId} : {}),
             ...(sequence?.channelBehaviors ? {channelBehaviors: sequence.channelBehaviors} : {}),
         }),
-        [enabled, fadeMs, idlePresetId, loop, presets, sequence?.channelBehaviors, stepMs],
+        [enabled, fadeMs, idleCueId, loop, cues, sequence?.channelBehaviors, stepMs],
     );
 
     const confirmDialog = useCallback(async () => {
         if (!dialog) return;
         const label = dialog.name.trim();
         if (dialog.mode === "create") {
-            const preset: DMXFixturePreset = {
-                id: newPresetId(),
-                label: label || `Pose ${presets.length + 1}`,
+            const cue: DMXFixtureCue = {
+                id: newCueId(),
+                label: label || `Pose ${cues.length + 1}`,
                 values: captureValues(),
             };
             const next = baseSequence();
             // Turn the chase on automatically when the first pose is captured.
-            const ok = await persist({...next, enabled: presets.length === 0 ? true : next.enabled, presets: [...presets, preset]});
+            const ok = await persist({...next, enabled: cues.length === 0 ? true : next.enabled, cues: [...cues, cue]});
             if (ok) setDialog(null);
             return;
         }
         const next = baseSequence();
         const ok = await persist({
             ...next,
-            presets: presets.map((p) => (p.id === dialog.presetId ? {...p, label} : p)),
+            cues: cues.map((p) => (p.id === dialog.cueId ? {...p, label} : p)),
         });
         if (ok) setDialog(null);
-    }, [baseSequence, captureValues, dialog, persist, presets]);
+    }, [baseSequence, captureValues, dialog, persist, cues]);
 
     const updateFromLive = useCallback(
-        (presetId: string) => {
+        (cueId: string) => {
             const next = baseSequence();
             void persist({
                 ...next,
-                presets: presets.map((p) => (p.id === presetId ? {...p, values: captureValues()} : p)),
+                cues: cues.map((p) => (p.id === cueId ? {...p, values: captureValues()} : p)),
             });
         },
-        [baseSequence, captureValues, persist, presets],
+        [baseSequence, captureValues, persist, cues],
     );
 
-    const removePreset = useCallback(
-        (presetId: string) => {
+    const removeCue = useCallback(
+        (cueId: string) => {
             const next = baseSequence();
-            const remaining = presets.filter((p) => p.id !== presetId);
-            void persist({...next, presets: remaining, enabled: remaining.length === 0 ? false : next.enabled});
+            const remaining = cues.filter((p) => p.id !== cueId);
+            void persist({...next, cues: remaining, enabled: remaining.length === 0 ? false : next.enabled});
         },
-        [baseSequence, persist, presets],
+        [baseSequence, persist, cues],
     );
 
-    const movePreset = useCallback(
+    const moveCue = useCallback(
         (idx: number, dir: -1 | 1) => {
             const target = idx + dir;
-            if (target < 0 || target >= presets.length) return;
-            const reordered = [...presets];
+            if (target < 0 || target >= cues.length) return;
+            const reordered = [...cues];
             [reordered[idx], reordered[target]] = [reordered[target], reordered[idx]];
-            void persist({...baseSequence(), presets: reordered});
+            void persist({...baseSequence(), cues: reordered});
         },
-        [baseSequence, persist, presets],
+        [baseSequence, persist, cues],
     );
 
-    const setPresetTiming = useCallback(
-        (presetId: string, patch: {holdMs?: number; fadeMs?: number}) => {
+    const setCueTiming = useCallback(
+        (cueId: string, patch: {holdMs?: number; fadeMs?: number}) => {
             void persist({
                 ...baseSequence(),
-                presets: presets.map((p) => (p.id === presetId ? {...p, ...patch} : p)),
+                cues: cues.map((p) => (p.id === cueId ? {...p, ...patch} : p)),
             });
         },
-        [baseSequence, persist, presets],
+        [baseSequence, persist, cues],
     );
 
     const setEnabled = useCallback(
@@ -170,9 +170,9 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
         [baseSequence, persist],
     );
 
-    const setIdlePreset = useCallback(
+    const setIdleCue = useCallback(
         (id: string) => {
-            void persist({...baseSequence(), idlePresetId: id});
+            void persist({...baseSequence(), idleCueId: id});
         },
         [baseSequence, persist],
     );
@@ -186,12 +186,12 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
         void persist({
             ...next,
             enabled: true,
-            presets: [...presets, ...generated],
+            cues: [...cues, ...generated],
             // Seed sensible chase timing for a fresh sequence; keep the user's when appending.
-            stepMs: presets.length > 0 ? next.stepMs : 3000,
-            fadeMs: presets.length > 0 ? next.fadeMs : 800,
+            stepMs: cues.length > 0 ? next.stepMs : 3000,
+            fadeMs: cues.length > 0 ? next.fadeMs : 800,
         });
-    }, [baseSequence, fixture, persist, presets]);
+    }, [baseSequence, fixture, persist, cues]);
 
     const canGenerateShow = fixtureSupportsMovingHeadShow(fixture);
 
@@ -200,7 +200,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
             <CardContent className="space-y-3 py-4">
                 <div className="flex items-center justify-between gap-2">
                     <div>
-                        <p className="text-sm font-semibold">Show presets</p>
+                        <p className="text-sm font-semibold">Show cues</p>
                         <p className="text-xs text-muted-foreground">
                             Move the fixture above, then capture its current position as a pose.
                         </p>
@@ -224,12 +224,12 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             disabled={disabled}
                             onClick={() => setDialog({mode: "create", name: ""})}
                         >
-                            <PiFloppyDisk className="size-4"/> Save as preset
+                            <PiFloppyDisk className="size-4"/> Save as cue
                         </Button>
                     </div>
                 </div>
 
-                {presets.length > 0 ? (
+                {cues.length > 0 ? (
                     <>
                         <label className="flex items-center gap-2 text-sm">
                             <Checkbox
@@ -237,7 +237,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                 disabled={disabled}
                                 onCheckedChange={(v) => setEnabled(v === true)}
                             />
-                            <span>Play these presets in party mode (preset chase)</span>
+                            <span>Play these cues in party mode (cue chase)</span>
                         </label>
 
                         <label className="flex items-center gap-2 text-sm">
@@ -250,15 +250,15 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                         </label>
 
                         <div className="space-y-1">
-                            <Label htmlFor="preset-mgr-idle">Idle / startup position</Label>
+                            <Label htmlFor="cue-mgr-idle">Idle / startup position</Label>
                             <NativeSelect
-                                id="preset-mgr-idle"
-                                value={idlePresetId}
+                                id="cue-mgr-idle"
+                                value={idleCueId}
                                 disabled={disabled}
-                                onChange={(e) => setIdlePreset(e.target.value)}
+                                onChange={(e) => setIdleCue(e.target.value)}
                             >
                                 <NativeSelectOption value="">None (channel defaults)</NativeSelectOption>
-                                {presets.map((p, i) => (
+                                {cues.map((p, i) => (
                                     <NativeSelectOption key={p.id} value={p.id}>
                                         {p.label || `Pose ${i + 1}`}
                                     </NativeSelectOption>
@@ -272,9 +272,9 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1">
-                                <Label htmlFor="preset-mgr-step">Default time per pose (ms)</Label>
+                                <Label htmlFor="cue-mgr-step">Default time per pose (ms)</Label>
                                 <Input
-                                    id="preset-mgr-step"
+                                    id="cue-mgr-step"
                                     type="number"
                                     min={100}
                                     max={600000}
@@ -287,9 +287,9 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                 />
                             </div>
                             <div className="space-y-1">
-                                <Label htmlFor="preset-mgr-fade">Default crossfade (ms)</Label>
+                                <Label htmlFor="cue-mgr-fade">Default crossfade (ms)</Label>
                                 <Input
-                                    id="preset-mgr-fade"
+                                    id="cue-mgr-fade"
                                     type="number"
                                     min={0}
                                     max={Math.min(600000, stepMs)}
@@ -309,42 +309,42 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             Reorder with the arrows to set how poses play through the show. Set a pose's Hold/Fade to
                             vary its timing (0 = use the defaults above).
                         </p>
-                        {onApplyPreset && (
+                        {onApplyCue && (
                             <p className="text-xs text-muted-foreground">
-                                Shortcuts: press <kbd className="rounded border bg-muted px-1">1</kbd>–<kbd className="rounded border bg-muted px-1">9</kbd> / <kbd className="rounded border bg-muted px-1">0</kbd> to recall presets 1–10, or <kbd className="rounded border bg-muted px-1">Shift</kbd>+<kbd className="rounded border bg-muted px-1">↑</kbd>/<kbd className="rounded border bg-muted px-1">↓</kbd> to step.
+                                Shortcuts: press <kbd className="rounded border bg-muted px-1">1</kbd>–<kbd className="rounded border bg-muted px-1">9</kbd> / <kbd className="rounded border bg-muted px-1">0</kbd> to recall cues 1–10, or <kbd className="rounded border bg-muted px-1">Shift</kbd>+<kbd className="rounded border bg-muted px-1">↑</kbd>/<kbd className="rounded border bg-muted px-1">↓</kbd> to step.
                             </p>
                         )}
                         <ol className="space-y-1.5">
-                            {presets.map((preset, idx) => (
+                            {cues.map((cue, idx) => (
                                 <li
-                                    key={preset.id}
+                                    key={cue.id}
                                     className={cn(
                                         "flex flex-col gap-1.5 rounded-md border bg-background/50 px-2 py-1.5",
-                                        activePresetId === preset.id && "border-primary ring-1 ring-primary/40 bg-primary/5",
+                                        activeCueId === cue.id && "border-primary ring-1 ring-primary/40 bg-primary/5",
                                     )}
                                 >
                                     <div className="flex items-center gap-2">
                                     <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground">
                                         {idx + 1}
                                     </span>
-                                    {onApplyPreset && idx < 10 && (
+                                    {onApplyCue && idx < 10 && (
                                         <kbd
                                             className="hidden shrink-0 rounded border bg-muted px-1 text-[10px] font-semibold text-muted-foreground sm:inline-block"
-                                            title={`Press ${idx === 9 ? 0 : idx + 1} to recall this preset`}
+                                            title={`Press ${idx === 9 ? 0 : idx + 1} to recall this cue`}
                                         >
                                             {idx === 9 ? 0 : idx + 1}
                                         </kbd>
                                     )}
                                     <span className="min-w-0 flex-1 truncate text-sm">
-                                        {preset.label || `Pose ${idx + 1}`}
+                                        {cue.label || `Pose ${idx + 1}`}
                                     </span>
                                     <Button
                                         type="button"
                                         size="icon"
                                         variant="ghost"
                                         disabled={disabled || idx === 0}
-                                        onClick={() => movePreset(idx, -1)}
-                                        aria-label="Move preset up"
+                                        onClick={() => moveCue(idx, -1)}
+                                        aria-label="Move cue up"
                                     >
                                         <PiArrowUp className="size-4"/>
                                     </Button>
@@ -352,19 +352,19 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                         type="button"
                                         size="icon"
                                         variant="ghost"
-                                        disabled={disabled || idx === presets.length - 1}
-                                        onClick={() => movePreset(idx, 1)}
-                                        aria-label="Move preset down"
+                                        disabled={disabled || idx === cues.length - 1}
+                                        onClick={() => moveCue(idx, 1)}
+                                        aria-label="Move cue down"
                                     >
                                         <PiArrowDown className="size-4"/>
                                     </Button>
-                                    {onApplyPreset && (
+                                    {onApplyCue && (
                                         <Button
                                             type="button"
                                             size="sm"
                                             variant="secondary"
                                             disabled={disabled || !canApply}
-                                            onClick={() => onApplyPreset(preset)}
+                                            onClick={() => onApplyCue(cue)}
                                             title={
                                                 canApply
                                                     ? "Move the fixture to this position now"
@@ -379,8 +379,8 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                         size="sm"
                                         variant="outline"
                                         disabled={disabled}
-                                        onClick={() => updateFromLive(preset.id)}
-                                        title="Overwrite this preset with the current live position"
+                                        onClick={() => updateFromLive(cue.id)}
+                                        title="Overwrite this cue with the current live position"
                                     >
                                         Update from live
                                     </Button>
@@ -389,8 +389,8 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                         size="icon"
                                         variant="ghost"
                                         disabled={disabled}
-                                        onClick={() => setDialog({mode: "rename", name: preset.label ?? "", presetId: preset.id})}
-                                        aria-label="Rename preset"
+                                        onClick={() => setDialog({mode: "rename", name: cue.label ?? "", cueId: cue.id})}
+                                        aria-label="Rename cue"
                                     >
                                         <PiPencilSimple className="size-4"/>
                                     </Button>
@@ -399,8 +399,8 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                         size="icon"
                                         variant="ghost"
                                         disabled={disabled}
-                                        onClick={() => removePreset(preset.id)}
-                                        aria-label="Delete preset"
+                                        onClick={() => removeCue(cue.id)}
+                                        aria-label="Delete cue"
                                     >
                                         <PiTrash className="size-4"/>
                                     </Button>
@@ -413,10 +413,10 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                                 min={0}
                                                 max={600000}
                                                 step={100}
-                                                value={preset.holdMs ?? 0}
+                                                value={cue.holdMs ?? 0}
                                                 disabled={disabled}
                                                 onChange={(e) =>
-                                                    setPresetTiming(preset.id, {
+                                                    setCueTiming(cue.id, {
                                                         holdMs: Math.max(0, Math.min(600000, Math.round(Number(e.target.value) || 0))),
                                                     })
                                                 }
@@ -431,10 +431,10 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                                                 min={0}
                                                 max={600000}
                                                 step={50}
-                                                value={preset.fadeMs ?? 0}
+                                                value={cue.fadeMs ?? 0}
                                                 disabled={disabled}
                                                 onChange={(e) =>
-                                                    setPresetTiming(preset.id, {
+                                                    setCueTiming(cue.id, {
                                                         fadeMs: Math.max(0, Math.min(600000, Math.round(Number(e.target.value) || 0))),
                                                     })
                                                 }
@@ -450,7 +450,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                     </>
                 ) : (
                     <p className="text-xs text-muted-foreground">
-                        No presets yet. Position the fixture, then “Save as preset” to capture it.
+                        No cues yet. Position the fixture, then “Save as cue” to capture it.
                     </p>
                 )}
             </CardContent>
@@ -458,20 +458,20 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
             <Dialog open={dialog !== null} onOpenChange={(open) => (!open ? setDialog(null) : undefined)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{dialog?.mode === "rename" ? "Rename preset" : "Save preset"}</DialogTitle>
+                        <DialogTitle>{dialog?.mode === "rename" ? "Rename cue" : "Save cue"}</DialogTitle>
                         <DialogDescription>
                             {dialog?.mode === "rename"
-                                ? "Give this preset a new name."
-                                : "Capture the fixture's current position as a named preset."}
+                                ? "Give this cue a new name."
+                                : "Capture the fixture's current position as a named cue."}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
-                        <Label htmlFor="preset-name">Preset name</Label>
+                        <Label htmlFor="cue-name">Cue name</Label>
                         <Input
-                            id="preset-name"
+                            id="cue-name"
                             autoFocus
                             value={dialog?.name ?? ""}
-                            placeholder={`Pose ${presets.length + 1}`}
+                            placeholder={`Pose ${cues.length + 1}`}
                             disabled={saving}
                             onChange={(e) => setDialog((d) => (d ? {...d, name: e.target.value} : d))}
                             onKeyDown={(e) => {
@@ -487,7 +487,7 @@ export function DMXFixturePresetManager(props: DMXFixturePresetManagerProps) {
                             Cancel
                         </Button>
                         <Button type="button" disabled={saving} onClick={() => void confirmDialog()}>
-                            {dialog?.mode === "rename" ? "Save name" : "Save preset"}
+                            {dialog?.mode === "rename" ? "Save name" : "Save cue"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

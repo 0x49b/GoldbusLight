@@ -198,7 +198,7 @@ export type DMXChannelType =
     | "custom";
 
 /** A single saved pose: channel values keyed by fixture-relative channel offset (string key). */
-export type DMXFixturePreset = {
+export type DMXFixtureCue = {
     id: string;
     label?: string;
     /** Fixture-relative channel offset (string key) → DMX value 0–255. */
@@ -209,15 +209,15 @@ export type DMXFixturePreset = {
     fadeMs?: number;
 };
 
-/** Behavior for a fixture channel that is not pinned by a preset pose. */
-export type DMXPresetChannelBehavior = "random" | "exclude";
+/** Behavior for a fixture channel that is not pinned by a cue pose. */
+export type DMXCueChannelBehavior = "random" | "exclude";
 
 /** Steps a fixture through an ordered list of poses during party mode. */
-export type DMXFixturePresetSequence = {
-    /** Turns on preset-sequence mode for this fixture (overrides the generative algorithm). */
+export type DMXFixtureCueSequence = {
+    /** Turns on cue-sequence mode for this fixture (overrides the generative algorithm). */
     enabled?: boolean;
     /** Ordered poses to step through. */
-    presets?: DMXFixturePreset[];
+    cues?: DMXFixtureCue[];
     /** How long each pose is held before advancing (milliseconds). */
     stepMs?: number;
     /** Crossfade time into each pose (milliseconds). 0 = snap instantly. */
@@ -225,12 +225,12 @@ export type DMXFixturePresetSequence = {
     /** When true, restart from the first pose after the last; when false, hold the final pose. */
     loop?: boolean;
     /** Pose applied as the fixture's static "idle" position when live output starts (empty = none). */
-    idlePresetId?: string;
+    idleCueId?: string;
     /**
      * Fixture-relative channel offset (string key) → behavior for channels not pinned by a pose.
      * Channels absent from this map default to "exclude" (left untouched by the sequence).
      */
-    channelBehaviors?: Record<string, DMXPresetChannelBehavior>;
+    channelBehaviors?: Record<string, DMXCueChannelBehavior>;
 };
 
 export type DMXFixtureParty = {
@@ -239,8 +239,8 @@ export type DMXFixtureParty = {
     strobeEnabled?: boolean;
     strobeOnMs?: number;
     strobeOffMs?: number;
-    /** Preset-sequence (pose chase) configuration for this fixture. */
-    presetSequence?: DMXFixturePresetSequence;
+    /** Cue-sequence (pose chase) configuration for this fixture. */
+    cueSequence?: DMXFixtureCueSequence;
 };
 
 export type DMXFixture = {
