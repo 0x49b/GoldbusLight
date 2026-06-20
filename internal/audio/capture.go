@@ -51,12 +51,13 @@ func (c *Capture) featureLoop() {
 				return
 			}
 			samples := append([]int16(nil), c.sampleBuf...)
+			c.sampleBuf = c.sampleBuf[:0]
 			handler := c.onFeatures
 			deviceID := c.deviceID
 			c.mu.Unlock()
 
 			features := ExtractPartyFeatures(samples)
-			features.BPM = clampBPM(c.bpmTracker.Update(features.Bass, now))
+			features.BPM = clampBPM(c.bpmTracker.Update(features.Beat, now))
 			if features.Level > 0.01 {
 				c.mu.Lock()
 				c.lastLevelAt = now

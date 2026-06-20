@@ -666,13 +666,17 @@ func partyValueForFixtureChannel(
 		}
 		return 0, false
 	case "pan", "infinitepan":
-		return int(partySweepPosition16(motionPhase, false, sweepRange) >> 8), true
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, sweepRange)
+		return int(pos >> 8), true
 	case "panfine":
-		return int(partySweepPosition16(motionPhase, false, sweepRange) & 0xFF), true
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, sweepRange)
+		return int(pos & 0xFF), true
 	case "tilt", "infinitetilt":
-		return int(partySweepPosition16(motionPhase, true, sweepRange) >> 8), true
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, sweepRange)
+		return int(pos >> 8), true
 	case "tiltfine":
-		return int(partySweepPosition16(motionPhase, true, sweepRange) & 0xFF), true
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, sweepRange)
+		return int(pos & 0xFF), true
 	case "movementspeed":
 		return partyMovementSpeedByte(state.Config), true
 	case "colorcomponent":

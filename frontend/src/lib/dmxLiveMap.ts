@@ -146,11 +146,34 @@ export function parseFixtureEntries(props: JSONMap | undefined): FixtureEntryRow
     return out;
 }
 
+export function readChannelInvert(props: JSONMap | undefined): boolean {
+    return props?.invert === true;
+}
+
+export function linearT01(props: JSONMap | undefined, t01: number): number {
+    const t = clamp(t01, 0, 1);
+    return readChannelInvert(props) ? 1 - t : t;
+}
+
 export function linearByte(props: JSONMap | undefined, t01: number): number {
     const min = typeof props?.min === "number" ? props.min : 0;
     const max = typeof props?.max === "number" ? props.max : 255;
-    const t = clamp(t01, 0, 1);
+    const t = linearT01(props, t01);
     return clamp255(min + t * (max - min));
+}
+
+export function byteToLinear01(value: number, props: JSONMap | undefined): number {
+    const min = typeof props?.min === "number" ? props.min : 0;
+    const max = typeof props?.max === "number" ? props.max : 255;
+    const v = Math.max(0, Math.min(255, value));
+    if (max === min) {
+        return 0.5;
+    }
+    let t = clamp((v - min) / (max - min), 0, 1);
+    if (readChannelInvert(props)) {
+        t = 1 - t;
+    }
+    return t;
 }
 
 export function slotMid(entries: FixtureEntryRow[], idx: number): number {
@@ -229,10 +252,7 @@ export function entryStateForChannelByte(ch: DMXChannel, targetByte: number | un
         return base;
     }
     if (widget === "slider" || entries.length === 0) {
-        const min = typeof props?.min === "number" ? props.min : 0;
-        const max = typeof props?.max === "number" ? props.max : 255;
-        const span = max - min;
-        base.linear01 = span === 0 ? 0 : clamp((defaultByte - min) / span, 0, 1);
+        base.linear01 = byteToLinear01(defaultByte, props);
         return base;
     }
     if (widget === "buttonSlider") {
@@ -586,15 +606,31 @@ export function buildDmxLivePatch(fixture: DMXFixture, s: DMXLiveControlState): 
     return out;
 }
 
+export function channelEffectiveLinear01(
+    state: DMXLiveControlState,
+    ch: DMXChannel,
+    fallback = 0.5,
+): number {
+    const st = state.entryChannels[ch.channel];
+    if (!st) {
+        return fallback;
+    }
+    const widget = resolveLiveWidget(ch);
+    if (widget === "hidden") {
+        return fallback;
+    }
+    return byteToLinear01(channelOutputByte(ch, st, widget), ch.properties as JSONMap | undefined);
+}
+
 /** Legacy accessors for preview drive */
 export function legacyPan01(fixture: DMXFixture, s: DMXLiveControlState): number {
     const ch = fixture.channels.find((c) => c.type === "pan" || c.type === "infinitePan");
-    return ch ? getChannelLinear01(s, ch) : 0.5;
+    return ch ? channelEffectiveLinear01(s, ch) : 0.5;
 }
 
 export function legacyTilt01(fixture: DMXFixture, s: DMXLiveControlState): number {
     const ch = fixture.channels.find((c) => c.type === "tilt" || c.type === "infiniteTilt");
-    return ch ? getChannelLinear01(s, ch) : 0.5;
+    return ch ? channelEffectiveLinear01(s, ch) : 0.5;
 }
 
 export function legacyDimmer01(fixture: DMXFixture, s: DMXLiveControlState): number {

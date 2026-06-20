@@ -163,6 +163,22 @@ func clampFloat(n, lo, hi float64) float64 {
 	return n
 }
 
+func channelInvert(props map[string]any) bool {
+	if props == nil {
+		return false
+	}
+	v, ok := props["invert"].(bool)
+	return ok && v
+}
+
+func liveInitLinearT01(props map[string]any, t01 float64) float64 {
+	t := clampFloat(t01, 0, 1)
+	if channelInvert(props) {
+		return 1 - t
+	}
+	return t
+}
+
 func liveInitLinearByte(props map[string]any, t01 float64) int {
 	min := 0.0
 	max := 255.0
@@ -174,7 +190,7 @@ func liveInitLinearByte(props map[string]any, t01 float64) int {
 			max = float64(v)
 		}
 	}
-	t := clampFloat(t01, 0, 1)
+	t := liveInitLinearT01(props, t01)
 	return clampDMXByte(int(math.Round(min + t*(max-min))))
 }
 

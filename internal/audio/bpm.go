@@ -6,29 +6,32 @@ import (
 	"time"
 )
 
-// BPMTracker estimates tempo from bass-band transients (works with the existing FFT path).
+// BPMTracker estimates tempo from beat/onset transients (same signal as the Beat meter).
 type BPMTracker struct {
-	prevBass   float64
+	prevSignal float64
 	lastOnset  time.Time
 	intervalsS []float64
 	lastBPM    float64
 }
 
 const (
-	bpmMin        = 55.0
-	bpmMax        = 200.0
-	bpmGapMin     = 60.0 / bpmMax
-	bpmGapMax     = 60.0 / bpmMin
-	bpmDebounce   = 140 * time.Millisecond
-	bpmRingMax    = 24
-	bpmMinSamples = 6
+	bpmMin          = 55.0
+	bpmMax          = 200.0
+	bpmGapMin       = 60.0 / bpmMax
+	bpmGapMax       = 60.0 / bpmMin
+	bpmDebounce     = 140 * time.Millisecond
+	bpmRingMax      = 24
+	bpmMinSamples   = 6
+	bpmOnsetFloor   = 0.03
+	bpmOnsetDelta   = 0.012
+	bpmOnsetDeltaHi = 0.035
 )
 
 // Update should be called at roughly the same cadence as feature extraction (~80ms).
-func (t *BPMTracker) Update(bass float64, at time.Time) float64 {
-	delta := bass - t.prevBass
-	t.prevBass = bass
-	if bass < 0.08 || delta < 0.045 {
+func (t *BPMTracker) Update(signal float64, at time.Time) float64 {
+	delta := signal - t.prevSignal
+	t.prevSignal = signal
+	if signal < bpmOnsetFloor || !bpmOnsetDetected(signal, delta) {
 		return t.lastBPM
 	}
 	if !t.lastOnset.IsZero() && at.Sub(t.lastOnset) < bpmDebounce {
@@ -69,9 +72,20 @@ func (t *BPMTracker) Update(bass float64, at time.Time) float64 {
 	return t.lastBPM
 }
 
+func bpmOnsetDetected(signal, delta float64) bool {
+	if delta >= bpmOnsetDeltaHi {
+		return true
+	}
+	if delta < bpmOnsetDelta {
+		return false
+	}
+	// Accept smaller rises once the beat envelope is already up.
+	return signal >= 0.08
+}
+
 // Reset clears transient history (call when capture restarts).
 func (t *BPMTracker) Reset() {
-	t.prevBass = 0
+	t.prevSignal = 0
 	t.lastOnset = time.Time{}
 	t.intervalsS = nil
 	t.lastBPM = 0

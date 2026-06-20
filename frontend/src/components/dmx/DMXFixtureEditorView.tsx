@@ -36,11 +36,13 @@ import {
 import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
 import {
     effectiveEntryLiveSlotKind,
+    isInvertiblePanTiltChannel,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     resolveLiveWidget,
     type LiveSlotKind,
 } from "@/lib/dmxLiveWidget.ts";
+import {readChannelInvert} from "@/lib/dmxLiveMap";
 import {LiveControlEditorField} from "./LiveControlEditorField";
 import {isFixtureInParty} from "@/lib/partyTargets";
 import {cn} from "@/lib/utils";
@@ -79,6 +81,7 @@ import {
     isColorWheelScrollSlot,
 } from "@/lib/colorWheelSlot";
 import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
+import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixtureCueSequenceEditor} from "./DMXFixtureCueSequenceEditor";
 
@@ -1023,6 +1026,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
         const created = await props.onCreate(input);
         if (created) {
+            await copyFixtureLiveLayoutDocument(props.fixture.id, created.id);
             props.onOpenFixture(created.id);
         }
     };
@@ -1559,6 +1563,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 updateChannelAt(originalIdx, {properties: nextProps})
                                             }
                                         />
+
+                                        {isInvertiblePanTiltChannel(ch) && !slotMode ? (
+                                            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+                                                <Checkbox
+                                                    checked={readChannelInvert(propsMap)}
+                                                    onCheckedChange={(checked) => {
+                                                        const nextProps = {...propsMap};
+                                                        if (checked === true) {
+                                                            nextProps.invert = true;
+                                                        } else {
+                                                            delete nextProps.invert;
+                                                        }
+                                                        updateChannelAt(originalIdx, {properties: nextProps});
+                                                    }}
+                                                    disabled={props.busy}
+                                                />
+                                                <span>Invert axis</span>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    (reverses DMX direction for this channel)
+                                                </span>
+                                            </label>
+                                        ) : null}
 
                                         {ch.type === "custom" && (
                                             <div className="mt-2 max-w-md space-y-2">

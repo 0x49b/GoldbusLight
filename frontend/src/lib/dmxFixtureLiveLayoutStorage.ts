@@ -84,3 +84,12 @@ export async function saveFixtureLiveLayoutDocument(fixtureId: string, doc: Live
     st.layouts[fixtureId] = json;
     writeLocalStore(st);
 }
+
+export async function copyFixtureLiveLayoutDocument(sourceFixtureId: string, targetFixtureId: string): Promise<boolean> {
+    const doc = await loadFixtureLiveLayoutDocument(sourceFixtureId);
+    if (!doc) {
+        return false;
+    }
+    await saveFixtureLiveLayoutDocument(targetFixtureId, doc);
+    return true;
+}

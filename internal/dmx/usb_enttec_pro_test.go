@@ -27,7 +27,15 @@ func TestUsesEnttecProProtocol(t *testing.T) {
 		desc, name, path string
 		want             bool
 	}{
+		// Linux: /dev/serial/by-id name in Description (typical working setup).
+		{"usb-Enttec_DMX_USB_Pro_EN123456-if00", "ttyACM0", "/dev/ttyACM0", true},
 		{"usb-Eurolite_Eurolite_DMX512_Pro-if00", "ttyACM1", "/dev/ttyACM1", true},
+		// Linux: bare ttyACM when by-id is unavailable (CDC ACM Pro fallback).
+		{"", "ttyACM0", "/dev/ttyACM0", true},
+		// macOS: bare usbmodem when IOKit/by-id has no vendor string.
+		{"", "cu.usbmodem1101", "/dev/cu.usbmodem1101", true},
+		{"", "tty.usbmodem1101", "/dev/tty.usbmodem1101", true},
+		// FTDI Open DMX and generic serial: raw 513-byte stream.
 		{"", "Enttec DMX USB Pro", "/dev/ttyUSB0", true},
 		{"", "ttyUSB0", "/dev/ttyUSB0", false},
 	}

@@ -31,5 +31,11 @@ func UsesEnttecProProtocol(description, name, path string) bool {
 	if strings.Contains(hay, "dmx512") && strings.Contains(hay, "pro") {
 		return true
 	}
+	// CDC ACM Pro adapters often have no vendor string in the OS listing:
+	// Linux /dev/ttyACM* (by-id usually adds enttec/eurolite above, but not always),
+	// macOS /dev/cu.usbmodem* or /dev/tty.usbmodem*.
+	if strings.Contains(hay, "ttyacm") || strings.Contains(hay, "usbmodem") {
+		return true
+	}
 	return false
 }

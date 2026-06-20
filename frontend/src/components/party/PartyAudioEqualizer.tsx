@@ -58,7 +58,7 @@ export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps
                         BPM
                     </span>
                 </div>
-                <span className="text-[10px] text-center text-muted-foreground">from bass onsets</span>
+                <span className="text-[10px] text-center text-muted-foreground">from beat hits</span>
             </div>
         </div>
     );

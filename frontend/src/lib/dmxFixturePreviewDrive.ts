@@ -1,6 +1,7 @@
 import type {DMXChannelType, DMXFixture, JSONMap} from "../types/controller";
 import {isColorWheelScrollSlot} from "./colorWheelSlot";
 import {
+    byteToLinear01,
     legacyColorWheelIdx,
     legacyDimmer01,
     legacyFocus01,
@@ -39,13 +40,7 @@ function universeValue(universe: number[] | undefined, addr: number): number | u
 }
 
 export function byteTo01(value: number, props: JSONMap | undefined): number {
-    const min = typeof props?.min === "number" ? props.min : 0;
-    const max = typeof props?.max === "number" ? props.max : 255;
-    const v = Math.max(0, Math.min(255, value));
-    if (max === min) {
-        return 0.5;
-    }
-    return Math.max(0, Math.min(1, (v - min) / (max - min)));
+    return byteToLinear01(value, props);
 }
 
 export type FixturePreviewDrive = {

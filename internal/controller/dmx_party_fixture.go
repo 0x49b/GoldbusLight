@@ -157,6 +157,27 @@ func partySweepRange(cfg DMXPartyConfig) float64 {
 	return float64(r) / 100.0
 }
 
+// partyPanTiltInvertProps returns the channel properties that govern axis inversion.
+// Fine pan/tilt channels inherit invert from their coarse partner.
+func partyPanTiltInvertProps(fixture DMXFixture, ch DMXChannel) map[string]any {
+	norm := strings.ToLower(strings.TrimSpace(ch.Type))
+	if norm == "panfine" || norm == "tiltfine" {
+		if coarse := findCoarseForFine(fixture, &ch); coarse != nil {
+			return coarse.Properties
+		}
+	}
+	return ch.Properties
+}
+
+// partyPanTiltPos16 computes a 16-bit pan/tilt position, honouring per-channel invert.
+func partyPanTiltPos16(fixture DMXFixture, ch DMXChannel, motionPhase float64, tilt bool, sweepRange float64) uint16 {
+	pos := partySweepPosition16(motionPhase, tilt, sweepRange)
+	if channelInvert(partyPanTiltInvertProps(fixture, ch)) {
+		return 65535 - pos
+	}
+	return pos
+}
+
 // partySweepPosition16 computes a smooth 16-bit pan/tilt position (0..65535) for one axis,
 // centred at mid-scale and sweeping symmetrically by sweepRange (0..1). Pan and tilt use
 // slightly different frequencies so the head traces a smooth figure instead of moving in a

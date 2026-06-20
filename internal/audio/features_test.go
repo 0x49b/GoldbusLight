@@ -24,6 +24,18 @@ func TestExtractPartyFeaturesTone(t *testing.T) {
 	}
 }
 
+func TestExtractPartyFeaturesUsesRecentSamples(t *testing.T) {
+	samples := make([]int16, 4096)
+	for i := 4096 - featureFFTSize; i < 4096; i++ {
+		samples[i] = int16(16000 * math.Sin(2*math.Pi*60*float64(i)/44100))
+	}
+	got := ExtractPartyFeatures(samples)
+	empty := ExtractPartyFeatures(make([]int16, 4096))
+	if got.Bass <= empty.Bass {
+		t.Fatalf("expected bass from recent tone, got %v vs empty %v", got.Bass, empty.Bass)
+	}
+}
+
 func TestIsLoopbackDeviceName(t *testing.T) {
 	if !isLoopbackDeviceName("BlackHole 2ch") {
 		t.Fatalf("expected BlackHole to match loopback")

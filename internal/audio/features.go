@@ -82,10 +82,15 @@ func ExtractPartyFeatures(samples []int16) PartyFeatures {
 
 func magnitudeSpectrum(samples []int16) []float64 {
 	windowed := make([]float64, featureFFTSize)
-	n := min(len(samples), featureFFTSize)
+	start := len(samples) - featureFFTSize
+	if start < 0 {
+		start = 0
+	}
+	segment := samples[start:]
+	n := len(segment)
 	for i := 0; i < n; i++ {
 		hann := 0.5 * (1 - math.Cos(2*math.Pi*float64(i)/float64(max(1, n-1))))
-		windowed[i] = (float64(samples[i]) / 32768.0) * hann
+		windowed[i] = (float64(segment[i]) / 32768.0) * hann
 	}
 
 	real := make([]float64, featureFFTSize)

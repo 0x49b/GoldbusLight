@@ -215,6 +215,10 @@ export const LIVE_SLIDER_LABEL_OPTIONS: { value: LiveSliderLabelMode; label: str
 ];
 
 export function isDegreeSliderChannel(ch: DMXChannel): boolean {
+    return isInvertiblePanTiltChannel(ch);
+}
+
+export function isInvertiblePanTiltChannel(ch: DMXChannel): boolean {
     return (
         ch.type === "pan" ||
         ch.type === "tilt" ||
