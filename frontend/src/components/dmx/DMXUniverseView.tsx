@@ -9,6 +9,7 @@ import {
     splitRangeIntoSegments,
     universeRange,
 } from "@/lib/dmxUniverseGrid";
+import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlave";
 import { cn } from "@/lib/utils";
 import type { DMXFixture, DetailRoute, JSONMap, USBSerialDevice } from "@/types/controller.ts";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
@@ -581,6 +582,8 @@ export function DMXUniverseView({
                         }
                         const conflict = fixtureHasConflict(fx, occupancy);
                         const segments = splitRangeIntoSegments(range.start, range.end);
+                        const slaveFixture = isFixtureSlave(fx);
+                        const masterFixture = slaveFixture ? resolveFixtureMaster(fx, fixtures) : undefined;
                         return segments.map((seg, segIdx) => {
                             const segStartCh = seg.row * DMX_UNIVERSE_GRID_COLS + seg.colStart + 1;
                             const showFixtureBase = segIdx === 0;
@@ -592,10 +595,12 @@ export function DMXUniverseView({
                                     draggable={!dropBusy}
                                     className={cn(
                                         "z-10 flex min-h-8 items-center justify-between gap-2 rounded-md border px-1.5 py-1 text-left shadow-sm transition-colors sm:min-h-9",
-                                        "bg-primary/10 border-primary/30 hover:bg-primary/15",
+                                        slaveFixture
+                                            ? "border-muted-foreground/30 bg-muted/30 hover:bg-muted/40"
+                                            : "bg-primary/10 border-primary/30 hover:bg-primary/15",
                                         "cursor-grab active:cursor-grabbing",
                                         conflict && "border-destructive ring-1 ring-destructive/40",
-                                        fixtureLive && "border-emerald-500/70 bg-emerald-500/15",
+                                        fixtureLive && !slaveFixture && "border-emerald-500/70 bg-emerald-500/15",
                                         draggingFixtureId === fx.id && "opacity-40",
                                         draggingFixtureId && segmentOverlapsDropTargetRange(segStartCh, seg.span, dropPreviewRange) && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
                                     )}
@@ -640,7 +645,11 @@ export function DMXUniverseView({
                                         }
                                         setRoute({kind: "dmxFixture", id: fx.id});
                                     }}
-                                    title={`Open ${fx.name}`}
+                                    title={
+                                        slaveFixture
+                                            ? `Slave of ${masterFixture?.name ?? "master"} — open ${fx.name}`
+                                            : `Open ${fx.name}`
+                                    }
                                 >
                                     <span
                                         className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-primary/90 sm:text-xs">
@@ -653,17 +662,25 @@ export function DMXUniverseView({
                                         <span
                                             className={cn(
                                                 "inline-flex shrink-0 items-center gap-1 text-[10px]",
-                                                fixtureLive ? "text-emerald-600" : "text-muted-foreground",
+                                                slaveFixture
+                                                    ? "text-muted-foreground"
+                                                    : fixtureLive
+                                                    ? "text-emerald-600"
+                                                    : "text-muted-foreground",
                                             )}
                                         >
                       <span
                           className={cn(
                               "size-2 rounded-full",
-                              fixtureLive ? "bg-emerald-500" : "bg-muted-foreground/50",
+                              slaveFixture
+                                  ? "bg-muted-foreground/50"
+                                  : fixtureLive
+                                  ? "bg-emerald-500"
+                                  : "bg-muted-foreground/50",
                           )}
                           aria-hidden
                       />
-                                            {fixtureLive ? "Live" : "Idle"}
+                                            {slaveFixture ? "Slave" : fixtureLive ? "Live" : "Idle"}
                                             {conflict && (
                                                 <PiWarningCircle className="size-3 shrink-0 text-destructive" aria-hidden/>
                                             )}

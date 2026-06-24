@@ -16,6 +16,7 @@ import {
     pickUSBMicDevice
 } from "@/lib/dmxPartyAudio";
 import {PartyAudioEqualizer} from "@/components/party/PartyAudioEqualizer";
+import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave";
 
 type PartyModeViewProps = {
     fixtures: DMXFixture[];
@@ -104,16 +105,18 @@ export function PartyModeView({
     const config = party.config;
     const running = party.status.running;
     const mode = config.mode || "auto";
+    const partyFixtures = useMemo(() => partySelectableFixtures(fixtures), [fixtures]);
     const selectedFixtureIDs = new Set(config.fixtureIds ?? []);
     const selectedWledIDs = new Set(config.wledDeviceIds ?? []);
-    const allFixturesSelected = fixtures.length > 0 && fixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
+    const allFixturesSelected =
+        partyFixtures.length > 0 && partyFixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
     const allWledSelected = wledDevices.length > 0 && wledDevices.every((device) => selectedWledIDs.has(device.id));
     const hasTargets = selectedFixtureIDs.size > 0 || selectedWledIDs.size > 0;
 
-    const hasSmokeFixtures = fixtures.some(isAtmosphereFixture);
+    const hasSmokeFixtures = partyFixtures.some(isAtmosphereFixture);
     const atmosphereFixtures = useMemo(
-        () => fixtures.filter(isAtmosphereFixture),
-        [fixtures],
+        () => partyFixtures.filter(isAtmosphereFixture),
+        [partyFixtures],
     );
     const selectedSmokeCount = atmosphereFixtures.filter((fixture) =>
         selectedFixtureIDs.has(fixture.id),
@@ -522,14 +525,14 @@ export function PartyModeView({
                             type="button"
                             size="sm"
                             variant="ghost"
-                            disabled={busy || fixtures.length === 0}
-                            onClick={() => void onUpdateConfig({fixtureIds: allFixturesSelected ? [] : fixtures.map((f) => f.id)})}
+                            disabled={busy || partyFixtures.length === 0}
+                            onClick={() => void onUpdateConfig({fixtureIds: allFixturesSelected ? [] : partyFixtures.map((f) => f.id)})}
                         >
                             {allFixturesSelected ? "Clear selection" : "Select all"}
                         </Button>
                     </div>
                     <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
-                        {fixtures.map((fixture) => (
+                        {partyFixtures.map((fixture) => (
                             <label key={fixture.id}
                                    className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
                                 <input
@@ -541,7 +544,7 @@ export function PartyModeView({
                                 <span className="truncate">{fixture.name}</span>
                             </label>
                         ))}
-                        {fixtures.length === 0 && (
+                        {partyFixtures.length === 0 && (
                             <p className="text-xs text-muted-foreground">No DMX fixtures
                                 available.</p>
                         )}

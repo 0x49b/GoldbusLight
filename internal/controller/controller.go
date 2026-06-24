@@ -226,11 +226,13 @@ type DMXFixture struct {
 	Brand      string           `json:"brand"`
 	Name       string           `json:"name"`
 	DMXAddress int              `json:"dmxAddress"`
-	MovingHead MovingHeadConfig `json:"movingHead"`
-	Party      DMXFixtureParty  `json:"party,omitempty"`
-	Channels   []DMXChannel     `json:"channels"`
-	CreatedAt  time.Time        `json:"createdAt"`
-	UpdatedAt  time.Time        `json:"updatedAt"`
+	// MasterFixtureID links this fixture as a slave that mirrors the master's DMX output.
+	MasterFixtureID string           `json:"masterFixtureId,omitempty"`
+	MovingHead      MovingHeadConfig `json:"movingHead"`
+	Party           DMXFixtureParty  `json:"party,omitempty"`
+	Channels        []DMXChannel     `json:"channels"`
+	CreatedAt       time.Time        `json:"createdAt"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
 }
 
 type DMXState struct {
@@ -250,10 +252,12 @@ type UpsertDMXFixtureInput struct {
 	Brand      string         `json:"brand"`
 	Name       string         `json:"name"`
 	DMXAddress int            `json:"dmxAddress"`
-	MaxPan     int            `json:"maxPan"`
-	MaxTilt    int            `json:"maxTilt"`
-	Party      DMXFixtureParty `json:"party,omitempty"`
-	Channels   []DMXChannel   `json:"channels"`
+	// MasterFixtureID links this fixture as a slave that mirrors the master's DMX output.
+	MasterFixtureID string          `json:"masterFixtureId,omitempty"`
+	MaxPan          int             `json:"maxPan"`
+	MaxTilt         int             `json:"maxTilt"`
+	Party           DMXFixtureParty `json:"party,omitempty"`
+	Channels        []DMXChannel    `json:"channels"`
 }
 
 type ControllerCapabilities struct {
@@ -1336,7 +1340,7 @@ func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 	if !c.dmxEnabled() {
 		return DMXFixture{}, fmt.Errorf("dmx component is disabled in settings")
 	}
-	fixture, err := buildDMXFixtureForCreate(input)
+	fixture, err := buildDMXFixtureForCreate(input, c.dmxState.Fixtures)
 	if err != nil {
 		return DMXFixture{}, err
 	}
@@ -1372,7 +1376,7 @@ func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 		c.mu.Unlock()
 		return DMXFixture{}, fmt.Errorf("unknown fixture: %s", id)
 	}
-	updated, err := buildDMXFixtureForUpdate(c.dmxState.Fixtures[idx], input)
+	updated, err := buildDMXFixtureForUpdate(c.dmxState.Fixtures[idx], input, c.dmxState.Fixtures)
 	if err != nil {
 		c.mu.Unlock()
 		return DMXFixture{}, err
@@ -2220,6 +2224,10 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 	if !c.dmxEnabled() {
 		return fmt.Errorf("dmx component is disabled in settings")
 	}
+	c.mu.Lock()
+	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
+	c.mu.Unlock()
+	updates = expandDMXUpdatesToSlaves(fixtures, updates, nil)
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
 	if !c.dmxLiveRunning || (c.dmxLiveUSBFrames == nil && c.dmxLiveArtFrames == nil) {
@@ -3195,6 +3203,7 @@ func normalizeDMXState(st DMXState) DMXState {
 		normalized.Fixtures[i].DMXAddress = addr
 		normalized.Fixtures[i].Channels = sanitizeDMXChannels(normalized.Fixtures[i].DMXAddress, normalized.Fixtures[i].Channels)
 	}
+	normalized.Fixtures = sanitizeMasterSlaveRelationships(normalized.Fixtures)
 	normalized.Party = normalizeDMXPartyState(normalized.Party)
 	return normalized
 }
@@ -3263,16 +3272,16 @@ func sanitizeDMXChannels(dmxAddress int, in []DMXChannel) []DMXChannel {
 	return out
 }
 
-func buildDMXFixtureForCreate(input UpsertDMXFixtureInput) (DMXFixture, error) {
+func buildDMXFixtureForCreate(input UpsertDMXFixtureInput, fixtures []DMXFixture) (DMXFixture, error) {
 	base := DMXFixture{
 		ID:        fmt.Sprintf("fixture-%d", time.Now().UnixNano()),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	return buildDMXFixtureForUpdate(base, input)
+	return buildDMXFixtureForUpdate(base, input, fixtures)
 }
 
-func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput) (DMXFixture, error) {
+func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput, fixtures []DMXFixture) (DMXFixture, error) {
 	fixtureType := normalizeFixtureType(input.Type)
 	brand := strings.TrimSpace(input.Brand)
 	name := strings.TrimSpace(input.Name)
@@ -3321,6 +3330,11 @@ func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput) 
 	}
 	fixture.Party = normalizeFixtureParty(input.Party)
 	fixture.Channels = channels
+	masterID, err := validateMasterFixtureID(fixtures, fixture.ID, input.MasterFixtureID)
+	if err != nil {
+		return DMXFixture{}, err
+	}
+	fixture.MasterFixtureID = masterID
 	return fixture, nil
 }
 

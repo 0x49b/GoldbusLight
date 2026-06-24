@@ -250,6 +250,8 @@ export type DMXFixture = {
     name: string;
     /** DMX start address (1–512). Channel rows use offsets from this address (universe slot = address + offset − 1). */
     dmxAddress: number;
+    /** When set, this fixture mirrors channel output from the referenced master fixture. */
+    masterFixtureId?: string;
     movingHead: {
         maxPan: number;
         maxTilt: number;
@@ -345,6 +347,8 @@ export type UpsertDMXFixtureInput = {
     brand: string;
     name: string;
     dmxAddress: number;
+    /** When set, this fixture mirrors channel output from the referenced master fixture. */
+    masterFixtureId?: string;
     maxPan: number;
     maxTilt: number;
     party?: DMXFixtureParty;

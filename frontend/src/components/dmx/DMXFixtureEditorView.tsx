@@ -44,7 +44,12 @@ import {
 } from "@/lib/dmxLiveWidget.ts";
 import {readChannelInvert} from "@/lib/dmxLiveMap";
 import {LiveControlEditorField} from "./LiveControlEditorField";
-import {isFixtureInParty} from "@/lib/partyTargets";
+import {isFixtureActiveInParty} from "@/lib/partyTargets";
+import {
+    fixtureHasSlaves,
+    isFixtureSlave,
+    masterEligibleFixtures,
+} from "@/lib/dmxFixtureMasterSlave";
 import {cn} from "@/lib/utils";
 import {
     ArrowDownRight,
@@ -557,6 +562,7 @@ function fixtureToUpsertInput(f: DMXFixture): UpsertDMXFixtureInput {
         brand: f.brand,
         name: f.name,
         dmxAddress: f.dmxAddress,
+        masterFixtureId: f.masterFixtureId,
         maxPan: Math.max(0, Math.round(f.movingHead?.maxPan ?? 0)),
         maxTilt: Math.max(0, Math.round(f.movingHead?.maxTilt ?? 0)),
         party: f.party,
@@ -691,6 +697,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [address, setAddress] = useState(1);
     const [maxPan, setMaxPan] = useState(540);
     const [maxTilt, setMaxTilt] = useState(270);
+    const [masterFixtureId, setMasterFixtureId] = useState("");
     const [channels, setChannels] = useState<DMXChannel[]>(defaultInitialChannels);
     const [partyChannelWeights, setPartyChannelWeights] = useState<Record<string, number>>({});
     const [partyStrobeEnabled, setPartyStrobeEnabled] = useState(false);
@@ -703,10 +710,21 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const importInputRef = useRef<HTMLInputElement | null>(null);
     const isCurrentFixtureLive = props.fixture != null && props.dmxLiveStatus?.connected === true;
-    const fixturePartyIncluded = props.fixture ? isFixtureInParty(props.fixture.id, props.dmxState.party?.config) : false;
-    const liveLayoutConfigurable = props.fixture != null && liveTileIdsForFixture(props.fixture).length > 0;
+    const fixturePartyIncluded = props.fixture
+        ? isFixtureActiveInParty(props.fixture, props.dmxState.fixtures, props.dmxState.party?.config)
+        : false;
+    const liveLayoutConfigurable = props.fixture != null
+        && !isFixtureSlave(props.fixture)
+        && liveTileIdsForFixture(props.fixture).length > 0;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
     const showPanTiltInputs     = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
+    const masterOptions = useMemo(
+        () => masterEligibleFixtures(props.dmxState.fixtures, props.fixture?.id),
+        [props.dmxState.fixtures, props.fixture?.id],
+    );
+    const masterSelectDisabled =
+        props.busy ||
+        (props.fixture != null && fixtureHasSlaves(props.dmxState.fixtures, props.fixture.id));
 
     useEffect(() => {
         setEditLayout(false);
@@ -720,6 +738,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setAddress(props.fixture.dmxAddress || 1);
             setMaxPan(props.fixture.movingHead?.maxPan ?? 540);
             setMaxTilt(props.fixture.movingHead?.maxTilt ?? 270);
+            setMasterFixtureId(props.fixture.masterFixtureId ?? "");
             setChannels(props.fixture.channels?.length ? cloneChannels(props.fixture.channels) : defaultInitialChannels());
             const pw = props.fixture.party?.channelWeights ?? {};
             setPartyChannelWeights({...pw});
@@ -736,6 +755,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setAddress(1);
         setMaxPan(540);
         setMaxTilt(270);
+        setMasterFixtureId("");
         setChannels(defaultInitialChannels());
         setPartyChannelWeights({});
         setPartyStrobeEnabled(false);
@@ -883,6 +903,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         brand: brand.trim(),
         name: name.trim(),
         dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
+        masterFixtureId: masterFixtureId.trim() || undefined,
         maxPan: Math.max(0, Math.round(maxPan) || 0),
         maxTilt: Math.max(0, Math.round(maxTilt) || 0),
         party: buildFixturePartySavePayload(
@@ -899,6 +920,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         brand,
         channels,
         fixtureType,
+        masterFixtureId,
         maxPan,
         maxTilt,
         name,
@@ -1285,6 +1307,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             {props.fixture && pageMode !== "editor" ? (
                 <DMXFixtureLiveControls
                     fixture={props.fixture}
+                    allFixtures={props.dmxState.fixtures}
+                    onOpenFixture={props.onOpenFixture}
                     busy={props.busy}
                     liveStatus={props.dmxLiveStatus}
                     partyRunning={props.partyRunning}
@@ -1376,6 +1400,29 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         </div>
                                     </>
                                 )}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="dmx-fixture-master">Master fixture</Label>
+                                <NativeSelect
+                                    id="dmx-fixture-master"
+                                    value={masterFixtureId}
+                                    onChange={(e) => setMasterFixtureId(e.target.value)}
+                                    disabled={masterSelectDisabled}
+                                >
+                                    <NativeSelectOption value="">Standalone</NativeSelectOption>
+                                    {masterOptions.map((fx) => (
+                                        <NativeSelectOption key={fx.id} value={fx.id}>
+                                            {fx.name}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                                <p className="text-xs text-muted-foreground">
+                                    {masterSelectDisabled && props.fixture && fixtureHasSlaves(props.dmxState.fixtures, props.fixture.id)
+                                        ? "Remove slave fixtures before assigning this device as a slave."
+                                        : masterFixtureId.trim()
+                                            ? "This device mirrors DMX output from its master and is excluded from party mode."
+                                            : "Optional. Slaves copy channel values from the selected master fixture."}
+                                </p>
                             </div>
                         </CardContent>
                     </Card>

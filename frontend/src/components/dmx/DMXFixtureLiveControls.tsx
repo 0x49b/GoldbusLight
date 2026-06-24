@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {DMXFixture} from "@/types/controller.ts";
+import {isFixtureSlave, resolveFixtureMaster} from "@/lib/dmxFixtureMasterSlave";
 import {
     buildDmxLivePatch,
     channelOutputByte,
@@ -15,7 +16,8 @@ import {
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
 import {parseChannelLiveTileId, resolveLiveWidget} from "@/lib/dmxLiveWidget.ts";
-import {fixturePreviewDrive} from "@/lib/dmxFixturePreviewDrive.ts";
+import {fixturePreview3DVariant} from "@/lib/dmxFixturePreviewVariant";
+import {fixturePreviewDrive, type PreviewBeamShutter} from "@/lib/dmxFixturePreviewDrive.ts";
 import {
     LIVE_LAYOUT_DOC_VERSION,
     liveTileIdsForFixture,
@@ -31,6 +33,8 @@ import type {DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
+    allFixtures: DMXFixture[];
+    onOpenFixture: (fixtureID: string) => void;
     busy: boolean;
     liveStatus: DMXLiveStatus | null;
     partyRunning: boolean;
@@ -63,6 +67,8 @@ function renderLiveTile(
         previewFocus: number;
         previewBeamColor: string;
         previewBeamRainbow: boolean;
+        previewBeamShutter: PreviewBeamShutter;
+        previewStrobeSpeed01: number;
         previewIntensity: number;
         previewSmokeIntensity: number;
         hasPan: boolean;
@@ -76,7 +82,8 @@ function renderLiveTile(
     },
 ) {
     if (id === "preview") {
-        if (fixture.type !== "movingHead" && fixture.type !== "smoke") {
+        const previewVariant = fixturePreview3DVariant(fixture);
+        if (!previewVariant) {
             return null;
         }
         return (
@@ -124,7 +131,7 @@ function renderLiveTile(
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <DMXFixturePreview3D
                         fillGridCell
-                        variant={fixture.type === "smoke" ? "smoke" : "movingHead"}
+                        variant={previewVariant}
                         panDeg={opts.previewPanDeg}
                         tiltDeg={opts.previewTiltDeg}
                         maxPanDeg={opts.maxPanDeg}
@@ -132,7 +139,9 @@ function renderLiveTile(
                         focus01={opts.previewFocus}
                         beamColor={opts.previewBeamColor}
                         beamRainbow={opts.previewBeamRainbow}
-                        intensity={fixture.type === "smoke" ? opts.previewSmokeIntensity : opts.previewIntensity}
+                        beamShutter={opts.previewBeamShutter}
+                        strobeSpeed01={opts.previewStrobeSpeed01}
+                        intensity={previewVariant === "smoke" ? opts.previewSmokeIntensity : opts.previewIntensity}
                         disabled={opts.sliderDisabled || (!opts.hasPan && !opts.hasTilt)}
                         onPanTiltChange={(next) => {
                             if (opts.sliderDisabled) {
@@ -194,6 +203,8 @@ function renderLiveTile(
 
 export function DMXFixtureLiveControls({
     fixture,
+    allFixtures,
+    onOpenFixture,
     busy,
     liveStatus,
     partyRunning,
@@ -234,14 +245,14 @@ export function DMXFixtureLiveControls({
     }, [fixture.channels]);
 
     useEffect(() => {
-        if (!connected || partyRunning) {
+        if (!connected || partyRunning || isFixtureSlave(fixture)) {
             return;
         }
         queueDmxLivePatch(buildDmxLivePatch(fixture, liveState));
     }, [connected, fixture, liveState, partyRunning, queueDmxLivePatch]);
 
     useEffect(() => {
-        if ((!connected && !partyRunning) || !pullDMXState) {
+        if ((!connected && !partyRunning && !isFixtureSlave(fixture)) || !pullDMXState) {
             return;
         }
         let active = true;
@@ -257,15 +268,20 @@ export function DMXFixtureLiveControls({
             active = false;
             window.clearInterval(id);
         };
-    }, [connected, partyRunning, pullDMXState]);
+    }, [connected, fixture, partyRunning, pullDMXState]);
 
-    // While party mode runs it drives the universe directly. Reconstruct a read-only
-    // control state from the live DMX output so opening the Live view shows what party
-    // is currently doing. The user's manual `liveState` is left untouched and returns
-    // when party stops.
-    const universe = partyRunning ? (polledUniverse ?? liveUniverse) : liveUniverse;
-    const partyDisplayState = useMemo(() => {
-        if (!partyRunning || !universe || universe.length < 512) {
+    const slaveFixture = isFixtureSlave(fixture);
+    const masterFixture = useMemo(
+        () => resolveFixtureMaster(fixture, allFixtures),
+        [allFixtures, fixture],
+    );
+    const universe = partyRunning || slaveFixture ? (polledUniverse ?? liveUniverse) : liveUniverse;
+
+    const universeMirrorState = useMemo(() => {
+        if (!universe || universe.length < 512) {
+            return null;
+        }
+        if (!partyRunning && !slaveFixture) {
             return null;
         }
         const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
@@ -280,12 +296,17 @@ export function DMXFixtureLiveControls({
             }
         }
         return dmxLiveControlStateFromCue(fixture, values);
-    }, [partyRunning, universe, fixture]);
-    const displayState = partyDisplayState ?? liveState;
+    }, [fixture, partyRunning, slaveFixture, universe]);
+
+    const displayState = universeMirrorState ?? liveState;
 
     const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
-    const previewDrive = fixturePreviewDrive(fixture, universe, displayState);
+    // Preview follows the live UI while editing. Only mirror the polled DMX buffer during
+    // party mode or slave follow — otherwise the backend universe (often stale zeros right
+    // after connect) would override slider values and hide the beam.
+    const previewUniverse = partyRunning || slaveFixture ? universe : undefined;
+    const previewDrive = fixturePreviewDrive(fixture, previewUniverse, displayState);
     const previewPanDeg = legacyPan01(fixture, displayState) * maxPanDeg;
     const previewTiltDeg = legacyTilt01(fixture, displayState) * maxTiltDeg;
     const hasPan = fixture.channels.some((c) => (c.type === "pan" || c.type === "infinitePan") && resolveLiveWidget(c) !== "hidden");
@@ -343,7 +364,7 @@ export function DMXFixtureLiveControls({
         };
     }, [editLayout, fixture.id]);
 
-    const sliderDisabled = busy || !connected || partyRunning;
+    const sliderDisabled = busy || !connected || partyRunning || slaveFixture;
 
     const captureCurrentValues = useCallback((): Record<string, number> => {
         const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
@@ -381,7 +402,7 @@ export function DMXFixtureLiveControls({
     }, [activeCueDirty, activeCueId, liveState]);
 
     const cues = useMemo(() => fixture.party?.cueSequence?.cues ?? [], [fixture.party?.cueSequence?.cues]);
-    const canApplyCue = connected && !partyRunning && !busy;
+    const canApplyCue = connected && !partyRunning && !busy && !slaveFixture;
 
     const [savingActiveCue, setSavingActiveCue] = useState(false);
     const updateActiveCueFromLive = useCallback(async () => {
@@ -479,6 +500,8 @@ export function DMXFixtureLiveControls({
                 previewFocus: legacyFocus01(fixture, displayState),
                 previewBeamColor: previewDrive.beamColor ?? "#ffffff",
                 previewBeamRainbow: previewDrive.beamRainbow,
+                previewBeamShutter: previewDrive.beamShutter,
+                previewStrobeSpeed01: previewDrive.strobeSpeed01,
                 previewIntensity: previewDrive.dimmer01,
                 previewSmokeIntensity: previewSmoke01,
                 hasPan,
@@ -517,7 +540,28 @@ export function DMXFixtureLiveControls({
 
     return (
         <div className="space-y-4">
-            {partyRunning && (
+            {slaveFixture && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    <span>
+                        This fixture is a slave and mirrors{" "}
+                        <span className="font-medium text-foreground">
+                            {masterFixture?.name ?? "its master"}
+                        </span>
+                        . Use the master fixture to change live values.
+                    </span>
+                    {masterFixture ? (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onOpenFixture(masterFixture.id)}
+                        >
+                            Open master
+                        </Button>
+                    ) : null}
+                </div>
+            )}
+            {partyRunning && !slaveFixture && (
                 <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
                     Party mode controls this fixture. Stop Party to use manual live controls.
                 </div>
@@ -531,12 +575,14 @@ export function DMXFixtureLiveControls({
                         </CardContent>
                     </Card>
                 ) : (
-                    <DMXFixtureLiveLayoutGrid
-                        editMode={editLayout}
-                        tiles={layoutTiles}
-                        onTilesChange={setLayoutTiles}
-                        renderSlot={renderSlot}
-                    />
+                    <div className={slaveFixture ? "pointer-events-none opacity-80" : undefined}>
+                        <DMXFixtureLiveLayoutGrid
+                            editMode={editLayout && !slaveFixture}
+                            tiles={layoutTiles}
+                            onTilesChange={setLayoutTiles}
+                            renderSlot={renderSlot}
+                        />
+                    </div>
                 )}
             </div>
 
@@ -548,7 +594,7 @@ export function DMXFixtureLiveControls({
                         captureValues={captureCurrentValues}
                         onSave={onSaveCueSequence}
                         onApplyCue={applyCue}
-                        canApply={connected && !partyRunning}
+                        canApply={canApplyCue}
                         activeCueId={activeCueId}
                         busy={busy}
                     />

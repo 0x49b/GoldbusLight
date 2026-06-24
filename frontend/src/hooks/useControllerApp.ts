@@ -1871,6 +1871,7 @@ function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDM
         brand: fixture.brand,
         name: fixture.name,
         dmxAddress,
+        masterFixtureId: fixture.masterFixtureId,
         maxPan: fixture.movingHead?.maxPan ?? 540,
         maxTilt: fixture.movingHead?.maxTilt ?? 270,
         party: fixture.party,

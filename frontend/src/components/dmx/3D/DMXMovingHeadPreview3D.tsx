@@ -7,6 +7,7 @@ import {
     clamp01,
     cloneNormalizedColladaScene,
     degToRad,
+    previewBeamGate,
     type DMXMovingHeadPreview3DProps,
 } from "./DMXFixturePreview3D.shared";
 
@@ -57,6 +58,8 @@ export function DMXMovingHeadPreview3D({
     focus01 = 0.5,
     beamColor,
     beamRainbow = false,
+    beamShutter = "open",
+    strobeSpeed01 = 0.5,
     intensity,
 }: DMXMovingHeadPreview3DProps) {
     const collada = useLoader(ColladaLoader, "/meshes/moving_head.dae");
@@ -64,6 +67,22 @@ export function DMXMovingHeadPreview3D({
     const fallbackHead = useRef<Group>(null);
     const angles = useRef({panDeg, tiltDeg, maxPanDeg, maxTiltDeg});
     angles.current = {panDeg, tiltDeg, maxPanDeg, maxTiltDeg};
+    const drive = useRef({
+        focus01,
+        beamColor,
+        beamRainbow,
+        beamShutter,
+        strobeSpeed01,
+        intensity,
+    });
+    drive.current = {
+        focus01,
+        beamColor,
+        beamRainbow,
+        beamShutter,
+        strobeSpeed01,
+        intensity,
+    };
 
     const rig = useMemo<LoadedMovingHeadRig>(() => {
         if (!collada) {
@@ -98,27 +117,43 @@ export function DMXMovingHeadPreview3D({
         if (!rig.beam) {
             return;
         }
-        const focus = clamp01(focus01);
+        const focus = clamp01(drive.current.focus01);
         const aperture = BEAM_APERTURE_MIN + focus * (BEAM_APERTURE_MAX - BEAM_APERTURE_MIN);
-        const beamOpacity = 0.2 + clamp01(intensity) * 0.55;
         rig.beam.scale.x = aperture / rig.root.scale.x;
         rig.beam.scale.z = aperture / rig.root.scale.z;
-        rig.beam.visible = intensity > 0.03;
-        rig.beam.material.opacity = beamOpacity;
-        if (!beamRainbow) {
-            rig.beam.material.color.set(beamColor || DEFAULT_BEAM_COLOR);
-        }
-    }, [rig.beam, rig.root.scale.x, rig.root.scale.z, intensity, focus01, beamColor, beamRainbow]);
+    }, [rig.beam, rig.root.scale.x, rig.root.scale.z, focus01]);
 
     useFrame((state) => {
         if (!fallbackPivot.current || !fallbackHead.current) {
             return;
         }
-        const {panDeg: p, tiltDeg: t, maxPanDeg: maxPan, maxTiltDeg: maxTilt} = angles.current;
-        if (rig.beam && beamRainbow) {
-            rig.beam.material.color.setHSL((state.clock.elapsedTime * 0.18) % 1, 1, 0.62);
+        const {
+            focus01: focus,
+            beamColor: color,
+            beamRainbow: rainbow,
+            beamShutter: shutter,
+            strobeSpeed01: speed01,
+            intensity: dimmer01,
+        } = drive.current;
+
+        if (rig.beam) {
+            const gate = previewBeamGate(shutter, speed01, state.clock.elapsedTime);
+            const output01 = clamp01(dimmer01) * gate;
+            const beamOpacity = 0.2 + output01 * 0.55;
+            rig.beam.visible = output01 > 0.03;
+            rig.beam.material.opacity = beamOpacity;
+            if (rainbow) {
+                rig.beam.material.color.setHSL((state.clock.elapsedTime * 0.18) % 1, 1, 0.62);
+            } else {
+                rig.beam.material.color.set(color || DEFAULT_BEAM_COLOR);
+            }
+            const focusClamped = clamp01(focus);
+            const aperture = BEAM_APERTURE_MIN + focusClamped * (BEAM_APERTURE_MAX - BEAM_APERTURE_MIN);
+            rig.beam.scale.x = aperture / rig.root.scale.x;
+            rig.beam.scale.z = aperture / rig.root.scale.z;
         }
 
+        const {panDeg: p, tiltDeg: t, maxPanDeg: maxPan, maxTiltDeg: maxTilt} = angles.current;
         const visualPanDeg = p - maxPan / 2;
         const tiltSweepDeg = maxTilt > 0 ? maxTilt : MOVING_HEAD_TILT_SWEEP_DEG_DEFAULT;
         const normalizedTilt = clamp01(t / tiltSweepDeg);

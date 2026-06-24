@@ -9,6 +9,7 @@
  */
 
 import type {DMXFixture} from "../types/controller";
+import {fixtureHas3DPreview} from "./dmxFixturePreviewVariant";
 import {channelLiveTileId, readLiveSliderOrientation, resolveLiveWidget} from "./dmxLiveWidget";
 
 /** Fine units per coarse column. A standard tile is this many units wide. */
@@ -184,7 +185,7 @@ export function masonryContainerHeight(placed: MasonryPlacedTile[]): number {
 
 export function liveTileIdsForFixture(fixture: DMXFixture): string[] {
     const ids: string[] = [];
-    if (fixture.type === "movingHead" || fixture.type === "smoke") {
+    if (fixtureHas3DPreview(fixture)) {
         ids.push("preview");
     }
     for (const ch of fixture.channels) {

@@ -487,6 +487,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 						return
 					}
 					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets, now, burstAnchor)
+					updates = expandDMXUpdatesToSlaves(fixtures, updates, &owned)
 					if len(updates) > 0 {
 						c.dmxLiveMu.Lock()
 						if !c.dmxLiveRunning || !c.dmxPartyRunning {
@@ -856,7 +857,7 @@ func filterPartyFixtures(fixtures []DMXFixture, fixtureIDs []string) []DMXFixtur
 }
 
 func partyDMXTargets(fixtures []DMXFixture, cfg DMXPartyConfig) []DMXFixture {
-	targeted := filterPartyFixtures(fixtures, cfg.FixtureIDs)
+	targeted := filterPartyMasterFixtures(fixtures, cfg.FixtureIDs)
 	if clampPercent(cfg.SmokeVolume) <= 0 {
 		return targeted
 	}

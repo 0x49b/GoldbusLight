@@ -313,6 +313,11 @@ export class DMXFixture {
     "brand": string;
     "name": string;
     "dmxAddress": number;
+
+    /**
+     * MasterFixtureID links this fixture as a slave that mirrors the master's DMX output.
+     */
+    "masterFixtureId"?: string;
     "movingHead": MovingHeadConfig;
     "party"?: DMXFixtureParty;
     "channels": DMXChannel[];
@@ -356,18 +361,18 @@ export class DMXFixture {
      * Creates a new DMXFixture instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixture {
-        const $$createField5_0 = $$createType12;
-        const $$createField6_0 = $$createType13;
-        const $$createField7_0 = $$createType15;
+        const $$createField6_0 = $$createType12;
+        const $$createField7_0 = $$createType13;
+        const $$createField8_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("movingHead" in $$parsedSource) {
-            $$parsedSource["movingHead"] = $$createField5_0($$parsedSource["movingHead"]);
+            $$parsedSource["movingHead"] = $$createField6_0($$parsedSource["movingHead"]);
         }
         if ("party" in $$parsedSource) {
-            $$parsedSource["party"] = $$createField6_0($$parsedSource["party"]);
+            $$parsedSource["party"] = $$createField7_0($$parsedSource["party"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField7_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField8_0($$parsedSource["channels"]);
         }
         return new DMXFixture($$parsedSource as Partial<DMXFixture>);
     }
@@ -1215,6 +1220,11 @@ export class UpsertDMXFixtureInput {
     "brand": string;
     "name": string;
     "dmxAddress": number;
+
+    /**
+     * MasterFixtureID links this fixture as a slave that mirrors the master's DMX output.
+     */
+    "masterFixtureId"?: string;
     "maxPan": number;
     "maxTilt": number;
     "party"?: DMXFixtureParty;
@@ -1251,14 +1261,14 @@ export class UpsertDMXFixtureInput {
      * Creates a new UpsertDMXFixtureInput instance from a string or object.
      */
     static createFrom($$source: any = {}): UpsertDMXFixtureInput {
-        const $$createField7_0 = $$createType13;
-        const $$createField8_0 = $$createType15;
+        const $$createField8_0 = $$createType13;
+        const $$createField9_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("party" in $$parsedSource) {
-            $$parsedSource["party"] = $$createField7_0($$parsedSource["party"]);
+            $$parsedSource["party"] = $$createField8_0($$parsedSource["party"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField8_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField9_0($$parsedSource["channels"]);
         }
         return new UpsertDMXFixtureInput($$parsedSource as Partial<UpsertDMXFixtureInput>);
     }

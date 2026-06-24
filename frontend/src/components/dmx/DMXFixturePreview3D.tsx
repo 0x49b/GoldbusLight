@@ -2,6 +2,7 @@ import {Canvas} from "@react-three/fiber";
 import {OrbitControls} from "@react-three/drei";
 import {type PointerEvent, Suspense, useCallback, useRef} from "react";
 import {DMXMovingHeadPreview3D} from "./3D/DMXMovingHeadPreview3D";
+import {DMXParPreview3D} from "./3D/DMXParPreview3D";
 import {DMXSmokePreview3D} from "./3D/DMXSmokePreview3D";
 import {clamp01, type DMXFixturePreview3DProps} from "./3D/DMXFixturePreview3D.shared";
 import {cn} from "@/lib/utils";
@@ -52,6 +53,19 @@ function PreviewFixture(props: DMXFixturePreview3DProps) {
         );
     }
 
+    if (props.variant === "par") {
+        return (
+            <DMXParPreview3D
+                focus01={props.focus01}
+                beamColor={props.beamColor}
+                beamRainbow={props.beamRainbow}
+                beamShutter={props.beamShutter}
+                strobeSpeed01={props.strobeSpeed01}
+                intensity={props.intensity}
+            />
+        );
+    }
+
     return (
         <DMXMovingHeadPreview3D
             panDeg={props.panDeg}
@@ -61,6 +75,8 @@ function PreviewFixture(props: DMXFixturePreview3DProps) {
             focus01={props.focus01}
             beamColor={props.beamColor}
             beamRainbow={props.beamRainbow}
+            beamShutter={props.beamShutter}
+            strobeSpeed01={props.strobeSpeed01}
             intensity={props.intensity}
         />
     );

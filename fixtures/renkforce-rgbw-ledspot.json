@@ -3,7 +3,7 @@
   "type": "colorChanger",
   "brand": "Renkforce",
   "name": "RGBW LEDSpot",
-  "dmxAddress": 1,
+  "dmxAddress": 41,
   "movingHead": {
     "maxPan": 540,
     "maxTilt": 270

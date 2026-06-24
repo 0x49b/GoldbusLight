@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/sidebar";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
-import {isFixtureInParty, isWledInParty} from "@/lib/partyTargets";
+import {isFixtureActiveInParty, isWledInParty} from "@/lib/partyTargets";
+import {orderFixturesForSidebar} from "@/lib/dmxFixtureMasterSlave";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx/models";
 
 export type AppShellProps = {
@@ -227,7 +228,7 @@ export function AppShell({
                                     <PiPlus aria-hidden/>
                                 </SidebarGroupAction>
                                 <SidebarMenu>
-                                    {dmxFixtures.map((fixture) => {
+                                    {orderFixturesForSidebar(dmxFixtures).map(({fixture, depth}) => {
                                         const fixtureLive =
                                             dmxLiveConnected &&
                                             (dmxLiveFixtureId === "" || dmxLiveFixtureId === fixture.id);
@@ -239,7 +240,8 @@ export function AppShell({
                                                 className={cn(
                                                     route.kind === "dmxFixture" &&
                                                     route.id === fixture.id &&
-                                                    "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                                    "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
+                                                    depth > 0 && "ml-4 w-[calc(100%-1rem)]",
                                                 )}
                                                 onClick={() => setRoute({
                                                     kind: "dmxFixture",
@@ -261,7 +263,7 @@ export function AppShell({
                                                 <span
                                                     className={cn(
                                                         "status status-sm shrink-0",
-                                                        partyRunning && isFixtureInParty(fixture.id, partyConfig)
+                                                        partyRunning && isFixtureActiveInParty(fixture, dmxFixtures, partyConfig)
                                                             ? "status-success"
                                                             : fixtureLive
                                                             ? "status-success"

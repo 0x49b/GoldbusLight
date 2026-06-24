@@ -13,6 +13,9 @@ import (
 func buildDMXLiveInitUpdates(fixtures []DMXFixture) []dmx.DMXOutputUpdate {
 	byAddr := map[int]int{}
 	for _, fx := range fixtures {
+		if isDMXSlaveFixture(fx) {
+			continue
+		}
 		for _, u := range buildDMXLiveInitUpdatesForFixture(fx) {
 			if u.Address < 1 || u.Address > 512 {
 				continue
@@ -32,7 +35,7 @@ func buildDMXLiveInitUpdates(fixtures []DMXFixture) []dmx.DMXOutputUpdate {
 	for _, a := range addrs {
 		out = append(out, dmx.DMXOutputUpdate{Address: a, Value: byAddr[a]})
 	}
-	return out
+	return expandDMXUpdatesToSlaves(fixtures, out, nil)
 }
 
 func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate {
