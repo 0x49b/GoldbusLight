@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { DMXEmergencyButton } from "./DMXEmergencyButton";
 import { parseFixtureEntries } from "@/lib/dmxLiveMap";
 import {
-    DMX_UNIVERSE_GRID_COLS,
     DMX_UNIVERSE_SLOTS,
     channelIndexToCell,
     footprint,
@@ -11,10 +10,10 @@ import {
 } from "@/lib/dmxUniverseGrid";
 import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlave";
 import { cn } from "@/lib/utils";
-import type { DMXFixture, DetailRoute, JSONMap, USBSerialDevice } from "@/types/controller.ts";
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import type { DMXFixture, DetailRoute, JSONMap, USBSerialDevice } from "@/types/controller";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { PiWarningCircle } from "react-icons/pi";
-import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx/models";
+import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx";
 
 export type DMXUniverseViewProps = {
     fixtures: DMXFixture[];
@@ -504,13 +503,36 @@ export function DMXUniverseView({
         }
     };
 
+    const gridContainerRef = useRef<HTMLDivElement>(null);
+    const [gridCols, setGridCols] = useState(26);
+
+    useEffect(() => {
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry) {
+                const {width} = entry.contentRect;
+                const newCols = Math.max(1, Math.floor((width + 4) / (46 + 4)));
+                setGridCols(newCols);
+            }
+        });
+        const el = gridContainerRef.current;
+        if (el) {
+            observer.observe(el);
+        }
+        return () => {
+            if (el) {
+                observer.unobserve(el);
+            }
+        };
+    }, []);
+
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
             
             <div className="flex flex-wrap w-full items-start gap-2" >
                 <div
                     className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary px-3 py-2 text-primary-foreground shadow-sm">
-                    <span className="text-sm font-semibold leading-none">Universe 1</span>
+                    <span className="text-sm font-semibold leading-none">Universe</span>
                     <span className="truncate text-xs opacity-90" title={subtitle}>
             {subtitle}
           </span>
@@ -530,19 +552,20 @@ export function DMXUniverseView({
             </div>
             
             <div
+                ref={gridContainerRef}
                 className="touch-pan-scroll min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3">
                 <div
                     className="relative grid w-full min-w-[min(100%,640px)] gap-1"
                     style={{
-                        gridTemplateColumns: `repeat(${DMX_UNIVERSE_GRID_COLS}, minmax(0, 1fr))`,
-                        gridAutoRows: "minmax(2rem, auto)",
+                        gridTemplateColumns: `repeat(${gridCols}, 46px)`,
+                        gridAutoRows: "46px",
                     }}
                 >
                     {Array.from({length: DMX_UNIVERSE_SLOTS}, (_, i) => i + 1).map((ch) => {
                         if (covered.has(ch)) {
                             return null;
                         }
-                        const {row, col} = channelIndexToCell(ch);
+                        const {row, col} = channelIndexToCell(ch, gridCols);
                         return (
                             <div
                                 key={`free-${ch}`}
@@ -581,11 +604,11 @@ export function DMXUniverseView({
                             return [];
                         }
                         const conflict = fixtureHasConflict(fx, occupancy);
-                        const segments = splitRangeIntoSegments(range.start, range.end);
+                        const segments = splitRangeIntoSegments(range.start, range.end, gridCols);
                         const slaveFixture = isFixtureSlave(fx);
                         const masterFixture = slaveFixture ? resolveFixtureMaster(fx, fixtures) : undefined;
                         return segments.map((seg, segIdx) => {
-                            const segStartCh = seg.row * DMX_UNIVERSE_GRID_COLS + seg.colStart + 1;
+                            const segStartCh = seg.row * gridCols + seg.colStart + 1;
                             const showFixtureBase = segIdx === 0;
                             const fixtureLive = liveConnected;
                             return (

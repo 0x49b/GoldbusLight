@@ -1,7 +1,6 @@
 import type {DMXFixture} from "../types/controller";
 
 export const DMX_UNIVERSE_SLOTS = 512;
-export const DMX_UNIVERSE_GRID_COLS = 24;
 
 export type UniverseRange = {
     start: number;
@@ -43,7 +42,7 @@ export function universeRange(fixture: DMXFixture): UniverseRange | null {
 /** Universe channel index 1–512 → row-major cell (0-based). */
 export function channelIndexToCell(
     channelIndex: number,
-    cols: number = DMX_UNIVERSE_GRID_COLS,
+    cols: number,
 ): { row: number; col: number } {
     const idx = Math.max(0, Math.min(DMX_UNIVERSE_SLOTS - 1, channelIndex - 1));
     return {
@@ -58,7 +57,7 @@ export function channelIndexToCell(
 export function splitRangeIntoSegments(
     start: number,
     end: number,
-    cols: number = DMX_UNIVERSE_GRID_COLS,
+    cols: number,
 ): GridSegment[] {
     const s = Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, start));
     const e = Math.max(s, Math.min(DMX_UNIVERSE_SLOTS, end));

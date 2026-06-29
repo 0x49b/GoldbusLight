@@ -541,7 +541,7 @@ export function DMXFixtureLiveControls({
     return (
         <div className="space-y-4">
             {slaveFixture && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border  bg-orange-100 px-3 py-2 text-sm text-muted-foreground">
                     <span>
                         This fixture is a slave and mirrors{" "}
                         <span className="font-medium text-foreground">
