@@ -133,99 +133,82 @@ jobs:
           name: goldbus-linux-arm64
           path: GoldbusLight-linux-arm64
 
-  # build-windows:
-  #   runs-on: windows-latest
-  #   defaults:
-  #     run:
-  #       shell: bash
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build windows amd64
+        run: task windows:build DEV=false
+      - name: Stage windows artifact
+        run: cp bin/GoldbusLight.exe GoldbusLight-windows-amd64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-windows
+          path: GoldbusLight-windows-amd64.exe
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build darwin amd64
+        run: task darwin:build ARCH=amd64 DEV=false OUTPUT=bin/GoldbusLight-darwin-amd64
+      - name: Build darwin arm64
+        run: task darwin:build ARCH=arm64 DEV=false OUTPUT=bin/GoldbusLight-darwin-arm64
+      - name: Stage macOS artifacts
+        run: |
+          cp bin/GoldbusLight-darwin-amd64 GoldbusLight-darwin-amd64
+          cp bin/GoldbusLight-darwin-arm64 GoldbusLight-darwin-arm64
+          chmod +x GoldbusLight-darwin-amd64 GoldbusLight-darwin-arm64
 
-  #     - uses: actions/setup-go@v5
-  #       with:
-  #         go-version: ${{ env.GO_VERSION }}
-
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
-  #         cache: npm
-  #         cache-dependency-path: frontend/package-lock.json
-
-  #     - uses: arduino/setup-task@v2
-  #       with:
-  #         version: 3.x
-  #         repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Add Go bin to PATH
-  #       run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-  #     - name: Install wails3 CLI
-  #       run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
-
-  #     - name: Build windows amd64
-  #       run: task windows:build DEV=false
-
-  #     - name: Stage windows artifact
-  #       run: cp bin/GoldbusLight.exe GoldbusLight-windows-amd64.exe
-
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         name: goldbus-windows
-  #         path: GoldbusLight-windows-amd64.exe
-
-  # build-macos:
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
-
-  #     - uses: actions/setup-go@v5
-  #       with:
-  #         go-version: ${{ env.GO_VERSION }}
-
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
-  #         cache: npm
-  #         cache-dependency-path: frontend/package-lock.json
-
-  #     - uses: arduino/setup-task@v2
-  #       with:
-  #         version: 3.x
-  #         repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Add Go bin to PATH
-  #       run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-  #     - name: Install wails3 CLI
-  #       run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
-
-  #     - name: Build darwin amd64
-  #       run: task darwin:build ARCH=amd64 DEV=false OUTPUT=bin/GoldbusLight-darwin-amd64
-
-  #     - name: Build darwin arm64
-  #       run: task darwin:build ARCH=arm64 DEV=false OUTPUT=bin/GoldbusLight-darwin-arm64
-
-  #     - name: Stage macOS artifacts
-  #       run: |
-  #         cp bin/GoldbusLight-darwin-amd64 GoldbusLight-darwin-amd64
-  #         cp bin/GoldbusLight-darwin-arm64 GoldbusLight-darwin-arm64
-  #         chmod +x GoldbusLight-darwin-amd64 GoldbusLight-darwin-arm64
-
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         name: goldbus-macos
-  #         path: |
-  #           GoldbusLight-darwin-amd64
-  #           GoldbusLight-darwin-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-macos
+          path: |
+            GoldbusLight-darwin-amd64
+            GoldbusLight-darwin-arm64
 
   release:
-    needs: [ build-linux-arm64 ] # [build-linux-amd64, build-linux-arm64, build-windows, build-macos]
+    needs: [ build-linux-amd64, build-linux-arm64, build-windows, build-macos ]
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.meta.outputs.tag }}
