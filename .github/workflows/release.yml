@@ -4,7 +4,7 @@
 # - windows-amd64, darwin-amd64, darwin-arm64: OS runners.
 # Binaries are unsigned (no macOS notarization / Windows Authenticode in CI).
 
-name: Release
+name: Release Build
 
 on:
   push:
@@ -28,11 +28,12 @@ permissions:
 
 env:
   GO_VERSION: "1.26.x"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24.15.0"
   WAILS_VERSION: "v3.0.0-alpha.81"
 
 jobs:
   build-linux-amd64:
+    environment: release_and_dev_build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,6 +76,7 @@ jobs:
           path: GoldbusLight-linux-amd64
 
   build-linux-arm64:
+    environment: release_and_dev_build
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -127,6 +129,7 @@ jobs:
           path: GoldbusLight-linux-arm64
 
   build-windows:
+    environment: release_and_dev_build
     runs-on: windows-latest
     defaults:
       run:
@@ -161,6 +164,7 @@ jobs:
           name: goldbus-windows
           path: GoldbusLight-windows-amd64.exe
   build-macos:
+    environment: release_and_dev_build
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
