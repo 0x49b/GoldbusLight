@@ -1,0 +1,172 @@
+# Development build for every push to master.
+# Binaries are built for all platforms and uploaded as workflow artifacts.
+
+name: Development Build
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: dev-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.x"
+  NODE_VERSION: "20"
+  WAILS_VERSION: "v3.0.0-alpha.81"
+
+jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Linux GUI build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-4-dev libwebkitgtk-6.0-dev libglib2.0-dev libsoup-3.0-dev
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build linux amd64
+        run: task linux:build DEV=false
+      - name: Stage linux amd64 artifact
+        run: |
+          cp bin/GoldbusLight GoldbusLight-linux-amd64
+          chmod +x GoldbusLight-linux-amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-linux-amd64
+          path: GoldbusLight-linux-amd64
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Linux GUI build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-4-dev libwebkitgtk-6.0-dev libglib2.0-dev libsoup-3.0-dev
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build linux arm64 (Raspberry Pi OS 64-bit)
+        run: task linux:build ARCH=arm64 DEV=false
+      - name: Stage linux arm64 artifact
+        run: |
+          cp bin/GoldbusLight GoldbusLight-linux-arm64
+          chmod +x GoldbusLight-linux-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-linux-arm64
+          path: GoldbusLight-linux-arm64
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build windows amd64
+        run: task windows:build DEV=false
+      - name: Stage windows artifact
+        run: cp bin/GoldbusLight.exe GoldbusLight-windows-amd64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-windows
+          path: GoldbusLight-windows-amd64.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Go bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+      - name: Build darwin amd64
+        run: task darwin:build ARCH=amd64 DEV=false OUTPUT=bin/GoldbusLight-darwin-amd64
+      - name: Build darwin arm64
+        run: task darwin:build ARCH=arm64 DEV=false OUTPUT=bin/GoldbusLight-darwin-arm64
+      - name: Stage macOS artifacts
+        run: |
+          cp bin/GoldbusLight-darwin-amd64 GoldbusLight-darwin-amd64
+          cp bin/GoldbusLight-darwin-arm64 GoldbusLight-darwin-arm64
+          chmod +x GoldbusLight-darwin-amd64 GoldbusLight-darwin-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldbus-macos
+          path: |
+            GoldbusLight-darwin-amd64
+            GoldbusLight-darwin-arm64
