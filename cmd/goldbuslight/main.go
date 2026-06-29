@@ -67,7 +67,7 @@ func main() {
 		log.Fatalf("updater.Init: %v", err)
 	}
 
-	// App Updater Menu
+	// App Menu
 	menu := app.Menu.New()
 	app.Menu.SetApplicationMenu(menu)
 	appMenu := menu.AddSubmenu("App")
