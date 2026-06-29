@@ -33,13 +33,11 @@ env:
 
 jobs:
   build-linux-amd64:
-    environment: release_and_dev_build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
       - name: Install Linux GUI build dependencies
         run: |
           sudo apt-get update
@@ -62,8 +60,6 @@ jobs:
         run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Install wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
-      - name: Build wails-cross Docker image
-        run: task setup:docker
       - name: Build linux amd64
         run: task linux:build DEV=false
       - name: Stage linux amd64 artifact
@@ -76,60 +72,45 @@ jobs:
           path: GoldbusLight-linux-amd64
 
   build-linux-arm64:
-    environment: release_and_dev_build
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
-
       - name: Install Linux GUI build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config \
             libgtk-4-dev libwebkitgtk-6.0-dev libglib2.0-dev libsoup-3.0-dev
-
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Add Go bin to PATH
         run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
       - name: Install wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
-
       - name: Build linux arm64 (Raspberry Pi OS 64-bit)
-        run: |
-          TAG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"
-          task linux:build ARCH=arm64 DEV=false VERSION="$VERSION"
-
+        run: task linux:build ARCH=arm64 DEV=false
       - name: Stage linux arm64 artifact
         run: |
           cp bin/GoldbusLight GoldbusLight-linux-arm64
           chmod +x GoldbusLight-linux-arm64
-
       - uses: actions/upload-artifact@v4
         with:
           name: goldbus-linux-arm64
           path: GoldbusLight-linux-arm64
 
   build-windows:
-    environment: release_and_dev_build
     runs-on: windows-latest
     defaults:
       run:
@@ -164,7 +145,6 @@ jobs:
           name: goldbus-windows
           path: GoldbusLight-windows-amd64.exe
   build-macos:
-    environment: release_and_dev_build
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
