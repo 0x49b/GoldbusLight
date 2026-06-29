@@ -78,6 +78,9 @@ func main() {
 			}
 		}()
 	})
+	appMenu.Add("Quit").OnClick(func(*application.Context) {
+		confirmationQuit(app)
+	})
 
 	startState := application.WindowStateNormal
 	if os.Getenv("GOLDBUS_FULLSCREEN") == "1" {
@@ -201,4 +204,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func confirmationQuit(app *application.App) {
+	dialog := app.Dialog.Question().SetTitle("Quit").SetMessage("Do you want Quit the Application?")
+	yes := dialog.AddButton("Yes")
+	yes.OnClick(func() {
+		app.Quit()
+	})
+	no := dialog.AddButton("No")
+	dialog.SetDefaultButton(no)
+	dialog.Show()
 }
