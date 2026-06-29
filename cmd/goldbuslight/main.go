@@ -14,6 +14,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/updater"
+	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
 func init() {
@@ -46,12 +48,43 @@ func main() {
 		},
 	})
 
+	// App Updater
+	const currentVersion = "0.0.1"
+
+	gh, err := github.New(github.Config{
+		Repository:    "0x49b/GoldbusLight",
+		ChecksumAsset: "SHA256SUMS",
+	})
+
+	if err != nil {
+		log.Fatalf("github.New: %v", err)
+	}
+
+	if err := app.Updater.Init(updater.Config{
+		CurrentVersion: currentVersion,
+		Providers:      []updater.Provider{gh},
+	}); err != nil {
+		log.Fatalf("updater.Init: %v", err)
+	}
+
+	// App Updater Menu
+	menu := app.Menu.New()
+	app.Menu.SetApplicationMenu(menu)
+	appMenu := menu.AddSubmenu("App")
+	appMenu.Add("Check for Updates…").OnClick(func(*application.Context) {
+		go func() {
+			if err := app.Updater.CheckAndInstall(context.Background()); err != nil {
+				app.Logger.Error("update", "error", err)
+			}
+		}()
+	})
+
 	startState := application.WindowStateNormal
 	if os.Getenv("GOLDBUS_FULLSCREEN") == "1" {
 		startState = application.WindowStateFullscreen
 	}
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Goldbus Licht Controller",
+		Title:            "Goldbus Light Controller",
 		StartState:       startState,
 		Width:            1400,
 		Height:           788,
@@ -164,7 +197,7 @@ func main() {
 		}
 	}()
 
-	err := app.Run()
+	err = app.Run()
 	if err != nil {
 		log.Fatal(err)
 	}

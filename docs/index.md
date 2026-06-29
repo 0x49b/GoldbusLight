@@ -1,6 +1,6 @@
 # Goldbus Light Controller — User Manual
 
-**Goldbus Light Controller** (German UI title: *Goldbus Licht Controller*) is a desktop application for controlling lighting in the Goldbus environment. It combines **WLED** network LED controllers and **DMX** stage lighting in one interface, with a unified **Party mode** for automated and audio-reactive shows.
+**Goldbus Light Controller** (German UI title: *Goldbus Light Controller*) is a desktop application for controlling lighting in the Goldbus environment. It combines **WLED** network LED controllers and **DMX** stage lighting in one interface, with a unified **Party mode** for automated and audio-reactive shows.
 
 This manual describes how to install, configure, and operate the application from an end-user perspective.
 
@@ -27,7 +27,7 @@ Raspberry Pi releases are published as `GoldbusLight-linux-arm64` on [GitHub Rel
 ## Quick start
 
 1. [Install the application](installation/index.md) on your host (Pi or desktop).
-2. Launch **Goldbus Licht Controller** from the application menu.
+2. Launch **Goldbus Light Controller** from the application menu.
 3. Open **Settings** and enable the components you need (**WLED**, **DMX**, or both).
 4. For WLED: use **Discover** or wait for automatic discovery; devices appear in the sidebar.
 5. For DMX: connect a USB-DMX interface or configure Art-Net in Settings, then create fixtures with the **+** button.

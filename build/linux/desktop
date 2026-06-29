@@ -1,6 +1,6 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
+Name=Goldbus Light Controller
 Comment=A GoldbusLight application
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/goldbuslight %u

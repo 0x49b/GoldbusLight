@@ -5,7 +5,7 @@ The application uses a persistent **sidebar** and a **main content** area. Navig
 ## Sidebar layout
 
 ```
-Goldbus Licht Controller
+Goldbus Light Controller
 <status line>
 
 Party                          [if WLED or DMX enabled]
@@ -24,7 +24,7 @@ Settings
 
 ### Header
 
-- **Title:** Goldbus Licht Controller
+- **Title:** Goldbus Light Controller
 - **Status line:** Live summary from the controller (discovery state, connectivity, version hints). Hover for the full string if truncated.
 
 ### Party section

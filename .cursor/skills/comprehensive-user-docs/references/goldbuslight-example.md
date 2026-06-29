@@ -130,7 +130,7 @@ Extra top-level: Installation, Interface, Troubleshooting (not in app but user-n
 
 ## Quality highlights users praised
 
-1. **Exact UI labels** — "Goldbus Licht Controller", "In case of emergency"
+1. **Exact UI labels** — "Goldbus Light Controller", "In case of emergency"
 2. **Complete settings coverage** — every toggle in ControllerSettingsView
 3. **Install fidelity** — commands copied from shell scripts
 4. **Workflows** — first-time WLED, DMX, party, migration

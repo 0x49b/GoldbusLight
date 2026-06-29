@@ -4,7 +4,7 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>My Product</string>
+            <string>Goldbus Light Controller</string>
         <key>CFBundleExecutable</key>
             <string>goldbuslight</string>
         <key>CFBundleIdentifier</key>

@@ -75,7 +75,7 @@ export function AppShell({
             )}
             <Sidebar collapsible="offcanvas">
                 <SidebarHeader>
-                    Goldbus Licht Controller
+                    Goldbus Light Controller
                     <p className="text-xs opacity-70 truncate" title={status}>
                         {status}
                     </p>
