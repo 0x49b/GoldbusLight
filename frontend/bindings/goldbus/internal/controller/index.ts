@@ -22,6 +22,8 @@ export {
     DMXSettings,
     DMXState,
     DMXTestingSettings,
+    DMXUniverse,
+    DMXUniverseInterfaceSettings,
     DiscoverySettings,
     GeneralTabState,
     MovingHeadConfig,

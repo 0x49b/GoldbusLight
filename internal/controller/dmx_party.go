@@ -395,7 +395,7 @@ func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 	running := c.dmxPartyRunning
 	c.dmxPartyCancel = nil
 	c.dmxPartyRunning = false
-	c.partyOwnedAddrs = [512]bool{}
+	c.clearAllPartyOwnedLocked()
 	c.dmxLiveMu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -425,7 +425,7 @@ func (c *WLEDController) stopDMXPartyInternal(reason string, wait bool) {
 func (c *WLEDController) dmxLiveIsConnected() bool {
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
-	return c.dmxLiveRunning && (c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil)
+	return c.dmxLiveRunning && c.hasAnyDMXLiveAdapterLocked()
 }
 
 func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
@@ -494,11 +494,15 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 							c.dmxLiveMu.Unlock()
 							return
 						}
-						c.partyOwnedAddrs = owned
-						c.applyDMXUpdatesLocked(updates)
-						frame := c.dmxLiveBuf
-						queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
-						queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+						c.partyOwnedByUniverse = owned
+						c.applyDMXLiveUpdatesLocked(updates)
+						changedUniverses := make(map[string]struct{})
+						for _, u := range updates {
+							changedUniverses[resolveUniverseIDForUpdate(u.UniverseID)] = struct{}{}
+						}
+						for universeID := range changedUniverses {
+							c.fanOutUniverseFrameLocked(universeID)
+						}
 						c.dmxLiveMu.Unlock()
 					}
 				}
@@ -551,8 +555,8 @@ func (c *WLEDController) buildDMXPartyFrame(
 	targeted []DMXFixture,
 	now time.Time,
 	burstAnchor time.Time,
-) ([]dmx.DMXOutputUpdate, [512]bool) {
-	var owned [512]bool
+) ([]dmx.DMXOutputUpdate, map[string][512]bool) {
+	owned := map[string][512]bool{}
 	if len(targeted) == 0 {
 		return nil, owned
 	}
@@ -587,6 +591,7 @@ func (c *WLEDController) buildDMXPartyFrame(
 			if address < 1 || address > 512 {
 				continue
 			}
+			universeID := normalizeFixtureUniverseID(fixture.UniverseID, nil)
 			next, ok := partyValueForFixtureChannel(
 				state,
 				fixture,
@@ -612,8 +617,10 @@ func (c *WLEDController) buildDMXPartyFrame(
 				neu := partyWeightNeutralByte(ch, normType, fixtureType)
 				next = applyPartyChannelMotionWeight(neu, next, wp)
 			}
-			owned[address-1] = true
-			updates = append(updates, dmx.DMXOutputUpdate{Address: address, Value: next})
+			o := owned[universeID]
+			o[address-1] = true
+			owned[universeID] = o
+			updates = append(updates, dmx.DMXOutputUpdate{UniverseID: universeID, Address: address, Value: next})
 		}
 	}
 	return updates, owned

@@ -37,6 +37,7 @@ export class DMXLiveStatus {
  * DMXOutputUpdate sets one DMX slot (address 1-512) to a value 0-255.
  */
 export class DMXOutputUpdate {
+    "universeId"?: string;
     "address": number;
     "value": number;
 

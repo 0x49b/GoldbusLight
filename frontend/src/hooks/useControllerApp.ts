@@ -300,7 +300,7 @@ export function useControllerApp() {
         segIdx: 0,
     });
 
-    const dmxLivePendingRef = useRef<Map<number, number>>(new Map());
+    const dmxLivePendingRef = useRef<Map<string, number>>(new Map());
     const dmxLiveFlushTimerRef = useRef<number | undefined>(undefined);
     const [dmxLiveStatus, setDmxLiveStatus] = useState<DMXLiveStatus | null>(null);
     const [partyAudioInputDevices, setPartyAudioInputDevices] = useState<DMXPartyAudioInputDevice[]>([]);
@@ -363,6 +363,9 @@ export function useControllerApp() {
 
     const pullDMXState = useCallback(async () => {
         const next = (await GreetService.GetDMXState()) as DMXState;
+        if (!next.universes?.length) {
+            next.universes = [{id: "universe-1", name: "Universe 1"}];
+        }
         setDMXState((prev) => {
             const nextParty = next.party;
             const prevParty = prev.party;
@@ -1108,13 +1111,13 @@ export function useControllerApp() {
         }
     }, [ensureDMXEnabled, pullUSBSerialDevices]);
 
-    const onSelectUSBSerialDevice = useCallback(async (deviceID: string) => {
+    const onSelectUSBSerialDevice = useCallback(async (deviceID: string, universeId = "universe-1") => {
         if (!ensureDMXEnabled()) {
             return;
         }
         setBusy(true);
         try {
-            const next = (await GreetService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
+            const next = (await GreetService.SetDMXUniverseUSBDevice(universeId, deviceID)) as DMXState;
             setDMXState(next);
             setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
             setError("");
@@ -1124,6 +1127,52 @@ export function useControllerApp() {
             setBusy(false);
         }
     }, [ensureDMXEnabled]);
+
+    const onCreateDMXUniverse = useCallback(async (name?: string) => {
+        if (!ensureDMXEnabled()) {
+            return null;
+        }
+        setBusy(true);
+        try {
+            const created = await GreetService.CreateDMXUniverse(name ?? "");
+            await pullDMXState();
+            await pullSnapshot();
+            setStatus(`Universe "${created.name}" created`);
+            setError("");
+            return created;
+        } catch (err) {
+            setError(String(err));
+            return null;
+        } finally {
+            setBusy(false);
+        }
+    }, [ensureDMXEnabled, pullDMXState, pullSnapshot]);
+
+    const onDeleteDMXUniverse = useCallback(async (universeId: string) => {
+        if (!ensureDMXEnabled()) {
+            return false;
+        }
+        setBusy(true);
+        try {
+            await GreetService.DeleteDMXUniverse(universeId);
+            await pullDMXState();
+            await pullSnapshot();
+            setRoute((prev) => {
+                if (prev.kind === "dmxUniverse" && prev.universeId === universeId) {
+                    return {kind: "dmxUniverse"};
+                }
+                return prev;
+            });
+            setStatus("Universe deleted");
+            setError("");
+            return true;
+        } catch (err) {
+            setError(String(err));
+            return false;
+        } finally {
+            setBusy(false);
+        }
+    }, [ensureDMXEnabled, pullDMXState, pullSnapshot, setRoute]);
 
     const setDMXPartyConfig = useCallback(
         async (partial: Partial<DMXPartyConfig>) => {
@@ -1291,9 +1340,15 @@ export function useControllerApp() {
             return;
         }
         dmxLivePendingRef.current = new Map();
-        const updates = Array.from(m.entries()).map(
-            ([address, value]) => new DMXOutputUpdate({address, value}),
-        );
+        const updates = Array.from(m.entries()).map(([key, value]) => {
+            const [universeId, addressRaw] = key.split(":");
+            const address = Number(addressRaw);
+            return new DMXOutputUpdate({
+                universeId: universeId || "universe-1",
+                address,
+                value,
+            });
+        });
         try {
             await GreetService.ApplyDMXLivePatch(updates);
             await pullDMXLiveStatus();
@@ -1304,13 +1359,14 @@ export function useControllerApp() {
     }, [pullDMXLiveStatus, setError]);
 
     const queueDmxLivePatch = useCallback(
-        (entries: Array<{ address: number; value: number }>) => {
+        (entries: Array<{ address: number; value: number; universeId?: string }>, universeId = "universe-1") => {
             if (dmxPartyState?.status?.running === true) {
                 return;
             }
             for (const e of entries) {
                 if (e.address >= 1 && e.address <= 512) {
-                    dmxLivePendingRef.current.set(e.address, clampDmxByte(e.value));
+                    const u = (e.universeId ?? universeId) || "universe-1";
+                    dmxLivePendingRef.current.set(`${u}:${e.address}`, clampDmxByte(e.value));
                 }
             }
             if (dmxLiveFlushTimerRef.current !== undefined) {
@@ -1815,6 +1871,8 @@ export function useControllerApp() {
         onUpdateDMXFixture,
         onReaddressDMXFixtures,
         onDeleteDMXFixture,
+        onCreateDMXUniverse,
+        onDeleteDMXUniverse,
         refreshUSBSerialDevices,
         onSelectUSBSerialDevice,
         setDMXPartyConfig,

@@ -109,12 +109,17 @@ function App() {
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {
         main = (
             <DMXUniverseView
+                universes={app.dmxState.universes ?? []}
+                selectedUniverseId={app.route.universeId ?? app.dmxState.universes?.[0]?.id}
+                settings={app.settings}
                 fixtures={app.dmxState.fixtures}
                 busy={app.busy}
                 selectedUSBDeviceId={app.dmxState.selectedUSBDeviceId}
                 usbSerialDevices={app.usbSerialDevices}
                 setRoute={app.setRoute}
                 onReaddressFixtures={app.onReaddressDMXFixtures}
+                onCreateUniverse={() => app.onCreateDMXUniverse()}
+                onDeleteUniverse={app.onDeleteDMXUniverse}
                 dmxLiveStatus={app.dmxLiveStatus}
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
                 startDMXLiveOutput={app.startDMXLiveOutput}
@@ -134,6 +139,7 @@ function App() {
                 onOpenFixture={(fixtureID) => app.setRoute({kind: "dmxFixture", id: fixtureID})}
                 onExportFixtureConfig={app.onExportDMXFixtureConfig}
                 dmxState={app.dmxState}
+                defaultUniverseId={app.route.kind === "dmxAddFixture" ? app.route.universeId : undefined}
                 usbSerialDevices={app.usbSerialDevices}
                 dmxLiveStatus={app.dmxLiveStatus}
                 setRoute={app.setRoute}

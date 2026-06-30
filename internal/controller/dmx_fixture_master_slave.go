@@ -67,24 +67,33 @@ func dmxFixtureOwnsAddress(fixture DMXFixture, address int) bool {
 }
 
 // expandDMXUpdatesToSlaves mirrors master fixture channel updates to all linked slaves.
-// When owned is non-nil, slave addresses are marked owned as well (party mode).
-func expandDMXUpdatesToSlaves(fixtures []DMXFixture, updates []dmx.DMXOutputUpdate, owned *[512]bool) []dmx.DMXOutputUpdate {
+// When owned is non-nil, slave addresses are marked owned as well (party mode) per universe.
+func expandDMXUpdatesToSlaves(fixtures []DMXFixture, updates []dmx.DMXOutputUpdate, owned *map[string][512]bool) []dmx.DMXOutputUpdate {
 	if len(updates) == 0 || len(fixtures) == 0 {
 		return updates
 	}
-	byAddr := make(map[int]int, len(updates))
+	type key struct {
+		universeID string
+		address    int
+	}
+	byKey := make(map[key]int, len(updates))
 	for _, u := range updates {
 		if u.Address < 1 || u.Address > 512 {
 			continue
 		}
-		byAddr[u.Address] = clampDMXByte(u.Value)
+		universeID := resolveUniverseIDForUpdate(u.UniverseID)
+		byKey[key{universeID: universeID, address: u.Address}] = clampDMXByte(u.Value)
 	}
-	for addr, value := range byAddr {
+	for k, value := range byKey {
 		for _, fx := range fixtures {
 			if isDMXSlaveFixture(fx) {
 				continue
 			}
-			offset, ok := dmxFixtureChannelOffset(fx, addr)
+			fxUniverse := normalizeFixtureUniverseID(fx.UniverseID, nil)
+			if fxUniverse != k.universeID {
+				continue
+			}
+			offset, ok := dmxFixtureChannelOffset(fx, k.address)
 			if !ok {
 				continue
 			}
@@ -93,29 +102,23 @@ func expandDMXUpdatesToSlaves(fixtures []DMXFixture, updates []dmx.DMXOutputUpda
 				if slaveAddr < 1 || slaveAddr > 512 {
 					continue
 				}
-				byAddr[slaveAddr] = value
+				slaveUniverse := normalizeFixtureUniverseID(slave.UniverseID, nil)
+				sk := key{universeID: slaveUniverse, address: slaveAddr}
+				byKey[sk] = value
 				if owned != nil {
-					owned[slaveAddr-1] = true
+					if *owned == nil {
+						*owned = map[string][512]bool{}
+					}
+					o := (*owned)[slaveUniverse]
+					o[slaveAddr-1] = true
+					(*owned)[slaveUniverse] = o
 				}
 			}
 		}
 	}
-	if len(byAddr) == len(updates) {
-		// Fast path: no slave addresses were added.
-		same := true
-		for _, u := range updates {
-			if byAddr[u.Address] != clampDMXByte(u.Value) {
-				same = false
-				break
-			}
-		}
-		if same {
-			return updates
-		}
-	}
-	out := make([]dmx.DMXOutputUpdate, 0, len(byAddr))
-	for a, v := range byAddr {
-		out = append(out, dmx.DMXOutputUpdate{Address: a, Value: v})
+	out := make([]dmx.DMXOutputUpdate, 0, len(byKey))
+	for k, v := range byKey {
+		out = append(out, dmx.DMXOutputUpdate{UniverseID: k.universeID, Address: k.address, Value: v})
 	}
 	return out
 }

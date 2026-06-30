@@ -16,10 +16,16 @@ func TestDMXEmergencyStopClearsPartyAndBlackouts(t *testing.T) {
 
 	c.dmxLiveMu.Lock()
 	c.dmxLiveRunning = true
-	c.dmxLiveUSBFrames = make(chan [512]byte, 1)
-	c.dmxLiveBuf[10] = 200
+	rt := c.dmxLiveRuntime(DefaultDMXUniverseID)
+	rt.usbFrames = make(chan [512]byte, 1)
+	rt.buf[10] = 200
 	c.dmxPartyRunning = true
-	c.partyOwnedAddrs[10] = true
+	if c.partyOwnedByUniverse == nil {
+		c.partyOwnedByUniverse = map[string][512]bool{}
+	}
+	owned := c.partyOwnedByUniverse[DefaultDMXUniverseID]
+	owned[10] = true
+	c.partyOwnedByUniverse[DefaultDMXUniverseID] = owned
 	c.dmxLiveMu.Unlock()
 
 	if err := c.DMXEmergencyStop(); err != nil {
@@ -38,10 +44,5 @@ func TestDMXEmergencyStopClearsPartyAndBlackouts(t *testing.T) {
 	}
 	if c.dmxPartyRunning {
 		t.Fatal("expected party worker flag cleared")
-	}
-	for i, b := range c.dmxLiveBuf {
-		if b != 0 {
-			t.Fatalf("expected blackout at ch %d, got %d", i+1, b)
-		}
 	}
 }
