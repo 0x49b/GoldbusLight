@@ -7,8 +7,9 @@ import (
 
 // DMXOutputUpdate sets one DMX slot (address 1-512) to a value 0-255.
 type DMXOutputUpdate struct {
-	Address int `json:"address"`
-	Value   int `json:"value"`
+	UniverseID string `json:"universeId,omitempty"`
+	Address    int    `json:"address"`
+	Value      int    `json:"value"`
 }
 
 // DMXLiveStatus describes the USB DMX streaming session for the UI.

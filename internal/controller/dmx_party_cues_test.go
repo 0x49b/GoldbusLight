@@ -394,7 +394,7 @@ func TestBuildCueSequenceUpdates(t *testing.T) {
 		},
 	}
 	anchor := time.Unix(0, 0)
-	var owned [512]bool
+	owned := map[string][512]bool{}
 	updates := buildCueSequenceUpdates(fixture, seq, anchor, anchor.Add(100*time.Millisecond), &owned)
 
 	byAddr := map[int]int{}
@@ -413,10 +413,11 @@ func TestBuildCueSequenceUpdates(t *testing.T) {
 	if _, ok := byAddr[13]; ok {
 		t.Fatal("addr 13 (offset 4, excluded) should be absent")
 	}
-	if !owned[9] || !owned[10] || !owned[11] {
+	uOwned := owned[DefaultDMXUniverseID]
+	if !uOwned[9] || !uOwned[10] || !uOwned[11] {
 		t.Fatal("pinned/random slots should be owned")
 	}
-	if owned[12] {
+	if uOwned[12] {
 		t.Fatal("excluded slot should not be owned")
 	}
 }

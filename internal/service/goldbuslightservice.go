@@ -311,6 +311,27 @@ func (g *GoldbusLightService) SetSelectedUSBSerialDevice(deviceID string) (ctrlp
 	})
 }
 
+func (g *GoldbusLightService) CreateDMXUniverse(name string) (ctrlpkg.DMXUniverse, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXUniverse, error) {
+		return c.CreateDMXUniverse(name)
+	})
+}
+
+func (g *GoldbusLightService) DeleteDMXUniverse(universeID string) error {
+	return g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.DeleteDMXUniverse(universeID)
+	})
+}
+
+func (g *GoldbusLightService) SetDMXUniverseUSBDevice(universeID, deviceID string) (ctrlpkg.DMXState, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXState, error) {
+		if err := c.SetDMXUniverseUSBDevice(universeID, deviceID); err != nil {
+			return ctrlpkg.DMXState{}, err
+		}
+		return c.GetDMXState(), nil
+	})
+}
+
 func (g *GoldbusLightService) StartDMXLive(fixtureID string) error {
 	return g.withController(func(c *ctrlpkg.WLEDController) error {
 		return c.StartDMXLive(fixtureID)

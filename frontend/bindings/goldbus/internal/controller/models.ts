@@ -312,6 +312,7 @@ export class DMXFixture {
     "type": DMXFixtureType;
     "brand": string;
     "name": string;
+    "universeId"?: string;
     "dmxAddress": number;
 
     /**
@@ -361,18 +362,18 @@ export class DMXFixture {
      * Creates a new DMXFixture instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixture {
-        const $$createField6_0 = $$createType12;
-        const $$createField7_0 = $$createType13;
-        const $$createField8_0 = $$createType15;
+        const $$createField7_0 = $$createType12;
+        const $$createField8_0 = $$createType13;
+        const $$createField9_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("movingHead" in $$parsedSource) {
-            $$parsedSource["movingHead"] = $$createField6_0($$parsedSource["movingHead"]);
+            $$parsedSource["movingHead"] = $$createField7_0($$parsedSource["movingHead"]);
         }
         if ("party" in $$parsedSource) {
-            $$parsedSource["party"] = $$createField7_0($$parsedSource["party"]);
+            $$parsedSource["party"] = $$createField8_0($$parsedSource["party"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField8_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField9_0($$parsedSource["channels"]);
         }
         return new DMXFixture($$parsedSource as Partial<DMXFixture>);
     }
@@ -834,8 +835,13 @@ export class DMXPartyStatus {
 export class DMXSettings {
     "enabled": boolean;
     "usb": USBTransportSettings;
+
+    /**
+     * legacy; migrated into UniverseInterfaces
+     */
     "artNet": ArtNetSettings;
     "testing": DMXTestingSettings;
+    "universeInterfaces"?: { [_ in string]?: DMXUniverseInterfaceSettings };
 
     /** Creates a new DMXSettings instance. */
     constructor($$source: Partial<DMXSettings> = {}) {
@@ -862,6 +868,7 @@ export class DMXSettings {
         const $$createField1_0 = $$createType25;
         const $$createField2_0 = $$createType26;
         const $$createField3_0 = $$createType27;
+        const $$createField4_0 = $$createType29;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("usb" in $$parsedSource) {
             $$parsedSource["usb"] = $$createField1_0($$parsedSource["usb"]);
@@ -872,23 +879,38 @@ export class DMXSettings {
         if ("testing" in $$parsedSource) {
             $$parsedSource["testing"] = $$createField3_0($$parsedSource["testing"]);
         }
+        if ("universeInterfaces" in $$parsedSource) {
+            $$parsedSource["universeInterfaces"] = $$createField4_0($$parsedSource["universeInterfaces"]);
+        }
         return new DMXSettings($$parsedSource as Partial<DMXSettings>);
     }
 }
 
 export class DMXState {
+    "universes": DMXUniverse[];
     "fixtures": DMXFixture[];
+
+    /**
+     * legacy; migrated to UniverseInterfaces
+     */
     "selectedUSBDeviceId": string;
     "party": DMXPartyState;
 
     /**
-     * LiveUniverse is the current 512-channel buffer sent to USB/Art-Net when live output is active.
-     * Omitted when live output is off; not persisted to dmx.json.
+     * LiveUniverses maps universe id → 512 slot values when live output is active.
+     */
+    "liveUniverses"?: { [_ in string]?: number[] };
+
+    /**
+     * LiveUniverse is the legacy single-universe buffer (universe 1) for backward compatibility.
      */
     "liveUniverse"?: number[];
 
     /** Creates a new DMXState instance. */
     constructor($$source: Partial<DMXState> = {}) {
+        if (!("universes" in $$source)) {
+            this["universes"] = [];
+        }
         if (!("fixtures" in $$source)) {
             this["fixtures"] = [];
         }
@@ -906,18 +928,26 @@ export class DMXState {
      * Creates a new DMXState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXState {
-        const $$createField0_0 = $$createType29;
-        const $$createField2_0 = $$createType30;
-        const $$createField3_0 = $$createType31;
+        const $$createField0_0 = $$createType31;
+        const $$createField1_0 = $$createType33;
+        const $$createField3_0 = $$createType34;
+        const $$createField4_0 = $$createType36;
+        const $$createField5_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("universes" in $$parsedSource) {
+            $$parsedSource["universes"] = $$createField0_0($$parsedSource["universes"]);
+        }
         if ("fixtures" in $$parsedSource) {
-            $$parsedSource["fixtures"] = $$createField0_0($$parsedSource["fixtures"]);
+            $$parsedSource["fixtures"] = $$createField1_0($$parsedSource["fixtures"]);
         }
         if ("party" in $$parsedSource) {
-            $$parsedSource["party"] = $$createField2_0($$parsedSource["party"]);
+            $$parsedSource["party"] = $$createField3_0($$parsedSource["party"]);
+        }
+        if ("liveUniverses" in $$parsedSource) {
+            $$parsedSource["liveUniverses"] = $$createField4_0($$parsedSource["liveUniverses"]);
         }
         if ("liveUniverse" in $$parsedSource) {
-            $$parsedSource["liveUniverse"] = $$createField3_0($$parsedSource["liveUniverse"]);
+            $$parsedSource["liveUniverse"] = $$createField5_0($$parsedSource["liveUniverse"]);
         }
         return new DMXState($$parsedSource as Partial<DMXState>);
     }
@@ -945,6 +975,66 @@ export class DMXTestingSettings {
     static createFrom($$source: any = {}): DMXTestingSettings {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new DMXTestingSettings($$parsedSource as Partial<DMXTestingSettings>);
+    }
+}
+
+/**
+ * DMXUniverse is a logical DMX universe (up to 512 channels) managed by the app.
+ */
+export class DMXUniverse {
+    "id": string;
+    "name": string;
+
+    /** Creates a new DMXUniverse instance. */
+    constructor($$source: Partial<DMXUniverse> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXUniverse instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXUniverse {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DMXUniverse($$parsedSource as Partial<DMXUniverse>);
+    }
+}
+
+/**
+ * DMXUniverseInterfaceSettings holds per-universe output interface configuration (Settings → DMX).
+ */
+export class DMXUniverseInterfaceSettings {
+    "selectedUSBDeviceId": string;
+    "artNet": ArtNetSettings;
+
+    /** Creates a new DMXUniverseInterfaceSettings instance. */
+    constructor($$source: Partial<DMXUniverseInterfaceSettings> = {}) {
+        if (!("selectedUSBDeviceId" in $$source)) {
+            this["selectedUSBDeviceId"] = "";
+        }
+        if (!("artNet" in $$source)) {
+            this["artNet"] = (new ArtNetSettings());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXUniverseInterfaceSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXUniverseInterfaceSettings {
+        const $$createField1_0 = $$createType26;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("artNet" in $$parsedSource) {
+            $$parsedSource["artNet"] = $$createField1_0($$parsedSource["artNet"]);
+        }
+        return new DMXUniverseInterfaceSettings($$parsedSource as Partial<DMXUniverseInterfaceSettings>);
     }
 }
 
@@ -1093,7 +1183,7 @@ export class NetworkApplyResult {
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
         const $$createField1_0 = $$createType21;
-        const $$createField2_0 = $$createType33;
+        const $$createField2_0 = $$createType38;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -1219,6 +1309,7 @@ export class UpsertDMXFixtureInput {
     "type": DMXFixtureType;
     "brand": string;
     "name": string;
+    "universeId"?: string;
     "dmxAddress": number;
 
     /**
@@ -1261,14 +1352,14 @@ export class UpsertDMXFixtureInput {
      * Creates a new UpsertDMXFixtureInput instance from a string or object.
      */
     static createFrom($$source: any = {}): UpsertDMXFixtureInput {
-        const $$createField8_0 = $$createType13;
-        const $$createField9_0 = $$createType15;
+        const $$createField9_0 = $$createType13;
+        const $$createField10_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("party" in $$parsedSource) {
-            $$parsedSource["party"] = $$createField8_0($$parsedSource["party"]);
+            $$parsedSource["party"] = $$createField9_0($$parsedSource["party"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField9_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField10_0($$parsedSource["channels"]);
         }
         return new UpsertDMXFixtureInput($$parsedSource as Partial<UpsertDMXFixtureInput>);
     }
@@ -1475,9 +1566,14 @@ const $$createType24 = DMXPartyAudioFeatures.createFrom;
 const $$createType25 = USBTransportSettings.createFrom;
 const $$createType26 = ArtNetSettings.createFrom;
 const $$createType27 = DMXTestingSettings.createFrom;
-const $$createType28 = DMXFixture.createFrom;
-const $$createType29 = $Create.Array($$createType28);
-const $$createType30 = DMXPartyState.createFrom;
-const $$createType31 = $Create.Array($Create.Any);
-const $$createType32 = NetworkCommandResult.createFrom;
+const $$createType28 = DMXUniverseInterfaceSettings.createFrom;
+const $$createType29 = $Create.Map($Create.Any, $$createType28);
+const $$createType30 = DMXUniverse.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = DMXFixture.createFrom;
 const $$createType33 = $Create.Array($$createType32);
+const $$createType34 = DMXPartyState.createFrom;
+const $$createType35 = $Create.Array($Create.Any);
+const $$createType36 = $Create.Map($Create.Any, $$createType35);
+const $$createType37 = NetworkCommandResult.createFrom;
+const $$createType38 = $Create.Array($$createType37);

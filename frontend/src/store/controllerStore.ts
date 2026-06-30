@@ -145,6 +145,7 @@ const initialState: ControllerStoreState = {
     editingDeviceName: false,
     currentVersion: "unknown",
     dmxState: {
+        universes: [{id: "universe-1", name: "Universe 1"}],
         fixtures: [],
         selectedUSBDeviceId: "",
         party: {

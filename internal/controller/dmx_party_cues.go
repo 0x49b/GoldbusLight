@@ -409,12 +409,13 @@ func buildCueSequenceUpdates(
 	fixture DMXFixture,
 	seq DMXFixtureCueSequence,
 	anchor, now time.Time,
-	owned *[512]bool,
+	owned *map[string][512]bool,
 ) []dmx.DMXOutputUpdate {
 	frame, ok := computeCueSequenceFrame(seq, anchor, now)
 	if !ok {
 		return nil
 	}
+	universeID := normalizeFixtureUniverseID(fixture.UniverseID, nil)
 	updates := make([]dmx.DMXOutputUpdate, 0, len(fixture.Channels))
 	for _, ch := range fixture.Channels {
 		address := fixture.DMXAddress + ch.Channel - 1
@@ -425,8 +426,15 @@ func buildCueSequenceUpdates(
 		if !claim {
 			continue
 		}
-		owned[address-1] = true
-		updates = append(updates, dmx.DMXOutputUpdate{Address: address, Value: value})
+		if owned != nil {
+			if *owned == nil {
+				*owned = map[string][512]bool{}
+			}
+			o := (*owned)[universeID]
+			o[address-1] = true
+			(*owned)[universeID] = o
+		}
+		updates = append(updates, dmx.DMXOutputUpdate{UniverseID: universeID, Address: address, Value: value})
 	}
 	return updates
 }

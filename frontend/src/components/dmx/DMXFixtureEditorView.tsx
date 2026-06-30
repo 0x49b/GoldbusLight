@@ -33,6 +33,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {normalizeUniverses, resolveUniverseId} from "@/lib/dmxUniverses";
 import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
 import {
     effectiveEntryLiveSlotKind,
@@ -171,6 +172,7 @@ type DMXFixtureEditorViewProps = {
     /** Prompt for a destination and write the exported fixture config; returns a status message. */
     onExportFixtureConfig?: (suggestedFilename: string, contents: string) => Promise<string>;
     dmxState: DMXState;
+    defaultUniverseId?: string;
     usbSerialDevices: USBSerialDevice[];
     dmxLiveStatus: DMXLiveStatus | null;
     setRoute: (route: DetailRoute) => void;
@@ -561,6 +563,7 @@ function fixtureToUpsertInput(f: DMXFixture): UpsertDMXFixtureInput {
         type: f.type,
         brand: f.brand,
         name: f.name,
+        universeId: f.universeId,
         dmxAddress: f.dmxAddress,
         masterFixtureId: f.masterFixtureId,
         maxPan: Math.max(0, Math.round(f.movingHead?.maxPan ?? 0)),
@@ -695,6 +698,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
     const [address, setAddress] = useState(1);
+    const universes = useMemo(() => normalizeUniverses(props.dmxState.universes), [props.dmxState.universes]);
+    const [universeId, setUniverseId] = useState(resolveUniverseId(props.defaultUniverseId, universes));
     const [maxPan, setMaxPan] = useState(540);
     const [maxTilt, setMaxTilt] = useState(270);
     const [masterFixtureId, setMasterFixtureId] = useState("");
@@ -735,6 +740,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setFixtureType(props.fixture.type || "movingHead");
             setName(props.fixture.name);
             setBrand(props.fixture.brand);
+            setUniverseId(resolveUniverseId(props.fixture.universeId, universes));
             setAddress(props.fixture.dmxAddress || 1);
             setMaxPan(props.fixture.movingHead?.maxPan ?? 540);
             setMaxTilt(props.fixture.movingHead?.maxTilt ?? 270);
@@ -752,6 +758,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setName("");
         setBrand("");
         setFixtureType("movingHead");
+        setUniverseId(resolveUniverseId(props.defaultUniverseId, universes));
         setAddress(1);
         setMaxPan(540);
         setMaxTilt(270);
@@ -762,7 +769,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeOnMs(120);
         setPartyStrobeOffMs(500);
         setPartyCueSequence({});
-    }, [props.fixture?.id, props.fixture?.updatedAt]);
+    }, [props.fixture?.id, props.fixture?.updatedAt, props.defaultUniverseId, universes]);
 
     useEffect(() => {
         setPageMode(props.fixture ? "live" : "editor");
@@ -902,6 +909,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         type: fixtureType,
         brand: brand.trim(),
         name: name.trim(),
+        universeId: resolveUniverseId(universeId, universes),
         dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
         masterFixtureId: masterFixtureId.trim() || undefined,
         maxPan: Math.max(0, Math.round(maxPan) || 0),
@@ -930,6 +938,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         partyStrobeOffMs,
         partyStrobeOnMs,
         props.fixture?.id,
+        universeId,
+        universes,
     ]);
 
     const handleSaveCueSequence = useCallback(
@@ -1359,6 +1369,21 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         {FIXTURE_TYPE_OPTIONS.map((opt) => (
                                             <NativeSelectOption key={opt.value} value={opt.value}>
                                                 {opt.label}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="dmx-fixture-universe">Universe</Label>
+                                    <NativeSelect
+                                        id="dmx-fixture-universe"
+                                        value={universeId}
+                                        onChange={(e) => setUniverseId(e.target.value)}
+                                        disabled={props.busy}
+                                    >
+                                        {universes.map((u) => (
+                                            <NativeSelectOption key={u.id} value={u.id}>
+                                                {u.name}
                                             </NativeSelectOption>
                                         ))}
                                     </NativeSelect>

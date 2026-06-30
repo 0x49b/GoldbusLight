@@ -47,6 +47,11 @@ export type ArtNetSettings = {
     refreshHz: number;
 };
 
+export type DMXUniverseInterfaceSettings = {
+    selectedUSBDeviceId: string;
+    artNet: ArtNetSettings;
+};
+
 export type DMXSettings = {
     enabled: boolean;
     usb: {
@@ -57,6 +62,7 @@ export type DMXSettings = {
         simulateUsbDmx: boolean;
         simulateArtNet: boolean;
     };
+    universeInterfaces?: Record<string, DMXUniverseInterfaceSettings>;
 };
 
 export type ControllerSettings = {
@@ -248,6 +254,8 @@ export type DMXFixture = {
     type: DMXFixtureType;
     brand: string;
     name: string;
+    /** Logical DMX universe this fixture belongs to. */
+    universeId?: string;
     /** DMX start address (1–512). Channel rows use offsets from this address (universe slot = address + offset − 1). */
     dmxAddress: number;
     /** When set, this fixture mirrors channel output from the referenced master fixture. */
@@ -327,12 +335,23 @@ export type DMXPartyState = {
 };
 
 export type DMXState = {
+    universes: DMXUniverse[];
     fixtures: DMXFixture[];
     selectedUSBDeviceId: string;
     party: DMXPartyState;
-    /** Present while DMX live output (USB and/or Art-Net) is running: 512 slot values 0–255. */
+    /** Present while DMX live output is running: per-universe 512 slot values 0–255. */
+    liveUniverses?: Record<string, number[]>;
+    /** Legacy single-universe buffer (universe 1) while live output is active. */
     liveUniverse?: number[];
 };
+
+export type DMXUniverse = {
+    id: string;
+    name: string;
+};
+
+export const DEFAULT_DMX_UNIVERSE_ID = "universe-1";
+export const MAX_DMX_UNIVERSES = 4;
 
 export type USBSerialDevice = {
     id: string;
@@ -346,6 +365,7 @@ export type UpsertDMXFixtureInput = {
     type: DMXFixtureType;
     brand: string;
     name: string;
+    universeId?: string;
     dmxAddress: number;
     /** When set, this fixture mirrors channel output from the referenced master fixture. */
     masterFixtureId?: string;
@@ -360,8 +380,8 @@ export type DetailRoute =
     | { kind: "presets" }
     | { kind: "settings" }
     | { kind: "device"; id: string }
-    | { kind: "dmxUniverse" }
-    | { kind: "dmxAddFixture" }
+    | { kind: "dmxUniverse"; universeId?: string }
+    | { kind: "dmxAddFixture"; universeId?: string }
     | { kind: "dmxFixture"; id: string };
 
 export type ConsoleEntry = {

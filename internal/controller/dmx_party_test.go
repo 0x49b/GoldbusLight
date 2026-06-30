@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time) ([]dmx.DMXOutputUpdate, [512]bool) {
+func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time) ([]dmx.DMXOutputUpdate, map[string][512]bool) {
 	c.mu.RLock()
 	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
 	c.mu.RUnlock()
@@ -197,7 +197,7 @@ func TestBuildDMXPartyFrameVF1600SmokeBurst(t *testing.T) {
 			smokeVal = u.Value
 		}
 	}
-	if !owned[22] {
+	if !owned[DefaultDMXUniverseID][22] {
 		t.Fatalf("expected party to own address 23")
 	}
 	if smokeVal <= 0 {
@@ -248,7 +248,7 @@ func TestBuildDMXPartyFrameProducesBoundedValues(t *testing.T) {
 	if len(updates) == 0 {
 		t.Fatalf("expected non-empty updates")
 	}
-	if !owned[39] {
+	if !owned[DefaultDMXUniverseID][39] {
 		t.Fatalf("expected party to own dimmer address 40")
 	}
 	for _, update := range updates {
@@ -295,25 +295,37 @@ func TestApplyDMXLivePatchSkipsPartyOwnedAddresses(t *testing.T) {
 
 	c.dmxLiveMu.Lock()
 	c.dmxLiveRunning = true
-	c.dmxLiveUSBFrames = make(chan [512]byte, 1)
-	c.dmxLiveBuf[39] = 100
+	rt := c.dmxLiveRuntime(DefaultDMXUniverseID)
+	rt.usbFrames = make(chan [512]byte, 1)
+	rt.buf[39] = 100
 	c.dmxPartyRunning = true
-	c.partyOwnedAddrs[39] = true
+	if c.partyOwnedByUniverse == nil {
+		c.partyOwnedByUniverse = map[string][512]bool{}
+	}
+	owned := c.partyOwnedByUniverse[DefaultDMXUniverseID]
+	owned[39] = true
+	c.partyOwnedByUniverse[DefaultDMXUniverseID] = owned
 	c.dmxLiveMu.Unlock()
 
-	if err := c.ApplyDMXLivePatch([]dmx.DMXOutputUpdate{{Address: 40, Value: 200}}); err != nil {
+	if err := c.ApplyDMXLivePatch([]dmx.DMXOutputUpdate{{UniverseID: DefaultDMXUniverseID, Address: 40, Value: 200}}); err != nil {
 		t.Fatalf("apply patch failed: %v", err)
 	}
-	if c.dmxLiveBuf[39] != 100 {
-		t.Fatalf("party-owned address should be unchanged, got %d", c.dmxLiveBuf[39])
+	c.dmxLiveMu.Lock()
+	rt = c.dmxLiveRuntime(DefaultDMXUniverseID)
+	if rt.buf[39] != 100 {
+		t.Fatalf("party-owned address should be unchanged, got %d", rt.buf[39])
 	}
+	c.dmxLiveMu.Unlock()
 
-	if err := c.ApplyDMXLivePatch([]dmx.DMXOutputUpdate{{Address: 41, Value: 50}}); err != nil {
+	if err := c.ApplyDMXLivePatch([]dmx.DMXOutputUpdate{{UniverseID: DefaultDMXUniverseID, Address: 41, Value: 50}}); err != nil {
 		t.Fatalf("apply patch failed: %v", err)
 	}
-	if c.dmxLiveBuf[40] != 50 {
-		t.Fatalf("non-party address should update, got %d", c.dmxLiveBuf[40])
+	c.dmxLiveMu.Lock()
+	rt = c.dmxLiveRuntime(DefaultDMXUniverseID)
+	if rt.buf[40] != 50 {
+		t.Fatalf("non-party address should update, got %d", rt.buf[40])
 	}
+	c.dmxLiveMu.Unlock()
 }
 
 func TestPartyAllowsChannelByFixtureType(t *testing.T) {
@@ -508,7 +520,7 @@ func TestBuildDMXPartyFrameColorChangerCustomRGBW(t *testing.T) {
 		if _, ok := addresses[addr]; !ok {
 			t.Fatalf("expected party to drive address %d", addr)
 		}
-		if !owned[addr-1] {
+		if !owned[DefaultDMXUniverseID][addr-1] {
 			t.Fatalf("expected party to own address %d", addr)
 		}
 	}
@@ -546,13 +558,14 @@ func TestBuildDMXPartyFrameSkipsCustomExcludedFromParty(t *testing.T) {
 	if _, ok := addresses[3]; !ok {
 		t.Fatalf("expected party on blue")
 	}
-	if !owned[0] {
+	uOwned := owned[DefaultDMXUniverseID]
+	if !uOwned[0] {
 		t.Fatalf("expected party to own address 1")
 	}
-	if owned[1] {
+	if uOwned[1] {
 		t.Fatalf("party should not own excluded green address")
 	}
-	if !owned[2] {
+	if !uOwned[2] {
 		t.Fatalf("expected party to own address 3")
 	}
 }

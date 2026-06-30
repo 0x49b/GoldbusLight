@@ -11,30 +11,45 @@ import (
 // buildDMXLiveInitUpdates mirrors frontend defaultDmxLiveControlState + buildDmxLivePatch
 // so DMX live output starts from the same fixture "init" values as the live tab UI.
 func buildDMXLiveInitUpdates(fixtures []DMXFixture) []dmx.DMXOutputUpdate {
-	byAddr := map[int]int{}
+	type key struct {
+		universeID string
+		address    int
+	}
+	byKey := map[key]int{}
 	for _, fx := range fixtures {
 		if isDMXSlaveFixture(fx) {
 			continue
 		}
+		universeID := normalizeFixtureUniverseID(fx.UniverseID, nil)
 		for _, u := range buildDMXLiveInitUpdatesForFixture(fx) {
 			if u.Address < 1 || u.Address > 512 {
 				continue
 			}
-			byAddr[u.Address] = u.Value
+			byKey[key{universeID: universeID, address: u.Address}] = u.Value
 		}
 	}
-	if len(byAddr) == 0 {
+	if len(byKey) == 0 {
 		return nil
 	}
-	addrs := make([]int, 0, len(byAddr))
-	for a := range byAddr {
-		addrs = append(addrs, a)
+	out := make([]dmx.DMXOutputUpdate, 0, len(byKey))
+	for k, v := range byKey {
+		out = append(out, dmx.DMXOutputUpdate{UniverseID: k.universeID, Address: k.address, Value: v})
 	}
-	slices.Sort(addrs)
-	out := make([]dmx.DMXOutputUpdate, 0, len(addrs))
-	for _, a := range addrs {
-		out = append(out, dmx.DMXOutputUpdate{Address: a, Value: byAddr[a]})
-	}
+	slices.SortFunc(out, func(a, b dmx.DMXOutputUpdate) int {
+		if a.UniverseID < b.UniverseID {
+			return -1
+		}
+		if a.UniverseID > b.UniverseID {
+			return 1
+		}
+		if a.Address < b.Address {
+			return -1
+		}
+		if a.Address > b.Address {
+			return 1
+		}
+		return 0
+	})
 	return expandDMXUpdatesToSlaves(fixtures, out, nil)
 }
 
@@ -54,7 +69,7 @@ func buildDMXLiveInitUpdatesForFixture(fixture DMXFixture) []dmx.DMXOutputUpdate
 		if addr < 1 || addr > 512 {
 			return
 		}
-		out = append(out, dmx.DMXOutputUpdate{Address: addr, Value: clampDMXByte(value)})
+		out = append(out, dmx.DMXOutputUpdate{UniverseID: normalizeFixtureUniverseID(fixture.UniverseID, nil), Address: addr, Value: clampDMXByte(value)})
 	}
 
 	for i := range chans {

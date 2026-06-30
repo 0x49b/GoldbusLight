@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"goldbus/internal/console"
+	"strings"
 	"time"
 )
 
@@ -16,37 +17,24 @@ func (c *WLEDController) DMXEmergencyStop() error {
 	c.StopDMXParty()
 
 	c.dmxLiveMu.Lock()
-	hadOutput := c.dmxLiveRunning && (c.dmxLiveUSBFrames != nil || c.dmxLiveArtFrames != nil)
+	hadOutput := c.dmxLiveRunning && c.hasAnyDMXLiveAdapterLocked()
 	if hadOutput {
-		for i := range c.dmxLiveBuf {
-			c.dmxLiveBuf[i] = 0
-		}
-		c.partyOwnedAddrs = [512]bool{}
-		frame := c.dmxLiveBuf
-		queueLatestDMXFrame(c.dmxLiveUSBFrames, frame)
-		queueLatestDMXFrame(c.dmxLiveArtFrames, frame)
+		c.blackoutAllDMXLiveUniversesLocked()
+		c.clearAllPartyOwnedLocked()
+		c.fanOutAllDMXLiveUniversesLocked()
 
 		if c.console != nil {
 			now := time.Now()
 			if now.Sub(c.dmxLivePatchLog) >= dmxLivePatchConsoleInterval {
 				c.dmxLivePatchLog = now
 				summary := "Emergency stop: party off, universe blackout, live output stopped"
-				if c.dmxLiveUSBFrames != nil {
-					target := c.dmxLiveUSBPath
-					if target == "" {
-						target = "usb"
+				paths, _ := c.collectDMXLiveStatusPaths()
+				for _, target := range paths {
+					if strings.Contains(target, "artnet") || strings.HasPrefix(target, "sim://artnet") {
+						c.console.Out(console.TransportArtNet, target, summary, "all channels 0")
+					} else {
+						c.console.Out(console.TransportUSBDMX, target, summary, "all channels 0")
 					}
-					c.console.Out(console.TransportUSBDMX, target, summary, "all channels 0")
-				}
-				if c.dmxLiveArtFrames != nil {
-					target := c.dmxLiveArtTarget
-					if target == "" {
-						target = c.dmxLiveArtPath
-					}
-					if target == "" {
-						target = "artnet"
-					}
-					c.console.Out(console.TransportArtNet, target, summary, "all channels 0")
 				}
 			}
 		}

@@ -23,6 +23,8 @@ import type {
 } from "@/types/controller.ts";
 import { DmxFixtureChannelSweepPanel } from "./DmxFixtureChannelSweepPanel";
 import { TransportConsolePanel } from "./TransportConsolePanel";
+import {normalizeUniverses, universeInterfaceSettings} from "@/lib/dmxUniverses";
+import type {ArtNetSettings} from "@/types/controller.ts";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -48,7 +50,7 @@ export type ControllerSettingsViewProps = {
     setError: (message: string) => void;
     usbSerialDevices: USBSerialDevice[];
     onRefreshUSBSerialDevices: () => void;
-    onSelectUSBSerialDevice: (deviceId: string) => void;
+    onSelectUSBSerialDevice: (deviceId: string, universeId?: string) => void;
     onDiscoverNow: () => void;
     onRefreshSnapshot: () => void;
     consoleEntries: ConsoleEntry[];
@@ -102,8 +104,7 @@ export function ControllerSettingsView({
     const wledControlsDisabled = busy || !settings.wled.enabled;
     const dmxControlsDisabled = busy || !settings.dmx.enabled;
     const usbTransportEnabled = settings.dmx.usb.enabled ?? true;
-    const usbFieldsDisabled = dmxControlsDisabled || !usbTransportEnabled;
-    const artNetFieldsDisabled = dmxControlsDisabled || !settings.dmx.artNet.enabled;
+    const universes = normalizeUniverses(dmxState.universes);
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
 
@@ -151,6 +152,32 @@ export function ControllerSettingsView({
         setConfigPatchText(text);
         scheduleAutosave();
     }, [scheduleAutosave, setConfigPatchText]);
+
+    const updateUniverseArtNet = useCallback((
+        universeId: string,
+        patch: Partial<ArtNetSettings>,
+        mode: "debounced" | "immediate" = "debounced",
+    ) => {
+        updateSettings((prev) => {
+            if (!prev) {
+                return prev;
+            }
+            const current = universeInterfaceSettings(prev, universeId, dmxState);
+            return {
+                ...prev,
+                dmx: {
+                    ...prev.dmx,
+                    universeInterfaces: {
+                        ...prev.dmx.universeInterfaces,
+                        [universeId]: {
+                            ...current,
+                            artNet: {...current.artNet, ...patch},
+                        },
+                    },
+                },
+            };
+        }, mode);
+    }, [dmxState, updateSettings]);
 
     const disableAccessPointNow = useCallback(async () => {
         setSettings((previous) => {
@@ -702,7 +729,7 @@ export function ControllerSettingsView({
 
                     <Card className="w-full max-w-none">
                         <CardHeader>
-                            <CardTitle className="text-sm font-semibold">DMX USB interface</CardTitle>
+                            <CardTitle className="text-sm font-semibold">Global USB transport</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <label className="flex items-center gap-3">
@@ -717,182 +744,142 @@ export function ControllerSettingsView({
                                     }, "immediate")}
                                     disabled={dmxControlsDisabled}
                                 />
-                                <span>Enable USB transport</span>
+                                <span>Enable USB transport (all universes)</span>
                             </label>
-                            <p className="text-sm opacity-70">
-                                Select the active USB-to-DMX serial interface. Selection is saved automatically and used when USB transport is enabled.
-                            </p>
                             <div className="flex flex-wrap items-center gap-2">
-                                <NativeSelect
-                                    className="w-full md:w-[28rem]"
-                                    value={dmxState.selectedUSBDeviceId ?? ""}
-                                    onChange={(event) => onSelectUSBSerialDevice(event.target.value)}
-                                    disabled={usbFieldsDisabled}
-                                >
-                                    <NativeSelectOption value="">No device selected</NativeSelectOption>
-                                    {usbSerialDevices.map((device) => (
-                                        <NativeSelectOption key={device.id} value={device.id}>
-                                            {device.name} ({device.path})
-                                        </NativeSelectOption>
-                                    ))}
-                                </NativeSelect>
                                 <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
                                     onClick={onRefreshUSBSerialDevices}
-                                    disabled={usbFieldsDisabled}
+                                    disabled={dmxControlsDisabled}
                                 >
                                     Refresh USB devices
                                 </Button>
                             </div>
-                            {dmxState.selectedUSBDeviceId && !usbSerialDevices.some((device) => device.id === dmxState.selectedUSBDeviceId) && (
-                                <p className="text-xs text-destructive">
-                                    Selected device is currently unavailable: <code>{dmxState.selectedUSBDeviceId}</code>
-                                </p>
-                            )}
                         </CardContent>
                     </Card>
 
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Art-Net output</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    checked={settings.dmx.artNet.enabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        dmx: {
-                                            ...settings.dmx,
-                                            artNet: {...settings.dmx.artNet, enabled: checked}
-                                        }
-                                    }, "immediate")}
-                                    disabled={dmxControlsDisabled}
-                                />
-                                <span>Enable Art-Net transport</span>
-                            </label>
+                    {universes.map((universe) => {
+                        const iface = universeInterfaceSettings(settings, universe.id, dmxState);
+                        const usbFieldsDisabled = dmxControlsDisabled || !usbTransportEnabled;
+                        const artNetFieldsDisabled = dmxControlsDisabled || !iface.artNet.enabled;
+                        const usbDeviceId = iface.selectedUSBDeviceId;
+                        return (
+                            <Card key={universe.id} className="w-full max-w-none">
+                                <CardHeader>
+                                    <CardTitle className="text-sm font-semibold">{universe.name} interface</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">USB device</Label>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <NativeSelect
+                                                className="w-full md:w-[28rem]"
+                                                value={usbDeviceId ?? ""}
+                                                onChange={(event) => onSelectUSBSerialDevice(event.target.value, universe.id)}
+                                                disabled={usbFieldsDisabled}
+                                            >
+                                                <NativeSelectOption value="">No device selected</NativeSelectOption>
+                                                {usbSerialDevices.map((device) => (
+                                                    <NativeSelectOption key={device.id} value={device.id}>
+                                                        {device.name} ({device.path})
+                                                    </NativeSelectOption>
+                                                ))}
+                                            </NativeSelect>
+                                        </div>
+                                        {usbDeviceId && !usbSerialDevices.some((device) => device.id === usbDeviceId) && (
+                                            <p className="text-xs text-destructive">
+                                                Selected device is currently unavailable: <code>{usbDeviceId}</code>
+                                            </p>
+                                        )}
+                                    </div>
 
-                            <p className="text-xs text-muted-foreground">
-                                Based on common Art-Net controller setups (QLC+ style): configure target IP, Net/Subnet/Universe, and frame rate.
-                            </p>
-
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-target">Target host / broadcast</FieldLabel>
-                                    <Input
-                                        id="artnet-target"
-                                        value={settings.dmx.artNet.targetHost}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, targetHost: e.target.value}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-port">UDP port</FieldLabel>
-                                    <Input
-                                        id="artnet-port"
-                                        type="number"
-                                        min={1}
-                                        max={65535}
-                                        value={settings.dmx.artNet.port}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, port: readNumber(e.target.value, 6454)}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-net">Net (0-127)</FieldLabel>
-                                    <Input
-                                        id="artnet-net"
-                                        type="number"
-                                        min={0}
-                                        max={127}
-                                        value={settings.dmx.artNet.net}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, net: readNumber(e.target.value, 0)}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-subnet">Subnet (0-15)</FieldLabel>
-                                    <Input
-                                        id="artnet-subnet"
-                                        type="number"
-                                        min={0}
-                                        max={15}
-                                        value={settings.dmx.artNet.subnet}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, subnet: readNumber(e.target.value, 0)}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-universe">Universe (0-15)</FieldLabel>
-                                    <Input
-                                        id="artnet-universe"
-                                        type="number"
-                                        min={0}
-                                        max={15}
-                                        value={settings.dmx.artNet.universe}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, universe: readNumber(e.target.value, 0)}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="artnet-refresh">Refresh Hz</FieldLabel>
-                                    <Input
-                                        id="artnet-refresh"
-                                        type="number"
-                                        min={1}
-                                        max={50}
-                                        value={settings.dmx.artNet.refreshHz}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                artNet: {...settings.dmx.artNet, refreshHz: readNumber(e.target.value, 44)}
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={artNetFieldsDisabled}
-                                    />
-                                </Field>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+                                        <label className="flex items-center gap-3">
+                                            <Switch
+                                                checked={iface.artNet.enabled}
+                                                onCheckedChange={(checked) => updateUniverseArtNet(universe.id, {enabled: checked}, "immediate")}
+                                                disabled={dmxControlsDisabled}
+                                            />
+                                            <span>Enable Art-Net for {universe.name}</span>
+                                        </label>
+                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                            <Field>
+                                                <FieldLabel>Target host / broadcast</FieldLabel>
+                                                <Input
+                                                    value={iface.artNet.targetHost}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {targetHost: e.target.value})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel>UDP port</FieldLabel>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    max={65535}
+                                                    value={iface.artNet.port}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {port: readNumber(e.target.value, 6454)})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel>Net (0-127)</FieldLabel>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={127}
+                                                    value={iface.artNet.net}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {net: readNumber(e.target.value, 0)})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel>Subnet (0-15)</FieldLabel>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={15}
+                                                    value={iface.artNet.subnet}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {subnet: readNumber(e.target.value, 0)})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel>Art-Net universe (0-15)</FieldLabel>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={15}
+                                                    value={iface.artNet.universe}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {universe: readNumber(e.target.value, 0)})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel>Refresh Hz</FieldLabel>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    max={50}
+                                                    value={iface.artNet.refreshHz}
+                                                    onChange={(e) => updateUniverseArtNet(universe.id, {refreshHz: readNumber(e.target.value, 44)})}
+                                                    onBlur={flushAutosaveNow}
+                                                    disabled={artNetFieldsDisabled}
+                                                />
+                                            </Field>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
 
                     <DmxFixtureChannelSweepPanel
                         fixtures={dmxState.fixtures}
