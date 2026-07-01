@@ -27,6 +27,8 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 	c.dmxPersistEnabled = true
 	c.mu.Unlock()
 
+	activateTestProLicense(t, c)
+
 	data, err := c.ExportConfigurationBackup("test")
 	if err != nil {
 		t.Fatalf("export: %v", err)
@@ -94,6 +96,8 @@ func TestExportConfigurationBackupIncludesInMemoryDMXWhenPersistDisabled(t *test
 	c.dmxState.Fixtures = []DMXFixture{{ID: "fx-mem", Name: "In RAM", DMXAddress: 10, Type: DMXFixtureTypeDimmer}}
 	c.dmxPersistEnabled = false
 	c.mu.Unlock()
+
+	activateTestProLicense(t, c)
 
 	data, err := c.ExportConfigurationBackup("test")
 	if err != nil {

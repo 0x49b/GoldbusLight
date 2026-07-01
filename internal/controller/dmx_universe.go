@@ -155,8 +155,8 @@ func clampArtNetSettingsPtr(s *ArtNetSettings) ArtNetSettings {
 
 // CreateDMXUniverse adds a new universe (up to MaxDMXUniverses).
 func (c *WLEDController) CreateDMXUniverse(name string) (DMXUniverse, error) {
-	if !c.dmxEnabled() {
-		return DMXUniverse{}, fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return DMXUniverse{}, err
 	}
 	name = strings.TrimSpace(name)
 
@@ -197,8 +197,8 @@ func (c *WLEDController) CreateDMXUniverse(name string) (DMXUniverse, error) {
 
 // DeleteDMXUniverse removes a universe when DMX is not live and it has no fixtures.
 func (c *WLEDController) DeleteDMXUniverse(universeID string) error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return err
 	}
 	universeID = strings.TrimSpace(universeID)
 	if universeID == "" {
@@ -247,8 +247,8 @@ func (c *WLEDController) DeleteDMXUniverse(universeID string) error {
 
 // SetDMXUniverseUSBDevice sets the USB device for a specific universe interface.
 func (c *WLEDController) SetDMXUniverseUSBDevice(universeID, deviceID string) error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return err
 	}
 	universeID = strings.TrimSpace(universeID)
 	deviceID = strings.TrimSpace(deviceID)

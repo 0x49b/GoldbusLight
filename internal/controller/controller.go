@@ -10,6 +10,7 @@ import (
 	"goldbus/internal/console"
 	"goldbus/internal/discovery"
 	"goldbus/internal/dmx"
+	"goldbus/internal/license"
 	"goldbus/internal/network"
 	serial2 "goldbus/internal/serial"
 	wledpkg "goldbus/internal/wled"
@@ -178,6 +179,7 @@ type ControllerSnapshot struct {
 	PersistencePath string                 `json:"persistencePath"`
 	UpdatedAt       time.Time              `json:"updatedAt"`
 	Capabilities    ControllerCapabilities `json:"capabilities"`
+	License         license.LicenseInfo    `json:"license"`
 }
 
 type GeneralTabState struct {
@@ -637,6 +639,8 @@ type WLEDController struct {
 	partyOwnedByUniverse map[string][512]bool
 	partyAudioMu        sync.Mutex
 	partyAudioCapture   *audio.Capture
+
+	licenseManager *license.Manager
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -659,6 +663,7 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		generalTabState:          defaultGeneralTabState(),
 		dmxState:                 defaultDMXState(),
 		updated:                  time.Now(),
+		licenseManager:           license.NewManager(),
 	}
 }
 
@@ -818,6 +823,16 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	c.updated = time.Now()
 	c.mu.Unlock()
 
+	c.refreshLicense()
+	if !proEntitled(c.licenseInfo()) {
+		c.mu.RLock()
+		needsDowngrade := c.settings.DMX.Enabled || c.settings.AccessPoint.Enabled
+		c.mu.RUnlock()
+		if needsDowngrade {
+			c.downgradeProFeatures()
+		}
+	}
+
 	c.StopDMXParty()
 
 	if dmxPersistEnabled && normDMX.SelectedUSBDeviceID != oldUSB && normDMX.SelectedUSBDeviceID != "" {
@@ -846,6 +861,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
 	go c.recallWLEDDevicePresetsOnBoot(runCtx)
+	go c.licenseRefreshLoop(runCtx)
 
 	return nil
 }
@@ -888,11 +904,22 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 		PersistencePath: c.persistence.Path(),
 		UpdatedAt:       c.updated,
 		Capabilities:    c.network.controllerCapabilities(),
+		License:         c.licenseInfo(),
 	}
 }
 
 func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 	merged := mergeWithDefaults(settings)
+	if merged.DMX.Enabled {
+		if err := c.requireLicenseFeature(license.FeatureDMX); err != nil {
+			return err
+		}
+	}
+	if merged.AccessPoint.Enabled {
+		if err := c.requireLicenseFeature(license.FeatureAccessPoint); err != nil {
+			return err
+		}
+	}
 	c.mu.Lock()
 	wledWas := c.settings.WLED.Enabled
 	c.settings = merged
@@ -926,6 +953,14 @@ func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
 	c.mu.RLock()
 	settings := c.settings
 	c.mu.RUnlock()
+
+	if settings.AccessPoint.Enabled {
+		if err := c.requireLicenseFeature(license.FeatureAccessPoint); err != nil {
+			return NetworkApplyResult{
+				Warnings: []string{err.Error()},
+			}
+		}
+	}
 
 	result := c.network.Apply(ctx, settings)
 	c.touch()
@@ -1334,8 +1369,8 @@ func (c *WLEDController) GetDMXState() DMXState {
 }
 
 func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
-	if !c.dmxEnabled() {
-		return DMXFixture{}, fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return DMXFixture{}, err
 	}
 	fixture, err := buildDMXFixtureForCreate(input, c.dmxState.Fixtures)
 	if err != nil {
@@ -1354,8 +1389,8 @@ func (c *WLEDController) CreateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 }
 
 func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixture, error) {
-	if !c.dmxEnabled() {
-		return DMXFixture{}, fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return DMXFixture{}, err
 	}
 	id := strings.TrimSpace(input.ID)
 	if id == "" {
@@ -1390,8 +1425,8 @@ func (c *WLEDController) UpdateDMXFixture(input UpsertDMXFixtureInput) (DMXFixtu
 }
 
 func (c *WLEDController) DeleteDMXFixture(id string) error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return err
 	}
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -1452,6 +1487,9 @@ func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
 
 // StartDMXLive starts DMX output workers and opens adapter channels.
 func (c *WLEDController) StartDMXLive(fixtureID string) error {
+	if err := c.requireLicensedDMX(); err != nil {
+		return err
+	}
 	c.dmxLiveOpMu.Lock()
 	defer c.dmxLiveOpMu.Unlock()
 	c.mu.RLock()
@@ -1824,8 +1862,8 @@ func (c *WLEDController) stopDMXLiveLocked() {
 
 // ApplyDMXLivePatch merges channel updates and asynchronously fans out the latest frame to active adapters.
 func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if err := c.requireLicensedDMX(); err != nil {
+		return err
 	}
 	c.mu.Lock()
 	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
@@ -2219,6 +2257,13 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 
 	c.mu.Lock()
 	existing, hasExisting := c.devices[device.ID]
+	if !hasExisting {
+		if err := c.canAddWLEDDeviceLocked(); err != nil {
+			c.mu.Unlock()
+			c.logger.Printf("wled device limit: %v", err)
+			return
+		}
+	}
 	restoreState := cloneJSONMap(nil)
 	if hasExisting {
 		if existing.Provisioned {

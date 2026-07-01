@@ -289,6 +289,7 @@ func TestPushDMXPartyAudioFeaturesClampsValues(t *testing.T) {
 
 func TestApplyDMXLivePatchSkipsPartyOwnedAddresses(t *testing.T) {
 	c := NewWLEDController(log.New(io.Discard, "", 0))
+	activateTestProLicense(t, c)
 	c.mu.Lock()
 	c.settings.DMX.Enabled = true
 	c.mu.Unlock()

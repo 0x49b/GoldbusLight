@@ -107,6 +107,18 @@ export type ControllerSnapshot = {
         networkCliUnavailableReason?: string;
         nmcliAvailable: boolean;
     };
+    license?: LicenseInfo;
+};
+
+export type LicenseInfo = {
+    edition: string;
+    status: string;
+    expiresAt?: string | null;
+    customerName?: string;
+    customerId?: string;
+    daysRemaining?: number;
+    machineId?: string;
+    features: Record<string, boolean>;
 };
 
 export type NetworkCommandResult = {

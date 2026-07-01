@@ -104,6 +104,9 @@ function App() {
                 onToggleConsoleDetach={app.openDetachedConsoleWindow}
                 onExportConfigurationBackup={app.onExportConfigurationBackup}
                 onImportConfigurationBackup={app.onImportConfigurationBackup}
+                license={app.license}
+                onActivateLicense={app.onActivateLicense}
+                onDeactivateLicense={app.onDeactivateLicense}
             />
         );
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {
@@ -212,6 +215,7 @@ function App() {
                 dmxEnabled={app.dmxEnabled}
                 dmxLiveStatus={app.dmxLiveStatus}
                 dmxPartyState={app.dmxPartyState}
+                license={app.license}
                 error={app.error}
                 onDismissError={app.onDismissError}
             >

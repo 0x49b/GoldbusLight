@@ -1,0 +1,15 @@
+Goldbus Light Controller — End User License Agreement
+
+Copyright (c) 2026 Goldbus. All rights reserved.
+
+By installing or using Goldbus Light Controller you agree to the terms in the
+LICENSE file distributed with this software and the user manual at:
+
+https://0x49b.github.io/GoldbusLight/settings/license/
+
+Free edition: basic WLED control for up to 8 devices.
+
+Pro edition: requires a valid annual license key for DMX, Party mode, backup,
+and Wi-Fi access point features.
+
+For license purchases and support, contact Goldbus.

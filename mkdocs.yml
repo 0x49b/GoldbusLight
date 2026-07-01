@@ -56,6 +56,7 @@ nav:
   - Settings:
       - settings/index.md
       - Backup & restore: settings/backup-restore.md
+      - License & editions: settings/license.md
       - Network & access point: settings/network.md
       - Transport console: settings/console.md
   - Troubleshooting: troubleshooting.md

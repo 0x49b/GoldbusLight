@@ -234,8 +234,8 @@ func (c *WLEDController) partyFeaturesEnabled() bool {
 }
 
 func (c *WLEDController) SetDMXPartyConfig(config DMXPartyConfig) (DMXPartyState, error) {
-	if !c.partyFeaturesEnabled() {
-		return DMXPartyState{}, fmt.Errorf("party mode requires WLED or DMX to be enabled in settings")
+	if err := c.requireLicensedParty(); err != nil {
+		return DMXPartyState{}, err
 	}
 	c.mu.Lock()
 	next := normalizeDMXPartyConfig(config)
@@ -276,8 +276,8 @@ func (c *WLEDController) PushDMXPartyAudioFeatures(in DMXPartyAudioFeatures) (DM
 }
 
 func (c *WLEDController) StartDMXParty() error {
-	if !c.partyFeaturesEnabled() {
-		return fmt.Errorf("party mode requires WLED or DMX to be enabled in settings")
+	if err := c.requireLicensedParty(); err != nil {
+		return err
 	}
 
 	state := c.GetDMXPartyState()

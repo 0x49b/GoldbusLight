@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"goldbus/internal/license"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,9 @@ type ConfigurationBackup struct {
 
 // ExportConfigurationBackup flushes current state to disk and returns a portable JSON bundle.
 func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, error) {
+	if err := c.requireLicenseFeature(license.FeatureBackup); err != nil {
+		return nil, err
+	}
 	c.mu.RLock()
 	generalTab := c.generalTabState
 	c.mu.RUnlock()
@@ -67,6 +71,9 @@ func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, e
 
 // ImportConfigurationBackup replaces on-disk configuration and reloads the running controller.
 func (c *WLEDController) ImportConfigurationBackup(data []byte) error {
+	if err := c.requireLicenseFeature(license.FeatureBackup); err != nil {
+		return err
+	}
 	var bundle ConfigurationBackup
 	if err := json.Unmarshal(data, &bundle); err != nil {
 		return fmt.Errorf("parse backup: %w", err)

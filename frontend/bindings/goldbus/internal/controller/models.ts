@@ -7,6 +7,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as license$0 from "../license/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as serial$0 from "../serial/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -226,6 +229,7 @@ export class ControllerSnapshot {
     "persistencePath": string;
     "updatedAt": time$0.Time;
     "capabilities": ControllerCapabilities;
+    "license": license$0.LicenseInfo;
 
     /** Creates a new ControllerSnapshot instance. */
     constructor($$source: Partial<ControllerSnapshot> = {}) {
@@ -247,6 +251,9 @@ export class ControllerSnapshot {
         if (!("capabilities" in $$source)) {
             this["capabilities"] = (new ControllerCapabilities());
         }
+        if (!("license" in $$source)) {
+            this["license"] = (new license$0.LicenseInfo());
+        }
 
         Object.assign(this, $$source);
     }
@@ -259,6 +266,7 @@ export class ControllerSnapshot {
         const $$createField1_0 = $$createType8;
         const $$createField2_0 = $$createType9;
         const $$createField5_0 = $$createType10;
+        const $$createField6_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("settings" in $$parsedSource) {
             $$parsedSource["settings"] = $$createField0_0($$parsedSource["settings"]);
@@ -271,6 +279,9 @@ export class ControllerSnapshot {
         }
         if ("capabilities" in $$parsedSource) {
             $$parsedSource["capabilities"] = $$createField5_0($$parsedSource["capabilities"]);
+        }
+        if ("license" in $$parsedSource) {
+            $$parsedSource["license"] = $$createField6_0($$parsedSource["license"]);
         }
         return new ControllerSnapshot($$parsedSource as Partial<ControllerSnapshot>);
     }
@@ -298,7 +309,7 @@ export class DMXChannel {
      * Creates a new DMXChannel instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXChannel {
-        const $$createField3_0 = $$createType11;
+        const $$createField3_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("properties" in $$parsedSource) {
             $$parsedSource["properties"] = $$createField3_0($$parsedSource["properties"]);
@@ -362,9 +373,9 @@ export class DMXFixture {
      * Creates a new DMXFixture instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixture {
-        const $$createField7_0 = $$createType12;
-        const $$createField8_0 = $$createType13;
-        const $$createField9_0 = $$createType15;
+        const $$createField7_0 = $$createType13;
+        const $$createField8_0 = $$createType14;
+        const $$createField9_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("movingHead" in $$parsedSource) {
             $$parsedSource["movingHead"] = $$createField7_0($$parsedSource["movingHead"]);
@@ -420,7 +431,7 @@ export class DMXFixtureCue {
      * Creates a new DMXFixtureCue instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixtureCue {
-        const $$createField2_0 = $$createType16;
+        const $$createField2_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("values" in $$parsedSource) {
             $$parsedSource["values"] = $$createField2_0($$parsedSource["values"]);
@@ -486,8 +497,8 @@ export class DMXFixtureCueSequence {
      * Creates a new DMXFixtureCueSequence instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixtureCueSequence {
-        const $$createField1_0 = $$createType18;
-        const $$createField6_0 = $$createType19;
+        const $$createField1_0 = $$createType19;
+        const $$createField6_0 = $$createType20;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("cues" in $$parsedSource) {
             $$parsedSource["cues"] = $$createField1_0($$parsedSource["cues"]);
@@ -541,8 +552,8 @@ export class DMXFixtureParty {
      * Creates a new DMXFixtureParty instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXFixtureParty {
-        const $$createField0_0 = $$createType16;
-        const $$createField4_0 = $$createType20;
+        const $$createField0_0 = $$createType17;
+        const $$createField4_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("channelWeights" in $$parsedSource) {
             $$parsedSource["channelWeights"] = $$createField0_0($$parsedSource["channelWeights"]);
@@ -726,8 +737,8 @@ export class DMXPartyConfig {
      * Creates a new DMXPartyConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXPartyConfig {
-        const $$createField2_0 = $$createType21;
-        const $$createField3_0 = $$createType21;
+        const $$createField2_0 = $$createType22;
+        const $$createField3_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fixtureIds" in $$parsedSource) {
             $$parsedSource["fixtureIds"] = $$createField2_0($$parsedSource["fixtureIds"]);
@@ -773,9 +784,9 @@ export class DMXPartyState {
      * Creates a new DMXPartyState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXPartyState {
-        const $$createField0_0 = $$createType22;
-        const $$createField1_0 = $$createType23;
-        const $$createField2_0 = $$createType24;
+        const $$createField0_0 = $$createType23;
+        const $$createField1_0 = $$createType24;
+        const $$createField2_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("config" in $$parsedSource) {
             $$parsedSource["config"] = $$createField0_0($$parsedSource["config"]);
@@ -865,10 +876,10 @@ export class DMXSettings {
      * Creates a new DMXSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXSettings {
-        const $$createField1_0 = $$createType25;
-        const $$createField2_0 = $$createType26;
-        const $$createField3_0 = $$createType27;
-        const $$createField4_0 = $$createType29;
+        const $$createField1_0 = $$createType26;
+        const $$createField2_0 = $$createType27;
+        const $$createField3_0 = $$createType28;
+        const $$createField4_0 = $$createType30;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("usb" in $$parsedSource) {
             $$parsedSource["usb"] = $$createField1_0($$parsedSource["usb"]);
@@ -928,11 +939,11 @@ export class DMXState {
      * Creates a new DMXState instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXState {
-        const $$createField0_0 = $$createType31;
-        const $$createField1_0 = $$createType33;
-        const $$createField3_0 = $$createType34;
-        const $$createField4_0 = $$createType36;
-        const $$createField5_0 = $$createType35;
+        const $$createField0_0 = $$createType32;
+        const $$createField1_0 = $$createType34;
+        const $$createField3_0 = $$createType35;
+        const $$createField4_0 = $$createType37;
+        const $$createField5_0 = $$createType36;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("universes" in $$parsedSource) {
             $$parsedSource["universes"] = $$createField0_0($$parsedSource["universes"]);
@@ -1029,7 +1040,7 @@ export class DMXUniverseInterfaceSettings {
      * Creates a new DMXUniverseInterfaceSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DMXUniverseInterfaceSettings {
-        const $$createField1_0 = $$createType26;
+        const $$createField1_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("artNet" in $$parsedSource) {
             $$parsedSource["artNet"] = $$createField1_0($$parsedSource["artNet"]);
@@ -1082,7 +1093,7 @@ export class DiscoverySettings {
      * Creates a new DiscoverySettings instance from a string or object.
      */
     static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType21;
+        const $$createField1_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serviceTypes" in $$parsedSource) {
             $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
@@ -1182,8 +1193,8 @@ export class NetworkApplyResult {
      * Creates a new NetworkApplyResult instance from a string or object.
      */
     static createFrom($$source: any = {}): NetworkApplyResult {
-        const $$createField1_0 = $$createType21;
-        const $$createField2_0 = $$createType38;
+        const $$createField1_0 = $$createType22;
+        const $$createField2_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("warnings" in $$parsedSource) {
             $$parsedSource["warnings"] = $$createField1_0($$parsedSource["warnings"]);
@@ -1249,8 +1260,8 @@ export class ProvisioningSettings {
      * Creates a new ProvisioningSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): ProvisioningSettings {
-        const $$createField1_0 = $$createType11;
-        const $$createField2_0 = $$createType11;
+        const $$createField1_0 = $$createType12;
+        const $$createField2_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("defaultStatePayload" in $$parsedSource) {
             $$parsedSource["defaultStatePayload"] = $$createField1_0($$parsedSource["defaultStatePayload"]);
@@ -1352,8 +1363,8 @@ export class UpsertDMXFixtureInput {
      * Creates a new UpsertDMXFixtureInput instance from a string or object.
      */
     static createFrom($$source: any = {}): UpsertDMXFixtureInput {
-        const $$createField9_0 = $$createType13;
-        const $$createField10_0 = $$createType15;
+        const $$createField9_0 = $$createType14;
+        const $$createField10_0 = $$createType16;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("party" in $$parsedSource) {
             $$parsedSource["party"] = $$createField9_0($$parsedSource["party"]);
@@ -1419,8 +1430,8 @@ export class WLEDDevice {
      * Creates a new WLEDDevice instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDevice {
-        const $$createField9_0 = $$createType11;
-        const $$createField10_0 = $$createType11;
+        const $$createField9_0 = $$createType12;
+        const $$createField10_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("info" in $$parsedSource) {
             $$parsedSource["info"] = $$createField9_0($$parsedSource["info"]);
@@ -1463,12 +1474,12 @@ export class WLEDDeviceDetail {
      * Creates a new WLEDDeviceDetail instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDDeviceDetail {
-        const $$createField2_0 = $$createType11;
-        const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType21;
-        const $$createField5_0 = $$createType21;
-        const $$createField6_0 = $$createType11;
-        const $$createField7_0 = $$createType11;
+        const $$createField2_0 = $$createType12;
+        const $$createField3_0 = $$createType12;
+        const $$createField4_0 = $$createType22;
+        const $$createField5_0 = $$createType22;
+        const $$createField6_0 = $$createType12;
+        const $$createField7_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -1549,31 +1560,32 @@ const $$createType7 = WLEDDevice.createFrom;
 const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = GeneralTabState.createFrom;
 const $$createType10 = ControllerCapabilities.createFrom;
-const $$createType11 = $Create.Map($Create.Any, $Create.Any);
-const $$createType12 = MovingHeadConfig.createFrom;
-const $$createType13 = DMXFixtureParty.createFrom;
-const $$createType14 = DMXChannel.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = $Create.Map($Create.Any, $Create.Any);
-const $$createType17 = DMXFixtureCue.createFrom;
-const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = $Create.Map($Create.Any, $Create.Any);
-const $$createType20 = DMXFixtureCueSequence.createFrom;
-const $$createType21 = $Create.Array($Create.Any);
-const $$createType22 = DMXPartyConfig.createFrom;
-const $$createType23 = DMXPartyStatus.createFrom;
-const $$createType24 = DMXPartyAudioFeatures.createFrom;
-const $$createType25 = USBTransportSettings.createFrom;
-const $$createType26 = ArtNetSettings.createFrom;
-const $$createType27 = DMXTestingSettings.createFrom;
-const $$createType28 = DMXUniverseInterfaceSettings.createFrom;
-const $$createType29 = $Create.Map($Create.Any, $$createType28);
-const $$createType30 = DMXUniverse.createFrom;
-const $$createType31 = $Create.Array($$createType30);
-const $$createType32 = DMXFixture.createFrom;
-const $$createType33 = $Create.Array($$createType32);
-const $$createType34 = DMXPartyState.createFrom;
-const $$createType35 = $Create.Array($Create.Any);
-const $$createType36 = $Create.Map($Create.Any, $$createType35);
-const $$createType37 = NetworkCommandResult.createFrom;
-const $$createType38 = $Create.Array($$createType37);
+const $$createType11 = license$0.LicenseInfo.createFrom;
+const $$createType12 = $Create.Map($Create.Any, $Create.Any);
+const $$createType13 = MovingHeadConfig.createFrom;
+const $$createType14 = DMXFixtureParty.createFrom;
+const $$createType15 = DMXChannel.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = $Create.Map($Create.Any, $Create.Any);
+const $$createType18 = DMXFixtureCue.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $Create.Map($Create.Any, $Create.Any);
+const $$createType21 = DMXFixtureCueSequence.createFrom;
+const $$createType22 = $Create.Array($Create.Any);
+const $$createType23 = DMXPartyConfig.createFrom;
+const $$createType24 = DMXPartyStatus.createFrom;
+const $$createType25 = DMXPartyAudioFeatures.createFrom;
+const $$createType26 = USBTransportSettings.createFrom;
+const $$createType27 = ArtNetSettings.createFrom;
+const $$createType28 = DMXTestingSettings.createFrom;
+const $$createType29 = DMXUniverseInterfaceSettings.createFrom;
+const $$createType30 = $Create.Map($Create.Any, $$createType29);
+const $$createType31 = DMXUniverse.createFrom;
+const $$createType32 = $Create.Array($$createType31);
+const $$createType33 = DMXFixture.createFrom;
+const $$createType34 = $Create.Array($$createType33);
+const $$createType35 = DMXPartyState.createFrom;
+const $$createType36 = $Create.Array($Create.Any);
+const $$createType37 = $Create.Map($Create.Any, $$createType36);
+const $$createType38 = NetworkCommandResult.createFrom;
+const $$createType39 = $Create.Array($$createType38);

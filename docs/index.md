@@ -11,7 +11,7 @@ This manual describes how to install, configure, and operate the application fro
 | **WLED** | Discover WLED devices on the network, control individual segments, apply global color/effect presets, provision new devices |
 | **DMX** | Configure fixtures, patch a 512-channel universe, drive lights over USB (Enttec Pro) or Art-Net, live manual control, preset sequences |
 | **Party mode** | Automated or audio-reactive shows across selected WLED devices and DMX fixtures, including smoke/hazer bursts |
-| **Settings** | Wi-Fi access point, backup/restore, transport console, channel sweep test tool |
+| **Settings** | Wi-Fi access point, license, backup/restore, transport console, channel sweep test tool |
 
 ## Supported platforms
 
@@ -41,7 +41,7 @@ Raspberry Pi releases are published as `GoldbusLight-linux-arm64` on [GitHub Rel
 - **[WLED](wled/index.md)** — Discovery, device pages, general presets
 - **[DMX](dmx/index.md)** — Universe grid, fixtures, live control, presets
 - **[Party mode](party-mode/index.md)** — Auto and audio-reactive shows
-- **[Settings](settings/index.md)** — Backup, network, console, test tools
+- **[Settings](settings/index.md)** — Backup, license, network, console, test tools
 - **[Troubleshooting](troubleshooting.md)** — Common problems and fixes
 
 ## Updates

@@ -17,11 +17,14 @@ import type {
     ControllerSettings,
     ControllerSnapshot,
     DMXState,
+    LicenseInfo,
     NetworkApplyResult,
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
+import {hasLicenseFeature} from "@/lib/license";
 import { DmxFixtureChannelSweepPanel } from "./DmxFixtureChannelSweepPanel";
+import { LicenseSettingsPanel } from "./LicenseSettingsPanel";
 import { TransportConsolePanel } from "./TransportConsolePanel";
 import {normalizeUniverses, universeInterfaceSettings} from "@/lib/dmxUniverses";
 import type {ArtNetSettings} from "@/types/controller.ts";
@@ -59,6 +62,9 @@ export type ControllerSettingsViewProps = {
     onToggleConsoleDetach: () => void;
     onExportConfigurationBackup: () => Promise<string>;
     onImportConfigurationBackup: () => Promise<string>;
+    license: LicenseInfo | null | undefined;
+    onActivateLicense: (key: string) => Promise<void>;
+    onDeactivateLicense: () => Promise<void>;
 };
 
 export function ControllerSettingsView({
@@ -94,6 +100,9 @@ export function ControllerSettingsView({
                                            onToggleConsoleDetach,
                                            onExportConfigurationBackup,
                                            onImportConfigurationBackup,
+                                           license,
+                                           onActivateLicense,
+                                           onDeactivateLicense,
                                        }: ControllerSettingsViewProps) {
     const [backupBusy, setBackupBusy] = useState(false);
     const [backupMessage, setBackupMessage] = useState<string | null>(null);
@@ -207,6 +216,11 @@ export function ControllerSettingsView({
         };
     }, []);
 
+    const backupAllowed = hasLicenseFeature(license, "backup");
+    const dmxProAllowed = hasLicenseFeature(license, "dmx");
+    const accessPointAllowed = hasLicenseFeature(license, "accessPoint");
+    const channelSweepAllowed = hasLicenseFeature(license, "dmxChannelSweep");
+
     return (
         <div className="space-y-5 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -235,6 +249,14 @@ export function ControllerSettingsView({
                         </CardContent>
                     </Card>
 
+                    <LicenseSettingsPanel
+                        license={license}
+                        busy={busy}
+                        onActivateLicense={onActivateLicense}
+                        onDeactivateLicense={onDeactivateLicense}
+                        onError={setError}
+                    />
+
                     <Card className="w-full max-w-none">
                         <CardHeader>
                             <CardTitle className="text-sm font-semibold">Configuration backup</CardTitle>
@@ -244,12 +266,13 @@ export function ControllerSettingsView({
                                 Export or import all persisted data: controller settings, WLED devices,
                                 DMX fixtures and party config, general tab state, and per-fixture live layouts.
                                 Use this to copy a complete setup from one host to another.
+                                {!backupAllowed && " Requires Pro."}
                             </p>
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    disabled={busy || backupBusy}
+                                    disabled={busy || backupBusy || !backupAllowed}
                                     onClick={() => {
                                         setBackupMessage(null);
                                         setBackupBusy(true);
@@ -265,7 +288,7 @@ export function ControllerSettingsView({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    disabled={busy || backupBusy}
+                                    disabled={busy || backupBusy || !backupAllowed}
                                     onClick={() => {
                                         setBackupMessage(null);
                                         setBackupBusy(true);
@@ -386,9 +409,9 @@ export function ControllerSettingsView({
                                         ...settings,
                                         accessPoint: {...settings.accessPoint, enabled: checked}
                                     }, "immediate")}
-                                    disabled={wledControlsDisabled}
+                                    disabled={wledControlsDisabled || !accessPointAllowed}
                                 />
-                                <Label htmlFor="enable-ap">Enable local access point</Label>
+                                <Label htmlFor="enable-ap">Enable local access point{!accessPointAllowed ? " (Pro)" : ""}</Label>
                             </label>
                             <div className="flex flex-wrap gap-2">
                                 <Button
@@ -680,9 +703,9 @@ export function ControllerSettingsView({
                                         ...settings,
                                         dmx: {...settings.dmx, enabled: checked}
                                     }, "immediate")}
-                                    disabled={busy}
+                                    disabled={busy || !dmxProAllowed}
                                 />
-                                <span>Enable DMX component</span>
+                                <span>Enable DMX component{!dmxProAllowed ? " (Pro)" : ""}</span>
                             </label>
                             {!settings.dmx.enabled && (
                                 <p className="text-xs text-muted-foreground">
@@ -883,7 +906,7 @@ export function ControllerSettingsView({
 
                     <DmxFixtureChannelSweepPanel
                         fixtures={dmxState.fixtures}
-                        dmxEnabled={dmxEnabled}
+                        dmxEnabled={dmxEnabled && channelSweepAllowed}
                         settings={settings}
                         selectedUSBDeviceId={dmxState.selectedUSBDeviceId ?? null}
                         usbSerialDevices={usbSerialDevices}

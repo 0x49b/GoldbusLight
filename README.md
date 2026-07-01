@@ -2,6 +2,24 @@
 
 Wails v3 desktop app for controlling WLED lights in the Goldbus environment.
 
+## Editions
+
+| | Free | Pro (annual license) |
+|---|:---:|:---:|
+| WLED control | Yes (up to 8 devices) | Unlimited |
+| DMX & fixtures | — | Yes |
+| Party mode | — | Yes |
+| Backup / restore | — | Yes |
+| Wi-Fi access point | — | Yes |
+
+Activate a Pro key in **Settings → License**. See the [license guide](docs/settings/license.md) and [user manual](https://0x49b.github.io/GoldbusLight/settings/license/).
+
+License keys for development can be issued with:
+
+```bash
+task license:issue CUSTOMER="Acme Goldbus" CUSTOMER_ID=cust_abc EXPIRES=2027-12-31
+```
+
 ## User manual
 
 End-user documentation is published on **GitHub Pages**: [Goldbus Light Controller manual](https://0x49b.github.io/GoldbusLight/).

@@ -6,7 +6,7 @@ Open **Sidebar → Settings**. Settings are grouped into tabs and save automatic
 
 | Tab | Contents |
 |-----|----------|
-| **General** | Version, configuration backup, network apply results |
+| **General** | Version, license, configuration backup, network apply results |
 | **WLED** | Component toggle, discover/refresh, access point, discovery/provisioning, ignored devices |
 | **DMX** | Component toggle, simulators, USB, Art-Net, channel sweep test |
 | **Console** | Transport log (hidden while console is detached) |
@@ -22,6 +22,7 @@ At the bottom of Settings:
 ## Detailed guides
 
 - [Backup & restore](backup-restore.md)
+- [License & editions](license.md)
 - [Network & access point](network.md)
 - [Transport console](console.md)
 

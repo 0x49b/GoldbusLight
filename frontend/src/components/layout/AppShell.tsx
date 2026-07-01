@@ -7,7 +7,8 @@ import {
     PiSquaresFour,
     PiHeadlights, PiCloud,
 } from "react-icons/pi";
-import type {DetailRoute, DMXFixture, DMXPartyState, WLEDDevice} from "@/types/controller.ts";
+import type {DetailRoute, DMXFixture, DMXPartyState, LicenseInfo, WLEDDevice} from "@/types/controller.ts";
+import {hasLicenseFeature} from "@/lib/license";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {
     Sidebar,
@@ -39,6 +40,7 @@ export type AppShellProps = {
     dmxEnabled: boolean;
     dmxLiveStatus: DMXLiveStatus | null;
     dmxPartyState: DMXPartyState;
+    license: LicenseInfo | null | undefined;
     error: string;
     onDismissError: () => void;
     children: ReactNode;
@@ -55,6 +57,7 @@ export function AppShell({
                              dmxEnabled,
                              dmxLiveStatus,
                              dmxPartyState,
+                             license,
                              error,
                              onDismissError,
                              children,
@@ -63,6 +66,8 @@ export function AppShell({
     const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
     const partyRunning = dmxPartyState?.status?.running === true;
     const partyConfig = dmxPartyState?.config;
+    const partyLicensed = hasLicenseFeature(license, "party");
+    const dmxLicensed = hasLicenseFeature(license, "dmx");
     return (
 
         <SidebarProvider>
@@ -95,7 +100,9 @@ export function AppShell({
                                         onClick={() => setRoute({kind: "party"})}
                                     >
                                         <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">Party</span>
+                                        <span className="min-w-0 flex-1 truncate">
+                                            Party{!partyLicensed ? " (Pro)" : ""}
+                                        </span>
                                         <span
                                             className={cn("status status-sm shrink-0", partyRunning ? "status-success" : "status-neutral")}
                                             aria-hidden
@@ -184,15 +191,17 @@ export function AppShell({
                         </>
                     )}
 
-                    {dmxEnabled && (
+                    {(dmxEnabled || (!dmxLicensed && wledEnabled)) && (
                         <>
                             <div className="px-2 pt-2">
                                 <span
                                     className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
-                                    DMX
+                                    DMX{!dmxLicensed ? " (Pro)" : ""}
                                 </span>
                             </div>
 
+                            {dmxEnabled ? (
+                            <>
                             <SidebarGroup className="py-1">
                                 <SidebarGroupLabel>Universe</SidebarGroupLabel>
                                 <SidebarMenu>
@@ -277,6 +286,12 @@ export function AppShell({
                                     })}
                                 </SidebarMenu>
                             </SidebarGroup>
+                            </>
+                            ) : (
+                                <p className="px-3 pb-2 text-xs text-muted-foreground">
+                                    Enable DMX in Settings with a Pro license to control fixtures and universes.
+                                </p>
+                            )}
                         </>
                     )}
                 </SidebarContent>

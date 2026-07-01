@@ -38,6 +38,7 @@ import type {
   WLEDDevice,
   WLEDDeviceDetail,
 } from "../types/controller";
+import {hasLicenseFeature, type LicenseFeature} from "../lib/license";
 
 const DEVICE_DETAIL_MAX_TRIES = 5;
 const DEVICE_DETAIL_TRY_MS = 10_000;
@@ -838,6 +839,15 @@ export function useControllerApp() {
         }
     }, []);
 
+    const ensureProFeature = useCallback((feature: LicenseFeature, label: string): boolean => {
+        const currentLicense = useControllerStore.getState().snapshot?.license;
+        if (!hasLicenseFeature(currentLicense, feature)) {
+            setError(`${label} requires Goldbus Light Controller Pro. Activate a license in Settings.`);
+            return false;
+        }
+        return true;
+    }, [setError]);
+
     const ensureWLEDEnabled = useCallback((): boolean => {
         if ((settings?.wled.enabled ?? true) === false) {
             setError("WLED component is disabled in Settings.");
@@ -847,14 +857,20 @@ export function useControllerApp() {
     }, [settings?.wled.enabled, setError]);
 
     const ensureDMXEnabled = useCallback((): boolean => {
+        if (!ensureProFeature("dmx", "DMX")) {
+            return false;
+        }
         if ((settings?.dmx.enabled ?? true) === false) {
             setError("DMX component is disabled in Settings.");
             return false;
         }
         return true;
-    }, [settings?.dmx.enabled, setError]);
+    }, [ensureProFeature, settings?.dmx.enabled, setError]);
 
     const ensurePartyEnabled = useCallback((): boolean => {
+        if (!ensureProFeature("party", "Party mode")) {
+            return false;
+        }
         const dmxOn = settings?.dmx.enabled ?? true;
         const wledOn = settings?.wled.enabled ?? true;
         if (!dmxOn && !wledOn) {
@@ -862,7 +878,18 @@ export function useControllerApp() {
             return false;
         }
         return true;
-    }, [settings?.dmx.enabled, settings?.wled.enabled, setError]);
+    }, [ensureProFeature, settings?.dmx.enabled, settings?.wled.enabled, setError]);
+
+    const onActivateLicense = useCallback(async (key: string) => {
+        await GreetService.ActivateLicense(key);
+        await pullSnapshot();
+    }, [pullSnapshot]);
+
+    const onDeactivateLicense = useCallback(async () => {
+        await GreetService.DeactivateLicense();
+        await pullSnapshot();
+        await pullDMXState();
+    }, [pullDMXState, pullSnapshot]);
 
     const onSaveSettings = useCallback(async (): Promise<boolean> => {
         const latest = useControllerStore.getState();
@@ -1893,6 +1920,9 @@ export function useControllerApp() {
         onExportConfigurationBackup,
         onExportDMXFixtureConfig,
         onImportConfigurationBackup,
+        license: snapshot?.license ?? null,
+        onActivateLicense,
+        onDeactivateLicense,
     };
 }
 

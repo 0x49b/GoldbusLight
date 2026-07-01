@@ -8,6 +8,7 @@ import (
 	"goldbus/internal/console"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
+	"goldbus/internal/license"
 	"os"
 	"strings"
 	"time"
@@ -90,6 +91,24 @@ func (g *GoldbusLightService) Greet(name string) string {
 
 func (g *GoldbusLightService) AppVersion() string {
 	return goldbus.AppVersion
+}
+
+func (g *GoldbusLightService) GetLicenseInfo() (license.LicenseInfo, error) {
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) license.LicenseInfo {
+		return c.LicenseInfo()
+	})
+}
+
+func (g *GoldbusLightService) ActivateLicense(key string) (license.LicenseInfo, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (license.LicenseInfo, error) {
+		return c.ActivateLicense(key)
+	})
+}
+
+func (g *GoldbusLightService) DeactivateLicense() (license.LicenseInfo, error) {
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) license.LicenseInfo {
+		return c.DeactivateLicense()
+	})
 }
 
 func (g *GoldbusLightService) GetControllerSnapshot() (ctrlpkg.ControllerSnapshot, error) {
@@ -440,6 +459,11 @@ func (g *GoldbusLightService) ExportConfigurationBackup() (string, error) {
 // fixture configuration JSON to it. The contents are produced by the GUI layer.
 // Returns the chosen path, or ErrConfigurationBackupCancelled when dismissed.
 func (g *GoldbusLightService) ExportDMXFixtureConfig(suggestedFilename string, contents string) (string, error) {
+	if err := g.withController(func(c *ctrlpkg.WLEDController) error {
+		return c.RequireLicenseFeature(license.FeatureFixtureExport)
+	}); err != nil {
+		return "", err
+	}
 	prompt := g.backupCallbacks.PromptSaveFixturePath
 	if prompt == nil {
 		prompt = g.backupCallbacks.PromptSavePath

@@ -58,3 +58,13 @@ tasks:
     summary: Builds and runs the Docker image
     cmds:
       - task: common:run:docker
+
+  license:keygen:
+    summary: Generate a new Ed25519 keypair for license signing
+    cmds:
+      - go run ./cmd/licensegen keygen
+
+  license:issue:
+    summary: Issue a development Pro license key
+    cmds:
+      - go run ./cmd/licensegen issue --customer "{{.CUSTOMER | default "Dev Customer"}}" --customer-id "{{.CUSTOMER_ID | default "dev"}}" --expires "{{.EXPIRES | default "2027-12-31"}}" {{if .MACHINE_ID}}--machine-id "{{.MACHINE_ID}}"{{end}}

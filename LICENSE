@@ -1,0 +1,42 @@
+Goldbus Light Controller — Proprietary Software License Agreement
+
+Copyright (c) 2026 Goldbus. All rights reserved.
+
+1. Grant of license
+   Goldbus grants you a limited, non-exclusive, non-transferable license to use
+   Goldbus Light Controller ("the Software") subject to this agreement.
+
+2. Free edition
+   Without a valid Pro license key, you may use the Free edition for personal
+   evaluation and basic WLED lighting control as described in the product
+   documentation. The Free edition does not include DMX control, Party mode,
+   configuration backup/restore, or Wi-Fi access point provisioning.
+
+3. Pro edition
+   A valid annual Pro license key unlocks the Pro feature set for the licensed
+   machine. Pro licenses are valid until the expiration date embedded in the key
+   and may include a grace period as described in the user manual.
+
+4. Restrictions
+   You may not reverse engineer, decompile, or circumvent license enforcement
+   except where applicable law expressly permits. You may not redistribute,
+   sublicense, or sell the Software or license keys except as authorized by
+   Goldbus in writing.
+
+5. Ownership
+   The Software is licensed, not sold. Goldbus retains all intellectual property
+   rights in the Software.
+
+6. Disclaimer
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+7. Limitation of liability
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, GOLDBUS SHALL NOT BE LIABLE FOR ANY
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM
+   USE OF THE SOFTWARE.
+
+8. Contact
+   For Pro license purchases and renewals, contact Goldbus or visit the purchase
+   link shown in the application Settings → License screen.
