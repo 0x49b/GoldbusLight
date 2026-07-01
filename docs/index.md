@@ -9,7 +9,7 @@ This manual describes how to install, configure, and operate the application fro
 | Area | Capabilities |
 |------|----------------|
 | **WLED** | Discover WLED devices on the network, control individual segments, apply global color/effect presets, provision new devices |
-| **DMX** | Configure fixtures, patch a 512-channel universe, drive lights over USB (Enttec Pro) or Art-Net, live manual control, preset sequences |
+| **DMX** | Configure fixtures, patch universes (up to 4), drive lights over USB (Enttec Pro) or Art-Net, live manual control, cue sequences |
 | **Party mode** | Automated or audio-reactive shows across selected WLED devices and DMX fixtures, including smoke/hazer bursts |
 | **Settings** | Wi-Fi access point, backup/restore, transport console, channel sweep test tool |
 

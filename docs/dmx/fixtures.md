@@ -12,14 +12,14 @@ Or import an existing profile on the new-fixture page.
 
 **Sidebar → DMX Devices → *fixture name***
 
-Existing fixtures open on the **Live** tab by default. Switch tabs: **Live**, **Presets**, **Editor**.
+Existing fixtures open on the **Live** tab by default. Switch tabs: **Live**, **Cues**, **Editor**.
 
 ## Fixture toolbar (existing fixtures)
 
 | Control | Description |
 |---------|-------------|
-| **Live / Presets / Editor** | View tabs |
-| **In case of emergency** | Global emergency stop |
+| **Live / Cues / Editor** | View tabs |
+| **Blackout** | Stop party, blackout all channels, stop live output |
 | **Start live / Stop live** | Toggle live output for this fixture (or universe-wide when appropriate) |
 | **Party active** | Shown when party controls this fixture; link to Party page |
 | **Edit layout** | Live tab only — rearrange control tiles |
@@ -35,7 +35,9 @@ New fixtures show **Import fixture** and **Save** only.
 | **Name** | Display name in sidebar and universe |
 | **Brand** | Manufacturer label |
 | **Fixture type** | See types below |
+| **Universe** | Which logical universe this fixture belongs to |
 | **DMX start address** | 1–512; first channel of the fixture |
+| **Master fixture** | **Standalone** or another fixture to mirror as a slave |
 
 ### Fixture types
 
@@ -111,7 +113,7 @@ Per-fixture party settings:
 |---------|-------------|
 | **Per-channel reaction %** | 0–100 — how strongly auto/audio party moves each channel |
 | **Timed strobe bursts** | Enable + on/off durations (ms) |
-| **Preset chase** | Ordered poses during party — see [Presets](presets.md) |
+| **Cue chase (pose sequence)** | Ordered cues during party — see [Cues & sequences](presets.md) |
 
 ## Gobo catalog
 

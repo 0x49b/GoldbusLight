@@ -50,8 +50,8 @@ Visible when **Enable DMX component** is on in Settings.
 
 | Item | Route | Description |
 |------|-------|-------------|
-| **Universe** | 512-channel universe grid, drag-to-readdress, DMX output toggle |
-| **DMX Devices → *name*** | Fixture editor / live / presets |
+| **Universe** | 512-channel universe grid per logical universe, drag-to-readdress, DMX output toggle |
+| **DMX Devices → *name*** | Fixture editor / live / cues |
 | **+** (group action) | Create a new fixture |
 
 Fixture icons reflect type:

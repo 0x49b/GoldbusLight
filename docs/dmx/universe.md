@@ -4,12 +4,17 @@
 
 ## Header controls
 
+### Universe tabs
+
+Universe tabs show each configured universe (e.g. **Universe 1**) with a subtitle describing its interface (USB device name, Art-Net, or **No interface**). Click a tab to switch the grid. Up to **four** universes are supported.
+
 | Control | Description |
 |---------|-------------|
-| **Universe 1** badge | Logical universe identifier |
-| USB subtitle | Selected USB device name, or “No USB device selected” |
-| **In case of emergency** | Stop party, blackout, stop live output |
-| **DMX Output — ON/OFF** | Start or stop live DMX output for all fixtures |
+| **Add Universe** | Create another logical universe (max 4) |
+| **Remove Universe** | Delete the active universe if it has no fixtures |
+| **Add fixture** | Open the create-fixture page for the active universe |
+| **Blackout** | Stop party, blackout all DMX channels, stop live output |
+| **DMX Output - ON/OFF** | Start or stop live DMX output for fixtures in the active universe |
 
 ### DMX Output ON
 
@@ -51,7 +56,7 @@ Rearrange fixtures without opening the editor:
 
 ## Relationship to Settings
 
-USB device selection is in **Settings → DMX → DMX USB interface**, not on the Universe page. If no device is selected, the subtitle reminds you.
+USB device and Art-Net settings are per universe under **Settings → DMX** (each **{Universe name} interface** card). Global **Enable USB transport (all universes)** must be on for USB output. If no device is selected, the universe tab subtitle shows **No interface**.
 
 ## Live status
 

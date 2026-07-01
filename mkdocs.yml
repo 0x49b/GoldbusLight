@@ -51,7 +51,7 @@ nav:
       - Universe view: dmx/universe.md
       - Fixtures: dmx/fixtures.md
       - Live mode: dmx/live-mode.md
-      - Presets & sequences: dmx/presets.md
+      - Cues & sequences: dmx/presets.md
   - Party mode: party-mode/index.md
   - Settings:
       - settings/index.md

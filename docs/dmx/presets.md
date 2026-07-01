@@ -1,19 +1,19 @@
-# DMX presets & sequences
+# DMX cues & sequences
 
-The **Presets** tab stores **poses** (snapshots of channel values) and optional **sequences** that step through poses during party mode or manual recall.
+The **Cues** tab stores **poses** (snapshots of channel values) and optional **cue sequences** that step through poses during party mode or manual recall.
 
-## Preset poses
+## Cue poses
 
-A **preset** captures fixture-relative channel values (offset → 0–255).
+A **cue** captures fixture-relative channel values (offset → 0–255).
 
 | Action | Description |
 |--------|-------------|
-| **Save as preset** | Capture current live values as a new pose |
-| **Rename** | Edit preset label |
-| **Update from live** | Overwrite preset with current live values |
+| **Save as cue** | Capture current live values as a new pose |
+| **Rename** | Edit cue label |
+| **Update from live** | Overwrite cue with current live values |
 | **Reorder** | Change sequence order |
-| **Delete** | Remove preset |
-| **Apply preset** | Jump fixture to pose (requires live on, party off) |
+| **Delete** | Remove cue |
+| **Apply** | Jump fixture to pose (requires live on, party off) |
 
 Per-pose timing overrides:
 
@@ -24,21 +24,21 @@ Per-pose timing overrides:
 
 **Generate show** adds ten canned moving-head poses (home, sweeps, crosses, etc.) as a starting point for programming.
 
-## Preset sequences
+## Cue sequences
 
-Configure how presets play during **party mode** or for idle startup:
+Configure how cues play during **party mode** or for idle startup:
 
 | Setting | Description |
 |---------|-------------|
-| **Play these presets in party mode** | Enable preset chase instead of generative party for this fixture |
-| **Loop** | Restart from first pose after the last |
-| **Idle / startup position** | Preset applied when live output starts |
-| **Default time per pose (ms)** | `stepMs` — 100–600000 |
-| **Default crossfade (ms)** | `fadeMs` — 0 = instant snap |
+| **Play these cues in party mode (cue chase)** | Enable cue chase instead of generative party for this fixture |
+| **Loop — restart from the first pose after the last (otherwise hold the final pose)** | Repeat the sequence |
+| **Idle / startup position** | Cue applied when live output starts (`None (channel defaults)` or a saved cue) |
+| **Default time per pose (ms)** | `stepMs` — 100–600000 (default 2000) |
+| **Default crossfade (ms)** | `fadeMs` — 0 = instant snap (default 0) |
 
 ### Channel behaviors
 
-For channels **not** pinned by a preset pose:
+For channels **not** pinned by a cue pose:
 
 | Behavior | Meaning |
 |----------|---------|
@@ -51,21 +51,21 @@ Set per-channel behavior in the sequence editor.
 
 With live output on and party off:
 
-- Click **Apply** on a preset row
+- Click **Apply** on a cue row
 - Use keyboard `1`–`0` on the Live tab
 
 ## Party integration
 
-When **Play in party mode** is enabled for a fixture:
+When **Play these cues in party mode** is enabled for a fixture:
 
-- Party mode steps through the preset list using configured timing
+- Party mode steps through the cue list using configured timing
 - Overrides generative pan/tilt/color algorithm for that fixture
-- Other fixtures can still use generative party unless they also use sequences
+- Other fixtures can still use generative party unless they also use cue chase
 
-## Idle preset
+## Idle / startup position
 
-Select an **idle / startup** preset to position the fixture whenever live output starts. Useful for a defined “home” look before manual or party control.
+Select an **idle / startup** cue to position the fixture whenever live output starts. Useful for a defined “home” look before manual or party control.
 
 ## 3D preview integration
 
-When live values differ from the applied preset, the 3D preview offers **Update preset** to sync the saved pose with the current stage look.
+When live values differ from the applied cue, the 3D preview offers **Update cue** to sync the saved pose with the current stage look.

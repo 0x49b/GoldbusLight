@@ -18,7 +18,7 @@ Export and import the complete controller configuration for migration, disaster 
 |------|----------|
 | Controller settings (WLED, DMX, access point) | Yes |
 | WLED device list and metadata | Yes |
-| DMX fixtures (channels, party tuning, presets) | Yes |
+| DMX fixtures (channels, party tuning, cues) | Yes |
 | Party mode configuration | Yes |
 | General tab state (WLED) | Yes |
 | Per-fixture live control layouts | Yes |

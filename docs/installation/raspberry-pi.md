@@ -141,4 +141,4 @@ For `GOLDBUS_SERVICE_MODE=system`, omit `--user` and use `sudo systemctl`.
 
 ## USB DMX on the Pi
 
-Plug in your USB-DMX adapter before starting the app. Ensure the run user can access serial devices (often membership in the `dialout` group). Select the device under **Settings → DMX → DMX USB interface**.
+Plug in your USB-DMX adapter before starting the app. Ensure the run user can access serial devices (often membership in the `dialout` group). Enable **Enable USB transport (all universes)** and select the device on each **{Universe name} interface** card under **Settings → DMX**.

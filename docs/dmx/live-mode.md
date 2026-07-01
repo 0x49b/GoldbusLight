@@ -6,17 +6,17 @@ The **Live** tab on a fixture page provides manual real-time control over DMX ch
 
 1. **Enable DMX component** in Settings
 2. USB and/or Art-Net transport configured and working
-3. **Start live** from the fixture toolbar or Universe **DMX Output ON**
+3. **Start live** from the fixture toolbar or Universe **DMX Output - ON**
 4. **Party mode stopped** for manual control (party blocks manual patches)
 
 ## Starting live output
 
 | From | Action |
 |------|--------|
-| **Universe** | **DMX Output — ON** (all fixtures) |
+| **Universe** | **DMX Output - ON** (fixtures in active universe) |
 | **Fixture** | **Start live** in toolbar (fixture-focused) |
 
-On fixture open, the controller applies the **idle preset** if configured, otherwise channel **default values**.
+On fixture open, the controller applies the **idle / startup position** cue if configured, otherwise channel **default values**.
 
 ## Live controls
 
@@ -52,7 +52,7 @@ Moving head and smoke fixtures can show a **3D preview** tile:
 | **Moving head** | Pan/tilt drag, beam color, focus, intensity |
 | **Smoke / hazer** | Volume / output visualization |
 
-The preview reflects live channel values. When a preset is active, a badge shows the preset name; **Update preset** appears if live values diverge from the saved preset.
+The preview reflects live channel values. When a cue is active, a badge shows the cue name; **Update cue** appears if live values diverge from the saved cue.
 
 ## Keyboard shortcuts
 
@@ -60,22 +60,22 @@ With Live tab focused (party off):
 
 | Key | Action |
 |-----|--------|
-| `1`–`9`, `0` | Recall preset poses 1–10 |
-| `Shift` + `↑` | Previous preset in sequence |
-| `Shift` + `↓` | Next preset in sequence |
+| `1`–`9`, `0` | Recall cue poses 1–10 |
+| `Shift` + `↑` | Previous cue in sequence |
+| `Shift` + `↓` | Next cue in sequence |
 
-See [Presets](presets.md) for preset management.
+See [Cues & sequences](presets.md) for cue management.
 
 ## Stopping live output
 
 | From | Action |
 |------|--------|
 | **Fixture** | **Stop live** |
-| **Universe** | **DMX Output — OFF** |
-| **Anywhere** | **In case of emergency** |
+| **Universe** | **DMX Output - OFF** |
+| **Anywhere** | **Blackout** |
 
 Stopping pushes power-off values then disconnects transports.
 
 ## USB device selection
 
-Select the USB adapter under **Settings → DMX → DMX USB interface**. Refresh the device list if you plug in hardware after starting the app.
+Select the USB adapter under **Settings → DMX** on the **{Universe name} interface** card for each universe. Global **Enable USB transport (all universes)** must be on. Click **Refresh USB devices** if you plug in hardware after starting the app.

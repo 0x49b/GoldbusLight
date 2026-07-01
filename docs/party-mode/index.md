@@ -14,7 +14,7 @@ While party mode runs:
 - Manual DMX live patches are blocked for party-controlled fixtures
 - WLED and DMX outputs are driven by the party engine
 
-Stop with **Stop Party** or **In case of emergency**.
+Stop with **Stop Party** or **Blackout**.
 
 ## Start and stop
 
@@ -103,9 +103,9 @@ Configure in each fixture’s **Editor** tab (not on the Party page):
 
 - **Per-channel reaction %** — reduce movement on sensitive channels
 - **Timed strobe bursts** — rhythmic strobe during party
-- **Preset chase** — play an ordered preset sequence instead of generative motion
+- **Cue chase (pose sequence)** — play an ordered cue sequence instead of generative motion
 
-See [DMX presets](../dmx/presets.md).
+See [DMX cues & sequences](../dmx/presets.md).
 
 ## WLED behavior in party
 
@@ -113,7 +113,7 @@ Party applies effects and colors to selected WLED devices based on mode and slid
 
 ## DMX behavior in party
 
-Generative algorithm moves pan/tilt, color wheels, dimmers, etc., weighted by per-channel reaction settings. Fixtures with **preset chase** enabled follow their pose sequences instead.
+Generative algorithm moves pan/tilt, color wheels, dimmers, etc., weighted by per-channel reaction settings. Fixtures with **cue chase** enabled follow their pose sequences instead.
 
 ## Interactions
 
@@ -121,7 +121,7 @@ Generative algorithm moves pan/tilt, color wheels, dimmers, etc., weighted by pe
 |---------|------------------------|
 | DMX Live tab | Read-only while party controls fixture |
 | DMX channel sweep | Requires party stopped |
-| Emergency stop | Stops party and DMX output |
+| **Blackout** | Stops party, blackouts DMX, and stops live output |
 | General WLED presets | Useless for devices in party until party stops |
 
 ## Linux audio requirements

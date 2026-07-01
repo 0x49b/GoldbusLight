@@ -8,7 +8,7 @@ Open **Sidebar → Settings**. Settings are grouped into tabs and save automatic
 |-----|----------|
 | **General** | Version, configuration backup, network apply results |
 | **WLED** | Component toggle, discover/refresh, access point, discovery/provisioning, ignored devices |
-| **DMX** | Component toggle, simulators, USB, Art-Net, channel sweep test |
+| **DMX** | Component toggle, simulators, global USB transport, per-universe USB/Art-Net, channel sweep test |
 | **Console** | Transport log (hidden while console is detached) |
 
 ## Footer metadata
@@ -41,6 +41,21 @@ At the bottom of Settings:
 
 - Hides DMX sidebar sections
 - Disconnects live USB/Art-Net output
+
+## Per-universe interfaces
+
+Each configured DMX universe has an interface card (e.g. **Universe 1 interface**):
+
+| Control | Description |
+|---------|-------------|
+| **USB device** | Select adapter for this universe (`No device selected` if none) |
+| **Enable Art-Net for {universe}** | UDP output for this universe |
+| Target host / broadcast | Default `255.255.255.255` |
+| UDP port | Default `6454` |
+| Net (0–127) / Subnet (0–15) / Art-Net universe (0–15) | Art-Net addressing |
+| Refresh Hz | Default `44` |
+
+Global **Enable USB transport (all universes)** must be on for USB output on any universe.
 
 ## DMX testing simulators
 
