@@ -8,7 +8,7 @@ import (
 )
 
 func TestBuildDMXLiveInitUpdatesIdealightSpot575(t *testing.T) {
-	root := filepath.Join("..", "..", "fixtures", "idealight-spot-575.json")
+	root := filepath.Join("..", "..", "test", "data", "fixtures", "idealight-1-spot-575.json")
 	raw, err := os.ReadFile(root)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
@@ -36,16 +36,27 @@ func TestBuildDMXLiveInitUpdatesIdealightSpot575(t *testing.T) {
 	for _, u := range updates {
 		byAddr[u.Address] = u.Value
 	}
-	// Shutter ch8 @ base 7 -> addr 14, open range
-	if v := byAddr[14]; v < 32 || v > 63 {
-		t.Fatalf("shutter open expected 32-63, got %d", v)
+
+	if len(byAddr) != 11 {
+		t.Fatalf("expected 11 patched channels, got %d: %+v", len(byAddr), byAddr)
 	}
-	// Pan fine mirrors pan
-	if byAddr[7] != byAddr[8] {
-		t.Fatalf("pan fine should mirror pan: %d vs %d", byAddr[7], byAddr[8])
+	// Pan / tilt use explicit fixture defaults.
+	if byAddr[1] != 128 {
+		t.Fatalf("pan default expected 128, got %d", byAddr[1])
 	}
-	// Prism ch11 -> addr 17
-	if _, ok := byAddr[17]; !ok {
-		t.Fatalf("prism channel not patched")
+	if byAddr[2] != 128 {
+		t.Fatalf("tilt default expected 128, got %d", byAddr[2])
+	}
+	// Dimmer & strobe (ch4) starts at full bright.
+	if byAddr[4] != 255 {
+		t.Fatalf("dimmer & strobe default expected 255, got %d", byAddr[4])
+	}
+	// Linsen button-slider (ch11) uses explicit default 0.
+	if byAddr[11] != 0 {
+		t.Fatalf("linsen default expected 0, got %d", byAddr[11])
+	}
+	// Color wheel (ch14) without defaultValue picks the midpoint of the first slot (0-9).
+	if byAddr[14] != 5 {
+		t.Fatalf("color wheel open slot midpoint expected 5, got %d", byAddr[14])
 	}
 }
