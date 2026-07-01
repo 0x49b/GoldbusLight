@@ -12,17 +12,18 @@ import (
 
 	goserial "go.bug.st/serial"
 )
+
 type dmxUniverseLiveRuntime struct {
-	buf       [512]byte
-	usbFrames chan [512]byte
-	usbPath   string
-	usbName   string
+	buf          [512]byte
+	usbFrames    chan [512]byte
+	usbPath      string
+	usbName      string
 	usbRecoverAt time.Time
-	artFrames chan [512]byte
-	artPath   string
-	artName   string
-	artTarget string
-	artHz     int
+	artFrames    chan [512]byte
+	artPath      string
+	artName      string
+	artTarget    string
+	artHz        int
 }
 
 func (c *WLEDController) ensureDMXLiveUniversesLocked() {
@@ -529,25 +530,21 @@ func (c *WLEDController) reconcileDMXLiveAdaptersLocked() error {
 
 // dmxLiveArtNetSimulatorWorkerForUniverse wraps the Art-Net simulator worker.
 func (c *WLEDController) dmxLiveArtNetSimulatorWorkerForUniverse(universeID string, frameCh <-chan [512]byte, settings ArtNetSettings, path string) {
-	defer c.dmxLiveArtWG.Done()
 	c.dmxLiveArtNetSimulatorWorker(frameCh, settings, path)
 }
 
 // dmxLiveArtNetWorkerForUniverse wraps the Art-Net hardware worker.
 func (c *WLEDController) dmxLiveArtNetWorkerForUniverse(universeID string, frameCh <-chan [512]byte, conn *net.UDPConn, settings ArtNetSettings, target string) {
-	defer c.dmxLiveArtWG.Done()
 	c.dmxLiveArtNetWorker(frameCh, conn, settings, target)
 }
 
 // dmxLiveUSBSimulatorWorkerForUniverse wraps the USB simulator worker with universe context.
 func (c *WLEDController) dmxLiveUSBSimulatorWorkerForUniverse(universeID string, frameCh <-chan [512]byte, path string) {
-	defer c.dmxLiveUSBWG.Done()
 	c.dmxLiveUSBSimulatorWorker(frameCh, path)
 }
 
 // dmxLiveUSBWorkerForUniverse wraps the USB hardware worker with universe context.
 func (c *WLEDController) dmxLiveUSBWorkerForUniverse(universeID string, frameCh <-chan [512]byte, port goserial.Port, path string, enttecPro bool) {
-	defer c.dmxLiveUSBWG.Done()
 	c.dmxLiveUSBWorker(frameCh, port, path, enttecPro)
 }
 

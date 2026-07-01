@@ -143,6 +143,22 @@ func normalizeDMXUniverseInterfaces(
 	return out
 }
 
+// clampDMXUniverseInterfaces sanitizes per-universe interface entries without dropping
+// universes that are not in the provided list (used when merging settings from the UI).
+func clampDMXUniverseInterfaces(interfaces map[string]DMXUniverseInterfaceSettings) map[string]DMXUniverseInterfaceSettings {
+	if len(interfaces) == 0 {
+		return map[string]DMXUniverseInterfaceSettings{}
+	}
+	out := make(map[string]DMXUniverseInterfaceSettings, len(interfaces))
+	for id, iface := range interfaces {
+		cp := iface
+		cp.SelectedUSBDeviceID = strings.TrimSpace(cp.SelectedUSBDeviceID)
+		cp.ArtNet = clampArtNetSettingsPtr(&cp.ArtNet)
+		out[id] = cp
+	}
+	return out
+}
+
 func clampArtNetSettingsPtr(s *ArtNetSettings) ArtNetSettings {
 	if s == nil {
 		def := DefaultControllerSettings().DMX.ArtNet
@@ -161,10 +177,10 @@ func (c *WLEDController) CreateDMXUniverse(name string) (DMXUniverse, error) {
 	name = strings.TrimSpace(name)
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	c.dmxState.Universes = normalizeDMXUniverses(c.dmxState.Universes)
 	if len(c.dmxState.Universes) >= MaxDMXUniverses {
+		c.mu.Unlock()
 		return DMXUniverse{}, fmt.Errorf("maximum of %d universes reached", MaxDMXUniverses)
 	}
 
@@ -185,6 +201,7 @@ func (c *WLEDController) CreateDMXUniverse(name string) (DMXUniverse, error) {
 	c.dmxState = normalizeDMXState(c.dmxState)
 	c.dmxPersistEnabled = true
 	c.updated = time.Now()
+	c.mu.Unlock()
 
 	if err := c.persistDMX(); err != nil {
 		return DMXUniverse{}, err
@@ -213,16 +230,18 @@ func (c *WLEDController) DeleteDMXUniverse(universeID string) error {
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	c.dmxState.Universes = normalizeDMXUniverses(c.dmxState.Universes)
 	if len(c.dmxState.Universes) <= 1 {
+		c.mu.Unlock()
 		return fmt.Errorf("cannot delete the last universe")
 	}
 	if _, ok := findDMXUniverse(c.dmxState.Universes, universeID); !ok {
+		c.mu.Unlock()
 		return fmt.Errorf("unknown universe: %s", universeID)
 	}
 	if countFixturesOnUniverse(c.dmxState.Fixtures, c.dmxState.Universes, universeID) > 0 {
+		c.mu.Unlock()
 		return fmt.Errorf("cannot delete universe with fixtures; move or delete fixtures first")
 	}
 
@@ -238,6 +257,7 @@ func (c *WLEDController) DeleteDMXUniverse(universeID string) error {
 	c.dmxState = normalizeDMXState(c.dmxState)
 	c.dmxPersistEnabled = true
 	c.updated = time.Now()
+	c.mu.Unlock()
 
 	if err := c.persistDMX(); err != nil {
 		return err

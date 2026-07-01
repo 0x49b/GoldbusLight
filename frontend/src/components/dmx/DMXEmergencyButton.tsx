@@ -20,7 +20,7 @@ export function DMXEmergencyButton({busy, className, onEmergency}: DMXEmergencyB
             onClick={() => void onEmergency()}
         >
             <OctagonAlert className="size-4" aria-hidden/>
-            In case of emergency
+            Blackout
         </Button>
     );
 }

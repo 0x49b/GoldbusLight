@@ -47,6 +47,33 @@ function padChannel(n: number): string {
     return String(Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, n))).padStart(3, "0");
 }
 
+function universeInterfaceLabel(
+    universeId: string,
+    settings: ControllerSettings | null,
+    universes: DMXUniverse[],
+    fixtures: DMXFixture[],
+    selectedUSBDeviceId: string,
+    usbSerialDevices: USBSerialDevice[],
+): string {
+    const iface = universeInterfaceSettings(settings, universeId, {
+        universes,
+        fixtures,
+        selectedUSBDeviceId,
+        party: {
+            config: {enabled: false, mode: "auto", intensity: 50, speed: 50, colorVariation: 50, audioSensitivity: 50},
+            status: {running: false, mode: "auto"},
+            audio: {level: 0, bass: 0, mid: 0, treble: 0, beat: 0, bpm: 0},
+        },
+    });
+    const usbDeviceId = iface.selectedUSBDeviceId;
+    const usbDevice = usbSerialDevices.find((d) => d.id === usbDeviceId);
+    const parts = [
+        usbDevice?.name ?? usbDevice?.description,
+        iface.artNet.enabled ? `Art-Net U${iface.artNet.universe}` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" · ") : "No interface";
+}
+
 /** Match the grabbed element's rendered size so the browser does not scale the drag ghost. */
 function attachUniverseFixtureDragImage(event: DragEvent<HTMLButtonElement>) {
     const source = event.currentTarget;
@@ -422,20 +449,6 @@ export function DMXUniverseView({
     const [dropBusy, setDropBusy] = useState(false);
     const universes = useMemo(() => normalizeUniverses(universesProp), [universesProp]);
     const activeUniverseId = resolveUniverseId(selectedUniverseId, universes);
-    const activeUniverse = universes.find((u) => u.id === activeUniverseId) ?? universes[0];
-    const iface = universeInterfaceSettings(settings, activeUniverseId, {
-        universes,
-        fixtures: allFixtures,
-        selectedUSBDeviceId,
-        party: {config: {enabled: false, mode: "auto", intensity: 50, speed: 50, colorVariation: 50, audioSensitivity: 50}, status: {running: false, mode: "auto"}, audio: {level: 0, bass: 0, mid: 0, treble: 0, beat: 0, bpm: 0}},
-    });
-    const usbDeviceId = iface.selectedUSBDeviceId || selectedUSBDeviceId;
-    const usbDevice = usbSerialDevices.find((d) => d.id === usbDeviceId);
-    const subtitleParts = [
-        usbDevice?.name ?? usbDevice?.description,
-        iface.artNet.enabled ? `Art-Net U${iface.artNet.universe}` : null,
-    ].filter(Boolean);
-    const subtitle = subtitleParts.length > 0 ? subtitleParts.join(" · ") : "No interface configured — open Settings";
 
     const fixtures = useMemo(
         () => fixturesForUniverse(allFixtures, activeUniverseId, universes),
@@ -574,18 +587,41 @@ export function DMXUniverseView({
             
             <div className="flex flex-wrap w-full items-start gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    {universes.map((u) => (
-                        <Button
-                            key={u.id}
-                            type="button"
-                            size="sm"
-                            variant={u.id === activeUniverseId ? "default" : "outline"}
-                            onClick={() => selectUniverse(u.id)}
-                            disabled={busy || dropBusy}
-                        >
-                            {u.name}
-                        </Button>
-                    ))}
+                    {universes.map((u) => {
+                        const interfaceLabel = universeInterfaceLabel(
+                            u.id,
+                            settings,
+                            universes,
+                            allFixtures,
+                            selectedUSBDeviceId,
+                            usbSerialDevices,
+                        );
+                        const isActive = u.id === activeUniverseId;
+                        return (
+                            <Button
+                                key={u.id}
+                                type="button"
+                                size="sm"
+                                variant={isActive ? "default" : "outline"}
+                                className="h-auto min-w-0 flex-col items-start gap-0.5 px-3 py-2 text-left"
+                                onClick={() => selectUniverse(u.id)}
+                                disabled={busy || dropBusy}
+                            >
+                                <span className="text-sm font-semibold leading-none">{u.name}</span>
+                                <span
+                                    className={cn(
+                                        "max-w-[14rem] truncate text-xs leading-tight",
+                                        isActive ? "opacity-90" : "text-muted-foreground",
+                                    )}
+                                    title={interfaceLabel}
+                                >
+                                    {interfaceLabel}
+                                </span>
+                            </Button>
+                        );
+                    })}
+                </div>
+                <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
                     {showAddUniverse && (
                         <Button
                             type="button"
@@ -596,7 +632,7 @@ export function DMXUniverseView({
                             onClick={() => void onCreateUniverse()}
                             disabled={busy || dropBusy}
                         >
-                            <PiPlus className="size-4"/>
+                            <PiPlus className="size-4"/> Add Universe
                         </Button>
                     )}
                     {showDeleteUniverse && (
@@ -609,18 +645,9 @@ export function DMXUniverseView({
                             onClick={() => void onDeleteUniverse(activeUniverseId)}
                             disabled={busy || dropBusy}
                         >
-                            <PiTrash className="size-4"/>
+                            <PiTrash className="size-4"/> Remove Universe
                         </Button>
                     )}
-                </div>
-                <div
-                    className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary px-3 py-2 text-primary-foreground shadow-sm">
-                    <span className="text-sm font-semibold leading-none">{activeUniverse?.name ?? "Universe"}</span>
-                    <span className="truncate text-xs opacity-90" title={subtitle}>
-                        {subtitle}
-                    </span>
-                </div>
-                <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Button
                         type="button"
                         variant="outline"

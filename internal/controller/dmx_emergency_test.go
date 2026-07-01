@@ -4,6 +4,8 @@ import (
 	"io"
 	"log"
 	"testing"
+
+	serial2 "goldbus/internal/serial"
 )
 
 func TestDMXEmergencyStopClearsPartyAndBlackouts(t *testing.T) {
@@ -44,5 +46,42 @@ func TestDMXEmergencyStopClearsPartyAndBlackouts(t *testing.T) {
 	}
 	if c.dmxPartyRunning {
 		t.Fatal("expected party worker flag cleared")
+	}
+}
+
+func TestDMXEmergencyStopWithUSBSimulatorWorker(t *testing.T) {
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.DMX.Enabled = true
+	c.settings.DMX.UniverseInterfaces = map[string]DMXUniverseInterfaceSettings{
+		DefaultDMXUniverseID: {
+			SelectedUSBDeviceID: simulatedUSBDMXDeviceID,
+			ArtNet:              DefaultControllerSettings().DMX.ArtNet,
+		},
+	}
+	c.dmxState = defaultDMXState()
+	c.mu.Unlock()
+
+	c.dmxLiveMu.Lock()
+	c.dmxLiveRunning = true
+	c.dmxLiveMu.Unlock()
+
+	if err := c.startDMXUSBSimulatorForUniverse(DefaultDMXUniverseID, serial2.USBSerialDevice{
+		ID:   simulatedUSBDMXDeviceID,
+		Path: simulatedUSBDMXPath,
+		Name: simulatedUSBDMXName,
+	}); err != nil {
+		t.Fatalf("startDMXUSBSimulatorForUniverse: %v", err)
+	}
+
+	if err := c.DMXEmergencyStop(); err != nil {
+		t.Fatalf("DMXEmergencyStop failed: %v", err)
+	}
+
+	c.dmxLiveMu.Lock()
+	defer c.dmxLiveMu.Unlock()
+	if c.dmxLiveRunning {
+		t.Fatal("expected live output stopped")
 	}
 }

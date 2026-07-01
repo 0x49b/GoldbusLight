@@ -100,10 +100,10 @@ type DMXTestingSettings struct {
 }
 
 type DMXSettings struct {
-	Enabled            bool                                      `json:"enabled"`
-	USB                USBTransportSettings                      `json:"usb"`
-	ArtNet             ArtNetSettings                            `json:"artNet"` // legacy; migrated into UniverseInterfaces
-	Testing            DMXTestingSettings                        `json:"testing"`
+	Enabled            bool                                    `json:"enabled"`
+	USB                USBTransportSettings                    `json:"usb"`
+	ArtNet             ArtNetSettings                          `json:"artNet"` // legacy; migrated into UniverseInterfaces
+	Testing            DMXTestingSettings                      `json:"testing"`
 	UniverseInterfaces map[string]DMXUniverseInterfaceSettings `json:"universeInterfaces,omitempty"`
 }
 
@@ -222,12 +222,12 @@ type MovingHeadConfig struct {
 }
 
 type DMXFixture struct {
-	ID         string           `json:"id"`
-	Type       DMXFixtureType   `json:"type"`
-	Brand      string           `json:"brand"`
-	Name       string           `json:"name"`
-	UniverseID string           `json:"universeId,omitempty"`
-	DMXAddress int              `json:"dmxAddress"`
+	ID         string         `json:"id"`
+	Type       DMXFixtureType `json:"type"`
+	Brand      string         `json:"brand"`
+	Name       string         `json:"name"`
+	UniverseID string         `json:"universeId,omitempty"`
+	DMXAddress int            `json:"dmxAddress"`
 	// MasterFixtureID links this fixture as a slave that mirrors the master's DMX output.
 	MasterFixtureID string           `json:"masterFixtureId,omitempty"`
 	MovingHead      MovingHeadConfig `json:"movingHead"`
@@ -607,14 +607,14 @@ type WLEDController struct {
 	wled                     *wledpkg.Engine
 	console                  *console.Bus
 
-	mu              sync.RWMutex
-	importingConfig atomic.Bool // suppresses periodic persist while ImportConfigurationBackup runs
-	settings        ControllerSettings
-	devices         map[string]WLEDDevice
-	generalTabState GeneralTabState
-	dmxState           DMXState
-	dmxPersistEnabled  bool // false when dmx.json failed to load — avoids overwriting fixtures on disk
-	updated            time.Time
+	mu                sync.RWMutex
+	importingConfig   atomic.Bool // suppresses periodic persist while ImportConfigurationBackup runs
+	settings          ControllerSettings
+	devices           map[string]WLEDDevice
+	generalTabState   GeneralTabState
+	dmxState          DMXState
+	dmxPersistEnabled bool // false when dmx.json failed to load — avoids overwriting fixtures on disk
+	updated           time.Time
 
 	probeMu     sync.Mutex
 	probeRecent map[string]time.Time
@@ -622,21 +622,21 @@ type WLEDController struct {
 	rootCtx context.Context
 	cancel  context.CancelFunc
 
-	dmxLiveMu           sync.Mutex
-	dmxLiveOpMu         sync.Mutex // serializes start/stop/reconcile
-	dmxLiveUSBWG        sync.WaitGroup
-	dmxLiveArtWG        sync.WaitGroup
-	dmxLiveRunning      bool
-	dmxLiveErr          string
-	dmxLiveFixID        string
-	dmxLiveUniverses    map[string]*dmxUniverseLiveRuntime
-	dmxLivePatchLog     time.Time
-	dmxPartyRunning     bool
-	dmxPartyCancel      context.CancelFunc
-	dmxPartyWG          sync.WaitGroup
+	dmxLiveMu            sync.Mutex
+	dmxLiveOpMu          sync.Mutex // serializes start/stop/reconcile
+	dmxLiveUSBWG         sync.WaitGroup
+	dmxLiveArtWG         sync.WaitGroup
+	dmxLiveRunning       bool
+	dmxLiveErr           string
+	dmxLiveFixID         string
+	dmxLiveUniverses     map[string]*dmxUniverseLiveRuntime
+	dmxLivePatchLog      time.Time
+	dmxPartyRunning      bool
+	dmxPartyCancel       context.CancelFunc
+	dmxPartyWG           sync.WaitGroup
 	partyOwnedByUniverse map[string][512]bool
-	partyAudioMu        sync.Mutex
-	partyAudioCapture   *audio.Capture
+	partyAudioMu         sync.Mutex
+	partyAudioCapture    *audio.Capture
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -895,6 +895,14 @@ func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 	merged := mergeWithDefaults(settings)
 	c.mu.Lock()
 	wledWas := c.settings.WLED.Enabled
+	legacyUSB := strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
+	universes := normalizeDMXUniverses(c.dmxState.Universes)
+	merged.DMX.UniverseInterfaces = normalizeDMXUniverseInterfaces(
+		merged.DMX.UniverseInterfaces,
+		universes,
+		legacyUSB,
+		merged.DMX.ArtNet,
+	)
 	c.settings = merged
 	c.syncSimulatedDeviceLocked()
 	c.updated = time.Now()
@@ -2632,12 +2640,7 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.DMX.ArtNet.RefreshHz = defaults.DMX.ArtNet.RefreshHz
 	}
 	clampArtNetSettings(&out.DMX.ArtNet)
-	out.DMX.UniverseInterfaces = normalizeDMXUniverseInterfaces(
-		out.DMX.UniverseInterfaces,
-		defaultDMXUniverses(),
-		"",
-		out.DMX.ArtNet,
-	)
+	out.DMX.UniverseInterfaces = clampDMXUniverseInterfaces(out.DMX.UniverseInterfaces)
 	if !out.WLED.Enabled {
 		out.AccessPoint.Enabled = false
 	}

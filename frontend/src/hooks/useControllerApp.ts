@@ -7,6 +7,7 @@ import {
 } from "../../bindings/goldbus/internal/controller/models";
 import {useControllerStore} from "../store/controllerStore";
 import {parseJSONMap, prettyJSON, readNumber} from "../lib/json";
+import {universeInterfaceSettings} from "../lib/dmxUniverses";
 import {
   COLD_WHITE_RGB,
   coldWhiteState,
@@ -1119,6 +1120,25 @@ export function useControllerApp() {
         try {
             const next = (await GreetService.SetDMXUniverseUSBDevice(universeId, deviceID)) as DMXState;
             setDMXState(next);
+            setSettings((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+                const current = universeInterfaceSettings(prev, universeId, next);
+                return {
+                    ...prev,
+                    dmx: {
+                        ...prev.dmx,
+                        universeInterfaces: {
+                            ...prev.dmx.universeInterfaces,
+                            [universeId]: {
+                                ...current,
+                                selectedUSBDeviceId: deviceID,
+                            },
+                        },
+                    },
+                };
+            });
             setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
             setError("");
         } catch (err) {
@@ -1126,7 +1146,7 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, [ensureDMXEnabled]);
+    }, [ensureDMXEnabled, setDMXState, setSettings]);
 
     const onCreateDMXUniverse = useCallback(async (name?: string) => {
         if (!ensureDMXEnabled()) {
@@ -1137,6 +1157,9 @@ export function useControllerApp() {
             const created = await GreetService.CreateDMXUniverse(name ?? "");
             await pullDMXState();
             await pullSnapshot();
+            setRoute((prev) =>
+                prev.kind === "dmxUniverse" ? {kind: "dmxUniverse", universeId: created.id} : prev,
+            );
             setStatus(`Universe "${created.name}" created`);
             setError("");
             return created;
@@ -1146,7 +1169,7 @@ export function useControllerApp() {
         } finally {
             setBusy(false);
         }
-    }, [ensureDMXEnabled, pullDMXState, pullSnapshot]);
+    }, [ensureDMXEnabled, pullDMXState, pullSnapshot, setRoute]);
 
     const onDeleteDMXUniverse = useCallback(async (universeId: string) => {
         if (!ensureDMXEnabled()) {
