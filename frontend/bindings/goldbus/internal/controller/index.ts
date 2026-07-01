@@ -34,6 +34,7 @@ export {
     USBSerialDevice,
     USBTransportSettings,
     UpsertDMXFixtureInput,
+    WLEDDebugSettings,
     WLEDDevice,
     WLEDDeviceDetail,
     WLEDSettings

@@ -12,6 +12,39 @@ export const BLACK_LIGHT_FLUORESCENT_RGB: [number, number, number] = [167, 0, 25
 export const CLEAR_BLUE_SKY_RGB: [number, number, number] = [64, 156, 255];
 export const DIRECT_SUNLIGHT_RGB: [number, number, number] = [255, 255, 255];
 
+export const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
+    {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
+    {name: "2200K Super Warm", rgb: SUPER_WARM_RGB},
+    {name: "2700K Warm White", rgb: WARM_WHITE_RGB},
+    {name: "4300K Daylight White", rgb: DAYLIGHT_WHITE_RGB},
+    {name: "5300K White", rgb: WHITE_RGB},
+    {name: "7000K Frosty White", rgb: FROSTY_WHITE_RGB},
+    {name: "Cold White", rgb: COLD_WHITE_RGB},
+    {name: "Black Light Fluorescent", rgb: BLACK_LIGHT_FLUORESCENT_RGB},
+    {name: "Clear Blue Sky", rgb: CLEAR_BLUE_SKY_RGB},
+    {name: "Direct Sunlight", rgb: DIRECT_SUNLIGHT_RGB},
+];
+
+export function rgbEquals(
+    a: readonly [number, number, number],
+    b: readonly [number, number, number],
+): boolean {
+    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
+export function isWarmWhiteRgb(rgb: readonly [number, number, number]): boolean {
+    return rgbEquals(rgb, WARM_WHITE_RGB);
+}
+
+export function isColdWhiteRgb(rgb: readonly [number, number, number]): boolean {
+    return rgbEquals(rgb, COLD_WHITE_RGB);
+}
+
+export function isNamedDropdownColorRgb(rgb: readonly [number, number, number]): boolean {
+    return NAMED_LIGHT_PRESETS.some(
+        (preset) => !isWarmWhiteRgb(preset.rgb) && !isColdWhiteRgb(preset.rgb) && rgbEquals(rgb, preset.rgb),
+    );
+}
 
 export function warmWhiteState(bri: number): JSONMap {
     return {

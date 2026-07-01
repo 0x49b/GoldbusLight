@@ -447,6 +447,8 @@ export function DMXUniverseView({
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
     const [dropBusy, setDropBusy] = useState(false);
+    const [universeActionBusy, setUniverseActionBusy] = useState(false);
+    const viewBusy = busy || dropBusy || universeActionBusy;
     const universes = useMemo(() => normalizeUniverses(universesProp), [universesProp]);
     const activeUniverseId = resolveUniverseId(selectedUniverseId, universes);
 
@@ -492,7 +494,7 @@ export function DMXUniverseView({
     }, [pullDMXLiveStatus]);
 
     const handleToggleAllLive = async () => {
-        if (busy || dropBusy) {
+        if (viewBusy) {
             return;
         }
         if (anyLive) {
@@ -605,7 +607,7 @@ export function DMXUniverseView({
                                 variant={isActive ? "default" : "outline"}
                                 className="h-auto min-w-0 flex-col items-start gap-0.5 px-3 py-2 text-left"
                                 onClick={() => selectUniverse(u.id)}
-                                disabled={busy || dropBusy}
+                                disabled={viewBusy}
                             >
                                 <span className="text-sm font-semibold leading-none">{u.name}</span>
                                 <span
@@ -629,8 +631,11 @@ export function DMXUniverseView({
                             variant="outline"
                             className="px-2"
                             title="Add universe"
-                            onClick={() => void onCreateUniverse()}
-                            disabled={busy || dropBusy}
+                            onClick={() => {
+                                setUniverseActionBusy(true);
+                                void onCreateUniverse().finally(() => setUniverseActionBusy(false));
+                            }}
+                            disabled={viewBusy}
                         >
                             <PiPlus className="size-4"/> Add Universe
                         </Button>
@@ -642,8 +647,11 @@ export function DMXUniverseView({
                             variant="outline"
                             className="px-2 text-destructive hover:text-destructive"
                             title="Delete empty universe"
-                            onClick={() => void onDeleteUniverse(activeUniverseId)}
-                            disabled={busy || dropBusy}
+                            onClick={() => {
+                                setUniverseActionBusy(true);
+                                void onDeleteUniverse(activeUniverseId).finally(() => setUniverseActionBusy(false));
+                            }}
+                            disabled={viewBusy}
                         >
                             <PiTrash className="size-4"/> Remove Universe
                         </Button>
@@ -653,18 +661,18 @@ export function DMXUniverseView({
                         variant="outline"
                         size="sm"
                         onClick={() => setRoute({kind: "dmxAddFixture", universeId: activeUniverseId})}
-                        disabled={busy || dropBusy}
+                        disabled={viewBusy}
                     >
                         <PiPlus className="mr-1 size-4"/>
                         Add fixture
                     </Button>
-                    <DMXEmergencyButton busy={busy || dropBusy} onEmergency={onEmergency}/>
+                    <DMXEmergencyButton busy={viewBusy} onEmergency={onEmergency}/>
                     <Button
                         type="button"
                         variant={anyLive ? "destructive" : "secondary"}
                         size="sm"
                         onClick={() => void handleToggleAllLive()}
-                        disabled={busy || dropBusy || sortedFixtures.length === 0}
+                        disabled={viewBusy || sortedFixtures.length === 0}
                     >
                         DMX Output - {anyLive ? "ON" : "OFF"}
                     </Button>

@@ -181,6 +181,10 @@ function apply<T>(previous: T, next: T | ((previous: T) => T)): T {
     return typeof next === "function" ? (next as (previous: T) => T)(previous) : next;
 }
 
+export function selectWledShowDebugInfo(state: ControllerStore): boolean {
+    return state.settings?.wled.debug?.showInfo ?? false;
+}
+
 export const useControllerStore = create<ControllerStore>((set) => ({
     ...initialState,
 

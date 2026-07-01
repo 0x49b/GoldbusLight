@@ -160,7 +160,6 @@ export function useControllerApp() {
         setGeneralPal,
         setGeneralSx,
         setGeneralIx,
-        setBusy,
         setRoute,
         setDeviceDetail,
         setDeviceDetailInitializing,
@@ -234,7 +233,6 @@ export function useControllerApp() {
             setGeneralPal: s.setGeneralPal,
             setGeneralSx: s.setGeneralSx,
             setGeneralIx: s.setGeneralIx,
-            setBusy: s.setBusy,
             setRoute: s.setRoute,
             setDeviceDetail: s.setDeviceDetail,
             setDeviceDetailInitializing: s.setDeviceDetailInitializing,
@@ -269,6 +267,13 @@ export function useControllerApp() {
     const deviceStateAutoApplyHydrationSuppressRef = useRef(0);
     const presetColorAutoApplySkipRef = useRef(false);
     const presetColorAutoApplyIsInitialRef = useRef(true);
+    const generalEffectAutoApplyIsInitialRef = useRef(true);
+    const globalApplyPendingRef = useRef<JSONMap | null>(null);
+    const globalApplyTimerRef = useRef<number | undefined>(undefined);
+    const lastGlobalApplySentAtMsRef = useRef(0);
+    const partyConfigSendRef = useRef<DMXPartyConfig | null>(null);
+    const partyConfigTimerRef = useRef<number | undefined>(undefined);
+    const lastPartyConfigSentAtMsRef = useRef(0);
     const lastFormChangeAtMsRef = useRef(0);
     const pendingUiPatchRef = useRef<{ patch: JSONMap; atMs: number } | null>(null);
     const detailInitDoneRef = useRef(false);
@@ -824,16 +829,11 @@ export function useControllerApp() {
         }
     }, [dmxState.fixtures, route, setRoute]);
 
-    const withBusy = useCallback(async (work: () => Promise<void>) => {
-        setBusy(true);
-        try {
-            await work();
-        } catch (err) {
+    const runAsync = useCallback((work: () => Promise<void>) => {
+        void work().catch((err: unknown) => {
             setError(String(err));
-        } finally {
-            setBusy(false);
-        }
-    }, []);
+        });
+    }, [setError]);
 
     const ensureWLEDEnabled = useCallback((): boolean => {
         if ((settings?.wled.enabled ?? true) === false) {
@@ -896,12 +896,12 @@ export function useControllerApp() {
     }, []);
 
     const onApplyNetwork = useCallback(() => {
-        void withBusy(async () => {
+        runAsync(async () => {
             const result = (await GreetService.ApplyNetworkSettings()) as NetworkApplyResult;
             setApplyResult(result);
             setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
         });
-    }, [withBusy]);
+    }, [runAsync]);
 
     const onExportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
@@ -954,12 +954,15 @@ export function useControllerApp() {
         }
     }, [pullSnapshot, pullDMXState, pullDMXPartyState, setStatus, setError]);
 
+    const onCheckForUpdates = useCallback(async (): Promise<void> => {
+        await GreetService.CheckForUpdates();
+    }, []);
+
     const onCreateDMXFixture = useCallback(
         async (input: UpsertDMXFixtureInput): Promise<DMXFixture | null> => {
             if (!ensureDMXEnabled()) {
                 return null;
             }
-            setBusy(true);
             try {
                 const created = (await GreetService.CreateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
@@ -969,11 +972,9 @@ export function useControllerApp() {
             } catch (err) {
                 setError(String(err));
                 return null;
-            } finally {
-                setBusy(false);
             }
         },
-        [ensureDMXEnabled, pullDMXState],
+        [ensureDMXEnabled, pullDMXState, setError],
     );
 
     const onUpdateDMXFixture = useCallback(
@@ -981,7 +982,6 @@ export function useControllerApp() {
             if (!ensureDMXEnabled()) {
                 return null;
             }
-            setBusy(true);
             try {
                 const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
                 if (dmxLiveStatus?.connected && dmxLiveStatus.fixtureId === updated.id) {
@@ -1000,11 +1000,9 @@ export function useControllerApp() {
             } catch (err) {
                 setError(String(err));
                 return null;
-            } finally {
-                setBusy(false);
             }
         },
-        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, ensureDMXEnabled, pullDMXState],
+        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, ensureDMXEnabled, pullDMXState, setError],
     );
 
     const onReaddressDMXFixtures = useCallback(
@@ -1028,7 +1026,6 @@ export function useControllerApp() {
             }
 
             const fixturesById = new Map(dmxState.fixtures.map((fixture) => [fixture.id, fixture]));
-            setBusy(true);
             try {
                 let changed = 0;
                 for (const [id, dmxAddress] of normalized.entries()) {
@@ -1062,11 +1059,9 @@ export function useControllerApp() {
             } catch (err) {
                 setError(String(err));
                 return false;
-            } finally {
-                setBusy(false);
             }
         },
-        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, dmxState.fixtures, ensureDMXEnabled, pullDMXState],
+        [dmxLiveStatus?.connected, dmxLiveStatus?.fixtureId, dmxState.fixtures, ensureDMXEnabled, pullDMXState, setError],
     );
 
     const onDeleteDMXFixture = useCallback(
@@ -1074,7 +1069,6 @@ export function useControllerApp() {
             if (!ensureDMXEnabled()) {
                 return false;
             }
-            setBusy(true);
             try {
                 await GreetService.DeleteDMXFixture(fixtureID);
                 await pullDMXState();
@@ -1085,34 +1079,28 @@ export function useControllerApp() {
             } catch (err) {
                 setError(String(err));
                 return false;
-            } finally {
-                setBusy(false);
             }
         },
-        [ensureDMXEnabled, pullDMXState],
+        [ensureDMXEnabled, pullDMXState, setError, setRoute],
     );
 
     const refreshUSBSerialDevices = useCallback(async () => {
         if (!ensureDMXEnabled()) {
             return;
         }
-        setBusy(true);
         try {
             await pullUSBSerialDevices();
             setStatus("USB serial devices refreshed");
             setError("");
         } catch (err) {
             setError(String(err));
-        } finally {
-            setBusy(false);
         }
-    }, [ensureDMXEnabled, pullUSBSerialDevices]);
+    }, [ensureDMXEnabled, pullUSBSerialDevices, setError]);
 
     const onSelectUSBSerialDevice = useCallback(async (deviceID: string, universeId = "universe-1") => {
         if (!ensureDMXEnabled()) {
             return;
         }
-        setBusy(true);
         try {
             const next = (await GreetService.SetDMXUniverseUSBDevice(universeId, deviceID)) as DMXState;
             setDMXState(next);
@@ -1139,20 +1127,32 @@ export function useControllerApp() {
             setError("");
         } catch (err) {
             setError(String(err));
-        } finally {
-            setBusy(false);
         }
-    }, [ensureDMXEnabled, setDMXState, setSettings]);
+    }, [ensureDMXEnabled, setDMXState, setError, setSettings]);
 
     const onCreateDMXUniverse = useCallback(async (name?: string) => {
         if (!ensureDMXEnabled()) {
             return null;
         }
-        setBusy(true);
         try {
             const created = await GreetService.CreateDMXUniverse(name ?? "");
             await pullDMXState();
-            await pullSnapshot();
+            const nextDmx = useControllerStore.getState().dmxState;
+            setSettings((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    dmx: {
+                        ...prev.dmx,
+                        universeInterfaces: {
+                            ...prev.dmx.universeInterfaces,
+                            [created.id]: universeInterfaceSettings(prev, created.id, nextDmx),
+                        },
+                    },
+                };
+            });
             setRoute((prev) =>
                 prev.kind === "dmxUniverse" ? {kind: "dmxUniverse", universeId: created.id} : prev,
             );
@@ -1162,20 +1162,29 @@ export function useControllerApp() {
         } catch (err) {
             setError(String(err));
             return null;
-        } finally {
-            setBusy(false);
         }
-    }, [ensureDMXEnabled, pullDMXState, pullSnapshot, setRoute]);
+    }, [ensureDMXEnabled, pullDMXState, setError, setRoute, setSettings]);
 
     const onDeleteDMXUniverse = useCallback(async (universeId: string) => {
         if (!ensureDMXEnabled()) {
             return false;
         }
-        setBusy(true);
         try {
             await GreetService.DeleteDMXUniverse(universeId);
             await pullDMXState();
-            await pullSnapshot();
+            setSettings((prev) => {
+                if (!prev?.dmx.universeInterfaces) {
+                    return prev;
+                }
+                const {[universeId]: _removed, ...rest} = prev.dmx.universeInterfaces;
+                return {
+                    ...prev,
+                    dmx: {
+                        ...prev.dmx,
+                        universeInterfaces: rest,
+                    },
+                };
+            });
             setRoute((prev) => {
                 if (prev.kind === "dmxUniverse" && prev.universeId === universeId) {
                     return {kind: "dmxUniverse"};
@@ -1188,41 +1197,80 @@ export function useControllerApp() {
         } catch (err) {
             setError(String(err));
             return false;
-        } finally {
-            setBusy(false);
         }
-    }, [ensureDMXEnabled, pullDMXState, pullSnapshot, setRoute]);
+    }, [ensureDMXEnabled, pullDMXState, setError, setRoute, setSettings]);
+
+    const flushPartyConfigSend = useCallback(
+        async (label?: string) => {
+            if (partyConfigTimerRef.current !== undefined) {
+                window.clearTimeout(partyConfigTimerRef.current);
+                partyConfigTimerRef.current = undefined;
+            }
+            const config = partyConfigSendRef.current;
+            partyConfigSendRef.current = null;
+            if (!config) {
+                return;
+            }
+            lastPartyConfigSentAtMsRef.current = Date.now();
+            try {
+                const next = await GreetService.SetDMXPartyConfig(new DMXPartyConfigModel(config as never));
+                setDMXState((prev) => ({...prev, party: next as unknown as DMXPartyState}));
+                if (label) {
+                    setStatus(label);
+                }
+                setError("");
+            } catch (err: unknown) {
+                setError(String(err));
+            }
+        },
+        [setDMXState, setError, setStatus],
+    );
 
     const setDMXPartyConfig = useCallback(
-        async (partial: Partial<DMXPartyConfig>) => {
+        async (partial: Partial<DMXPartyConfig>, options?: { immediate?: boolean }) => {
             if (!ensurePartyEnabled()) {
                 return false;
             }
-            const base = dmxState.party?.config;
+            const base = useControllerStore.getState().dmxState.party?.config;
             const merged = mergeDMXPartyConfig(base, partial);
-            setBusy(true);
-            try {
-                const next = await GreetService.SetDMXPartyConfig(new DMXPartyConfigModel(merged as never));
-                setDMXState((prev) => ({...prev, party: next as unknown as DMXPartyState}));
-                setError("");
+            setDMXState((prev) => ({
+                ...prev,
+                party: {
+                    ...prev.party,
+                    config: merged,
+                },
+            }));
+            partyConfigSendRef.current = merged;
+
+            if (options?.immediate) {
+                await flushPartyConfigSend();
                 return true;
-            } catch (err) {
-                setError(String(err));
-                return false;
-            } finally {
-                setBusy(false);
             }
+
+            const throttleMs = 120;
+            const elapsedMs = Date.now() - lastPartyConfigSentAtMsRef.current;
+            if (elapsedMs >= throttleMs) {
+                void flushPartyConfigSend();
+                return true;
+            }
+            if (partyConfigTimerRef.current !== undefined) {
+                window.clearTimeout(partyConfigTimerRef.current);
+            }
+            partyConfigTimerRef.current = window.setTimeout(() => {
+                partyConfigTimerRef.current = undefined;
+                void flushPartyConfigSend();
+            }, throttleMs - elapsedMs);
+            return true;
         },
-        [dmxState.party?.config, ensurePartyEnabled, setBusy, setDMXState, setError],
+        [ensurePartyEnabled, flushPartyConfigSend, setDMXState],
     );
 
     const startDMXPartyMode = useCallback(async () => {
         if (!ensurePartyEnabled()) {
             return false;
         }
-        setBusy(true);
         try {
-            await setDMXPartyConfig({});
+            await setDMXPartyConfig({}, {immediate: true});
             await GreetService.StartDMXParty();
             const state = await GreetService.GetDMXPartyState();
             setDMXState((prev) => ({...prev, party: state as unknown as DMXPartyState}));
@@ -1232,10 +1280,8 @@ export function useControllerApp() {
         } catch (err) {
             setError(String(err));
             return false;
-        } finally {
-            setBusy(false);
         }
-    }, [ensurePartyEnabled, setBusy, setDMXState, setError, setStatus, setDMXPartyConfig]);
+    }, [ensurePartyEnabled, setDMXState, setError, setStatus, setDMXPartyConfig]);
 
     const stopDMXPartyMode = useCallback(async () => {
         setDMXState((prev) => ({
@@ -1250,7 +1296,6 @@ export function useControllerApp() {
                 },
             },
         }));
-        setBusy(true);
         try {
             await GreetService.StopDMXParty();
             const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
@@ -1265,10 +1310,8 @@ export function useControllerApp() {
             } catch {
                 /* ignore follow-up read failure */
             }
-        } finally {
-            setBusy(false);
         }
-    }, [setBusy, setDMXState, setError, setStatus]);
+    }, [setDMXState, setError, setStatus]);
 
     useEffect(() => {
         if (dmxPartyState?.status?.running !== true) {
@@ -1330,7 +1373,6 @@ export function useControllerApp() {
                 },
             },
         }));
-        setBusy(true);
         try {
             await GreetService.DMXEmergencyStop();
             await pullDMXState();
@@ -1348,10 +1390,8 @@ export function useControllerApp() {
                 /* ignore follow-up read failure */
             }
             await pullDMXLiveStatus();
-        } finally {
-            setBusy(false);
         }
-    }, [pullDMXLiveStatus, pullDMXState, setBusy, setDMXState, setError, setStatus]);
+    }, [pullDMXLiveStatus, pullDMXState, setDMXState, setError, setStatus]);
 
     const flushDmxLivePatch = useCallback(async () => {
         const m = dmxLivePendingRef.current;
@@ -1404,7 +1444,6 @@ export function useControllerApp() {
             if (!ensureDMXEnabled()) {
                 return false;
             }
-            setBusy(true);
             try {
                 await GreetService.StartDMXLive(fixtureID);
                 setError("");
@@ -1415,11 +1454,9 @@ export function useControllerApp() {
                 setError(String(err));
                 await pullDMXLiveStatus();
                 return false;
-            } finally {
-                setBusy(false);
             }
         },
-        [ensureDMXEnabled, pullDMXLiveStatus, setBusy, setError, setStatus],
+        [ensureDMXEnabled, pullDMXLiveStatus, setError, setStatus],
     );
 
     const stopDMXLiveOutput = useCallback(async () => {
@@ -1447,38 +1484,89 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return null;
             }
-            let deviceID: string | null = null;
-            await withBusy(async () => {
+            try {
                 const created = (await GreetService.AddWLEDDevice({address, port})) as { id: string };
                 await pullSnapshot();
                 setStatus("WLED device added");
-                deviceID = created.id;
-            });
-            return deviceID;
+                return created.id;
+            } catch (err) {
+                setError(String(err));
+                return null;
+            }
         },
-        [ensureWLEDEnabled, pullSnapshot, setStatus, withBusy],
+        [ensureWLEDEnabled, pullSnapshot, setError, setStatus],
+    );
+
+    const sendGlobalState = useCallback(
+        async (patch: JSONMap, label: string, skipSnapshotReload: boolean) => {
+            try {
+                const result = await GreetService.SetGlobalState(patch);
+                if (!skipSnapshotReload) {
+                    await pullSnapshot();
+                    setStatus(`${label}: ${Object.keys(result).length} targets`);
+                }
+            } catch (err: unknown) {
+                setError(String(err));
+            }
+        },
+        [pullSnapshot, setError, setStatus],
+    );
+
+    const flushThrottledGlobalApply = useCallback(
+        (label: string) => {
+            if (globalApplyTimerRef.current !== undefined) {
+                window.clearTimeout(globalApplyTimerRef.current);
+                globalApplyTimerRef.current = undefined;
+            }
+            const pending = globalApplyPendingRef.current;
+            globalApplyPendingRef.current = null;
+            if (!pending) {
+                return;
+            }
+            lastGlobalApplySentAtMsRef.current = Date.now();
+            void sendGlobalState(pending, label, true);
+        },
+        [sendGlobalState],
     );
 
     const onSetGlobalState = useCallback(
-        (state: JSONMap, label: string, options?: { background?: boolean }) => {
+        (state: JSONMap, label: string, options?: { skipSnapshotReload?: boolean }) => {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            const background = options?.background === true;
-            const run = async () => {
-                const result = await GreetService.SetGlobalState(state);
-                setStatus(`${label}: ${Object.keys(result).length} targets`);
-                await pullSnapshot();
-            };
-            if (background) {
-                void run().catch((err: unknown) => {
-                    setError(String(err));
-                });
+            const skipSnapshotReload = options?.skipSnapshotReload === true;
+            const normalized = normalizeGlobalStatePatch(state);
+
+            setSnapshot((prev) => applyGlobalPatchToSnapshot(prev, normalized));
+
+            if (skipSnapshotReload) {
+                globalApplyPendingRef.current = globalApplyPendingRef.current
+                    ? applyStatePatch(globalApplyPendingRef.current, normalized)
+                    : normalized;
+                const throttleMs = 120;
+                const elapsedMs = Date.now() - lastGlobalApplySentAtMsRef.current;
+                if (elapsedMs >= throttleMs) {
+                    flushThrottledGlobalApply(label);
+                    return;
+                }
+                if (globalApplyTimerRef.current !== undefined) {
+                    window.clearTimeout(globalApplyTimerRef.current);
+                }
+                globalApplyTimerRef.current = window.setTimeout(
+                    () => flushThrottledGlobalApply(label),
+                    throttleMs - elapsedMs,
+                );
                 return;
             }
-            void withBusy(run);
+
+            if (globalApplyTimerRef.current !== undefined) {
+                window.clearTimeout(globalApplyTimerRef.current);
+                globalApplyTimerRef.current = undefined;
+            }
+            globalApplyPendingRef.current = null;
+            void sendGlobalState(normalized, label, false);
         },
-        [ensureWLEDEnabled, pullSnapshot, withBusy],
+        [ensureWLEDEnabled, flushThrottledGlobalApply, sendGlobalState],
     );
 
     const onRefreshDevice = useCallback(
@@ -1487,7 +1575,7 @@ export function useControllerApp() {
                 return;
             }
             deviceDetailOpSeqRef.current += 1;
-            void withBusy(async () => {
+            runAsync(async () => {
                 setDeviceDetailReloading(true);
                 try {
                     let refreshed: ControllerSnapshot | null = null;
@@ -1538,7 +1626,7 @@ export function useControllerApp() {
                 }
             });
         },
-        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, runAsync],
     );
 
     const onProvisionDevice = useCallback(
@@ -1546,7 +1634,7 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            void withBusy(async () => {
+            runAsync(async () => {
                 const updated = (await GreetService.ProvisionDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
@@ -1556,7 +1644,7 @@ export function useControllerApp() {
                 }
             });
         },
-        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, runAsync],
     );
 
     const onRemoveDevice = useCallback(
@@ -1564,7 +1652,7 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            void withBusy(async () => {
+            runAsync(async () => {
                 const updated = (await GreetService.RemoveDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
@@ -1572,7 +1660,7 @@ export function useControllerApp() {
                 setRoute({kind: "presets"});
             });
         },
-        [ensureWLEDEnabled, withBusy],
+        [ensureWLEDEnabled, runAsync, setRoute],
     );
 
     const onIgnoreDevice = useCallback(
@@ -1580,7 +1668,7 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            void withBusy(async () => {
+            runAsync(async () => {
                 const updated = (await GreetService.SetDeviceIgnored(deviceID, true)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
@@ -1594,7 +1682,7 @@ export function useControllerApp() {
                 setRoute((r) => (r.kind === "device" && r.id === deviceID ? {kind: "presets"} : r));
             });
         },
-        [ensureWLEDEnabled, withBusy],
+        [ensureWLEDEnabled, runAsync, setRoute],
     );
 
     const onUnignoreDevice = useCallback(
@@ -1602,7 +1690,7 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            void withBusy(async () => {
+            runAsync(async () => {
                 const updated = (await GreetService.SetDeviceIgnored(deviceID, false)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
@@ -1615,7 +1703,7 @@ export function useControllerApp() {
                 setStatus("Device restored from ignored list");
             });
         },
-        [ensureWLEDEnabled, withBusy],
+        [ensureWLEDEnabled, runAsync],
     );
 
     const onSetDeviceState = useCallback(
@@ -1742,7 +1830,7 @@ export function useControllerApp() {
             if (!ensureWLEDEnabled()) {
                 return;
             }
-            void withBusy(async () => {
+            runAsync(async () => {
                 const updated = (await GreetService.RenameDevice(deviceID, name)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
@@ -1754,7 +1842,7 @@ export function useControllerApp() {
                 }
             });
         },
-        [ensureWLEDEnabled, loadDeviceDetail, route, withBusy],
+        [ensureWLEDEnabled, loadDeviceDetail, route, runAsync],
     );
 
     const onToggleOneDevice = useCallback(
@@ -1796,10 +1884,21 @@ export function useControllerApp() {
         }
         const t = window.setTimeout(() => {
             const [r, g, b] = presetRgb;
-            onSetGlobalState(rgbState(r, g, b, presetBri, true), "All devices color", {background: true});
+            onSetGlobalState(rgbState(r, g, b, presetBri, true), "All devices color", {skipSnapshotReload: true});
         }, 200);
         return () => window.clearTimeout(t);
     }, [onSetGlobalState, presetBri, presetRgb]);
+
+    useEffect(() => {
+        if (generalEffectAutoApplyIsInitialRef.current) {
+            generalEffectAutoApplyIsInitialRef.current = false;
+            return;
+        }
+        const patch: JSONMap = {
+            seg: [{id: 0, fx: generalFx, pal: generalPal, sx: generalSx, ix: generalIx}],
+        };
+        onSetGlobalState(patch, "Effect/palette (all)", {skipSnapshotReload: true});
+    }, [generalFx, generalPal, generalSx, generalIx, onSetGlobalState]);
 
     return {
         snapshot,
@@ -1912,6 +2011,7 @@ export function useControllerApp() {
         onExportConfigurationBackup,
         onExportDMXFixtureConfig,
         onImportConfigurationBackup,
+        onCheckForUpdates,
     };
 }
 
@@ -1953,6 +2053,45 @@ function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDM
         maxTilt: fixture.movingHead?.maxTilt ?? 270,
         party: fixture.party,
         channels: fixture.channels,
+    };
+}
+
+function normalizeGlobalStatePatch(patch: JSONMap): JSONMap {
+    if (!Array.isArray(patch.seg)) {
+        return patch;
+    }
+    const seg = (patch.seg as unknown[]).map((raw) => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+            return raw;
+        }
+        const segPatch = raw as JSONMap;
+        if (readNumber(segPatch.id, -1) >= 0) {
+            return segPatch;
+        }
+        return {id: 0, ...segPatch};
+    });
+    return {...patch, seg};
+}
+
+function applyGlobalPatchToSnapshot(
+    snapshot: ControllerSnapshot | null,
+    patch: JSONMap,
+): ControllerSnapshot | null {
+    if (!snapshot) {
+        return snapshot;
+    }
+    return {
+        ...snapshot,
+        devices: snapshot.devices.map((device) => {
+            if (device.ignored) {
+                return device;
+            }
+            const lastState = (device.lastState as JSONMap | undefined) ?? {};
+            return {
+                ...device,
+                lastState: applyStatePatch(lastState, patch),
+            };
+        }),
     };
 }
 

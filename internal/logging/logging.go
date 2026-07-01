@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 )
 
-// InitFileLogger tees the standard library logger to stderr and a log file.
+// InitFileLogger writes the standard library logger to a log file, and to stderr
+// only when a console is attached (avoids a flashing terminal on Windows GUI builds).
 // The default path matches the controller state directory: UserConfigDir/wled-controller/app.log.
 // Override with GOLDBUS_LOG_FILE (absolute or relative path).
 func InitFileLogger() (cleanup func()) {
@@ -20,18 +21,26 @@ func InitFileLogger() (cleanup func()) {
 	dir := filepath.Dir(path)
 	if dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "goldbus: cannot create log directory %s: %v\n", dir, err)
+			if stderrSafe() {
+				fmt.Fprintf(os.Stderr, "goldbus: cannot create log directory %s: %v\n", dir, err)
+			}
 			return func() {}
 		}
 	}
 
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "goldbus: cannot open log file %s: %v\n", path, err)
+		if stderrSafe() {
+			fmt.Fprintf(os.Stderr, "goldbus: cannot open log file %s: %v\n", path, err)
+		}
 		return func() {}
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stderr, f))
+	out := io.Writer(f)
+	if stderrSafe() {
+		out = io.MultiWriter(os.Stderr, f)
+	}
+	log.SetOutput(out)
 	log.Printf("file logging enabled: %s", path)
 
 	return func() { _ = f.Close() }

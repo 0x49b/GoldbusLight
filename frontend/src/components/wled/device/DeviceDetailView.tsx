@@ -1,35 +1,23 @@
 import {type Dispatch, type SetStateAction, useState} from "react";
-import {
-    PiArrowClockwise,
-    PiFire,
-    PiIceCream,
-    PiPalette,
-    PiPencil,
-    PiPower,
-    PiTrash,
-    PiX
-} from "react-icons/pi";
+import {PiArrowClockwise, PiFire, PiIceCream, PiPalette, PiPencil, PiPower, PiTrash, PiX} from "react-icons/pi";
 import {prettyJSON, readNumber} from "@/lib/json.ts";
 import {
-    BLACK_LIGHT_FLUORESCENT_RGB,
-    CANDLE_LIGHT_RGB,
-    CLEAR_BLUE_SKY_RGB,
     COLD_WHITE_RGB,
-    DAYLIGHT_WHITE_RGB,
-    DIRECT_SUNLIGHT_RGB,
-    FROSTY_WHITE_RGB,
-    SUPER_WARM_RGB,
-    WARM_WHITE_RGB,
-    WHITE_RGB
+    isColdWhiteRgb,
+    isNamedDropdownColorRgb,
+    isWarmWhiteRgb,
+    NAMED_LIGHT_PRESETS,
+    rgbEquals,
+    WARM_WHITE_RGB
 } from "@/lib/wled.ts";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "@/types/controller.ts";
-import {EffectPickerModal} from "./EffectPickerModal";
-import {PalettePickerModal} from "./PalettePickerModal";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {Badge} from "@/components/ui/badge";
+import {EffectPickerModal} from "./EffectPickerModal.tsx";
+import {PalettePickerModal} from "./PalettePickerModal.tsx";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import {Input} from "@/components/ui/input.tsx";
+import {Label} from "@/components/ui/label.tsx";
+import {Badge} from "@/components/ui/badge.tsx";
 import {
     Dialog,
     DialogContent,
@@ -37,37 +25,20 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle
-} from "@/components/ui/dialog";
-import {Spinner} from "@/components/ui/spinner";
+} from "@/components/ui/dialog.tsx";
+import {Spinner} from "@/components/ui/spinner.tsx";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/components/ui/select";
-import {Slider} from "@/components/ui/slider";
-import {HueSlider} from "@/components/ui/hue-slider";
-
-const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
-    {name: "1300K Candle Light", rgb: CANDLE_LIGHT_RGB},
-    {name: "2200K Super Warm", rgb: SUPER_WARM_RGB},
-    {name: "2700K Warm White", rgb: WARM_WHITE_RGB},
-    {name: "4300K Daylight White", rgb: DAYLIGHT_WHITE_RGB},
-    {name: "5300K White", rgb: WHITE_RGB},
-    {name: "7000K Frosty White", rgb: FROSTY_WHITE_RGB},
-    {name: "Cold White", rgb: COLD_WHITE_RGB},
-    {name: "Black Light Fluorescent", rgb: BLACK_LIGHT_FLUORESCENT_RGB},
-    {name: "Clear Blue Sky", rgb: CLEAR_BLUE_SKY_RGB},
-    {name: "Direct Sunlight", rgb: DIRECT_SUNLIGHT_RGB},
-];
+} from "@/components/ui/dropdown-menu.tsx";
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible.tsx";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx";
+import {Slider} from "@/components/ui/slider.tsx";
+import {HueSlider} from "@/components/ui/hue-slider.tsx";
+import {cn} from "@/lib/utils.ts";
+import {useControllerStore} from "@/store/controllerStore.ts";
 
 export type DeviceDetailViewProps = {
     device: WLEDDevice | undefined;
@@ -160,7 +131,7 @@ export function DeviceDetailView({
             : last && typeof last.on === "boolean"
                 ? last.on
                 : undefined;
-
+    const showDebug = useControllerStore.getState().settings?.wled.debug?.showInfo ?? false
     const lightControlsLocked = !liveOnline || powerOn === false;
     const powerDisabled = !liveOnline || powerOn === undefined;
     const powerButtonVariant = powerOn === true ? "default" : powerOn === false ? "destructive" : "secondary";
@@ -180,6 +151,9 @@ export function DeviceDetailView({
     };
 
     const brightnessPercent = Math.round((deviceFormBri / 255) * 100) || 0;
+    const warmWhiteActive = isWarmWhiteRgb(deviceFormRgb);
+    const coldWhiteActive = isColdWhiteRgb(deviceFormRgb);
+    const namedColorActive = isNamedDropdownColorRgb(deviceFormRgb);
 
     return (
         <div className="space-y-6 w-full max-w-none pb-8">
@@ -396,105 +370,101 @@ export function DeviceDetailView({
                     <CardTitle>Color & Brightness</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-wrap items-start gap-4">
-
-                        <div className="flex w-full items-start gap-4">
-                            <label className="flex w-1/2 flex-col gap-1">
-                                <span className="text-xs opacity-70">Color</span>
-                                <HueSlider value={hueValue} disabled={lightControlsLocked}
-                                           onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))}/>
-                            </label>
-
-                            <div className="w-1/2 space-y-2">
-                                <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
-                                <Slider
-                                    min={0}
-                                    max={100}
-                                    step={5}
-                                    value={[brightnessPercent]}
-                                    onValueChange={(value) => {
-                                        const percentValue = readNumber(value[0], 100);
-                                        const briValue = Math.round((percentValue / 100) * 255);
-                                        setDeviceFormBri(Math.max(1, briValue));
-                                    }}
+                    <div className="w-full grid grid-cols-3 gap-2">
+                        <Button
+                            type="button"
+                            variant={warmWhiteActive ? "default" : "secondary"}
+                            size="sm"
+                            className="w-full min-w-0 gap-1"
+                            aria-pressed={warmWhiteActive}
+                            onClick={() => applySegmentColorPreset(WARM_WHITE_RGB)}
+                            disabled={lightControlsLocked}
+                        >
+                            <PiFire/>
+                            Warm white
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={coldWhiteActive ? "default" : "secondary"}
+                            size="sm"
+                            className="w-full min-w-0 gap-1"
+                            aria-pressed={coldWhiteActive}
+                            onClick={() => applySegmentColorPreset(COLD_WHITE_RGB)}
+                            disabled={lightControlsLocked}
+                        >
+                            <PiIceCream/>
+                            Cold white
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant={namedColorActive ? "default" : "secondary"}
+                                    size="sm"
+                                    className="w-full min-w-0 gap-1"
+                                    aria-pressed={namedColorActive}
                                     disabled={lightControlsLocked}
-                                />
-                            </div>
-                        </div>
-
-
-                        <div className="w-full grid grid-cols-3 gap-2">
-
-
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="w-full min-w-0 gap-1"
-                                onClick={() => applySegmentColorPreset(WARM_WHITE_RGB)}
-                                disabled={lightControlsLocked}
-                            >
-                                <PiFire/>
-                                Warm white
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="w-full min-w-0 gap-1"
-                                onClick={() => applySegmentColorPreset(COLD_WHITE_RGB)}
-                                disabled={lightControlsLocked}
-                            >
-                                <PiIceCream/>
-                                Cold white
-                            </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="secondary" size="sm"
-                                            className="w-full min-w-0 gap-1"
-                                            disabled={lightControlsLocked}>
-                                        <PiPalette/>
-                                        Color
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-max">
-                                    {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
-                                        <DropdownMenuItem
-                                            key={name}
-                                            className="flex w-full items-center gap-2 whitespace-nowrap text-left"
-                                            disabled={lightControlsLocked}
-                                            onClick={() => {
-                                                applySegmentColorPreset(rgb);
-                                            }}
-                                        >
+                                >
+                                    <PiPalette/>
+                                    Color
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-max">
+                                {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
+                                    <DropdownMenuItem
+                                        key={name}
+                                        className={cn(
+                                            "flex w-full items-center gap-2 whitespace-nowrap text-left",
+                                            rgbEquals(deviceFormRgb, rgb) && "bg-accent font-medium",
+                                        )}
+                                        disabled={lightControlsLocked}
+                                        aria-current={rgbEquals(deviceFormRgb, rgb) ? "true" : undefined}
+                                        onClick={() => {
+                                            applySegmentColorPreset(rgb);
+                                        }}
+                                    >
                                                 <span
                                                     className="h-4 w-4 shrink-0 rounded-sm border"
                                                     style={{backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`}}
                                                     aria-hidden
                                                 />
-                                            <span>{name}</span>
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                        <div className="min-w-[140px] space-y-2">
-                            <Label className="text-xs">Transition (x100 ms)</Label>
-                            <Input
-                                type="number"
+                                        <span>{name}</span>
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 mt-4">
+                        <label className="flex w-full min-w-50 flex-col gap-1">
+
+
+                            <Label className="text-xs">Color</Label>
+                            <HueSlider value={hueValue} disabled={lightControlsLocked}
+                                       onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))}/>
+
+                        </label>
+                        <label className="flex w-full min-w-50 flex-col gap-1">
+                            <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
+                            <Slider
                                 min={0}
-                                max={255}
-                                className="h-8"
-                                value={deviceFormTransition}
-                                onChange={(e) => setDeviceFormTransition(readNumber(e.target.value, 7))}
+                                max={100}
+                                step={5}
+                                value={[brightnessPercent]}
+                                onValueChange={(value) => {
+                                    const percentValue = readNumber(value[0], 100);
+                                    const briValue = Math.round((percentValue / 100) * 255);
+                                    setDeviceFormBri(Math.max(1, briValue));
+                                }}
                                 disabled={lightControlsLocked}
                             />
-                        </div>
+                        </label>
                     </div>
+
+
                 </CardContent>
 
-
             </Card>
+
 
             <Card>
                 <CardHeader>
@@ -586,7 +556,7 @@ export function DeviceDetailView({
                             });
                         }}
                     />
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2 mt-4">
                         <div className="space-y-2">
                             <Label className="text-xs">Speed (sx) - {deviceFormSx}</Label>
                             <Slider
@@ -611,60 +581,84 @@ export function DeviceDetailView({
                 </CardContent>
             </Card>
 
-            <Collapsible className="rounded-lg border">
-                <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State &
-                    Config</CollapsibleTrigger>
-                <CollapsibleContent className="px-4 pb-4 text-sm grid gap-5">
+            <Card>
+                <CardHeader>
+                    <CardTitle>
+                        Transition
+                    </CardTitle>
+                </CardHeader>
+
+                <CardContent className="gap-4">
+                    <Label className="text-xs">x100 ms</Label>
+                    <Input
+                        type="number"
+                        min={0}
+                        max={255}
+                        className="h-8"
+                        value={deviceFormTransition}
+                        onChange={(e) => setDeviceFormTransition(readNumber(e.target.value, 7))}
+                        disabled={lightControlsLocked}
+                    />
+                </CardContent>
+            </Card>
+
+            {showDebug && (
+                <Collapsible className="rounded-lg border">
+                    <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State &
+                        Config</CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-4 text-sm grid gap-5">
 
 
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <Card className="bg-muted/50">
-                            <CardContent className="pt-4">
-                                <h3 className="text-sm font-semibold mb-2">Device info (GET
-                                    /json)</h3>
-                                <pre
-                                    className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Card className="bg-muted/50">
+                                <CardContent className="pt-4">
+                                    <h3 className="text-sm font-semibold mb-2">Device info (GET
+                                        /json)</h3>
+                                    <pre
+                                        className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.info ? prettyJSON(detail.info) : "—"}
             </pre>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-muted/50">
-                            <CardContent className="pt-4">
-                                <h3 className="text-sm font-semibold mb-2">Config (GET
-                                    /json/cfg)</h3>
-                                <pre
-                                    className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-muted/50">
+                                <CardContent className="pt-4">
+                                    <h3 className="text-sm font-semibold mb-2">Config (GET
+                                        /json/cfg)</h3>
+                                    <pre
+                                        className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.config ? prettyJSON(detail.config) : "—"}
             </pre>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                    <Card className="bg-muted/50">
-                        <CardContent className="pt-4">
-                            <h3 className="text-sm font-semibold mb-2">Current state (GET /json →
-                                state)</h3>
-                            <pre
-                                className="text-xs overflow-auto max-h-72 rounded bg-card p-2 border whitespace-pre-wrap">
+                        <Card className="bg-muted/50">
+                            <CardContent className="pt-4">
+                                <h3 className="text-sm font-semibold mb-2">Current state (GET /json →
+                                    state)</h3>
+                                <pre
+                                    className="text-xs overflow-auto max-h-72 rounded bg-card p-2 border whitespace-pre-wrap">
             {detail?.state ? prettyJSON(detail.state) : "—"}
           </pre>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    {d.lastState && Object.keys(d.lastState).length > 0 && (
-                        <div className="text-xs opacity-60">
+                        {d.lastState && Object.keys(d.lastState).length > 0 && (
+                            <div className="text-xs opacity-60">
                             <span
                                 className="font-medium opacity-80">Persisted last state</span> (restored
-                            on reconnect):{" "}
-                            <code
-                                className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
-                        </div>
-                    )}
+                                on reconnect):{" "}
+                                <code
+                                    className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
+                            </div>
+                        )}
 
-                </CollapsibleContent>
-            </Collapsible>
+                    </CollapsibleContent>
+                </Collapsible>
+            )}
         </div>
-    );
+    )
+        ;
 }
 
 function hueToRgb(hue: number): [number, number, number] {

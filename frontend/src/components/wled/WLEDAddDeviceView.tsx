@@ -16,16 +16,23 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
     const [address, setAddress] = useState("");
     const [port, setPort] = useState("80");
     const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const formBusy = busy || submitting;
 
     const submit = async () => {
         setError(null);
-        const parsedPort = Number.parseInt(port, 10);
-        const deviceID = await onAddDevice(address, Number.isFinite(parsedPort) ? parsedPort : 80);
-        if (!deviceID) {
-            setError("Could not add device. Check the IP address and that WLED is reachable on the network.");
-            return;
+        setSubmitting(true);
+        try {
+            const parsedPort = Number.parseInt(port, 10);
+            const deviceID = await onAddDevice(address, Number.isFinite(parsedPort) ? parsedPort : 80);
+            if (!deviceID) {
+                setError("Could not add device. Check the IP address and that WLED is reachable on the network.");
+                return;
+            }
+            setRoute({kind: "device", id: deviceID});
+        } finally {
+            setSubmitting(false);
         }
-        setRoute({kind: "device", id: deviceID});
     };
 
     return (
@@ -46,7 +53,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
                             placeholder="192.168.1.42"
-                            disabled={busy}
+                            disabled={formBusy}
                             autoFocus
                         />
                     </Field>
@@ -60,7 +67,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                             max={65535}
                             value={port}
                             onChange={(e) => setPort(e.target.value)}
-                            disabled={busy}
+                            disabled={formBusy}
                         />
                     </Field>
 
@@ -71,7 +78,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                     )}
 
                     <div className="flex flex-wrap gap-2">
-                        <Button type="button" onClick={() => void submit()} disabled={busy || !address.trim()}>
+                        <Button type="button" onClick={() => void submit()} disabled={formBusy || !address.trim()}>
                             <PiPlus className="mr-1 size-4"/>
                             Add device
                         </Button>
@@ -79,7 +86,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                             type="button"
                             variant="outline"
                             onClick={() => setRoute({kind: "presets"})}
-                            disabled={busy}
+                            disabled={formBusy}
                         >
                             Cancel
                         </Button>

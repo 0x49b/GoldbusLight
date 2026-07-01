@@ -3,20 +3,15 @@ import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
 import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import {readNumber} from "@/lib/json.ts";
 import {
-    BLACK_LIGHT_FLUORESCENT_RGB,
-    CANDLE_LIGHT_RGB,
-    CLEAR_BLUE_SKY_RGB,
-    COLD_WHITE_RGB,
-    DAYLIGHT_WHITE_RGB,
-    DIRECT_SUNLIGHT_RGB,
-    FROSTY_WHITE_RGB,
-    SUPER_WARM_RGB,
-    WARM_WHITE_RGB,
-    WHITE_RGB
+    isColdWhiteRgb,
+    isNamedDropdownColorRgb,
+    isWarmWhiteRgb,
+    NAMED_LIGHT_PRESETS,
+    rgbEquals,
 } from "@/lib/wled.ts";
 import type {JSONMap, WLEDDevice, WLEDDeviceDetail} from "@/types/controller.ts";
-import {EffectPickerModal} from "../device/EffectPickerModal.tsx";
-import {PalettePickerModal} from "../device/PalettePickerModal.tsx";
+import {EffectPickerModal} from "@/components/wled/device/EffectPickerModal.tsx";
+import {PalettePickerModal} from "@/components/wled/device/PalettePickerModal.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Slider} from "@/components/ui/slider.tsx";
@@ -30,27 +25,13 @@ import {
 import {Label} from "@/components/ui/label.tsx";
 import {cn} from "@/lib/utils.ts";
 
-const NAMED_LIGHT_PRESETS: ReadonlyArray<{ name: string; rgb: [number, number, number] }> = [
-    {name: "1300K Candle Light ", rgb: CANDLE_LIGHT_RGB},
-    {name: "2200K Super Warm ", rgb: SUPER_WARM_RGB},
-    {name: "2700K Warm White ", rgb: WARM_WHITE_RGB},
-    {name: "4300K Daylight White ", rgb: DAYLIGHT_WHITE_RGB},
-    {name: "5300K White ", rgb: WHITE_RGB},
-    {name: "7000K Frosty White ", rgb: FROSTY_WHITE_RGB},
-    {name: "Cold White ", rgb: COLD_WHITE_RGB},
-    {name: "Black Light Fluorescent ", rgb: BLACK_LIGHT_FLUORESCENT_RGB},
-    {name: "Clear Blue Sky ", rgb: CLEAR_BLUE_SKY_RGB},
-    {name: "Direct Sunlight ", rgb: DIRECT_SUNLIGHT_RGB},
-];
-
 export type PresetsPanelProps = {
     devices: WLEDDevice[];
-    busy: boolean;
     presetBri: number;
     setPresetBri: Dispatch<SetStateAction<number>>;
     presetRgb: [number, number, number];
     setPresetRgb: Dispatch<SetStateAction<[number, number, number]>>;
-    onSetGlobalState: (state: JSONMap, label: string, options?: { background?: boolean }) => void;
+    onSetGlobalState: (state: JSONMap, label: string, options?: { skipSnapshotReload?: boolean }) => void;
     onToggleOneDevice: (deviceId: string) => void;
     applyWarmWhitePreset: () => void;
     applyColdWhitePreset: () => void;
@@ -67,7 +48,6 @@ export type PresetsPanelProps = {
 
 export function GeneralPanel({
                                  devices,
-                                 busy,
                                  presetBri,
                                  setPresetBri,
                                  presetRgb,
@@ -119,27 +99,11 @@ export function GeneralPanel({
         })();
     }, [firstOnlineDevice?.id]);
     const hueValue = rgbToHue(presetRgb[0], presetRgb[1], presetRgb[2]);
-
-    const applyGlobalEffectPalette = (next: {
-        fx?: number;
-        pal?: number;
-        sx?: number;
-        ix?: number
-    }) => {
-        const fx = next.fx ?? generalFx;
-        const pal = next.pal ?? generalPal;
-        const sx = next.sx ?? generalSx;
-        const ix = next.ix ?? generalIx;
-        onSetGlobalState(
-            {
-                seg: [{fx, pal, sx, ix}],
-            },
-            "Effect/palette (all)",
-        );
-    };
-
-
+    const controlsDisabled = activeDevices.length === 0;
     const brightnessPercent = Math.round((presetBri / 255) * 100) || 0;
+    const warmWhiteActive = isWarmWhiteRgb(presetRgb);
+    const coldWhiteActive = isColdWhiteRgb(presetRgb);
+    const namedColorActive = isNamedDropdownColorRgb(presetRgb);
 
 
     return (
@@ -168,29 +132,29 @@ export function GeneralPanel({
                                         seg: [{fx: 0, pal: 0}]
                                     }, "All off")
                             }
-                            disabled={busy || activeDevices.length === 0}
+                            disabled={controlsDisabled}
                         >
                             {allOff ? <PiMoon/> : <PiSun/>}
                             {allOff ? "All off" : "All on"}
                         </Button>
                         <Button
                             type="button"
-                            variant="secondary"
+                            variant={warmWhiteActive ? "default" : "secondary"}
                             size="sm"
                             className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
+                            aria-pressed={warmWhiteActive}
                             onClick={applyWarmWhitePreset}
-                            disabled={busy}
                         >
                             <PiFire/>
                             Warm white
                         </Button>
                         <Button
                             type="button"
-                            variant="secondary"
+                            variant={coldWhiteActive ? "default" : "secondary"}
                             size="sm"
                             className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
+                            aria-pressed={coldWhiteActive}
                             onClick={applyColdWhitePreset}
-                            disabled={busy}
                         >
                             <PiIceCream/>
                             Cold white
@@ -198,9 +162,10 @@ export function GeneralPanel({
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
-                                    variant="secondary"
+                                    variant={namedColorActive ? "default" : "secondary"}
                                     size="sm"
-                                    className={cn("min-w-0 flex-1 gap-1 px-2 sm:px-4", busy && "pointer-events-none opacity-50")}
+                                    className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
+                                    aria-pressed={namedColorActive}
                                 >
                                     <PiPalette/>
                                     Color
@@ -210,8 +175,12 @@ export function GeneralPanel({
                                 {NAMED_LIGHT_PRESETS.map(({name, rgb}) => (
                                     <DropdownMenuItem
                                         key={name}
-                                        className="flex w-full items-center gap-2 whitespace-nowrap text-left"
-                                        disabled={busy}
+                                        className={cn(
+                                            "flex w-full items-center gap-2 whitespace-nowrap text-left",
+                                            rgbEquals(presetRgb, rgb) && "bg-accent font-medium",
+                                        )}
+                                        disabled={controlsDisabled}
+                                        aria-current={rgbEquals(presetRgb, rgb) ? "true" : undefined}
                                         onClick={() => {
                                             applyNamedColorPreset(name, rgb);
                                         }}
@@ -237,7 +206,7 @@ export function GeneralPanel({
                             <HueSlider
                                 value={hueValue}
                                 onChange={(nextHue) => setPresetRgb(hueToRgb(nextHue))}
-                                disabled={busy}
+                                disabled={controlsDisabled}
                             />
                         </label>
 
@@ -249,7 +218,7 @@ export function GeneralPanel({
                                 max={255}
                                 value={[presetBri]}
                                 onValueChange={(value) => setPresetBri(readNumber(value[0], 200))}
-                                disabled={busy}
+                                disabled={controlsDisabled}
                             />
                         </label>
                     </div>
@@ -268,7 +237,7 @@ export function GeneralPanel({
                                 variant="outline"
                                 size="sm"
                                 className="h-auto min-h-10 w-full justify-start text-left"
-                                disabled={busy || activeDevices.length === 0}
+                                disabled={controlsDisabled}
                                 onClick={() => setEffectModalOpen(true)}
                             >
                                 <span className="block truncate">
@@ -284,7 +253,7 @@ export function GeneralPanel({
                                 variant="outline"
                                 size="sm"
                                 className="h-auto min-h-10 w-full justify-start text-left"
-                                disabled={busy || activeDevices.length === 0}
+                                disabled={controlsDisabled}
                                 onClick={() => setPaletteModalOpen(true)}
                             >
                                 <span className="block truncate">
@@ -300,10 +269,9 @@ export function GeneralPanel({
                         onClose={() => setEffectModalOpen(false)}
                         effectNames={effectNames}
                         selectedIndex={generalFx}
-                        disabled={busy || activeDevices.length === 0}
+                        disabled={controlsDisabled}
                         onPick={(idx) => {
                             setGeneralFx(idx);
-                            applyGlobalEffectPalette({fx: idx});
                         }}
                     />
 
@@ -312,25 +280,20 @@ export function GeneralPanel({
                         onClose={() => setPaletteModalOpen(false)}
                         paletteNames={paletteNames}
                         selectedIndex={generalPal}
-                        disabled={busy || activeDevices.length === 0}
+                        disabled={controlsDisabled}
                         onPick={(idx) => {
                             setGeneralPal(idx);
-                            applyGlobalEffectPalette({pal: idx});
                         }}
                     />
-                    <div className="grid gap-3 md:grid-cols-2 mt-3">
+                    <div className="grid gap-3 md:grid-cols-2 mt-4">
                         <div className="space-y-2">
                             <Label className="text-xs">Speed (sx) - {generalSx}</Label>
                             <Slider
                                 min={0}
                                 max={255}
                                 value={[generalSx]}
-                                onValueChange={(value) => {
-                                    const next = readNumber(value[0], 128);
-                                    setGeneralSx(next);
-                                    applyGlobalEffectPalette({sx: next});
-                                }}
-                                disabled={busy || activeDevices.length === 0}
+                                onValueChange={(value) => setGeneralSx(readNumber(value[0], 128))}
+                                disabled={controlsDisabled}
                             />
                         </div>
                         <div className="space-y-2">
@@ -339,12 +302,8 @@ export function GeneralPanel({
                                 min={0}
                                 max={255}
                                 value={[generalIx]}
-                                onValueChange={(value) => {
-                                    const next = readNumber(value[0], 128);
-                                    setGeneralIx(next);
-                                    applyGlobalEffectPalette({ix: next});
-                                }}
-                                disabled={busy || activeDevices.length === 0}
+                                onValueChange={(value) => setGeneralIx(readNumber(value[0], 128))}
+                                disabled={controlsDisabled}
                             />
                         </div>
                     </div>

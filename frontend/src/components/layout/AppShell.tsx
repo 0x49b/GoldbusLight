@@ -1,4 +1,4 @@
-import type {Dispatch, ReactNode, SetStateAction} from "react";
+import {useCallback, useRef, type Dispatch, type ReactNode, type SetStateAction} from "react";
 import {
     PiGearSix,
     PiLightbulb,
@@ -41,6 +41,7 @@ export type AppShellProps = {
     dmxPartyState: DMXPartyState;
     error: string;
     onDismissError: () => void;
+    onRefreshWLEDDevice: (deviceId: string) => void;
     children: ReactNode;
 };
 
@@ -57,12 +58,36 @@ export function AppShell({
                              dmxPartyState,
                              error,
                              onDismissError,
+                             onRefreshWLEDDevice,
                              children,
                          }: AppShellProps) {
     const dmxLiveConnected = dmxLiveStatus?.connected === true;
     const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
     const partyRunning = dmxPartyState?.status?.running === true;
     const partyConfig = dmxPartyState?.config;
+    const offlineTapRef = useRef<{ deviceId: string; atMs: number } | null>(null);
+    const lastOfflineRefreshAtRef = useRef<Map<string, number>>(new Map());
+
+    const tryRefreshOfflineDevice = useCallback((deviceId: string) => {
+        const now = Date.now();
+        const last = lastOfflineRefreshAtRef.current.get(deviceId) ?? 0;
+        if (now - last < 600) {
+            return;
+        }
+        lastOfflineRefreshAtRef.current.set(deviceId, now);
+        onRefreshWLEDDevice(deviceId);
+    }, [onRefreshWLEDDevice]);
+
+    const handleOfflineDeviceClick = useCallback((deviceId: string) => {
+        const now = Date.now();
+        const prev = offlineTapRef.current;
+        if (prev?.deviceId === deviceId && now - prev.atMs <= 350) {
+            offlineTapRef.current = null;
+            tryRefreshOfflineDevice(deviceId);
+            return;
+        }
+        offlineTapRef.current = {deviceId, atMs: now};
+    }, [tryRefreshOfflineDevice]);
     return (
 
         <SidebarProvider>
@@ -81,34 +106,9 @@ export function AppShell({
                     </p>
                 </SidebarHeader>
                 <SidebarContent>
-                    {(wledEnabled || dmxEnabled) && (
-                        <SidebarGroup>
-                            <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        type="button"
-                                        isActive={route.kind === "party"}
-                                        className={cn(
-                                            route.kind === "party" &&
-                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
-                                        )}
-                                        onClick={() => setRoute({kind: "party"})}
-                                    >
-                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">Party</span>
-                                        <span
-                                            className={cn("status status-sm shrink-0", partyRunning ? "status-success" : "status-neutral")}
-                                            aria-hidden
-                                        />
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            </SidebarMenu>
-                        </SidebarGroup>
-                    )}
-
                     {wledEnabled && (
                         <>
-                            <div className="px-2 pt-2">
+                            <div className="px-2 pt-1">
                                 <span
                                     className="text-xs font-semibold tracking-wide text-sidebar-foreground/90">
                                     WLED
@@ -152,29 +152,34 @@ export function AppShell({
                                         <SidebarMenuItem key={dev.id} className="mb-2">
                                             <SidebarMenuButton
                                                 type="button"
-                                                disabled={!dev.online}
                                                 title={
                                                     dev.online
                                                         ? undefined
-                                                        : "Offline — open the device page after it is reachable again, or use Refresh on the device page."
+                                                        : "Offline — double-click or double-tap to refresh"
                                                 }
                                                 isActive={route.kind === "device" && route.id === dev.id}
                                                 className={cn(
                                                     route.kind === "device" &&
                                                     route.id === dev.id &&
                                                     "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
-                                                    !dev.online && "opacity-60 cursor-not-allowed",
+                                                    !dev.online && "opacity-60",
                                                 )}
                                                 aria-label={
                                                     dev.online
                                                         ? `${dev.name} (online)`
-                                                        : `${dev.name} (offline, unavailable until refreshed)`
+                                                        : `${dev.name} (offline, double-click or double-tap to refresh)`
                                                 }
                                                 onClick={() => {
-                                                    if (!dev.online) {
+                                                    if (dev.online) {
+                                                        setRoute({kind: "device", id: dev.id});
                                                         return;
                                                     }
-                                                    setRoute({kind: "device", id: dev.id});
+                                                    handleOfflineDeviceClick(dev.id);
+                                                }}
+                                                onDoubleClick={() => {
+                                                    if (!dev.online) {
+                                                        tryRefreshOfflineDevice(dev.id);
+                                                    }
                                                 }}
                                             >
                                                 <PiLightbulb className="size-4 shrink-0" aria-hidden/>
@@ -290,6 +295,31 @@ export function AppShell({
                                 </SidebarMenu>
                             </SidebarGroup>
                         </>
+                    )}
+
+                    {(wledEnabled || dmxEnabled) && (
+                        <SidebarGroup>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        type="button"
+                                        isActive={route.kind === "party"}
+                                        className={cn(
+                                            route.kind === "party" &&
+                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                        )}
+                                        onClick={() => setRoute({kind: "party"})}
+                                    >
+                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
+                                        <span className="min-w-0 flex-1 truncate">Party</span>
+                                        <span
+                                            className={cn("status status-sm shrink-0", partyRunning ? "status-success" : "status-neutral")}
+                                            aria-hidden
+                                        />
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
                     )}
                 </SidebarContent>
 

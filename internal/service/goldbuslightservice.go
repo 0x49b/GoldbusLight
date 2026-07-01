@@ -8,6 +8,7 @@ import (
 	"goldbus/internal/console"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ type GoldbusLightService struct {
 	closeDetachedConsoleWindow func() error
 	isConsoleWindowDetached    func() bool
 	backupCallbacks            ConfigurationBackupCallbacks
+	checkForUpdates            func(context.Context) error
 }
 
 type ConsoleWindowCallbacks struct {
@@ -45,13 +47,18 @@ type ConfigurationBackupCallbacks struct {
 	PromptSaveFixturePath func(suggestedFilename string) (path string, err error)
 }
 
-func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks) *GoldbusLightService {
+type UpdateCallbacks struct {
+	CheckAndInstall func(context.Context) error
+}
+
+func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks, updates UpdateCallbacks) *GoldbusLightService {
 	return &GoldbusLightService{
 		controller:                 controller,
 		openDetachedConsoleWindow:  callbacks.Open,
 		closeDetachedConsoleWindow: callbacks.Close,
 		isConsoleWindowDetached:    callbacks.IsDetached,
 		backupCallbacks:            backup,
+		checkForUpdates:            updates.CheckAndInstall,
 	}
 }
 
@@ -90,6 +97,19 @@ func (g *GoldbusLightService) Greet(name string) string {
 
 func (g *GoldbusLightService) AppVersion() string {
 	return goldbus.AppVersion
+}
+
+// CheckForUpdates runs the platform updater flow (download dialog, install prompt, etc.).
+func (g *GoldbusLightService) CheckForUpdates() error {
+	if g.checkForUpdates == nil {
+		return errors.New("application updates are unavailable")
+	}
+	go func() {
+		if err := g.checkForUpdates(context.Background()); err != nil {
+			log.Printf("update check: %v", err)
+		}
+	}()
+	return nil
 }
 
 func (g *GoldbusLightService) GetControllerSnapshot() (ctrlpkg.ControllerSnapshot, error) {

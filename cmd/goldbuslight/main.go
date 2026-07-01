@@ -27,6 +27,8 @@ func init() {
 	application.RegisterEvent[string]("controller:error")
 }
 
+var applicationQuitting bool
+
 func main() {
 	defer logging.InitFileLogger()()
 
@@ -79,20 +81,27 @@ func main() {
 		}()
 	})
 	appMenu.Add("Quit").OnClick(func(*application.Context) {
-		confirmationQuit(app)
+		confirmApplicationQuit(app)
 	})
 
 	startState := application.WindowStateNormal
 	if os.Getenv("GOLDBUS_FULLSCREEN") == "1" {
 		startState = application.WindowStateFullscreen
 	}
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "Goldbus Light Controller",
 		StartState:       startState,
 		Width:            1400,
 		Height:           788,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
+	})
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if applicationQuitting {
+			return
+		}
+		e.Cancel()
+		confirmApplicationQuit(app)
 	})
 	afterWebviewCreated()
 
@@ -181,6 +190,10 @@ func main() {
 			})
 			return dialog.PromptForSingleSelection()
 		},
+	}, service.UpdateCallbacks{
+		CheckAndInstall: func(ctx context.Context) error {
+			return app.Updater.CheckAndInstall(ctx)
+		},
 	})
 	app.RegisterService(application.NewService(greetService))
 
@@ -206,10 +219,11 @@ func main() {
 	}
 }
 
-func confirmationQuit(app *application.App) {
-	dialog := app.Dialog.Question().SetTitle("Quit").SetMessage("Do you want Quit the Application?")
+func confirmApplicationQuit(app *application.App) {
+	dialog := app.Dialog.Question().SetTitle("Quit").SetMessage("Do you want to quit the application?")
 	yes := dialog.AddButton("Yes")
 	yes.OnClick(func() {
+		applicationQuitting = true
 		app.Quit()
 	})
 	no := dialog.AddButton("No")

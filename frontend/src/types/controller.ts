@@ -19,10 +19,15 @@ export type TestingSettings = {
     simulateWled: boolean;
 };
 
+export type WLEDDebugSettings = {
+    showInfo: boolean;
+};
+
 export type WLEDSettings = {
     enabled: boolean;
     provisioning: ProvisioningSettings;
     testing: TestingSettings;
+    debug?: WLEDDebugSettings;
 };
 
 export type ArtNetSettings = {

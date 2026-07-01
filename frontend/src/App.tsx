@@ -1,7 +1,7 @@
 import type {ReactNode} from "react";
 import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
 import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
-import {DeviceDetailView} from "./components/device/DeviceDetailView";
+import {DeviceDetailView} from "@/components/wled/device/DeviceDetailView";
 import {WLEDAddDeviceView} from "./components/wled/WLEDAddDeviceView";
 import {AppShell} from "./components/layout/AppShell";
 import {PartyModeView} from "./components/party/PartyModeView";
@@ -48,7 +48,6 @@ function App() {
         main = (
             <GeneralPanel
                 devices={app.devices}
-                busy={app.busy}
                 presetBri={app.presetBri}
                 setPresetBri={app.setPresetBri}
                 presetRgb={app.presetRgb}
@@ -102,6 +101,7 @@ function App() {
                 onToggleConsoleDetach={app.openDetachedConsoleWindow}
                 onExportConfigurationBackup={app.onExportConfigurationBackup}
                 onImportConfigurationBackup={app.onImportConfigurationBackup}
+                onCheckForUpdates={app.onCheckForUpdates}
             />
         );
     } else if (app.route.kind === "dmxUniverse" && app.dmxEnabled) {
@@ -220,6 +220,7 @@ function App() {
                 dmxPartyState={app.dmxPartyState}
                 error={app.error}
                 onDismissError={app.onDismissError}
+                onRefreshWLEDDevice={app.onRefreshDevice}
             >
                 {main}
             </AppShell>

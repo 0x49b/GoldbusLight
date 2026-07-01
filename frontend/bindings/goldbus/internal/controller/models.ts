@@ -1340,6 +1340,27 @@ export class UpsertDMXFixtureInput {
     }
 }
 
+export class WLEDDebugSettings {
+    "showInfo": boolean;
+
+    /** Creates a new WLEDDebugSettings instance. */
+    constructor($$source: Partial<WLEDDebugSettings> = {}) {
+        if (!("showInfo" in $$source)) {
+            this["showInfo"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new WLEDDebugSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): WLEDDebugSettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new WLEDDebugSettings($$parsedSource as Partial<WLEDDebugSettings>);
+    }
+}
+
 export class WLEDDevice {
     "id": string;
     "name": string;
@@ -1471,6 +1492,7 @@ export class WLEDSettings {
     "enabled": boolean;
     "provisioning": ProvisioningSettings;
     "testing": TestingSettings;
+    "debug": WLEDDebugSettings;
 
     /** Creates a new WLEDSettings instance. */
     constructor($$source: Partial<WLEDSettings> = {}) {
@@ -1483,6 +1505,9 @@ export class WLEDSettings {
         if (!("testing" in $$source)) {
             this["testing"] = (new TestingSettings());
         }
+        if (!("debug" in $$source)) {
+            this["debug"] = (new WLEDDebugSettings());
+        }
 
         Object.assign(this, $$source);
     }
@@ -1493,12 +1518,16 @@ export class WLEDSettings {
     static createFrom($$source: any = {}): WLEDSettings {
         const $$createField1_0 = $$createType4;
         const $$createField2_0 = $$createType5;
+        const $$createField3_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("provisioning" in $$parsedSource) {
             $$parsedSource["provisioning"] = $$createField1_0($$parsedSource["provisioning"]);
         }
         if ("testing" in $$parsedSource) {
             $$parsedSource["testing"] = $$createField2_0($$parsedSource["testing"]);
+        }
+        if ("debug" in $$parsedSource) {
+            $$parsedSource["debug"] = $$createField3_0($$parsedSource["debug"]);
         }
         return new WLEDSettings($$parsedSource as Partial<WLEDSettings>);
     }
@@ -1600,3 +1629,4 @@ const $$createType35 = $Create.Array($Create.Any);
 const $$createType36 = $Create.Map($Create.Any, $$createType35);
 const $$createType37 = NetworkCommandResult.createFrom;
 const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = WLEDDebugSettings.createFrom;

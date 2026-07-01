@@ -39,6 +39,13 @@ export function ApplyNetworkSettings(): $CancellablePromise<controller$0.Network
 }
 
 /**
+ * CheckForUpdates runs the platform updater flow (download dialog, install prompt, etc.).
+ */
+export function CheckForUpdates(): $CancellablePromise<void> {
+    return $Call.ByID(3484413137);
+}
+
+/**
  * ClearConsoleEntries empties the live transport console buffer.
  */
 export function ClearConsoleEntries(): $CancellablePromise<void> {

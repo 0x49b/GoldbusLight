@@ -1,18 +1,18 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { PiDownloadSimple, PiUploadSimple } from "react-icons/pi";
-import { PiArrowsClockwise, PiWifiHigh } from "react-icons/pi";
-import { prettyJSON, readNumber } from "../../lib/json";
+import {Alert, AlertDescription} from "@/components/ui/alert";
+import {Button} from "@/components/ui/button";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Field, FieldLabel} from "@/components/ui/field";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
+import {Switch} from "@/components/ui/switch";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {Textarea} from "@/components/ui/textarea";
+import {type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState} from "react";
+import {PiArrowsClockwise, PiDownloadSimple, PiUploadSimple, PiWifiHigh} from "react-icons/pi";
+import {prettyJSON, readNumber} from "../../lib/json";
 import type {
+    ArtNetSettings,
     ConsoleEntry,
     ControllerSettings,
     ControllerSnapshot,
@@ -21,10 +21,9 @@ import type {
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
-import { DmxFixtureChannelSweepPanel } from "./DmxFixtureChannelSweepPanel";
-import { TransportConsolePanel } from "./TransportConsolePanel";
+import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
+import {TransportConsolePanel} from "./TransportConsolePanel";
 import {normalizeUniverses, universeInterfaceSettings} from "@/lib/dmxUniverses";
-import type {ArtNetSettings} from "@/types/controller.ts";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -58,6 +57,7 @@ export type ControllerSettingsViewProps = {
     onToggleConsoleDetach: () => void;
     onExportConfigurationBackup: () => Promise<string>;
     onImportConfigurationBackup: () => Promise<string>;
+    onCheckForUpdates: () => Promise<void>;
 };
 
 export function ControllerSettingsView({
@@ -92,9 +92,11 @@ export function ControllerSettingsView({
                                            onToggleConsoleDetach,
                                            onExportConfigurationBackup,
                                            onImportConfigurationBackup,
+                                           onCheckForUpdates,
                                        }: ControllerSettingsViewProps) {
     const [backupBusy, setBackupBusy] = useState(false);
     const [backupMessage, setBackupMessage] = useState<string | null>(null);
+    const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
     if (!settings) {
         return <p className="opacity-70">Loading settings…</p>;
     }
@@ -224,11 +226,26 @@ export function ControllerSettingsView({
                         <CardHeader>
                             <CardTitle className="text-sm font-semibold">Application version</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2">
+                        <CardContent className="space-y-3">
                             <p className="text-sm opacity-70">Running: <code>{currentVersion}</code></p>
-                            <p className="text-xs opacity-60">
-                                Updates are installed from the Pi shell with
-                                <code> scripts/install-release.sh &lt;tag&gt;</code>.
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={busy || updateCheckBusy}
+                                    onClick={() => {
+                                        setUpdateCheckBusy(true);
+                                        void onCheckForUpdates()
+                                            .catch((err: unknown) => setError(String(err)))
+                                            .finally(() => setUpdateCheckBusy(false));
+                                    }}
+                                >
+                                    <PiArrowsClockwise/>
+                                    Check for updates
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Opens the built-in updater to download and install a newer release when one is available.
                             </p>
                         </CardContent>
                     </Card>
@@ -257,7 +274,7 @@ export function ControllerSettingsView({
                                             .finally(() => setBackupBusy(false));
                                     }}
                                 >
-                                    <PiDownloadSimple />
+                                    <PiDownloadSimple/>
                                     Export backup
                                 </Button>
                                 <Button
@@ -273,7 +290,7 @@ export function ControllerSettingsView({
                                             .finally(() => setBackupBusy(false));
                                     }}
                                 >
-                                    <PiUploadSimple />
+                                    <PiUploadSimple/>
                                     Import backup
                                 </Button>
                             </div>
@@ -300,7 +317,8 @@ export function ControllerSettingsView({
                                         </Alert>
                                     ))}
                                     <div className="max-h-48 overflow-auto rounded border p-2 bg-card">
-                                        <pre className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
+                                        <pre
+                                            className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
                                     </div>
                                 </div>
                             )}
@@ -348,7 +366,8 @@ export function ControllerSettingsView({
                                 </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the sidebar.
+                                Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the
+                                sidebar.
                             </p>
                         </CardContent>
                     </Card>
@@ -477,6 +496,7 @@ export function ControllerSettingsView({
                         </CardContent>
                     </Card>
 
+
                     <Card className="w-full max-w-none">
                         <CardHeader>
                             <CardTitle className="text-sm font-semibold">Provisioning</CardTitle>
@@ -497,7 +517,8 @@ export function ControllerSettingsView({
                                 <span>Simulate WLED device (testing)</span>
                             </label>
                             <p className="text-xs opacity-60">
-                                Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>) with no network traffic.
+                                Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>)
+                                with no network traffic.
                             </p>
 
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
@@ -579,6 +600,29 @@ export function ControllerSettingsView({
                             )}
                         </CardContent>
                     </Card>
+                    <Card className="w-full max-w-none">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-semibold">Debug Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <label className="flex items-center gap-3">
+                                <Switch
+                                    checked={settings.wled.debug?.showInfo ?? false}
+                                    onCheckedChange={(checked) => updateSettings({
+                                        ...settings,
+                                        wled: {
+                                            ...settings.wled,
+                                            debug: {
+                                                showInfo: checked,
+                                            },
+                                        },
+                                    }, "immediate")}
+                                    disabled={wledControlsDisabled}
+                                />
+                                <span>Show WLED debug information</span>
+                            </label>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 <TabsContent value="dmx" className="space-y-5">
@@ -635,7 +679,8 @@ export function ControllerSettingsView({
                                     <span>Simulate Art-Net interface</span>
                                 </label>
                                 <p className="text-xs text-muted-foreground">
-                                    Simulated interfaces run in-process workers so DMX live output can be tested without hardware.
+                                    Simulated interfaces run in-process workers so DMX live output can be tested without
+                                    hardware.
                                 </p>
                             </div>
                         </CardContent>
@@ -823,8 +868,10 @@ export function ControllerSettingsView({
 
             {snapshot && (
                 <p className="text-xs opacity-60">
-                    Persistence: <code>{snapshot.persistencePath}</code> • backend: {snapshot.capabilities.networkBackendLabel}
-                    {" "}({snapshot.capabilities.networkBackendId}) • host CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
+                    Persistence: <code>{snapshot.persistencePath}</code> •
+                    backend: {snapshot.capabilities.networkBackendLabel}
+                    {" "}({snapshot.capabilities.networkBackendId}) • host
+                    CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
                     {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
                         className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
                 </p>

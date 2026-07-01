@@ -72,10 +72,15 @@ type TestingSettings struct {
 	SimulateWLED bool `json:"simulateWled"`
 }
 
+type WLEDDebugSettings struct {
+	ShowInfo bool `json:"showInfo"`
+}
+
 type WLEDSettings struct {
 	Enabled      bool                 `json:"enabled"`
 	Provisioning ProvisioningSettings `json:"provisioning"`
 	Testing      TestingSettings      `json:"testing"`
+	Debug        WLEDDebugSettings    `json:"debug"`
 }
 
 type ArtNetSettings struct {
@@ -2124,6 +2129,9 @@ func DefaultControllerSettings() ControllerSettings {
 			},
 			Testing: TestingSettings{
 				SimulateWLED: false,
+			},
+			Debug: WLEDDebugSettings{
+				ShowInfo: false,
 			},
 		},
 		DMX: DMXSettings{
