@@ -3,6 +3,7 @@
 
 export {
     AccessPointSettings,
+    AddWLEDDeviceInput,
     ArtNetSettings,
     ControllerCapabilities,
     ControllerSettings,
@@ -24,7 +25,6 @@ export {
     DMXTestingSettings,
     DMXUniverse,
     DMXUniverseInterfaceSettings,
-    DiscoverySettings,
     GeneralTabState,
     MovingHeadConfig,
     NetworkApplyResult,

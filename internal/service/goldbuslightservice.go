@@ -16,7 +16,7 @@ import (
 // Service timeout constants for operations
 const (
 	TimeoutNetworkApply = 20 * time.Second
-	TimeoutDiscovery    = 45 * time.Second
+	TimeoutAddWLEDDevice = 8 * time.Second
 	TimeoutDeviceOp     = 5 * time.Second
 	TimeoutDeviceDetail = 8 * time.Second
 	TimeoutProvision    = 8 * time.Second
@@ -121,11 +121,11 @@ func (g *GoldbusLightService) ApplyNetworkSettings() (ctrlpkg.NetworkApplyResult
 	})
 }
 
-func (g *GoldbusLightService) DiscoverDevicesNow() ([]ctrlpkg.WLEDDevice, error) {
-	return withControllerResult(g, func(c *ctrlpkg.WLEDController) ([]ctrlpkg.WLEDDevice, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDiscovery)
+func (g *GoldbusLightService) AddWLEDDevice(input ctrlpkg.AddWLEDDeviceInput) (ctrlpkg.WLEDDevice, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.WLEDDevice, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutAddWLEDDevice)
 		defer cancel()
-		return c.DiscoverNow(ctx)
+		return c.AddWLEDDevice(ctx, input)
 	})
 }
 

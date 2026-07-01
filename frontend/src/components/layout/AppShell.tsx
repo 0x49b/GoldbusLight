@@ -135,6 +135,18 @@ export function AppShell({
 
                             <SidebarGroup>
                                 <SidebarGroupLabel>Devices</SidebarGroupLabel>
+                                <SidebarGroupAction
+                                    type="button"
+                                    aria-label="Add WLED device"
+                                    title="Add WLED device"
+                                    onClick={() => setRoute({kind: "wledAddDevice"})}
+                                    className={cn(
+                                        route.kind === "wledAddDevice" &&
+                                        "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    )}
+                                >
+                                    <PiPlus aria-hidden/>
+                                </SidebarGroupAction>
                                 <SidebarMenu>
                                     {devices.map((dev) => (
                                         <SidebarMenuItem key={dev.id} className="mb-2">
@@ -144,7 +156,7 @@ export function AppShell({
                                                 title={
                                                     dev.online
                                                         ? undefined
-                                                        : "Offline — use Discover or Refresh on the WLED settings tab. When the device is reachable again, you can open its page."
+                                                        : "Offline — open the device page after it is reachable again, or use Refresh on the device page."
                                                 }
                                                 isActive={route.kind === "device" && route.id === dev.id}
                                                 className={cn(

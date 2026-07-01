@@ -53,6 +53,34 @@ export class AccessPointSettings {
     }
 }
 
+/**
+ * AddWLEDDeviceInput is the payload for manually registering a WLED device by IP.
+ */
+export class AddWLEDDeviceInput {
+    "address": string;
+    "port": number;
+
+    /** Creates a new AddWLEDDeviceInput instance. */
+    constructor($$source: Partial<AddWLEDDeviceInput> = {}) {
+        if (!("address" in $$source)) {
+            this["address"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AddWLEDDeviceInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AddWLEDDeviceInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AddWLEDDeviceInput($$parsedSource as Partial<AddWLEDDeviceInput>);
+    }
+}
+
 export class ArtNetSettings {
     "enabled": boolean;
     "targetHost": string;
@@ -167,7 +195,7 @@ export class ControllerSettings {
     /**
      * Legacy flattened settings kept for migration from persisted v2 state.
      */
-    "discovery"?: DiscoverySettings;
+    "discovery"?: legacyDiscoverySettings;
     "provisioning"?: ProvisioningSettings;
     "testing"?: TestingSettings;
 
@@ -1038,59 +1066,6 @@ export class DMXUniverseInterfaceSettings {
     }
 }
 
-export class DiscoverySettings {
-    "enabled": boolean;
-    "serviceTypes": string[];
-    "intervalSeconds": number;
-    "queryTimeoutMs": number;
-    "bindInterface": string;
-    "passiveBrowse": boolean;
-    "subnetProbe": boolean;
-    "pollIntervalSecondsWhenApEnabled": number;
-
-    /** Creates a new DiscoverySettings instance. */
-    constructor($$source: Partial<DiscoverySettings> = {}) {
-        if (!("enabled" in $$source)) {
-            this["enabled"] = false;
-        }
-        if (!("serviceTypes" in $$source)) {
-            this["serviceTypes"] = [];
-        }
-        if (!("intervalSeconds" in $$source)) {
-            this["intervalSeconds"] = 0;
-        }
-        if (!("queryTimeoutMs" in $$source)) {
-            this["queryTimeoutMs"] = 0;
-        }
-        if (!("bindInterface" in $$source)) {
-            this["bindInterface"] = "";
-        }
-        if (!("passiveBrowse" in $$source)) {
-            this["passiveBrowse"] = false;
-        }
-        if (!("subnetProbe" in $$source)) {
-            this["subnetProbe"] = false;
-        }
-        if (!("pollIntervalSecondsWhenApEnabled" in $$source)) {
-            this["pollIntervalSecondsWhenApEnabled"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new DiscoverySettings instance from a string or object.
-     */
-    static createFrom($$source: any = {}): DiscoverySettings {
-        const $$createField1_0 = $$createType21;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("serviceTypes" in $$parsedSource) {
-            $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
-        }
-        return new DiscoverySettings($$parsedSource as Partial<DiscoverySettings>);
-    }
-}
-
 export class GeneralTabState {
     "on": boolean;
     "bri": number;
@@ -1494,7 +1469,6 @@ export class WLEDDeviceDetail {
 
 export class WLEDSettings {
     "enabled": boolean;
-    "discovery": DiscoverySettings;
     "provisioning": ProvisioningSettings;
     "testing": TestingSettings;
 
@@ -1502,9 +1476,6 @@ export class WLEDSettings {
     constructor($$source: Partial<WLEDSettings> = {}) {
         if (!("enabled" in $$source)) {
             this["enabled"] = false;
-        }
-        if (!("discovery" in $$source)) {
-            this["discovery"] = (new DiscoverySettings());
         }
         if (!("provisioning" in $$source)) {
             this["provisioning"] = (new ProvisioningSettings());
@@ -1520,20 +1491,72 @@ export class WLEDSettings {
      * Creates a new WLEDSettings instance from a string or object.
      */
     static createFrom($$source: any = {}): WLEDSettings {
-        const $$createField1_0 = $$createType3;
-        const $$createField2_0 = $$createType4;
-        const $$createField3_0 = $$createType5;
+        const $$createField1_0 = $$createType4;
+        const $$createField2_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("discovery" in $$parsedSource) {
-            $$parsedSource["discovery"] = $$createField1_0($$parsedSource["discovery"]);
-        }
         if ("provisioning" in $$parsedSource) {
-            $$parsedSource["provisioning"] = $$createField2_0($$parsedSource["provisioning"]);
+            $$parsedSource["provisioning"] = $$createField1_0($$parsedSource["provisioning"]);
         }
         if ("testing" in $$parsedSource) {
-            $$parsedSource["testing"] = $$createField3_0($$parsedSource["testing"]);
+            $$parsedSource["testing"] = $$createField2_0($$parsedSource["testing"]);
         }
         return new WLEDSettings($$parsedSource as Partial<WLEDSettings>);
+    }
+}
+
+/**
+ * legacyDiscoverySettings is only retained for loading older persisted state.json files.
+ */
+export class legacyDiscoverySettings {
+    "enabled": boolean;
+    "serviceTypes": string[];
+    "intervalSeconds": number;
+    "queryTimeoutMs": number;
+    "bindInterface": string;
+    "passiveBrowse": boolean;
+    "subnetProbe": boolean;
+    "pollIntervalSecondsWhenApEnabled": number;
+
+    /** Creates a new legacyDiscoverySettings instance. */
+    constructor($$source: Partial<legacyDiscoverySettings> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("serviceTypes" in $$source)) {
+            this["serviceTypes"] = [];
+        }
+        if (!("intervalSeconds" in $$source)) {
+            this["intervalSeconds"] = 0;
+        }
+        if (!("queryTimeoutMs" in $$source)) {
+            this["queryTimeoutMs"] = 0;
+        }
+        if (!("bindInterface" in $$source)) {
+            this["bindInterface"] = "";
+        }
+        if (!("passiveBrowse" in $$source)) {
+            this["passiveBrowse"] = false;
+        }
+        if (!("subnetProbe" in $$source)) {
+            this["subnetProbe"] = false;
+        }
+        if (!("pollIntervalSecondsWhenApEnabled" in $$source)) {
+            this["pollIntervalSecondsWhenApEnabled"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new legacyDiscoverySettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): legacyDiscoverySettings {
+        const $$createField1_0 = $$createType21;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("serviceTypes" in $$parsedSource) {
+            $$parsedSource["serviceTypes"] = $$createField1_0($$parsedSource["serviceTypes"]);
+        }
+        return new legacyDiscoverySettings($$parsedSource as Partial<legacyDiscoverySettings>);
     }
 }
 
@@ -1541,7 +1564,7 @@ export class WLEDSettings {
 const $$createType0 = AccessPointSettings.createFrom;
 const $$createType1 = WLEDSettings.createFrom;
 const $$createType2 = DMXSettings.createFrom;
-const $$createType3 = DiscoverySettings.createFrom;
+const $$createType3 = legacyDiscoverySettings.createFrom;
 const $$createType4 = ProvisioningSettings.createFrom;
 const $$createType5 = TestingSettings.createFrom;
 const $$createType6 = ControllerSettings.createFrom;

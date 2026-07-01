@@ -27,7 +27,6 @@ export type ControllerStoreState = {
     generalSx: number;
     generalIx: number;
     busy: boolean;
-    discovering: boolean;
     route: DetailRoute;
     deviceDetail: WLEDDeviceDetail | null;
     deviceDetailInitializing: boolean;
@@ -75,7 +74,6 @@ export type ControllerStoreActions = {
     setGeneralSx: (next: number | ((previous: number) => number)) => void;
     setGeneralIx: (next: number | ((previous: number) => number)) => void;
     setBusy: (next: boolean | ((previous: boolean) => boolean)) => void;
-    setDiscovering: (next: boolean | ((previous: boolean) => boolean)) => void;
     setRoute: (next: DetailRoute | ((previous: DetailRoute) => DetailRoute)) => void;
     setDeviceDetail: (
         next:
@@ -126,7 +124,6 @@ const initialState: ControllerStoreState = {
     generalSx: 128,
     generalIx: 128,
     busy: false,
-    discovering: false,
     route: {kind: "presets"},
     deviceDetail: null,
     deviceDetailInitializing: false,
@@ -201,7 +198,6 @@ export const useControllerStore = create<ControllerStore>((set) => ({
     setGeneralSx: (next) => set((s) => ({generalSx: apply(s.generalSx, next)})),
     setGeneralIx: (next) => set((s) => ({generalIx: apply(s.generalIx, next)})),
     setBusy: (next) => set((s) => ({busy: apply(s.busy, next)})),
-    setDiscovering: (next) => set((s) => ({discovering: apply(s.discovering, next)})),
     setRoute: (next) => set((s) => ({route: apply(s.route, next)})),
     setDeviceDetail: (next) => set((s) => ({deviceDetail: apply(s.deviceDetail, next)})),
     setDeviceDetailInitializing: (next) =>

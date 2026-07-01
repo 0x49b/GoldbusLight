@@ -2,14 +2,13 @@ import type {ReactNode} from "react";
 import {DMXFixtureEditorView} from "./components/dmx/DMXFixtureEditorView";
 import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "./components/device/DeviceDetailView";
+import {WLEDAddDeviceView} from "./components/wled/WLEDAddDeviceView";
 import {AppShell} from "./components/layout/AppShell";
 import {PartyModeView} from "./components/party/PartyModeView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
 import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
 import {useControllerApp} from "./hooks/useControllerApp";
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import {Spinner} from "@/components/ui/spinner";
 
 function App() {
     const app = useControllerApp();
@@ -96,7 +95,6 @@ function App() {
                 usbSerialDevices={app.usbSerialDevices}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
-                onDiscoverNow={app.onDiscoverNow}
                 onRefreshSnapshot={app.pullSnapshot}
                 consoleEntries={app.consoleEntries}
                 onClearConsole={app.onClearConsole}
@@ -152,6 +150,14 @@ function App() {
                 partyRunning={app.dmxPartyState?.status?.running === true}
                 pullDMXState={app.pullDMXState}
                 onEmergency={app.triggerDMXEmergency}
+            />
+        );
+    } else if (app.route.kind === "wledAddDevice" && app.wledEnabled) {
+        main = (
+            <WLEDAddDeviceView
+                busy={app.busy}
+                setRoute={app.setRoute}
+                onAddDevice={app.onAddWLEDDevice}
             />
         );
     } else if (app.route.kind === "device" && app.wledEnabled) {
@@ -217,23 +223,6 @@ function App() {
             >
                 {main}
             </AppShell>
-
-
-            {app.discovering && (
-                <Dialog open>
-                    <DialogContent showCloseButton={false} className="max-w-sm">
-                        <DialogHeader>
-                            <DialogTitle id="discovery-modal-title"
-                                         className="flex items-center gap-3 text-sm font-medium">
-                                <Spinner className="size-4 text-primary" aria-hidden/>
-                                Discovery running ...
-                            </DialogTitle>
-                        </DialogHeader>
-                    </DialogContent>
-                </Dialog>
-            )}
-
-
         </>
     );
 }

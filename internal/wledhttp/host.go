@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// HostForHTTP chooses the host segment for HTTP URLs to a WLED device discovered via mDNS.
+// HostForHTTP chooses the host segment for HTTP URLs to a WLED device.
 // When a usable IPv4 address is known, prefer it: Go's resolver does not resolve Bonjour
 // *.local names on all platforms (notably macOS dev builds), while dns-sd already provides
 // the correct LAN address. Fall back to the advertised *.local hostname when no IP is known.

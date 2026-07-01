@@ -125,7 +125,6 @@ export function useControllerApp() {
         generalSx,
         generalIx,
         busy,
-        discovering,
         route,
         deviceDetail,
         deviceDetailInitializing,
@@ -162,7 +161,6 @@ export function useControllerApp() {
         setGeneralSx,
         setGeneralIx,
         setBusy,
-        setDiscovering,
         setRoute,
         setDeviceDetail,
         setDeviceDetailInitializing,
@@ -201,7 +199,6 @@ export function useControllerApp() {
             generalSx: s.generalSx,
             generalIx: s.generalIx,
             busy: s.busy,
-            discovering: s.discovering,
             route: s.route,
             deviceDetail: s.deviceDetail,
             deviceDetailInitializing: s.deviceDetailInitializing,
@@ -238,7 +235,6 @@ export function useControllerApp() {
             setGeneralSx: s.setGeneralSx,
             setGeneralIx: s.setGeneralIx,
             setBusy: s.setBusy,
-            setDiscovering: s.setDiscovering,
             setRoute: s.setRoute,
             setDeviceDetail: s.setDeviceDetail,
             setDeviceDetailInitializing: s.setDeviceDetailInitializing,
@@ -336,7 +332,7 @@ export function useControllerApp() {
             return;
         }
         setRoute((prev) => {
-            if (!settings.wled.enabled && (prev.kind === "presets" || prev.kind === "device")) {
+            if (!settings.wled.enabled && (prev.kind === "presets" || prev.kind === "device" || prev.kind === "wledAddDevice")) {
                 return {kind: "settings"};
             }
             if (!settings.dmx.enabled && (prev.kind === "dmxUniverse" || prev.kind === "dmxAddFixture" || prev.kind === "dmxFixture")) {
@@ -572,7 +568,7 @@ export function useControllerApp() {
         }
         if (dev.online === false) {
             setRoute({kind: "presets"});
-            setStatus("Device offline — use Discover or Refresh in the header. When it is online again, open it from the sidebar.");
+            setStatus("Device offline — open it from the sidebar after it is reachable again.");
         }
     }, [route, snapshot, setRoute, setStatus]);
 
@@ -1446,21 +1442,22 @@ export function useControllerApp() {
         setError("");
     }, []);
 
-    const onDiscoverNow = useCallback(() => {
-        if (!ensureWLEDEnabled()) {
-            return;
-        }
-        setDiscovering(true);
-        void withBusy(async () => {
-            try {
-                await GreetService.DiscoverDevicesNow();
-                await pullSnapshot();
-                setStatus("Discovery complete");
-            } finally {
-                setDiscovering(false);
+    const onAddWLEDDevice = useCallback(
+        async (address: string, port: number): Promise<string | null> => {
+            if (!ensureWLEDEnabled()) {
+                return null;
             }
-        });
-    }, [ensureWLEDEnabled, pullSnapshot, withBusy]);
+            let deviceID: string | null = null;
+            await withBusy(async () => {
+                const created = (await GreetService.AddWLEDDevice({address, port})) as { id: string };
+                await pullSnapshot();
+                setStatus("WLED device added");
+                deviceID = created.id;
+            });
+            return deviceID;
+        },
+        [ensureWLEDEnabled, pullSnapshot, setStatus, withBusy],
+    );
 
     const onSetGlobalState = useCallback(
         (state: JSONMap, label: string, options?: { background?: boolean }) => {
@@ -1829,7 +1826,6 @@ export function useControllerApp() {
         generalIx,
         setGeneralIx,
         busy,
-        discovering,
         wledEnabled,
         dmxEnabled,
         currentVersion,
@@ -1877,7 +1873,7 @@ export function useControllerApp() {
         pullUSBSerialDevices,
         onSaveSettings,
         onApplyNetwork,
-        onDiscoverNow,
+        onAddWLEDDevice,
         onSetGlobalState,
         onRefreshDevice,
         onProvisionDevice,

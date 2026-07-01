@@ -9,17 +9,6 @@ export type AccessPointSettings = {
     channel: number;
 };
 
-export type DiscoverySettings = {
-    enabled: boolean;
-    serviceTypes: string[];
-    intervalSeconds: number;
-    queryTimeoutMs: number;
-    bindInterface: string;
-    passiveBrowse: boolean;
-    subnetProbe: boolean;
-    pollIntervalSecondsWhenApEnabled: number;
-};
-
 export type ProvisioningSettings = {
     autoProvision: boolean;
     defaultStatePayload: JSONMap;
@@ -32,7 +21,6 @@ export type TestingSettings = {
 
 export type WLEDSettings = {
     enabled: boolean;
-    discovery: DiscoverySettings;
     provisioning: ProvisioningSettings;
     testing: TestingSettings;
 };
@@ -380,6 +368,7 @@ export type DetailRoute =
     | { kind: "presets" }
     | { kind: "settings" }
     | { kind: "device"; id: string }
+    | { kind: "wledAddDevice" }
     | { kind: "dmxUniverse"; universeId?: string }
     | { kind: "dmxAddFixture"; universeId?: string }
     | { kind: "dmxFixture"; id: string };

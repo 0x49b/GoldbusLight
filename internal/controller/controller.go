@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"goldbus/internal/audio"
 	"goldbus/internal/console"
-	"goldbus/internal/discovery"
 	"goldbus/internal/dmx"
 	"goldbus/internal/network"
 	serial2 "goldbus/internal/serial"
@@ -24,7 +23,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/grandcat/zeroconf"
 	"go.bug.st/serial"
 )
 
@@ -52,7 +50,8 @@ type AccessPointSettings struct {
 	Channel       int    `json:"channel"`
 }
 
-type DiscoverySettings struct {
+// legacyDiscoverySettings is only retained for loading older persisted state.json files.
+type legacyDiscoverySettings struct {
 	Enabled                          bool     `json:"enabled"`
 	ServiceTypes                     []string `json:"serviceTypes"`
 	IntervalSeconds                  int      `json:"intervalSeconds"`
@@ -75,7 +74,6 @@ type TestingSettings struct {
 
 type WLEDSettings struct {
 	Enabled      bool                 `json:"enabled"`
-	Discovery    DiscoverySettings    `json:"discovery"`
 	Provisioning ProvisioningSettings `json:"provisioning"`
 	Testing      TestingSettings      `json:"testing"`
 }
@@ -113,9 +111,9 @@ type ControllerSettings struct {
 	DMX         DMXSettings         `json:"dmx"`
 
 	// Legacy flattened settings kept for migration from persisted v2 state.
-	Discovery    DiscoverySettings    `json:"discovery,omitempty"`
-	Provisioning ProvisioningSettings `json:"provisioning,omitempty"`
-	Testing      TestingSettings      `json:"testing,omitempty"`
+	Discovery    legacyDiscoverySettings `json:"discovery,omitempty"`
+	Provisioning ProvisioningSettings    `json:"provisioning,omitempty"`
+	Testing      TestingSettings         `json:"testing,omitempty"`
 }
 
 type WLEDDevice struct {
@@ -293,8 +291,6 @@ type NetworkApplyResult struct {
 	Steps    []NetworkCommandResult `json:"steps"`
 }
 
-type discoveredDevice = discovery.DiscoveredDevice
-
 type StatePersistenceManager struct {
 	path string
 	mu   sync.Mutex
@@ -446,9 +442,6 @@ func (s *StatePersistenceManager) Load() (persistentState, error) {
 		state.Version = 2
 	}
 	if state.Version < 3 {
-		if len(state.Settings.WLED.Discovery.ServiceTypes) == 0 && len(state.Settings.Discovery.ServiceTypes) > 0 {
-			state.Settings.WLED.Discovery = state.Settings.Discovery
-		}
 		if state.Settings.WLED.Provisioning.DefaultStatePayload == nil && state.Settings.Provisioning.DefaultStatePayload != nil {
 			state.Settings.WLED.Provisioning = state.Settings.Provisioning
 		}
@@ -539,39 +532,6 @@ func (n *NetworkManager) Apply(ctx context.Context, settings ControllerSettings)
 	}
 }
 
-type DiscoveryEngine struct {
-	logger *log.Logger
-}
-
-func NewDiscoveryEngine(logger *log.Logger) *DiscoveryEngine {
-	return &DiscoveryEngine{logger: logger}
-}
-
-func toDiscoverySettings(s DiscoverySettings) discovery.Settings {
-	return discovery.Settings{
-		Enabled:        s.Enabled,
-		ServiceTypes:   slices.Clone(s.ServiceTypes),
-		QueryTimeoutMS: s.QueryTimeoutMS,
-		BindInterface:  s.BindInterface,
-		PassiveBrowse:  s.PassiveBrowse,
-		SubnetProbe:    s.SubnetProbe,
-	}
-}
-
-func toDiscoveryControllerSettings(s ControllerSettings) discovery.ControllerSettings {
-	disc := toDiscoverySettings(s.WLED.Discovery)
-	if !s.WLED.Enabled {
-		disc.Enabled = false
-	}
-	return discovery.ControllerSettings{
-		Discovery: disc,
-		AccessPoint: discovery.AccessPointSettings{
-			Enabled:       s.AccessPoint.Enabled,
-			InterfaceName: s.AccessPoint.InterfaceName,
-		},
-	}
-}
-
 type WLEDDeviceDetail struct {
 	Online    bool           `json:"online"`
 	Error     string         `json:"error,omitempty"`
@@ -603,7 +563,6 @@ type WLEDController struct {
 	dmxLiveLayoutPersistence *DMXFixtureLiveLayoutPersistenceManager
 	dmxPersistence           *DMXPersistenceManager
 	network                  *NetworkManager
-	discovery                *DiscoveryEngine
 	wled                     *wledpkg.Engine
 	console                  *console.Bus
 
@@ -615,9 +574,6 @@ type WLEDController struct {
 	dmxState          DMXState
 	dmxPersistEnabled bool // false when dmx.json failed to load — avoids overwriting fixtures on disk
 	updated           time.Time
-
-	probeMu     sync.Mutex
-	probeRecent map[string]time.Time
 
 	rootCtx context.Context
 	cancel  context.CancelFunc
@@ -651,7 +607,6 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		dmxPersistence:           NewDMXPersistenceManager(),
 		dmxLiveLayoutPersistence: NewDMXFixtureLiveLayoutPersistenceManager(),
 		network:                  NewNetworkManager(logger),
-		discovery:                NewDiscoveryEngine(logger),
 		wled:                     wledpkg.NewEngine(logger, bus),
 		console:                  bus,
 		settings:                 DefaultControllerSettings(),
@@ -840,11 +795,6 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		c.wled.Start(runCtx)
 	}
 
-	discovery.WarmupLocalNetworkAccess(c.logger)
-
-	go c.discoveryLoop(runCtx)
-	go c.discoveryBrowseLoop(runCtx)
-	go c.subnetProbeLoop(runCtx)
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
 	go c.recallWLEDDevicePresetsOnBoot(runCtx)
@@ -952,32 +902,6 @@ func (c *WLEDController) dmxEnabled() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.settings.DMX.Enabled
-}
-
-func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) {
-	c.mu.RLock()
-	wledSettings := c.settings.WLED
-	full := c.settings
-	wledEnabled := wledSettings.Enabled
-	c.mu.RUnlock()
-	if !wledEnabled {
-		return nil, fmt.Errorf("wled component is disabled in settings")
-	}
-
-	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(full))
-	found, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
-		Settings:  toDiscoverySettings(wledSettings.Discovery),
-		BindIface: iface,
-		Logger:    c.logger,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, candidate := range found {
-		c.maybeProcessDiscovered(ctx, candidate, false)
-	}
-	return c.Snapshot().Devices, c.persist()
 }
 
 func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, state map[string]any) error {
@@ -1959,397 +1883,6 @@ func (c *WLEDController) GetDMXLiveStatus() dmx.DMXLiveStatus {
 	}
 }
 
-func (c *WLEDController) consumeInspectThrottle(candidate discoveredDevice) bool {
-	const ttl = 8 * time.Second
-	key := discovery.ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
-	c.probeMu.Lock()
-	defer c.probeMu.Unlock()
-	if c.probeRecent == nil {
-		c.probeRecent = make(map[string]time.Time)
-	}
-	now := time.Now()
-	if t, ok := c.probeRecent[key]; ok && now.Sub(t) < ttl {
-		return false
-	}
-	c.probeRecent[key] = now
-	if len(c.probeRecent) > 384 {
-		for k, t := range c.probeRecent {
-			if now.Sub(t) > ttl*6 {
-				delete(c.probeRecent, k)
-			}
-		}
-	}
-	return true
-}
-
-func (c *WLEDController) maybeProcessDiscovered(ctx context.Context, candidate discoveredDevice, respectThrottle bool) {
-	if respectThrottle && !c.consumeInspectThrottle(candidate) {
-		return
-	}
-	c.processDiscoveredCandidate(ctx, candidate)
-}
-
-func (c *WLEDController) effectiveDiscoveryInterval() time.Duration {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	base := c.settings.WLED.Discovery.IntervalSeconds
-	if base <= 0 {
-		base = 15
-	}
-	d := time.Duration(base) * time.Second
-	if !c.settings.AccessPoint.Enabled {
-		return d
-	}
-	fast := c.settings.WLED.Discovery.PollIntervalSecondsWhenApEnabled
-	if fast <= 0 {
-		return d
-	}
-	fastDur := time.Duration(fast) * time.Second
-	if fastDur < d {
-		return fastDur
-	}
-	return d
-}
-
-func (c *WLEDController) discoveryBrowseLoop(ctx context.Context) {
-	var workers sync.WaitGroup
-	var activeCancel context.CancelFunc
-	lastSig := ""
-
-	stopWorkers := func() {
-		if activeCancel != nil {
-			activeCancel()
-			workers.Wait()
-			activeCancel = nil
-		}
-	}
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	defer stopWorkers()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			c.mu.RLock()
-			settings := c.settings
-			c.mu.RUnlock()
-
-			sig := discovery.DiscoveryBrowseSignature(toDiscoveryControllerSettings(settings))
-			if sig == "" {
-				stopWorkers()
-				lastSig = ""
-				continue
-			}
-			if sig == lastSig && activeCancel != nil {
-				continue
-			}
-
-			stopWorkers()
-			browseCtx, cancel := context.WithCancel(ctx)
-			activeCancel = cancel
-			lastSig = sig
-
-			iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
-			for _, svc := range discovery.ServiceTypesOrDefault(settings.WLED.Discovery.ServiceTypes) {
-				svc := svc
-				workers.Add(1)
-				go func() {
-					defer workers.Done()
-					c.zeroconfBrowseService(browseCtx, iface, svc)
-				}()
-			}
-		}
-	}
-}
-
-func (c *WLEDController) zeroconfBrowseService(ctx context.Context, iface *net.Interface, svc string) {
-	opts := discovery.ZeroconfClientOptions(iface)
-	resolver, err := zeroconf.NewResolver(opts...)
-	if err != nil {
-		c.logger.Printf("zeroconf resolver %s: %v", svc, err)
-		return
-	}
-	entries := make(chan *zeroconf.ServiceEntry, 64)
-	if err := resolver.Browse(ctx, svc, "local.", entries); err != nil {
-		c.logger.Printf("zeroconf browse %s: %v", svc, err)
-		return
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case ent, ok := <-entries:
-			if !ok {
-				return
-			}
-			if ent == nil {
-				continue
-			}
-			candidate := discovery.DiscoveredFromZeroconf(ent)
-			if !discovery.IsWLEDCandidate(svc, candidate) {
-				continue
-			}
-			c.maybeProcessDiscovered(ctx, candidate, true)
-		}
-	}
-}
-
-func (c *WLEDController) subnetProbeLoop(ctx context.Context) {
-	ticker := time.NewTicker(120 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			probeCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
-			c.subnetProbeOnce(probeCtx)
-			cancel()
-		}
-	}
-}
-
-func (c *WLEDController) subnetProbeOnce(ctx context.Context) {
-	c.mu.RLock()
-	settings := c.settings
-	c.mu.RUnlock()
-	disc := settings.WLED.Discovery
-	if !settings.WLED.Enabled || !disc.Enabled || !disc.SubnetProbe || !settings.AccessPoint.Enabled {
-		return
-	}
-	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(settings))
-	if iface == nil {
-		return
-	}
-	targets := discovery.IPv4ProbeTargets(iface)
-	if len(targets) == 0 {
-		return
-	}
-
-	sem := make(chan struct{}, 40)
-	var wg sync.WaitGroup
-	for _, ip := range targets {
-		ip := ip
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				return
-			case sem <- struct{}{}:
-			}
-			defer func() { <-sem }()
-			c.maybeProcessDiscovered(ctx, discoveredDevice{
-				Name:    ip,
-				Host:    "",
-				Address: ip,
-				Port:    80,
-			}, true)
-		}()
-	}
-	wg.Wait()
-}
-
-func (c *WLEDController) discoveryLoop(ctx context.Context) {
-	delay := time.Duration(0)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(delay):
-			c.discoverAndProvision(ctx)
-			delay = c.effectiveDiscoveryInterval()
-		}
-	}
-}
-
-func (c *WLEDController) discoverAndProvision(ctx context.Context) {
-	c.mu.RLock()
-	wledSettings := c.settings.WLED
-	fullSettings := c.settings
-	c.mu.RUnlock()
-	if !wledSettings.Enabled || !wledSettings.Discovery.Enabled {
-		return
-	}
-
-	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(fullSettings))
-	devices, err := discovery.DiscoverOnce(ctx, discovery.DiscoveryRunParams{
-		Settings:  toDiscoverySettings(wledSettings.Discovery),
-		BindIface: iface,
-		Logger:    c.logger,
-	})
-	if err != nil {
-		c.logger.Printf("discovery failed: %v", err)
-		return
-	}
-	for _, candidate := range devices {
-		c.maybeProcessDiscovered(ctx, candidate, true)
-	}
-	if err := c.persist(); err != nil {
-		c.logger.Printf("persist after discovery failed: %v", err)
-	}
-}
-
-func provisionalDiscoveredID(candidate discoveredDevice) string {
-	return "disc:" + discovery.ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
-}
-
-func isInspectNetworkUnreachable(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "no route to host") ||
-		strings.Contains(msg, "network is unreachable") ||
-		strings.Contains(msg, "address unreachable") ||
-		strings.Contains(msg, "host is down")
-}
-
-func (c *WLEDController) registerProvisionalDiscoveredDevice(candidate discoveredDevice) {
-	id := provisionalDiscoveredID(candidate)
-	name := strings.TrimSpace(candidate.Name)
-	if name == "" {
-		name = strings.TrimSuffix(strings.TrimSpace(candidate.Host), ".")
-	}
-	if name == "" {
-		name = candidate.Address
-	}
-	device := WLEDDevice{
-		ID:          id,
-		Name:        name,
-		Host:        candidate.Host,
-		Address:     candidate.Address,
-		Port:        candidate.Port,
-		LastSeen:    time.Now(),
-		Online:      false,
-		Provisioned: false,
-	}
-	c.mu.Lock()
-	if existing, ok := c.devices[id]; ok && existing.Ignored {
-		c.mu.Unlock()
-		return
-	}
-	if existing, ok := c.devices[id]; ok && existing.Provisioned {
-		device.Provisioned = true
-	}
-	if existing, ok := c.devices[id]; ok && existing.Online {
-		device.Online = true
-	}
-	c.devices[id] = device
-	c.updated = time.Now()
-	c.mu.Unlock()
-}
-
-func (c *WLEDController) removeProvisionalDiscoveredDevices(address string, port int) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for id, d := range c.devices {
-		if !strings.HasPrefix(id, "disc:") {
-			continue
-		}
-		if d.Address == address && d.Port == port {
-			delete(c.devices, id)
-		}
-	}
-}
-
-func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candidate discoveredDevice) {
-	if !c.wledEnabled() {
-		return
-	}
-	engineDev := wledpkg.Device{
-		Host:    candidate.Host,
-		Address: candidate.Address,
-		Port:    candidate.Port,
-	}
-	res, err := c.wled.Inspect(ctx, engineDev)
-	if err != nil {
-		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
-		if isInspectNetworkUnreachable(err) {
-			c.logger.Printf("hint: enable Local Network for Goldbus Light in System Settings → Privacy & Security (TCP to %s blocked by macOS)", candidate.Address)
-			c.registerProvisionalDiscoveredDevice(candidate)
-		}
-		return
-	}
-	c.removeProvisionalDiscoveredDevices(candidate.Address, candidate.Port)
-	device := WLEDDevice{
-		ID:          res.ID,
-		Name:        res.Name,
-		Host:        candidate.Host,
-		Address:     candidate.Address,
-		Port:        candidate.Port,
-		LastSeen:    time.Now(),
-		Online:      true,
-		Provisioned: false,
-		Info:        res.Info,
-		LastState:   cloneJSONMap(res.State),
-	}
-
-	c.mu.RLock()
-	if existing, ok := c.devices[device.ID]; ok && existing.Ignored {
-		c.mu.RUnlock()
-		return
-	}
-	c.mu.RUnlock()
-
-	c.mu.Lock()
-	existing, hasExisting := c.devices[device.ID]
-	restoreState := cloneJSONMap(nil)
-	if hasExisting {
-		if existing.Provisioned {
-			device.Provisioned = true
-		}
-		if len(existing.LastState) > 0 {
-			device.LastState = cloneJSONMap(existing.LastState)
-			restoreState = cloneJSONMap(existing.LastState)
-		}
-	}
-	c.devices[device.ID] = device
-	settings := c.settings.WLED.Provisioning
-	c.updated = time.Now()
-	c.mu.Unlock()
-
-	if len(restoreState) > 0 {
-		if err := c.applyWLEDState(ctx, device, restoreState); err != nil {
-			c.logger.Printf("restore last state to %s failed: %v", device.ID, err)
-		} else {
-			c.mu.Lock()
-			if latest, ok := c.devices[device.ID]; ok {
-				latest.Online = true
-				latest.LastSeen = time.Now()
-				if latest.Info == nil {
-					latest.Info = map[string]any{}
-				}
-				if v, ok := restoreState["on"]; ok {
-					latest.Info["on"] = v
-				}
-				if v, ok := restoreState["bri"]; ok {
-					latest.Info["bri"] = v
-				}
-				c.devices[device.ID] = latest
-				c.updated = time.Now()
-			}
-			c.mu.Unlock()
-			if err := c.persist(); err != nil {
-				c.logger.Printf("persist after reconnect restore failed: %v", err)
-			}
-		}
-	}
-
-	if settings.AutoProvision && !device.Provisioned {
-		if err := c.provisionWLED(ctx, device, settings.DefaultConfigPatch, settings.DefaultStatePayload); err == nil {
-			c.mu.Lock()
-			device.Provisioned = true
-			c.devices[device.ID] = device
-			c.updated = time.Now()
-			c.mu.Unlock()
-		}
-	}
-}
-
 func (c *WLEDController) persistenceLoop(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -2384,9 +1917,6 @@ func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
 	list := make([]WLEDDevice, 0, len(c.devices))
 	for _, d := range c.devices {
 		if d.Ignored {
-			continue
-		}
-		if strings.HasPrefix(d.ID, "disc:") {
 			continue
 		}
 		list = append(list, d)
@@ -2459,37 +1989,6 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 	c.mu.RUnlock()
 
 	for _, device := range devices {
-		if strings.HasPrefix(device.ID, "disc:") {
-			candidate := discoveredDevice{
-				Name:    device.Name,
-				Host:    device.Host,
-				Address: device.Address,
-				Port:    device.Port,
-			}
-			if state, err := c.getWLEDState(ctx, device); err == nil {
-				c.mu.Lock()
-				latest := c.devices[device.ID]
-				if !latest.Ignored {
-					latest.Online = true
-					latest.LastSeen = time.Now()
-					if latest.Info == nil {
-						latest.Info = map[string]any{}
-					}
-					if on, ok := state["on"]; ok {
-						latest.Info["on"] = on
-					}
-					if bri, ok := state["bri"]; ok {
-						latest.Info["bri"] = bri
-					}
-					latest.LastState = mergeStateIntoLastState(latest.LastState, state)
-					c.devices[device.ID] = latest
-					c.updated = time.Now()
-				}
-				c.mu.Unlock()
-			}
-			c.processDiscoveredCandidate(ctx, candidate)
-			continue
-		}
 		state, err := c.getWLEDState(ctx, device)
 		c.mu.Lock()
 		latest := c.devices[device.ID]
@@ -2618,16 +2117,6 @@ func DefaultControllerSettings() ControllerSettings {
 		},
 		WLED: WLEDSettings{
 			Enabled: true,
-			Discovery: DiscoverySettings{
-				Enabled:                          true,
-				ServiceTypes:                     []string{"_wled._tcp", "_http._tcp"},
-				IntervalSeconds:                  15,
-				QueryTimeoutMS:                   2000,
-				BindInterface:                    "",
-				PassiveBrowse:                    true,
-				SubnetProbe:                      false,
-				PollIntervalSecondsWhenApEnabled: 5,
-			},
 			Provisioning: ProvisioningSettings{
 				AutoProvision:       false,
 				DefaultStatePayload: map[string]any{"on": true, "bri": 180},
@@ -2663,9 +2152,6 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	defaults := DefaultControllerSettings()
 	out := in
 
-	if len(out.WLED.Discovery.ServiceTypes) == 0 && len(out.Discovery.ServiceTypes) > 0 {
-		out.WLED.Discovery = out.Discovery
-	}
 	if out.WLED.Provisioning.DefaultStatePayload == nil && out.Provisioning.DefaultStatePayload != nil {
 		out.WLED.Provisioning = out.Provisioning
 	}
@@ -2673,9 +2159,6 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.WLED.Testing = out.Testing
 	}
 	hasWLEDConfig := out.WLED.Enabled ||
-		len(out.WLED.Discovery.ServiceTypes) > 0 ||
-		out.WLED.Discovery.IntervalSeconds > 0 ||
-		out.WLED.Discovery.QueryTimeoutMS > 0 ||
 		out.WLED.Provisioning.DefaultStatePayload != nil ||
 		out.WLED.Provisioning.DefaultConfigPatch != nil ||
 		out.WLED.Testing.SimulateWLED
@@ -2716,18 +2199,6 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.AccessPoint.Channel = defaults.AccessPoint.Channel
 	}
 	clampAccessPointTo24GHz(&out.AccessPoint)
-	if len(out.WLED.Discovery.ServiceTypes) == 0 {
-		out.WLED.Discovery.ServiceTypes = slices.Clone(defaults.WLED.Discovery.ServiceTypes)
-	}
-	if out.WLED.Discovery.IntervalSeconds <= 0 {
-		out.WLED.Discovery.IntervalSeconds = defaults.WLED.Discovery.IntervalSeconds
-	}
-	if out.WLED.Discovery.QueryTimeoutMS <= 0 {
-		out.WLED.Discovery.QueryTimeoutMS = defaults.WLED.Discovery.QueryTimeoutMS
-	}
-	if out.WLED.Discovery.PollIntervalSecondsWhenApEnabled < 0 {
-		out.WLED.Discovery.PollIntervalSecondsWhenApEnabled = defaults.WLED.Discovery.PollIntervalSecondsWhenApEnabled
-	}
 	if out.WLED.Provisioning.DefaultStatePayload == nil {
 		out.WLED.Provisioning.DefaultStatePayload = cloneJSONMap(defaults.WLED.Provisioning.DefaultStatePayload)
 	}
@@ -2749,7 +2220,7 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 		out.AccessPoint.Enabled = false
 	}
 	// Clear legacy v2 fields before persistence.
-	out.Discovery = DiscoverySettings{}
+	out.Discovery = legacyDiscoverySettings{}
 	out.Provisioning = ProvisioningSettings{}
 	out.Testing = TestingSettings{}
 	return out

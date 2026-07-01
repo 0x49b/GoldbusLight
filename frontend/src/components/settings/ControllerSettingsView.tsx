@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { PiDownloadSimple, PiUploadSimple } from "react-icons/pi";
-import { PiArrowsClockwise, PiBinoculars, PiWifiHigh } from "react-icons/pi";
+import { PiArrowsClockwise, PiWifiHigh } from "react-icons/pi";
 import { prettyJSON, readNumber } from "../../lib/json";
 import type {
     ConsoleEntry,
@@ -51,7 +51,6 @@ export type ControllerSettingsViewProps = {
     usbSerialDevices: USBSerialDevice[];
     onRefreshUSBSerialDevices: () => void;
     onSelectUSBSerialDevice: (deviceId: string, universeId?: string) => void;
-    onDiscoverNow: () => void;
     onRefreshSnapshot: () => void;
     consoleEntries: ConsoleEntry[];
     onClearConsole: () => void;
@@ -86,7 +85,6 @@ export function ControllerSettingsView({
                                            usbSerialDevices,
                                            onRefreshUSBSerialDevices,
                                            onSelectUSBSerialDevice,
-                                           onDiscoverNow,
                                            onRefreshSnapshot,
                                            consoleEntries,
                                            onClearConsole,
@@ -333,21 +331,11 @@ export function ControllerSettingsView({
                             </label>
                             {!settings.wled.enabled && (
                                 <p className="text-xs text-muted-foreground">
-                                    WLED routes, menu entries, discovery, and device actions are disabled while this is off.
+                                    WLED routes, menu entries, and device actions are disabled while this is off.
                                 </p>
                             )}
 
                             <div className="flex flex-wrap gap-2 pt-1">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={onDiscoverNow}
-                                    disabled={wledControlsDisabled}
-                                    className="basis-32"
-                                >
-                                    <PiBinoculars/>
-                                    Discover
-                                </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"
@@ -360,7 +348,7 @@ export function ControllerSettingsView({
                                 </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Discover triggers a one-shot mDNS scan. Refresh pulls the latest controller snapshot from the backend.
+                                Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the sidebar.
                             </p>
                         </CardContent>
                     </Card>
@@ -491,24 +479,9 @@ export function ControllerSettingsView({
 
                     <Card className="w-full max-w-none">
                         <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Discovery & provisioning</CardTitle>
+                            <CardTitle className="text-sm font-semibold">Provisioning</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <label className="flex cursor-pointer justify-start gap-3 items-center">
-                                <Switch
-                                    checked={settings.wled.discovery.enabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            discovery: {...settings.wled.discovery, enabled: checked}
-                                        }
-                                    }, "immediate")}
-                                    disabled={wledControlsDisabled}
-                                />
-                                <span>Enable mDNS discovery loop</span>
-                            </label>
-
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
                                 <Switch
                                     checked={settings.wled.testing.simulateWled}
@@ -527,65 +500,6 @@ export function ControllerSettingsView({
                                 Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>) with no network traffic.
                             </p>
 
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                <Input
-                                    className="h-8"
-                                    type="number"
-                                    min={2}
-                                    value={settings.wled.discovery.intervalSeconds}
-                                    onChange={(e) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            discovery: {
-                                                ...settings.wled.discovery,
-                                                intervalSeconds: readNumber(e.target.value, 15)
-                                            }
-                                        }
-                                    })}
-                                    onBlur={flushAutosaveNow}
-                                    placeholder="Interval (s)"
-                                    disabled={wledControlsDisabled}
-                                />
-                                <Input
-                                    className="h-8"
-                                    type="number"
-                                    min={500}
-                                    value={settings.wled.discovery.queryTimeoutMs}
-                                    onChange={(e) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            discovery: {
-                                                ...settings.wled.discovery,
-                                                queryTimeoutMs: readNumber(e.target.value, 2000)
-                                            }
-                                        }
-                                    })}
-                                    onBlur={flushAutosaveNow}
-                                    placeholder="Query timeout ms"
-                                    disabled={wledControlsDisabled}
-                                />
-                            </div>
-
-                            <Input
-                                className="h-8"
-                                placeholder="Service types (comma separated)"
-                                value={settings.wled.discovery.serviceTypes.join(",")}
-                                onChange={(e) => updateSettings({
-                                    ...settings,
-                                    wled: {
-                                        ...settings.wled,
-                                        discovery: {
-                                            ...settings.wled.discovery,
-                                            serviceTypes: e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
-                                        }
-                                    }
-                                })}
-                                onBlur={flushAutosaveNow}
-                                disabled={wledControlsDisabled}
-                            />
-
                             <label className="flex cursor-pointer justify-start gap-3 items-center">
                                 <Switch
                                     checked={settings.wled.provisioning.autoProvision}
@@ -598,7 +512,7 @@ export function ControllerSettingsView({
                                     }, "immediate")}
                                     disabled={wledControlsDisabled}
                                 />
-                                <span>Auto-provision newly discovered devices</span>
+                                <span>Auto-provision newly added devices</span>
                             </label>
 
                             <div>
