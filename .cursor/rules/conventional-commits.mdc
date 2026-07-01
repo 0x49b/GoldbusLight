@@ -1,0 +1,53 @@
+---
+description: Use Conventional Commits when the user asks to commit changes
+alwaysApply: true
+---
+
+# Conventional Commits
+
+When the user asks you to commit changes, always write the commit message using the [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>(<scope>): <description>
+```
+
+## Types
+
+| Type | Use when |
+|------|----------|
+| `feat` | A new feature or user-facing capability |
+| `fix` | A bug fix |
+| `docs` | Documentation only |
+| `style` | Formatting, whitespace — no logic change |
+| `refactor` | Code change that is neither a fix nor a feature |
+| `perf` | Performance improvement |
+| `test` | Adding or updating tests |
+| `chore` | Build, CI, deps, tooling — no production code change |
+
+## Rules
+
+- **Scope** (optional but preferred): short area name, e.g. `dmx`, `docs`, `frontend`, `party-mode`
+- **Description**: imperative mood, lowercase, no trailing period — e.g. `add emergency stop button`, not `Added emergency stop button.`
+- **One line** for simple changes; add a body only when the why is not obvious from the subject
+- Pick the type that best matches the *primary intent* of the change
+
+## Examples
+
+```
+feat(dmx): add emergency stop button
+fix(frontend): prevent universe grid scroll jump on resize
+docs: update raspberry pi installation guide
+refactor(dmx): extract universe channel mapping into hook
+chore: bump wails to v2.9.1
+```
+
+```
+// ❌ BAD
+updated docs
+Add multi-universe DMX support
+feat: stuff
+
+// ✅ GOOD
+docs: update universe and live-mode guides
+feat(dmx): add multi-universe support up to 4 universes
+```
