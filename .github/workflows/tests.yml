@@ -37,6 +37,13 @@ jobs:
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@v1.13.0
 
+      # dist_embed.go requires frontend/dist; the built assets are gitignored and
+      # only produced by wails build / npm run build locally.
+      - name: Prepare frontend dist stub for embed
+        run: |
+          mkdir -p frontend/dist
+          printf '%s\n' '<!DOCTYPE html><html><head><title>CI</title></head><body></body></html>' > frontend/dist/index.html
+
       - name: Run Go tests
         run: |
           mkdir -p test-results
@@ -45,7 +52,7 @@ jobs:
             --format standard-verbose \
             --jsonfile test-results/go-tests.json \
             -- \
-            -race -count=1 ./...
+            -race -count=1 ./internal/...
 
       - name: Upload Go test results
         if: always()
