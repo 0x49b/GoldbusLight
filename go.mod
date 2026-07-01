@@ -7,7 +7,7 @@ require github.com/wailsapp/wails/v3 v3.0.0-alpha2.108 //49.0.20251220134012-30a
 require (
 	github.com/gen2brain/malgo v0.11.25
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/hashicorp/mdns v1.0.6
+	github.com/hashicorp/mdns v1.0.7
 	go.bug.st/serial v1.6.4
 )
 
@@ -21,7 +21,7 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/miekg/dns v1.1.55 // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/wailsapp/wails/webview2 v1.0.27 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
