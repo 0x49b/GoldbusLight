@@ -2,7 +2,7 @@
 # Multi-stage build for minimal image size
 
 # Build stage
-FROM golang:alpine AS builder
+FROM golang:alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN go mod tidy
 RUN go build -tags server -ldflags="-s -w" -o server ./cmd/goldbuslight
 
 # Runtime stage - minimal image
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian12@sha256:9c346e4be81b5ca7ff31a0d89eaeade58b0f95cfd3baed1f36083ddb47ca3160
 
 # Copy the binary
 COPY --from=builder /app/server /server
