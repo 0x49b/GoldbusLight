@@ -1,0 +1,172 @@
+# Run Go unit tests and frontend typecheck; publish JUnit reports and a job summary.
+
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  GO_VERSION: "1.26.x"
+  NODE_VERSION: "24.15.0"
+
+jobs:
+  go-tests:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@v1.13.0
+
+      - name: Run Go tests
+        run: |
+          mkdir -p test-results
+          gotestsum \
+            --junitfile test-results/go-tests.xml \
+            --format standard-verbose \
+            --jsonfile test-results/go-tests.json \
+            -- \
+            -race -count=1 ./...
+
+      - name: Upload Go test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-test-results
+          path: test-results/
+          retention-days: 14
+
+      - name: Publish Go test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Go tests
+          path: test-results/go-tests.xml
+          reporter: java-junit
+          fail-on-error: true
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck frontend
+        id: typecheck
+        working-directory: frontend
+        run: |
+          mkdir -p ../test-results
+          if npx tsc --noEmit 2> ../test-results/frontend-typecheck.log; then
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Write frontend JUnit report
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          status = "${{ steps.typecheck.outputs.status || 'failed' }}"
+          log_path = "test-results/frontend-typecheck.log"
+          message = ""
+          if os.path.exists(log_path):
+              message = open(log_path, encoding="utf-8", errors="replace").read().strip()
+
+          testsuites = ET.Element("testsuites")
+          suite = ET.SubElement(testsuites, "testsuite", name="frontend-typecheck", tests="1")
+          case = ET.SubElement(
+              suite,
+              "testcase",
+              name="tsc --noEmit",
+              classname="frontend",
+          )
+          if status != "passed":
+              failure = ET.SubElement(case, "failure", message="TypeScript typecheck failed")
+              failure.text = message or "tsc --noEmit failed"
+
+          os.makedirs("test-results", exist_ok=True)
+          ET.ElementTree(testsuites).write(
+              "test-results/frontend-typecheck.xml",
+              encoding="utf-8",
+              xml_declaration=True,
+          )
+          PY
+
+      - name: Upload frontend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: test-results/
+          retention-days: 14
+
+      - name: Publish frontend test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Frontend typecheck
+          path: test-results/frontend-typecheck.xml
+          reporter: java-junit
+          fail-on-error: true
+
+  test-summary:
+    name: Test summary
+    needs: [go-tests, frontend-typecheck]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-test-results"
+          path: test-results
+          merge-multiple: true
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## Test report"
+            echo
+            echo "| Job | Result |"
+            echo "|-----|--------|"
+            echo "| Go tests | ${{ needs.go-tests.result == 'success' && 'passed' || 'failed' }} |"
+            echo "| Frontend typecheck | ${{ needs.frontend-typecheck.result == 'success' && 'passed' || 'failed' }} |"
+            echo
+            echo "Download **go-test-results** and **frontend-test-results** artifacts for JUnit XML and raw logs."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail when any test job failed
+        if: needs.go-tests.result != 'success' || needs.frontend-typecheck.result != 'success'
+        run: exit 1
