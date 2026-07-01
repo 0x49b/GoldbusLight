@@ -16,7 +16,7 @@ import (
 // Service timeout constants for operations
 const (
 	TimeoutNetworkApply = 20 * time.Second
-	TimeoutDiscovery    = 10 * time.Second
+	TimeoutDiscovery    = 45 * time.Second
 	TimeoutDeviceOp     = 5 * time.Second
 	TimeoutDeviceDetail = 8 * time.Second
 	TimeoutProvision    = 8 * time.Second

@@ -8,7 +8,7 @@
         <key>CFBundleExecutable</key>
             <string>goldbuslight</string>
         <key>CFBundleIdentifier</key>
-            <string>com.example.goldbuslight</string>
+            <string>ch.goldbus.goldbuslight</string>
         <key>CFBundleVersion</key>
             <string>0.1.0</string>
         <key>CFBundleGetInfoString</key>
@@ -21,6 +21,13 @@
             <string>appicon</string>
         <key>NSMicrophoneUsageDescription</key>
             <string>Goldbus Light uses the microphone for audio-reactive DMX party mode.</string>
+        <key>NSLocalNetworkUsageDescription</key>
+            <string>Goldbus Light discovers and controls WLED lighting devices on your local network.</string>
+        <key>NSBonjourServices</key>
+        <array>
+            <string>_wled._tcp</string>
+            <string>_http._tcp</string>
+        </array>
         <key>LSMinimumSystemVersion</key>
             <string>10.15.0</string>
         <key>NSHighResolutionCapable</key>

@@ -840,6 +840,8 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		c.wled.Start(runCtx)
 	}
 
+	discovery.WarmupLocalNetworkAccess(c.logger)
+
 	go c.discoveryLoop(runCtx)
 	go c.discoveryBrowseLoop(runCtx)
 	go c.subnetProbeLoop(runCtx)
@@ -956,10 +958,10 @@ func (c *WLEDController) DiscoverNow(ctx context.Context) ([]WLEDDevice, error) 
 	c.mu.RLock()
 	wledSettings := c.settings.WLED
 	full := c.settings
-	enabled := wledSettings.Enabled && wledSettings.Discovery.Enabled
+	wledEnabled := wledSettings.Enabled
 	c.mu.RUnlock()
-	if !enabled {
-		return nil, fmt.Errorf("wled discovery is disabled in settings")
+	if !wledEnabled {
+		return nil, fmt.Errorf("wled component is disabled in settings")
 	}
 
 	iface := discovery.ResolveDiscoveryNetInterface(c.logger, toDiscoveryControllerSettings(full))
@@ -2191,6 +2193,69 @@ func (c *WLEDController) discoverAndProvision(ctx context.Context) {
 	}
 }
 
+func provisionalDiscoveredID(candidate discoveredDevice) string {
+	return "disc:" + discovery.ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
+}
+
+func isInspectNetworkUnreachable(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no route to host") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "address unreachable") ||
+		strings.Contains(msg, "host is down")
+}
+
+func (c *WLEDController) registerProvisionalDiscoveredDevice(candidate discoveredDevice) {
+	id := provisionalDiscoveredID(candidate)
+	name := strings.TrimSpace(candidate.Name)
+	if name == "" {
+		name = strings.TrimSuffix(strings.TrimSpace(candidate.Host), ".")
+	}
+	if name == "" {
+		name = candidate.Address
+	}
+	device := WLEDDevice{
+		ID:          id,
+		Name:        name,
+		Host:        candidate.Host,
+		Address:     candidate.Address,
+		Port:        candidate.Port,
+		LastSeen:    time.Now(),
+		Online:      false,
+		Provisioned: false,
+	}
+	c.mu.Lock()
+	if existing, ok := c.devices[id]; ok && existing.Ignored {
+		c.mu.Unlock()
+		return
+	}
+	if existing, ok := c.devices[id]; ok && existing.Provisioned {
+		device.Provisioned = true
+	}
+	if existing, ok := c.devices[id]; ok && existing.Online {
+		device.Online = true
+	}
+	c.devices[id] = device
+	c.updated = time.Now()
+	c.mu.Unlock()
+}
+
+func (c *WLEDController) removeProvisionalDiscoveredDevices(address string, port int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, d := range c.devices {
+		if !strings.HasPrefix(id, "disc:") {
+			continue
+		}
+		if d.Address == address && d.Port == port {
+			delete(c.devices, id)
+		}
+	}
+}
+
 func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candidate discoveredDevice) {
 	if !c.wledEnabled() {
 		return
@@ -2203,8 +2268,13 @@ func (c *WLEDController) processDiscoveredCandidate(ctx context.Context, candida
 	res, err := c.wled.Inspect(ctx, engineDev)
 	if err != nil {
 		c.logger.Printf("inspect device %s failed: %v", candidate.Address, err)
+		if isInspectNetworkUnreachable(err) {
+			c.logger.Printf("hint: enable Local Network for Goldbus Light in System Settings → Privacy & Security (TCP to %s blocked by macOS)", candidate.Address)
+			c.registerProvisionalDiscoveredDevice(candidate)
+		}
 		return
 	}
+	c.removeProvisionalDiscoveredDevices(candidate.Address, candidate.Port)
 	device := WLEDDevice{
 		ID:          res.ID,
 		Name:        res.Name,
@@ -2316,6 +2386,9 @@ func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
 		if d.Ignored {
 			continue
 		}
+		if strings.HasPrefix(d.ID, "disc:") {
+			continue
+		}
 		list = append(list, d)
 	}
 	c.mu.RUnlock()
@@ -2386,6 +2459,37 @@ func (c *WLEDController) checkKnownDevices(ctx context.Context) {
 	c.mu.RUnlock()
 
 	for _, device := range devices {
+		if strings.HasPrefix(device.ID, "disc:") {
+			candidate := discoveredDevice{
+				Name:    device.Name,
+				Host:    device.Host,
+				Address: device.Address,
+				Port:    device.Port,
+			}
+			if state, err := c.getWLEDState(ctx, device); err == nil {
+				c.mu.Lock()
+				latest := c.devices[device.ID]
+				if !latest.Ignored {
+					latest.Online = true
+					latest.LastSeen = time.Now()
+					if latest.Info == nil {
+						latest.Info = map[string]any{}
+					}
+					if on, ok := state["on"]; ok {
+						latest.Info["on"] = on
+					}
+					if bri, ok := state["bri"]; ok {
+						latest.Info["bri"] = bri
+					}
+					latest.LastState = mergeStateIntoLastState(latest.LastState, state)
+					c.devices[device.ID] = latest
+					c.updated = time.Now()
+				}
+				c.mu.Unlock()
+			}
+			c.processDiscoveredCandidate(ctx, candidate)
+			continue
+		}
 		state, err := c.getWLEDState(ctx, device)
 		c.mu.Lock()
 		latest := c.devices[device.ID]

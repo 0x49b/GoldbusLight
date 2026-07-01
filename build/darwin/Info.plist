@@ -22,11 +22,23 @@
 # NSMicrophoneUsageDescription is required for native party audio capture on macOS.
         <key>NSMicrophoneUsageDescription</key>
             <string>Goldbus Light uses the microphone for audio-reactive DMX party mode.</string>
+        <key>NSLocalNetworkUsageDescription</key>
+            <string>Goldbus Light discovers and controls WLED lighting devices on your local network.</string>
+        <key>NSBonjourServices</key>
+        <array>
+            <string>_wled._tcp</string>
+            <string>_http._tcp</string>
+        </array>
         <key>LSMinimumSystemVersion</key>
             <string>10.15.0</string>
         <key>NSHighResolutionCapable</key>
             <string>true</string>
         <key>NSHumanReadableCopyright</key>
             <string>© 2026, My Company</string>
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSAllowsLocalNetworking</key>
+            <true/>
+        </dict>
     </dict>
 </plist>

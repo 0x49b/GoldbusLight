@@ -60,44 +60,45 @@ func DiscoverOnce(ctx context.Context, params DiscoveryRunParams) ([]DiscoveredD
 	}
 
 	known := map[string]DiscoveredDevice{}
-	for _, serviceType := range serviceTypes {
-		serviceType := serviceType
-		entries := make(chan *mdns.ServiceEntry, 64)
-		var wg sync.WaitGroup
-		var mu sync.Mutex
+	var knownMu sync.Mutex
+	addCandidate := func(serviceType string, candidate DiscoveredDevice) {
+		if !IsWLEDCandidate(serviceType, candidate) {
+			return
+		}
+		key := ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
+		knownMu.Lock()
+		known[key] = candidate
+		knownMu.Unlock()
+	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, candidate := range platformDiscoverOnce(ctx, serviceTypes, timeout, params.Logger) {
+			addCandidate("_wled._tcp", candidate)
+		}
+		for _, candidate := range zeroconfDiscoverOnce(ctx, params.BindIface, serviceTypes, timeout, params.Logger) {
+			addCandidate("_wled._tcp", candidate)
+		}
+		knownMu.Lock()
+		empty := len(known) == 0
+		knownMu.Unlock()
+		if empty {
+			hashicorpDiscoverOnce(ctx, params, serviceTypes, timeout, addCandidate)
+		}
+	}()
+
+	if params.BindIface != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for entry := range entries {
-				candidate := toDiscoveredDevice(entry)
-				if !IsWLEDCandidate(serviceType, candidate) {
-					continue
-				}
-				key := ProbeDedupeKey(candidate.Host, candidate.Address, candidate.Port)
-				mu.Lock()
-				known[key] = candidate
-				mu.Unlock()
+			for _, candidate := range httpProbeSubnet(ctx, params.BindIface, params.Logger) {
+				addCandidate("_wled._tcp", candidate)
 			}
 		}()
-
-		queryCtx, cancel := context.WithTimeout(ctx, timeout+500*time.Millisecond)
-		q := &mdns.QueryParam{
-			Service:             serviceType,
-			Domain:              "local",
-			Timeout:             timeout,
-			Entries:             entries,
-			Interface:           params.BindIface,
-			WantUnicastResponse: true,
-		}
-		err := mdns.QueryContext(queryCtx, q)
-		cancel()
-		close(entries)
-		wg.Wait()
-		if err != nil && params.Logger != nil {
-			params.Logger.Printf("mdns query failed for %s: %v", serviceType, err)
-		}
 	}
+	wg.Wait()
 
 	found := make([]DiscoveredDevice, 0, len(known))
 	for _, device := range known {
@@ -109,6 +110,49 @@ func DiscoverOnce(ctx context.Context, params DiscoveryRunParams) ([]DiscoveredD
 	return found, nil
 }
 
+func hashicorpDiscoverOnce(
+	ctx context.Context,
+	params DiscoveryRunParams,
+	serviceTypes []string,
+	timeout time.Duration,
+	addCandidate func(string, DiscoveredDevice),
+) {
+	for _, serviceType := range serviceTypes {
+		serviceType := serviceType
+		entries := make(chan *mdns.ServiceEntry, 64)
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for entry := range entries {
+				candidate := toDiscoveredDevice(entry)
+				if !IsWLEDCandidate(serviceType, candidate) {
+					continue
+				}
+				addCandidate(serviceType, candidate)
+			}
+		}()
+
+		queryCtx, cancel := context.WithTimeout(ctx, timeout+500*time.Millisecond)
+		q := &mdns.QueryParam{
+			Service:             serviceType,
+			Domain:              "local",
+			Timeout:             timeout,
+			Entries:             entries,
+			Interface:           params.BindIface,
+			WantUnicastResponse: false,
+		}
+		err := mdns.QueryContext(queryCtx, q)
+		cancel()
+		close(entries)
+		wg.Wait()
+		if err != nil && params.Logger != nil {
+			params.Logger.Printf("mdns query failed for %s: %v", serviceType, err)
+		}
+	}
+}
+
 func ProbeDedupeKey(host, address string, port int) string {
 	h := strings.TrimSpace(strings.ToLower(host))
 	a := strings.TrimSpace(address)
@@ -116,24 +160,6 @@ func ProbeDedupeKey(host, address string, port int) string {
 		a = ip.String()
 	}
 	return net.JoinHostPort(a, fmt.Sprintf("%d", port)) + "|" + h
-}
-
-func ResolveDiscoveryNetInterface(logger *log.Logger, settings ControllerSettings) *net.Interface {
-	name := strings.TrimSpace(settings.Discovery.BindInterface)
-	if name == "" && settings.AccessPoint.Enabled {
-		name = strings.TrimSpace(settings.AccessPoint.InterfaceName)
-	}
-	if name == "" {
-		return nil
-	}
-	ifi, err := net.InterfaceByName(name)
-	if err != nil {
-		if logger != nil {
-			logger.Printf("discovery: bind interface %q: %v", name, err)
-		}
-		return nil
-	}
-	return ifi
 }
 
 func DiscoveryBrowseSignature(settings ControllerSettings) string {
@@ -154,10 +180,11 @@ func DiscoveryBrowseSignature(settings ControllerSettings) string {
 }
 
 func ZeroconfClientOptions(iface *net.Interface) []zeroconf.ClientOption {
-	if iface == nil {
-		return nil
+	opts := []zeroconf.ClientOption{zeroconf.SelectIPTraffic(zeroconf.IPv4)}
+	if iface != nil {
+		opts = append(opts, zeroconf.SelectIfaces([]net.Interface{*iface}))
 	}
-	return []zeroconf.ClientOption{zeroconf.SelectIfaces([]net.Interface{*iface})}
+	return opts
 }
 
 func DiscoveredFromZeroconf(entry *zeroconf.ServiceEntry) DiscoveredDevice {

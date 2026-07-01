@@ -73,7 +73,6 @@ func NewEngine(logger *log.Logger, bus *console.Bus) *Engine {
 	}
 }
 
-// Running reports whether the engine goroutine is currently active.
 func (e *Engine) Running() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -304,7 +303,6 @@ func (e *Engine) doApplyStateAll(ctx context.Context, devices []Device, state ma
 }
 
 func (e *Engine) doInspect(ctx context.Context, dev Device) (InspectResult, error) {
-	base := wledhttp.BaseHTTPURL(dev.Host, dev.Address, dev.Port)
 	var payload struct {
 		Info struct {
 			Name string `json:"name"`
@@ -313,9 +311,35 @@ func (e *Engine) doInspect(ctx context.Context, dev Device) (InspectResult, erro
 		} `json:"info"`
 		State map[string]any `json:"state"`
 	}
-	if err := e.requestJSON(ctx, http.MethodGet, base+"/json", nil, &payload, dev, "GET /json"); err != nil {
-		return InspectResult{}, err
+	addr := strings.TrimSpace(dev.Address)
+	portStr := fmt.Sprintf("%d", dev.Port)
+
+	var endpoints []string
+	if ip := net.ParseIP(addr); ip != nil && ip.To4() != nil {
+		endpoints = []string{"http://" + net.JoinHostPort(addr, portStr) + "/json"}
+	} else {
+		endpoints = []string{wledhttp.BaseHTTPURL(dev.Host, dev.Address, dev.Port) + "/json"}
 	}
+
+	var lastErr error
+	for _, endpoint := range endpoints {
+		err := e.requestJSON(ctx, http.MethodGet, endpoint, nil, &payload, dev, "GET /json")
+		if err == nil {
+			return e.inspectResultFromPayload(dev, payload), nil
+		}
+		lastErr = err
+	}
+	return InspectResult{}, lastErr
+}
+
+func (e *Engine) inspectResultFromPayload(dev Device, payload struct {
+	Info struct {
+		Name string `json:"name"`
+		Mac  string `json:"mac"`
+		Ver  string `json:"ver"`
+	} `json:"info"`
+	State map[string]any `json:"state"`
+}) InspectResult {
 	id := strings.TrimSpace(payload.Info.Mac)
 	if id == "" {
 		id = fmt.Sprintf("%s:%d", dev.Address, dev.Port)
@@ -339,7 +363,7 @@ func (e *Engine) doInspect(ctx context.Context, dev Device) (InspectResult, erro
 		Version: payload.Info.Ver,
 		Info:    info,
 		State:   payload.State,
-	}, nil
+	}
 }
 
 func (e *Engine) doGetJSON(ctx context.Context, dev Device, apiPath, summary string) (map[string]any, error) {
