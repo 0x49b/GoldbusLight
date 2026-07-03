@@ -7,7 +7,7 @@ Open **Sidebar → Settings**. Settings are grouped into tabs and save automatic
 | Tab | Contents |
 |-----|----------|
 | **General** | Version, configuration backup, network apply results |
-| **WLED** | Component toggle, discover/refresh, access point, discovery/provisioning, ignored devices |
+| **WLED** | Component toggle, refresh, access point, provisioning, ignored devices |
 | **DMX** | Component toggle, simulators, global USB transport, per-universe USB/Art-Net, channel sweep test |
 | **Console** | Transport log (hidden while console is detached) |
 
@@ -31,8 +31,7 @@ At the bottom of Settings:
 
 **Enable WLED component** — master switch for all WLED features. Turning off:
 
-- Hides WLED sidebar sections
-- Disables discovery and device actions
+- Disables WLED sidebar sections and device actions
 - Forces access point off
 
 ### DMX
@@ -83,10 +82,15 @@ Shows summary of active USB/Art-Net transports.
 
 ## Application version
 
-**General** tab shows the running version. On Raspberry Pi, updates are installed from the shell:
+**General** tab shows the running version.
+
+| Platform | Update method |
+|----------|---------------|
+| **Desktop** (Linux, macOS, Windows) | **Check for updates** — built-in updater downloads and installs newer releases |
+| **Raspberry Pi** | Shell script (recommended for kiosk/service installs): |
 
 ```bash
 sudo ./scripts/install-release.sh <tag>
 ```
 
-The in-app UI does not download updates itself on Pi deployments.
+The in-app **Check for updates** button is available on Pi but shell updates are preferred for managed deployments.

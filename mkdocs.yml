@@ -43,7 +43,7 @@ nav:
       - interface/navigation.md
   - WLED:
       - wled/index.md
-      - Discovery & provisioning: wled/discovery.md
+      - Adding devices & provisioning: wled/adding-devices.md
       - Device control: wled/devices.md
       - General presets: wled/general-presets.md
   - DMX:

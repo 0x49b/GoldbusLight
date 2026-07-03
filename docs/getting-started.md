@@ -7,7 +7,7 @@ This chapter walks through the first steps after installing Goldbus Light Contro
 When you open the application, you see:
 
 - A **sidebar** on the left with navigation and device/fixture lists
-- A **status line** under the title showing controller state (discovery, connectivity, etc.)
+- A **status line** under the title showing controller state (connectivity, last update, etc.)
 - A **main content area** on the right for the active page
 
 The default page depends on which components are enabled. If WLED is on, you land on **General** (global WLED presets). If only DMX is on, open **Universe** or a fixture from the sidebar.
@@ -28,8 +28,8 @@ Goldbus Light Controller can run WLED control, DMX control, or both. Each area i
 
 ### WLED-only setup
 
-1. **Settings → WLED** — enable the component and configure discovery.
-2. Click **Discover** (or wait for the automatic mDNS loop).
+1. **Settings → WLED** — enable the component; optionally enable **Auto-provision newly added devices**.
+2. Click **+** next to **Devices** in the sidebar and enter each WLED device’s **IPv4 address**.
 3. Online devices appear under **Devices** in the sidebar.
 4. Use **General** for presets applied to all devices, or open a device for per-segment control.
 

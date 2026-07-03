@@ -2,22 +2,21 @@
 
 Common issues and fixes for Goldbus Light Controller.
 
-## WLED discovery
+## WLED devices
 
 ### No devices appear
 
 1. Confirm **Settings → WLED → Enable WLED component** is on
-2. Click **Discover** or enable **mDNS discovery loop**
-3. Verify controller and WLED on the **same subnet**
-4. Check firewall allows **mDNS** (UDP port 5353)
-5. Power-cycle the WLED device
+2. Add devices with **Sidebar → Devices → +** and enter each **IPv4 address**
+3. Verify controller and WLED on the **same subnet** (or routable network)
+4. Power-cycle the WLED device if HTTP does not respond
 
 ### Device stuck offline
 
-1. **Settings → WLED → Refresh**
+1. **Double-tap** the device in the sidebar, or **Settings → WLED → Refresh**
 2. Ping the device IP from the controller host
 3. Open the WLED web UI in a browser to confirm it is alive
-4. Sidebar offline devices cannot be opened until online again
+4. Sidebar offline devices cannot be opened until online again — refresh first
 
 ### Ignored device missing from sidebar
 
