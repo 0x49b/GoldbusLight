@@ -24,9 +24,9 @@ var (
 
 // ConfigurationBackup bundles persisted controller data for transfer between hosts.
 type ConfigurationBackup struct {
-	Version    int                       `json:"version"`
-	ExportedAt time.Time                 `json:"exportedAt"`
-	AppVersion string                    `json:"appVersion,omitempty"`
+	Version    int                        `json:"version"`
+	ExportedAt time.Time                  `json:"exportedAt"`
+	AppVersion string                     `json:"appVersion,omitempty"`
 	Files      map[string]json.RawMessage `json:"files"`
 }
 
@@ -34,6 +34,12 @@ type ConfigurationBackup struct {
 func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, error) {
 	c.mu.RLock()
 	generalTab := c.generalTabState
+	stateToBackup := persistentState{
+		Version:  persistentStateVersion,
+		SavedAt:  time.Now().UTC(),
+		Settings: c.settings,
+		Devices:  cloneDeviceMap(c.devices),
+	}
 	c.mu.RUnlock()
 
 	if err := c.persist(); err != nil {
@@ -50,6 +56,13 @@ func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
+
+	stateRaw, err := json.MarshalIndent(stateToBackup, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal state: %w", err)
+	}
+	files[defaultStateFileName] = stateRaw
+
 	dmxRaw, err := c.marshalDMXStateForBackup()
 	if err != nil {
 		return nil, fmt.Errorf("marshal dmx: %w", err)
@@ -115,10 +128,10 @@ func (c *WLEDController) ImportConfigurationBackup(data []byte) error {
 
 func configurationBackupFilePaths(c *WLEDController) map[string]string {
 	return map[string]string{
-		defaultStateFileName:           c.persistence.Path(),
-		dmxStateFileName:               c.dmxPersistence.Path(),
-		generalTabStateFileName:        c.generalTabPersistence.Path(),
-		dmxFixtureLiveLayoutsFileName:  c.dmxLiveLayoutPersistence.Path(),
+		defaultStateFileName:          c.persistence.Path(),
+		dmxStateFileName:              c.dmxPersistence.Path(),
+		generalTabStateFileName:       c.generalTabPersistence.Path(),
+		dmxFixtureLiveLayoutsFileName: c.dmxLiveLayoutPersistence.Path(),
 	}
 }
 
@@ -219,20 +232,25 @@ func (c *WLEDController) reloadFromPersistence() error {
 // DMX is taken from the bundle (not re-read from disk) so a concurrent periodic persist cannot
 // overwrite dmx.json with stale in-memory fixtures between the import write and this reload.
 func (c *WLEDController) reloadFromImportBundle(bundle ConfigurationBackup) error {
-	loaded, err := c.persistence.Load()
-	if err != nil {
-		return fmt.Errorf("load state: %w", err)
+	rawState, ok := bundle.Files[defaultStateFileName]
+	if !ok {
+		return fmt.Errorf("backup missing %s", defaultStateFileName)
 	}
+	var loaded persistentState
+	if err := json.Unmarshal(rawState, &loaded); err != nil {
+		return fmt.Errorf("parse state from backup: %w", err)
+	}
+
 	generalTab, err := c.generalTabPersistence.Load()
 	if err != nil {
 		return fmt.Errorf("load general tab: %w", err)
 	}
-	raw, ok := bundle.Files[dmxStateFileName]
+	rawDMX, ok := bundle.Files[dmxStateFileName]
 	if !ok {
 		return fmt.Errorf("backup missing %s", dmxStateFileName)
 	}
 	var dmxState DMXState
-	if err := json.Unmarshal(raw, &dmxState); err != nil {
+	if err := json.Unmarshal(rawDMX, &dmxState); err != nil {
 		return fmt.Errorf("parse dmx from backup: %w", err)
 	}
 
