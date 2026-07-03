@@ -100,7 +100,7 @@ func advancePartyPhases(values partyPhaseValues, motionPhase, colorPhase *float6
 	*colorPhase += 0.05 * values.speedFactor * (1 + values.treble*0.5)
 }
 
-func (c *WLEDController) applyPartyToWLEDDevices(state DMXPartyState, motionPhase, colorPhase float64, values partyPhaseValues) {
+func (c *WLEDController) applyPartyToWLEDDevices(ctx context.Context, state DMXPartyState, motionPhase, colorPhase float64, values partyPhaseValues) {
 	if !c.wledEnabled() {
 		return
 	}
@@ -129,10 +129,6 @@ func (c *WLEDController) applyPartyToWLEDDevices(state DMXPartyState, motionPhas
 		},
 	}
 
-	ctx := c.rootCtx
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	for _, device := range devices {
 		device := device
 		func() {

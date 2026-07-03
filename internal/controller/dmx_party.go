@@ -509,7 +509,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 				frameCount++
 				if frameCount%4 == 0 && len(wledTargets) > 0 {
-					c.applyPartyToWLEDDevices(state, motionPhase, colorPhase, values)
+					c.applyPartyToWLEDDevices(ctx, state, motionPhase, colorPhase, values)
 				}
 
 				c.dmxLiveMu.Lock()
