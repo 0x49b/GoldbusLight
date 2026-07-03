@@ -17,8 +17,9 @@ Ensure `$(go env GOPATH)/bin` is on your `PATH` so `wails3` is found.
 
 Optional but useful:
 
-- **Git** — clone and release workflows  
-- **Docker** — cross-compilation via `task build:docker` (not required for native dev on your OS)
+- **Git** — clone and release workflows
+
+Supported build targets: **Windows**, **macOS**, and **Linux** (including linux-arm64 for Raspberry Pi). Build each target on its native OS or use CI release artifacts.
 
 ---
 
