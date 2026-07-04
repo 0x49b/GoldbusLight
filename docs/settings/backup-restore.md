@@ -52,7 +52,7 @@ Export and import the complete controller configuration for migration, disaster 
 3. **Settings → General → Import backup**
 4. Restart the app if prompted or if devices do not appear
 5. Re-select USB DMX device if paths changed between machines
-6. Run **Discover** for WLED if network layout differs
+6. Re-add WLED devices by IP if network addresses differ from the source machine
 
 ## Example backup files
 

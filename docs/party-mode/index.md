@@ -56,7 +56,7 @@ Lists **online, non-ignored** WLED devices. Use **Select all** / **Clear selecti
 
 ### DMX targets
 
-Lists all configured fixtures. Use **Select all** / **Clear selection**.
+Lists party-eligible fixtures (**slave** fixtures mirroring a master are omitted — they follow the master). Use **Select all** / **Clear selection**.
 
 At least one target from either list is required.
 

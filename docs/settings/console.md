@@ -16,7 +16,7 @@ Each entry includes:
 |-------|---------|
 | Timestamp | ISO time |
 | Transport | `wled`, `usb-dmx`, `artnet`, etc. |
-| Direction | `tx` / `rx` or request/response |
+| Direction | `out`, `in`, `info`, `error` |
 | Target | Device address or adapter |
 | Summary | Short description |
 | Detail | Expandable payload (JSON or hex) |

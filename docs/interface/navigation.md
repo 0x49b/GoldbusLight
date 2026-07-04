@@ -8,16 +8,16 @@ The application uses a persistent **sidebar** and a **main content** area. Navig
 Goldbus Light Controller
 <status line>
 
-Party                          [if WLED or DMX enabled]
-
-WLED
+WLED                           [if WLED enabled]
   General
-  Devices
-    <device name>              [one entry per discovered device]
-DMX
+  Devices  [+]
+    <device name>
+DMX                            [if DMX enabled]
   Universe
   DMX Devices  [+]
-    <fixture name>             [one entry per fixture]
+    <fixture name> - <TYPE>
+
+Party                          [if WLED or DMX enabled]
 
 Settings
 ```
@@ -25,13 +25,7 @@ Settings
 ### Header
 
 - **Title:** Goldbus Light Controller
-- **Status line:** Live summary from the controller (discovery state, connectivity, version hints). Hover for the full string if truncated.
-
-### Party section
-
-Visible when **WLED** or **DMX** is enabled. Opens the [Party mode](../party-mode/index.md) page.
-
-- **Status dot:** Green while party mode is running; neutral when stopped.
+- **Status line:** Live summary from the controller (connectivity, last update). Hover for the full string if truncated.
 
 ### WLED section
 
@@ -41,8 +35,9 @@ Visible when **Enable WLED component** is on in Settings.
 |------|-------|-------------|
 | **General** | Global presets for all non-ignored WLED devices |
 | **Devices → *name*** | Per-device detail page (online devices only) |
+| **+** (group action) | **Add WLED device** — enter IPv4 address and port |
 
-Offline devices appear grayed out in the sidebar. Tooltip: use **Discover** or **Refresh** in Settings when the device is reachable again.
+Offline devices appear grayed out in the sidebar. **Double-click** or **double-tap** an offline entry to refresh it, or use **Settings → WLED → Refresh**.
 
 ### DMX section
 
@@ -51,14 +46,22 @@ Visible when **Enable DMX component** is on in Settings.
 | Item | Route | Description |
 |------|-------|-------------|
 | **Universe** | 512-channel universe grid per logical universe, drag-to-readdress, DMX output toggle |
-| **DMX Devices → *name*** | Fixture editor / live / cues |
-| **+** (group action) | Create a new fixture |
+| **DMX Devices → *name* - TYPE*** | Fixture editor / live / cues |
+| **+** (group action) | **Create new DMX device** |
 
 Fixture icons reflect type:
 
 - Moving head — headlight icon
 - Smoke / hazer — cloud icon
 - Other — bulb icon
+
+Slave fixtures (mirroring a master) appear **indented** under their master in the sidebar.
+
+### Party section
+
+Visible when **WLED** or **DMX** is enabled. Opens the [Party mode](../party-mode/index.md) page.
+
+- **Status dot:** Green while party mode is running; neutral when stopped.
 
 ### Settings
 
@@ -85,11 +88,11 @@ When party mode is active:
 When DMX live output is connected:
 
 - Fixture entries in the sidebar may show a green dot when that fixture is part of live output
-- Universe grid shows green “Live” markers on active fixture blocks
+- Universe grid shows green **Live** markers on active fixture blocks; slaves show **Slave**
 
-### Discovery in progress
+### Device loading
 
-A modal dialog appears during manual **Discover** (Settings → WLED): “Discovery running …” with a spinner. It cannot be dismissed until discovery completes.
+Opening a device page may show a loading modal: *Loading device state …* or *Refreshing device …* with an attempt counter while the controller retries unreachable devices.
 
 ## Detached transport console
 

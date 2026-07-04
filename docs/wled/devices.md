@@ -11,8 +11,8 @@ Open a device from **Sidebar → WLED → Devices → *device name***. Only **on
 | **Connected / Unreachable** | Online status badge |
 | **Power** | Toggle all segments on/off |
 | **Reload** | Refresh device state (retries up to several times if unreachable) |
-| **Ignore** | Hide device from sidebar and General page |
-| **Delete** | Remove device from controller list |
+| **Ignore** | Hide device from sidebar and General page (confirm: **Ignore device?**) |
+| **Delete** | Remove device from controller list (confirm: **Forget device?**) |
 
 ## Segments
 
@@ -44,14 +44,14 @@ Changes to effect, palette, speed, and intensity apply to the selected segment a
 
 ## State & configuration (advanced)
 
-Collapsible sections show raw JSON:
+When **Settings → WLED → Debug Information → Show WLED debug information** is enabled, a collapsible **State & Config** section appears with raw JSON:
 
-- Device info (`GET /json`)
-- Configuration (`GET /json/cfg`)
-- Current state
+- **Device info (GET /json)**
+- **Config (GET /json/cfg)**
+- **Current state**
 - Last persisted state snippet
 
-Useful for debugging; most users do not need to edit these directly.
+Disable the debug toggle for normal use.
 
 ## Rename workflow
 
