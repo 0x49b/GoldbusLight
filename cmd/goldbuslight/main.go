@@ -51,7 +51,7 @@ func main() {
 		},
 	})
 
-	// App Updater (disabled on managed Pi installs — use scripts/install-release.sh)
+	// App Updater (disabled on managed Pi installs — use scripts/goldbuslight-pi.sh update)
 	var checkAndInstall func(context.Context) error
 	if updates.InAppUpdatesSupported() {
 		gh, err := github.New(github.Config{

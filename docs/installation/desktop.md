@@ -75,7 +75,7 @@ Unlike the Raspberry Pi scripted updater, desktop installs are updated manually:
 2. Replace the old binary.
 3. Restart the application.
 
-The Pi `install-release.sh` script is specific to the `/opt/goldbuslight` layout and systemd service.
+The Pi `goldbuslight-pi.sh` script is specific to the `/opt/goldbuslight` layout and systemd service.
 
 ## Building locally
 

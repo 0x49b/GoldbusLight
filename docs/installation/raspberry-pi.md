@@ -8,30 +8,46 @@ Goldbus Light Controller is commonly deployed on a **Raspberry Pi** running **64
 2. Complete initial setup (user `pi` or your chosen account, network, desktop enabled).
 3. Download `GoldbusLight-linux-arm64` from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases), or copy it from another machine.
 
-## First-time install
+## One script: install, update, boot, and recovery
 
-From a checkout of this repository (or after copying `scripts/install-raspberry-pi.sh`):
+All Pi tasks use [`scripts/goldbuslight-pi.sh`](https://github.com/0x49b/GoldbusLight/blob/master/scripts/goldbuslight-pi.sh):
+
+| Task | Command |
+|------|---------|
+| First install (local binary) | `sudo ./scripts/goldbuslight-pi.sh install /path/to/GoldbusLight-linux-arm64 --boot` |
+| First install (from GitHub) | `sudo ./scripts/goldbuslight-pi.sh install --release v0.0.19 --boot` |
+| **Update** to a new release | `sudo ./scripts/goldbuslight-pi.sh update v0.0.19` |
+| Recover failed in-app update | `sudo ./scripts/goldbuslight-pi.sh fix` |
+| Enable boot autostart | `sudo ./scripts/goldbuslight-pi.sh boot enable` |
+| Disable boot autostart | `sudo ./scripts/goldbuslight-pi.sh boot disable` |
+| Service status / restart | `sudo ./scripts/goldbuslight-pi.sh status` / `restart` |
+| Roll back last update | `sudo ./scripts/goldbuslight-pi.sh rollback` |
+
+!!! warning "Do not use the in-app updater on Pi"
+    On the default install (`/opt/goldbuslight`), **Settings → Check for updates** is disabled because the Wails updater can delete `GoldbusLight` and leave only `GoldbusLight.bak`. Always update with `goldbuslight-pi.sh update <tag>`.
+
+### First-time install example
 
 ```bash
-sudo ./scripts/install-raspberry-pi.sh /path/to/GoldbusLight-linux-arm64
+sudo ./scripts/goldbuslight-pi.sh install /home/pi/Downloads/GoldbusLight-linux-arm64 --boot
 ```
 
-Example with the release binary in your home directory:
+`--boot` registers a systemd service that starts when the **graphical desktop session** is running. Without it, install the app and enable boot later:
 
 ```bash
-sudo ./scripts/install-raspberry-pi.sh /home/pi/Downloads/GoldbusLight-linux-arm64
+sudo ./scripts/goldbuslight-pi.sh boot enable
 ```
 
-### What the installer does
+### What install does
 
 | Step | Result |
 |------|--------|
-| Installs packages | `libgtk-3-0`, `libwebkit2gtk-4.1-0`, app indicator, `xdg-utils` |
+| Installs packages | `libgtk-3-0`, `libwebkit2gtk-4.1-0`, app indicator, `xdg-utils`, `curl` |
 | Installs binary | `/opt/goldbuslight/GoldbusLight` (default) |
 | Writes config | `/etc/default/goldbuslight` with `GOLDBUS_FULLSCREEN=1` |
 | Creates launcher | `launch.sh` waits for the X display socket |
 | Desktop entry | `/usr/share/applications/goldbuslight.desktop` (application menu only) |
-| systemd service | `goldbuslight.service` (user mode by default) |
+| systemd service | `goldbuslight.service` bound to `graphical-session.target` (user mode) |
 
 A **desktop icon is not created** on purpose — only the application menu entry — to avoid per-desktop trust prompts on some Pi desktop environments.
 
@@ -47,20 +63,14 @@ Example:
 
 ```bash
 sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user \
-  ./scripts/install-raspberry-pi.sh /home/pi/Downloads/GoldbusLight-linux-arm64
+  ./scripts/goldbuslight-pi.sh install /home/pi/Downloads/GoldbusLight-linux-arm64 --boot
 ```
 
 ### After install
 
 1. **Reboot** the Pi (recommended).
 2. Enable **desktop auto-login** if the app must start without a password (`raspi-config` → System Options → Boot / Auto Login).
-3. Enable the user service after first graphical login:
-
-   ```bash
-   systemctl --user enable goldbuslight.service
-   systemctl --user start goldbuslight.service
-   ```
-
+3. Confirm boot autostart: `sudo ./scripts/goldbuslight-pi.sh boot status`
 4. Launch from the application menu: **Goldbus Light Controller**.
 
 ## Fullscreen startup
@@ -78,17 +88,15 @@ Set to `0` to start in windowed mode. The application reads this variable at lau
 
 ## Updating to a new release
 
-Updates are **not** applied from inside the app on the default Pi install (`/opt/goldbuslight`). The built-in updater removes the running binary and tries to relaunch it directly, which breaks the systemd service layout. Use the release install script instead:
+**Always** update from the shell — not from inside the app:
 
 ```bash
-sudo ./scripts/install-release.sh v0.0.19
+sudo ./scripts/goldbuslight-pi.sh update v0.0.19
 ```
-
-If an in-app update was attempted anyway and the app is missing, run `sudo ./scripts/fix-raspi-update-state.sh` to restore from `GoldbusLight.bak` when present.
 
 Replace `v0.0.19` with the tag from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases).
 
-### What the update script does
+### What update does
 
 1. Downloads `GoldbusLight-linux-arm64` from GitHub
 2. Stops `goldbuslight.service`
@@ -100,12 +108,43 @@ Same environment overrides apply (`GOLDBUS_USER`, `GOLDBUS_INSTALL_DIR`, `GOLDBU
 ### Rolling back
 
 ```bash
-sudo systemctl --user --machine=pi@ stop goldbuslight.service
-sudo mv /opt/goldbuslight/GoldbusLight.previous /opt/goldbuslight/GoldbusLight
-sudo systemctl --user --machine=pi@ start goldbuslight.service
+sudo ./scripts/goldbuslight-pi.sh rollback
 ```
 
-Adjust the `systemctl --machine=` target if your run user is not `pi`.
+Or manually:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh stop
+sudo mv /opt/goldbuslight/GoldbusLight.previous /opt/goldbuslight/GoldbusLight
+sudo ./scripts/goldbuslight-pi.sh start
+```
+
+### Recovering from a failed in-app update
+
+If the app disappeared and only `GoldbusLight.bak` remains:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh fix
+```
+
+## Boot autostart
+
+The Pi installer can start Goldbus Light when the desktop is ready:
+
+| Mode | systemd target | When it starts |
+|------|----------------|----------------|
+| **user** (default) | `graphical-session.target` | After the run user logs into the desktop |
+| **system** | `graphical.target` | After the display manager brings up the desktop |
+
+```bash
+# Enable (also done by install --boot)
+sudo ./scripts/goldbuslight-pi.sh boot enable
+
+# Check whether it is enabled and running
+sudo ./scripts/goldbuslight-pi.sh boot status
+```
+
+For kiosk use, also enable **desktop auto-login** so the graphical session starts without a password prompt.
 
 ## Optional: Party audio packages
 
@@ -132,14 +171,15 @@ sudo apt-get install -y network-manager
 
 ## Service management
 
-| Task | Command (user service) |
-|------|--------------------------|
-| Status | `systemctl --user status goldbuslight.service` |
-| Stop | `systemctl --user stop goldbuslight.service` |
-| Start | `systemctl --user start goldbuslight.service` |
-| Logs | `journalctl --user -u goldbuslight.service -f` |
+| Task | Command |
+|------|---------|
+| Status | `sudo ./scripts/goldbuslight-pi.sh status` |
+| Stop | `sudo ./scripts/goldbuslight-pi.sh stop` |
+| Start | `sudo ./scripts/goldbuslight-pi.sh start` |
+| Restart | `sudo ./scripts/goldbuslight-pi.sh restart` |
+| Logs (user service) | `journalctl --user -u goldbuslight.service -f` |
 
-For `GOLDBUS_SERVICE_MODE=system`, omit `--user` and use `sudo systemctl`.
+For `GOLDBUS_SERVICE_MODE=system`, use `journalctl -u goldbuslight.service -f`.
 
 ## USB DMX on the Pi
 

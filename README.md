@@ -29,55 +29,78 @@ See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, 
 - Raspberry Pi OS **64-bit** (`linux-arm64`)
 - Use release asset: `GoldbusLight-linux-arm64`
 
-### Install on Pi
+### One script for install, update, and boot
 
-From repo checkout:
+Use [`scripts/goldbuslight-pi.sh`](scripts/goldbuslight-pi.sh) for all Pi deployment tasks. **Do not** use the in-app updater on the default Pi install (`/opt/goldbuslight`) — it can delete the binary and leave only `GoldbusLight.bak` behind.
+
+**First install** (from a local release binary, start on desktop boot):
 
 ```bash
-sudo ./scripts/install-raspberry-pi.sh /path/to/GoldbusLight-linux-arm64
+sudo ./scripts/goldbuslight-pi.sh install /path/to/GoldbusLight-linux-arm64 --boot
 ```
 
-Optional env overrides:
+**First install** (download a release by tag):
 
-- `GOLDBUS_USER` (default: `pi`)
-- `GOLDBUS_INSTALL_DIR` (default: `/opt/goldbuslight`)
-- `GOLDBUS_SERVICE_MODE` (`user` or `system`, default: `user`)
+```bash
+sudo ./scripts/goldbuslight-pi.sh install --release v0.0.19 --boot
+```
+
+**Update** to a newer release:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh update v0.0.19
+```
+
+**Recover** after a failed in-app update (restores `GoldbusLight.bak` if needed):
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh fix
+```
+
+**Boot autostart** (start when the desktop session is running):
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh boot enable    # enable
+sudo ./scripts/goldbuslight-pi.sh boot disable   # disable
+sudo ./scripts/goldbuslight-pi.sh boot status     # check
+```
+
+**Service control**:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh status
+sudo ./scripts/goldbuslight-pi.sh restart
+```
+
+**Rollback** after a bad update:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh rollback
+```
+
+The older `install-raspberry-pi.sh`, `install-release.sh`, and `fix-raspi-update-state.sh` scripts are thin wrappers around this command.
+
+### Environment overrides
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `GOLDBUS_USER` | `pi` | Unix user that runs the app |
+| `GOLDBUS_INSTALL_DIR` | `/opt/goldbuslight` | Install directory |
+| `GOLDBUS_SERVICE_MODE` | `user` | `user` or `system` systemd unit |
 
 Example:
 
 ```bash
-sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user ./scripts/install-raspberry-pi.sh /home/pi/Downloads/GoldbusLight-linux-arm64
+sudo GOLDBUS_USER=pi GOLDBUS_SERVICE_MODE=user \
+  ./scripts/goldbuslight-pi.sh install /home/pi/Downloads/GoldbusLight-linux-arm64 --boot
 ```
 
 ### Launch behavior
 
-- Menu entry is installed at `/usr/share/applications/goldbuslight.desktop`
-- Desktop icon is intentionally **not** created (menu-only policy) to avoid per-desktop trust prompt behavior.
-
-### Updating to a new release
-
-Updates are no longer applied from inside the app. To install a release on the Pi by tag:
-
-```bash
-sudo ./scripts/install-release.sh v0.0.19
-```
-
-What the script does:
-
-- downloads `GoldbusLight-linux-arm64` from `https://github.com/0x49b/GoldbusLight/releases/download/<tag>/`,
-- stops the running service (`goldbuslight.service`, user-mode by default),
-- replaces `/opt/goldbuslight/GoldbusLight` atomically (keeps `GoldbusLight.previous` for rollback),
-- restarts the service.
-
-Same env overrides as the installer apply: `GOLDBUS_USER`, `GOLDBUS_INSTALL_DIR`, `GOLDBUS_SERVICE_MODE` (`user` or `system`). Override the asset name or repo with `--asset` / `--repo` if needed.
-
-Rolling back:
-
-```bash
-sudo systemctl --user --machine=pi@ stop goldbuslight.service
-sudo mv /opt/goldbuslight/GoldbusLight.previous /opt/goldbuslight/GoldbusLight
-sudo systemctl --user --machine=pi@ start goldbuslight.service
-```
+- Menu entry: `/usr/share/applications/goldbuslight.desktop`
+- Desktop icon is intentionally **not** created (menu-only policy)
+- With `--boot` or `boot enable`, the app starts when the **graphical desktop** is running (`graphical-session.target` for user services)
+- Enable **desktop auto-login** in `raspi-config` if the Pi must boot straight into the app without a password
 
 ### Fullscreen startup
 

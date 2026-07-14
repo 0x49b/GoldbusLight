@@ -19,7 +19,7 @@ Pre-built binaries are published on [GitHub Releases](https://github.com/0x49b/G
 
 ## Installation guides
 
-- **[Raspberry Pi](raspberry-pi.md)** — Recommended for kiosk / Goldbus deployments; includes systemd service and fullscreen startup
+- **[Raspberry Pi](raspberry-pi.md)** — Recommended for kiosk / Goldbus deployments; use `scripts/goldbuslight-pi.sh` for install, update, boot autostart, and recovery
 - **[Desktop](desktop.md)** — Linux, macOS, and Windows manual install
 
 ## System requirements

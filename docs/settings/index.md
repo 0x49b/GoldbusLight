@@ -87,10 +87,10 @@ Shows summary of active USB/Art-Net transports.
 | Platform | Update method |
 |----------|---------------|
 | **Desktop** (Linux, macOS, Windows) | **Check for updates** — built-in updater downloads and installs newer releases |
-| **Raspberry Pi** | Shell script (recommended for kiosk/service installs): |
+| **Raspberry Pi** (`/opt/goldbuslight` install) | Shell only — in-app updater is disabled |
 
 ```bash
-sudo ./scripts/install-release.sh <tag>
+sudo ./scripts/goldbuslight-pi.sh update <tag>
 ```
 
-The in-app **Check for updates** button is available on Pi but shell updates are preferred for managed deployments.
+See [Raspberry Pi installation](../installation/raspberry-pi.md) for install, boot autostart (`--boot`), and recovery (`fix`).

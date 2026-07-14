@@ -94,25 +94,25 @@ Set `GOLDBUS_FULLSCREEN=0` in `/etc/default/goldbuslight` to test windowed mode.
 If the app vanished after using **Check for updates** in the UI, the Wails updater may have left only `GoldbusLight.bak` in `/opt/goldbuslight/`. Recover with:
 
 ```bash
-sudo ./scripts/fix-raspi-update-state.sh
+sudo ./scripts/goldbuslight-pi.sh fix
 ```
 
 Or restore manually:
 
 ```bash
-sudo systemctl --user stop goldbuslight.service
+sudo ./scripts/goldbuslight-pi.sh stop
 sudo mv /opt/goldbuslight/GoldbusLight.bak /opt/goldbuslight/GoldbusLight
 sudo chmod 0755 /opt/goldbuslight/GoldbusLight
-sudo systemctl --user start goldbuslight.service
+sudo ./scripts/goldbuslight-pi.sh start
 ```
 
-For normal upgrades, use the release script (not the in-app updater on Pi):
+For normal upgrades, use the Pi manager script (not the in-app updater):
 
 ```bash
-sudo ./scripts/install-release.sh v<tag>
+sudo ./scripts/goldbuslight-pi.sh update v<tag>
 ```
 
-Verify tag exists on [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases). Roll back with `GoldbusLight.previous` — see [Raspberry Pi installation](installation/raspberry-pi.md#rolling-back).
+Verify tag exists on [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases). Roll back with `sudo ./scripts/goldbuslight-pi.sh rollback` or see [Raspberry Pi installation](installation/raspberry-pi.md#rolling-back).
 
 ## Network / access point
 

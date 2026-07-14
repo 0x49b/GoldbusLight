@@ -67,7 +67,7 @@ These are needed on a machine that **runs** the built binary (dev or release), i
 | `libayatana-appindicator3-1` | `libappindicator-gtk3` | Tray / app indicator (if used) |
 | `xdg-utils` | `xdg-utils` | Desktop integration |
 
-Raspberry Pi installs pull these via `scripts/install-raspberry-pi.sh` (Debian packages).
+Raspberry Pi installs pull GTK/WebKit packages via `scripts/goldbuslight-pi.sh install` (Debian packages).
 
 ### Party mode — audio capture (Linux only)
 

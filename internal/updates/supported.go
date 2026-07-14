@@ -11,7 +11,7 @@ const DefaultManagedInstallDir = "/opt/goldbuslight"
 
 // InAppUpdatesSupported reports whether the built-in Wails updater should be used.
 //
-// Managed Pi/kiosk installs under /opt/goldbuslight must use install-release.sh
+// Managed Pi/kiosk installs under /opt/goldbuslight must use goldbuslight-pi.sh update
 // instead. The Wails helper swaps the binary in place and relaunches it directly,
 // which breaks systemd-managed deployments: no launch.sh (DISPLAY / wait-for-X),
 // and a failed relaunch can leave only GoldbusLight.bak behind.
