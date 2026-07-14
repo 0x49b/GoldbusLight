@@ -21,8 +21,10 @@ import type {
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
+import {ApplicationVersionCard} from "./ApplicationVersionCard";
 import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
 import {TransportConsolePanel} from "./TransportConsolePanel";
+import {WindowDisplayCard} from "./WindowDisplayCard";
 import {normalizeUniverses, universeInterfaceSettings} from "@/lib/dmxUniverses";
 
 export type ControllerSettingsViewProps = {
@@ -222,33 +224,17 @@ export function ControllerSettingsView({
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-5">
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Application version</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-sm opacity-70">Running: <code>{currentVersion}</code></p>
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={busy || updateCheckBusy}
-                                    onClick={() => {
-                                        setUpdateCheckBusy(true);
-                                        void onCheckForUpdates()
-                                            .catch((err: unknown) => setError(String(err)))
-                                            .finally(() => setUpdateCheckBusy(false));
-                                    }}
-                                >
-                                    <PiArrowsClockwise/>
-                                    Check for updates
-                                </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Opens the built-in updater to download and install a newer release when one is available.
-                            </p>
-                        </CardContent>
-                    </Card>
+                    <ApplicationVersionCard
+                        currentVersion={currentVersion}
+                        busy={busy}
+                        updateCheckBusy={updateCheckBusy}
+                        onCheckForUpdates={onCheckForUpdates}
+                        onUpdateCheckError={setError}
+                        onUpdateCheckStart={() => setUpdateCheckBusy(true)}
+                        onUpdateCheckEnd={() => setUpdateCheckBusy(false)}
+                    />
+
+                    <WindowDisplayCard disabled={busy}/>
 
                     <Card className="w-full max-w-none">
                         <CardHeader>
