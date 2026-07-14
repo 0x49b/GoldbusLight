@@ -43,14 +43,17 @@ tasks:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/goldbuslight
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -X goldbus.AppVersion={{.APP_VERSION}}"{{end}}'
-      APP_VERSION: '{{.VERSION | default .CI_TAG_VERSION | default "0.0.1"}}'
-      CI_TAG_VERSION:
+      APP_VERSION:
         sh: |
-          if [ -n "${GITHUB_REF_NAME:-}" ]; then
+          if [ -n "{{.VERSION}}" ]; then
+            printf "%s" "{{.VERSION}}"
+          elif [ -n "${GITHUB_REF_NAME:-}" ]; then
             printf "%s" "${GITHUB_REF_NAME#v}"
           elif [ -n "${GITHUB_REF:-}" ]; then
             tag="${GITHUB_REF##*/}"
             printf "%s" "${tag#v}"
+          else
+            printf "%s" "0.0.1"
           fi
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
