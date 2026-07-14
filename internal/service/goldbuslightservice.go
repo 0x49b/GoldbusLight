@@ -96,7 +96,7 @@ func (g *GoldbusLightService) Greet(name string) string {
 }
 
 func (g *GoldbusLightService) AppVersion() string {
-	return goldbus.AppVersion
+	return goldbus.EffectiveAppVersion()
 }
 
 // CheckForUpdates runs the platform updater flow (download dialog, install prompt, etc.).
@@ -436,7 +436,7 @@ func (g *GoldbusLightService) ExportConfigurationBackup() (string, error) {
 		if g.backupCallbacks.PromptSavePath == nil {
 			return "", errors.New("configuration backup export is unavailable")
 		}
-		data, err := c.ExportConfigurationBackup(goldbus.AppVersion)
+		data, err := c.ExportConfigurationBackup(goldbus.EffectiveAppVersion())
 		if err != nil {
 			return "", err
 		}

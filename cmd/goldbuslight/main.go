@@ -61,7 +61,7 @@ func main() {
 	}
 
 	if err := app.Updater.Init(updater.Config{
-		CurrentVersion: goldbus.AppVersion,
+		CurrentVersion: goldbus.EffectiveAppVersion(),
 		Providers:      []updater.Provider{gh},
 	}); err != nil {
 		log.Fatalf("updater.Init: %v", err)
