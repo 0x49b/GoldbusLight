@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"goldbus"
 	"goldbus/internal/console"
+	"goldbus/internal/updates"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
 	"log"
@@ -97,6 +98,11 @@ func (g *GoldbusLightService) Greet(name string) string {
 
 func (g *GoldbusLightService) AppVersion() string {
 	return goldbus.EffectiveAppVersion()
+}
+
+// UpdatesSupported reports whether the built-in application updater is available.
+func (g *GoldbusLightService) UpdatesSupported() bool {
+	return updates.InAppUpdatesSupported()
 }
 
 // CheckForUpdates runs the platform updater flow (download dialog, install prompt, etc.).

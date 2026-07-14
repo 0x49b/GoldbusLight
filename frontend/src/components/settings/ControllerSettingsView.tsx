@@ -43,6 +43,7 @@ export type ControllerSettingsViewProps = {
     onApplyNetwork: () => void;
     onUnignoreDevice: (deviceId: string) => void;
     currentVersion: string;
+    updatesSupported: boolean;
     dmxState: DMXState;
     dmxEnabled: boolean;
     dmxPartyRunning: boolean;
@@ -78,6 +79,7 @@ export function ControllerSettingsView({
                                            onApplyNetwork,
                                            onUnignoreDevice,
                                            currentVersion,
+                                           updatesSupported,
                                            dmxState,
                                            dmxEnabled,
                                            dmxPartyRunning,
@@ -226,6 +228,7 @@ export function ControllerSettingsView({
                 <TabsContent value="general" className="space-y-5">
                     <ApplicationVersionCard
                         currentVersion={currentVersion}
+                        updatesSupported={updatesSupported}
                         busy={busy}
                         updateCheckBusy={updateCheckBusy}
                         onCheckForUpdates={onCheckForUpdates}

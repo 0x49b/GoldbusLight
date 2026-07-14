@@ -142,6 +142,7 @@ export function useControllerApp() {
         deviceNameDraft,
         editingDeviceName,
         currentVersion,
+        updatesSupported,
         dmxState,
         usbSerialDevices,
         consoleEntries,
@@ -177,6 +178,7 @@ export function useControllerApp() {
         setDeviceNameDraft,
         setEditingDeviceName,
         setCurrentVersion,
+        setUpdatesSupported,
         setDMXState,
         setUSBSerialDevices,
         setConsoleEntries,
@@ -215,6 +217,7 @@ export function useControllerApp() {
             deviceNameDraft: s.deviceNameDraft,
             editingDeviceName: s.editingDeviceName,
             currentVersion: s.currentVersion,
+            updatesSupported: s.updatesSupported,
             dmxState: s.dmxState,
             usbSerialDevices: s.usbSerialDevices,
             consoleEntries: s.consoleEntries,
@@ -250,6 +253,7 @@ export function useControllerApp() {
             setDeviceNameDraft: s.setDeviceNameDraft,
             setEditingDeviceName: s.setEditingDeviceName,
             setCurrentVersion: s.setCurrentVersion,
+            setUpdatesSupported: s.setUpdatesSupported,
             setDMXState: s.setDMXState,
             setUSBSerialDevices: s.setUSBSerialDevices,
             setConsoleEntries: s.setConsoleEntries,
@@ -578,15 +582,16 @@ export function useControllerApp() {
     }, [route, snapshot, setRoute, setStatus]);
 
     useEffect(() => {
-        void GreetService.AppVersion()
-            .then((version) => {
+        void Promise.all([GreetService.AppVersion(), GreetService.UpdatesSupported()])
+            .then(([version, supported]) => {
                 if (version && version.trim() !== "") {
                     setCurrentVersion(version);
                 }
+                setUpdatesSupported(supported);
             })
             .catch(() => {
             });
-    }, []);
+    }, [setCurrentVersion, setUpdatesSupported]);
 
     type LoadDeviceDetailOpts = { maxAttempts?: number; showAttempts?: boolean };
 
@@ -1928,6 +1933,7 @@ export function useControllerApp() {
         wledEnabled,
         dmxEnabled,
         currentVersion,
+        updatesSupported,
         dmxState,
         dmxPartyState,
         dmxLiveStatus,

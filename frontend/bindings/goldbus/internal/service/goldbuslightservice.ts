@@ -290,6 +290,13 @@ export function UpdateDMXFixture(input: controller$0.UpsertDMXFixtureInput): $Ca
     });
 }
 
+/**
+ * UpdatesSupported reports whether the built-in application updater is available.
+ */
+export function UpdatesSupported(): $CancellablePromise<boolean> {
+    return $Call.ByID(1737136614);
+}
+
 // Private type creation functions
 const $$createType0 = controller$0.WLEDDevice.createFrom;
 const $$createType1 = controller$0.NetworkApplyResult.createFrom;

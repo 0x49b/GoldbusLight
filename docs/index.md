@@ -46,12 +46,12 @@ Raspberry Pi releases are published as `GoldbusLight-linux-arm64` on [GitHub Rel
 
 ## Updates
 
-On **Raspberry Pi**, application updates are installed from the shell (recommended over the in-app updater on kiosk deployments):
+On **Raspberry Pi**, application updates are installed from the shell with the unified Pi script (not the in-app updater):
 
 ```bash
-sudo ./scripts/install-release.sh v0.0.19
+sudo ./scripts/goldbuslight-pi.sh update --latest
 ```
 
-See [Raspberry Pi installation](installation/raspberry-pi.md#updating-to-a-new-release) for details.
+See [Raspberry Pi installation](installation/raspberry-pi.md#updating-to-a-new-release) for install, boot autostart, and recovery commands.
 
 On **desktop** platforms, **Settings → General → Check for updates** opens the built-in updater when a newer release is available. The app also reads update metadata from GitHub Pages at `/stable/update.json`.
