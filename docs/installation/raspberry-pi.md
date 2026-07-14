@@ -10,13 +10,42 @@ Goldbus Light Controller is commonly deployed on a **Raspberry Pi** running **64
 
 ## One script: install, update, boot, and recovery
 
-All Pi tasks use [`scripts/goldbuslight-pi.sh`](https://github.com/0x49b/GoldbusLight/blob/master/scripts/goldbuslight-pi.sh):
+All Pi tasks use [`scripts/goldbuslight-pi.sh`](https://github.com/0x49b/GoldbusLight/blob/master/scripts/goldbuslight-pi.sh).
+
+### Quick start (download script + latest release)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0x49b/GoldbusLight/master/scripts/goldbuslight-pi.sh -o goldbuslight-pi.sh
+chmod +x goldbuslight-pi.sh
+sudo ./goldbuslight-pi.sh install --latest --boot
+```
+
+This downloads the newest `GoldbusLight-linux-arm64` from GitHub Releases and installs it to `/opt/goldbuslight`.
+
+### User-local install (no sudo)
+
+Installs the app under your home directory with a command in `~/.local/bin`:
+
+```bash
+./goldbuslight-pi.sh install --latest --local
+```
+
+| Path | Purpose |
+|------|---------|
+| `~/.local/share/goldbuslight/GoldbusLight` | Application binary |
+| `~/.local/bin/GoldbusLight` | Command symlink (add `~/.local/bin` to PATH if needed) |
+| `~/.local/share/applications/goldbuslight.desktop` | Application menu entry |
+
+### Command reference
 
 | Task | Command |
 |------|---------|
 | First install (local binary) | `sudo ./scripts/goldbuslight-pi.sh install /path/to/GoldbusLight-linux-arm64 --boot` |
-| First install (from GitHub) | `sudo ./scripts/goldbuslight-pi.sh install --release v0.0.19 --boot` |
-| **Update** to a new release | `sudo ./scripts/goldbuslight-pi.sh update v0.0.19` |
+| First install (latest GitHub release) | `sudo ./scripts/goldbuslight-pi.sh install --latest --boot` |
+| First install (specific tag) | `sudo ./scripts/goldbuslight-pi.sh install --release v0.0.19 --boot` |
+| First install (user-local) | `./scripts/goldbuslight-pi.sh install --latest --local` |
+| **Update** to latest release | `sudo ./scripts/goldbuslight-pi.sh update --latest` |
+| **Update** to specific tag | `sudo ./scripts/goldbuslight-pi.sh update v0.0.19` |
 | Recover failed in-app update | `sudo ./scripts/goldbuslight-pi.sh fix` |
 | Enable boot autostart | `sudo ./scripts/goldbuslight-pi.sh boot enable` |
 | Disable boot autostart | `sudo ./scripts/goldbuslight-pi.sh boot disable` |
@@ -91,10 +120,20 @@ Set to `0` to start in windowed mode. The application reads this variable at lau
 **Always** update from the shell — not from inside the app:
 
 ```bash
+sudo ./scripts/goldbuslight-pi.sh update --latest
+```
+
+Or pin a specific release:
+
+```bash
 sudo ./scripts/goldbuslight-pi.sh update v0.0.19
 ```
 
-Replace `v0.0.19` with the tag from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases).
+For a user-local install:
+
+```bash
+./scripts/goldbuslight-pi.sh update --latest --local
+```
 
 ### What update does
 

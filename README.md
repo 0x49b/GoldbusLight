@@ -33,19 +33,39 @@ See **[setup.md](setup.md)** for OS packages (GTK/WebKit, PipeWire audio tools, 
 
 Use [`scripts/goldbuslight-pi.sh`](scripts/goldbuslight-pi.sh) for all Pi deployment tasks. **Do not** use the in-app updater on the default Pi install (`/opt/goldbuslight`) — it can delete the binary and leave only `GoldbusLight.bak` behind.
 
-**First install** (from a local release binary, start on desktop boot):
+**Quick start** — download the script, fetch the latest release from GitHub, install with boot autostart:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0x49b/GoldbusLight/master/scripts/goldbuslight-pi.sh -o goldbuslight-pi.sh
+chmod +x goldbuslight-pi.sh
+sudo ./goldbuslight-pi.sh install --latest --boot
+```
+
+**User-local install** (no sudo — app in `~/.local/share/goldbuslight`, command in `~/.local/bin`):
+
+```bash
+./goldbuslight-pi.sh install --latest --local
+```
+
+**First install** (from a local release binary):
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh install /path/to/GoldbusLight-linux-arm64 --boot
 ```
 
-**First install** (download a release by tag):
+**First install** (specific GitHub release tag):
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh install --release v0.0.19 --boot
 ```
 
-**Update** to a newer release:
+**Update** to the latest release:
+
+```bash
+sudo ./scripts/goldbuslight-pi.sh update --latest
+```
+
+**Update** to a specific tag:
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh update v0.0.19
@@ -87,6 +107,7 @@ The older `install-raspberry-pi.sh`, `install-release.sh`, and `fix-raspi-update
 | `GOLDBUS_USER` | `pi` | Unix user that runs the app |
 | `GOLDBUS_INSTALL_DIR` | `/opt/goldbuslight` | Install directory |
 | `GOLDBUS_SERVICE_MODE` | `user` | `user` or `system` systemd unit |
+| `GOLDBUS_USER_BIN` | `~/.local/bin` | Symlink dir for `--local` installs |
 
 Example:
 

@@ -72,7 +72,7 @@ export function ApplicationVersionCard({
                 ) : (
                     <p className="text-xs text-muted-foreground">
                         On this Raspberry Pi install, update from the shell with{" "}
-                        <code className="rounded bg-muted px-1 py-0.5">sudo ./scripts/goldbuslight-pi.sh update v&lt;tag&gt;</code>.
+                        <code className="rounded bg-muted px-1 py-0.5">sudo ./scripts/goldbuslight-pi.sh update --latest</code>.
                         Do not use the in-app updater here — it can remove the binary and leave only a{" "}
                         <code className="rounded bg-muted px-1 py-0.5">GoldbusLight.bak</code> file behind.
                     </p>

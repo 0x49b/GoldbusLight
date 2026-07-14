@@ -90,7 +90,7 @@ Shows summary of active USB/Art-Net transports.
 | **Raspberry Pi** (`/opt/goldbuslight` install) | Shell only — in-app updater is disabled |
 
 ```bash
-sudo ./scripts/goldbuslight-pi.sh update <tag>
+sudo ./scripts/goldbuslight-pi.sh update --latest
 ```
 
 See [Raspberry Pi installation](../installation/raspberry-pi.md) for install, boot autostart (`--boot`), and recovery (`fix`).

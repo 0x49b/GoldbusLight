@@ -109,7 +109,7 @@ sudo ./scripts/goldbuslight-pi.sh start
 For normal upgrades, use the Pi manager script (not the in-app updater):
 
 ```bash
-sudo ./scripts/goldbuslight-pi.sh update v<tag>
+sudo ./scripts/goldbuslight-pi.sh update --latest
 ```
 
 Verify tag exists on [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases). Roll back with `sudo ./scripts/goldbuslight-pi.sh rollback` or see [Raspberry Pi installation](installation/raspberry-pi.md#rolling-back).
