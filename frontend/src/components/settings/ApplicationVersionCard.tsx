@@ -5,6 +5,7 @@ import {PiArrowsClockwise} from "react-icons/pi";
 
 type ApplicationVersionCardProps = {
     currentVersion: string;
+    updatesSupported: boolean;
     busy: boolean;
     updateCheckBusy: boolean;
     onCheckForUpdates: () => Promise<void>;
@@ -23,6 +24,7 @@ function installedVersionLabel(currentVersion: string): string {
 
 export function ApplicationVersionCard({
     currentVersion,
+    updatesSupported,
     busy,
     updateCheckBusy,
     onCheckForUpdates,
@@ -45,25 +47,36 @@ export function ApplicationVersionCard({
                         {versionLabel}
                     </Badge>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy || updateCheckBusy}
-                        onClick={() => {
-                            onUpdateCheckStart();
-                            void onCheckForUpdates()
-                                .catch((err: unknown) => onUpdateCheckError(String(err)))
-                                .finally(() => onUpdateCheckEnd());
-                        }}
-                    >
-                        <PiArrowsClockwise/>
-                        Check for updates
-                    </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Opens the built-in updater to download and install a newer release when one is available.
-                </p>
+                {updatesSupported ? (
+                    <>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={busy || updateCheckBusy}
+                                onClick={() => {
+                                    onUpdateCheckStart();
+                                    void onCheckForUpdates()
+                                        .catch((err: unknown) => onUpdateCheckError(String(err)))
+                                        .finally(() => onUpdateCheckEnd());
+                                }}
+                            >
+                                <PiArrowsClockwise/>
+                                Check for updates
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Opens the built-in updater to download and install a newer release when one is available.
+                        </p>
+                    </>
+                ) : (
+                    <p className="text-xs text-muted-foreground">
+                        On this Raspberry Pi install, update from the shell with{" "}
+                        <code className="rounded bg-muted px-1 py-0.5">sudo ./scripts/install-release.sh v&lt;tag&gt;</code>.
+                        Do not use the in-app updater here — it can remove the binary and leave only a{" "}
+                        <code className="rounded bg-muted px-1 py-0.5">GoldbusLight.bak</code> file behind.
+                    </p>
+                )}
             </CardContent>
         </Card>
     );

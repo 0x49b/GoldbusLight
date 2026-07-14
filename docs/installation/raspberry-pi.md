@@ -78,11 +78,13 @@ Set to `0` to start in windowed mode. The application reads this variable at lau
 
 ## Updating to a new release
 
-Updates are **not** applied from inside the app. Use the release install script:
+Updates are **not** applied from inside the app on the default Pi install (`/opt/goldbuslight`). The built-in updater removes the running binary and tries to relaunch it directly, which breaks the systemd service layout. Use the release install script instead:
 
 ```bash
 sudo ./scripts/install-release.sh v0.0.19
 ```
+
+If an in-app update was attempted anyway and the app is missing, run `sudo ./scripts/fix-raspi-update-state.sh` to restore from `GoldbusLight.bak` when present.
 
 Replace `v0.0.19` with the tag from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases).
 

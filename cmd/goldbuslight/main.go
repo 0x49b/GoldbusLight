@@ -11,6 +11,7 @@ import (
 	"goldbus"
 	"goldbus/internal/logging"
 	"goldbus/internal/service"
+	"goldbus/internal/updates"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -50,34 +51,40 @@ func main() {
 		},
 	})
 
-	// App Updater
-	gh, err := github.New(github.Config{
-		Repository:    "0x49b/GoldbusLight",
-		ChecksumAsset: "SHA256SUMS",
-	})
-
-	if err != nil {
-		log.Fatalf("github.New: %v", err)
-	}
-
-	if err := app.Updater.Init(updater.Config{
-		CurrentVersion: goldbus.EffectiveAppVersion(),
-		Providers:      []updater.Provider{gh},
-	}); err != nil {
-		log.Fatalf("updater.Init: %v", err)
+	// App Updater (disabled on managed Pi installs — use scripts/install-release.sh)
+	var checkAndInstall func(context.Context) error
+	if updates.InAppUpdatesSupported() {
+		gh, err := github.New(github.Config{
+			Repository:    "0x49b/GoldbusLight",
+			ChecksumAsset: "SHA256SUMS",
+		})
+		if err != nil {
+			log.Fatalf("github.New: %v", err)
+		}
+		if err := app.Updater.Init(updater.Config{
+			CurrentVersion: goldbus.EffectiveAppVersion(),
+			Providers:      []updater.Provider{gh},
+		}); err != nil {
+			log.Fatalf("updater.Init: %v", err)
+		}
+		checkAndInstall = app.Updater.CheckAndInstall
+	} else {
+		log.Printf("in-app updater disabled for managed install layout")
 	}
 
 	// App Menu
 	menu := app.Menu.New()
 	app.Menu.SetApplicationMenu(menu)
 	appMenu := menu.AddSubmenu("App")
-	appMenu.Add("Check for Updates…").OnClick(func(*application.Context) {
-		go func() {
-			if err := app.Updater.CheckAndInstall(context.Background()); err != nil {
-				app.Logger.Error("update", "error", err)
-			}
-		}()
-	})
+	if checkAndInstall != nil {
+		appMenu.Add("Check for Updates…").OnClick(func(*application.Context) {
+			go func() {
+				if err := checkAndInstall(context.Background()); err != nil {
+					app.Logger.Error("update", "error", err)
+				}
+			}()
+		})
+	}
 	appMenu.Add("Quit").OnClick(func(*application.Context) {
 		confirmApplicationQuit(app)
 	})
@@ -189,9 +196,7 @@ func main() {
 			return dialog.PromptForSingleSelection()
 		},
 	}, service.UpdateCallbacks{
-		CheckAndInstall: func(ctx context.Context) error {
-			return app.Updater.CheckAndInstall(ctx)
-		},
+		CheckAndInstall: checkAndInstall,
 	})
 	app.RegisterService(application.NewService(greetService))
 
@@ -211,8 +216,7 @@ func main() {
 		}
 	}()
 
-	err = app.Run()
-	if err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

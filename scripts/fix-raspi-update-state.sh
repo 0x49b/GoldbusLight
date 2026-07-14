@@ -22,6 +22,7 @@ id -u "$RUN_USER" >/dev/null 2>&1 || die "user does not exist: $RUN_USER"
 
 RUN_HOME="$(eval echo "~$RUN_USER")"
 APP_BIN="$INSTALL_DIR/GoldbusLight"
+APP_BAK="$APP_BIN.bak"
 LAUNCH_SH="$INSTALL_DIR/launch.sh"
 ICON_FILE="$INSTALL_DIR/goldbuslight.png"
 
@@ -42,8 +43,17 @@ chmod 0755 "$INSTALL_DIR"
 [[ -f "$APP_BIN" ]] && chmod 0755 "$APP_BIN"
 [[ -f "$LAUNCH_SH" ]] && chmod 0755 "$LAUNCH_SH"
 
+if [[ ! -f "$APP_BIN" && -f "$APP_BAK" ]]; then
+  echo "==> Restoring missing binary from failed in-app update backup"
+  mv -f "$APP_BAK" "$APP_BIN"
+  chmod 0755 "$APP_BIN"
+  chown "$RUN_USER:$RUN_USER" "$APP_BIN"
+fi
+
 echo "==> Cleaning stale updater temp files"
 rm -f "$INSTALL_DIR/.GoldbusLight.new" "$INSTALL_DIR/.GoldbusLight.old"
+# Remove leftover .bak only when the main binary is present (successful or restored install).
+[[ -f "$APP_BIN" ]] && rm -f "$APP_BAK"
 
 echo "==> Ensuring env file exists"
 if [[ ! -f /etc/default/goldbuslight ]]; then

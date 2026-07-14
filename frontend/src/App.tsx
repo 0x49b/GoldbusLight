@@ -85,6 +85,7 @@ function App() {
                 onApplyNetwork={app.onApplyNetwork}
                 onUnignoreDevice={app.onUnignoreDevice}
                 currentVersion={app.currentVersion}
+                updatesSupported={app.updatesSupported}
                 dmxState={app.dmxState}
                 dmxEnabled={app.dmxEnabled}
                 dmxPartyRunning={app.dmxPartyState?.status?.running === true}

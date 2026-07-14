@@ -44,6 +44,7 @@ export type ControllerStoreState = {
     deviceNameDraft: string;
     editingDeviceName: boolean;
     currentVersion: string;
+    updatesSupported: boolean;
     dmxState: DMXState;
     usbSerialDevices: USBSerialDevice[];
     consoleEntries: ConsoleEntry[];
@@ -98,6 +99,7 @@ export type ControllerStoreActions = {
     setDeviceNameDraft: (next: string | ((previous: string) => string)) => void;
     setEditingDeviceName: (next: boolean | ((previous: boolean) => boolean)) => void;
     setCurrentVersion: (next: string | ((previous: string) => string)) => void;
+    setUpdatesSupported: (next: boolean | ((previous: boolean) => boolean)) => void;
     setDMXState: (next: DMXState | ((previous: DMXState) => DMXState)) => void;
     setUSBSerialDevices: (
         next: USBSerialDevice[] | ((previous: USBSerialDevice[]) => USBSerialDevice[]),
@@ -141,6 +143,7 @@ const initialState: ControllerStoreState = {
     deviceNameDraft: "",
     editingDeviceName: false,
     currentVersion: "unknown",
+    updatesSupported: true,
     dmxState: {
         universes: [{id: "universe-1", name: "Universe 1"}],
         fixtures: [],
@@ -223,6 +226,7 @@ export const useControllerStore = create<ControllerStore>((set) => ({
     setDeviceNameDraft: (next) => set((s) => ({deviceNameDraft: apply(s.deviceNameDraft, next)})),
     setEditingDeviceName: (next) => set((s) => ({editingDeviceName: apply(s.editingDeviceName, next)})),
     setCurrentVersion: (next) => set((s) => ({currentVersion: apply(s.currentVersion, next)})),
+    setUpdatesSupported: (next) => set((s) => ({updatesSupported: apply(s.updatesSupported, next)})),
     setDMXState: (next) => set((s) => ({dmxState: apply(s.dmxState, next)})),
     setUSBSerialDevices: (next) => set((s) => ({usbSerialDevices: apply(s.usbSerialDevices, next)})),
     setConsoleEntries: (next) => set((s) => ({consoleEntries: apply(s.consoleEntries, next)})),
