@@ -51,8 +51,6 @@ func main() {
 	})
 
 	// App Updater
-	const currentVersion = "0.0.1"
-
 	gh, err := github.New(github.Config{
 		Repository:    "0x49b/GoldbusLight",
 		ChecksumAsset: "SHA256SUMS",
@@ -63,7 +61,7 @@ func main() {
 	}
 
 	if err := app.Updater.Init(updater.Config{
-		CurrentVersion: currentVersion,
+		CurrentVersion: goldbus.AppVersion,
 		Providers:      []updater.Provider{gh},
 	}); err != nil {
 		log.Fatalf("updater.Init: %v", err)
