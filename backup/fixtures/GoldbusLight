@@ -1,0 +1,174 @@
+{
+  "version": 2,
+  "type": "colorChanger",
+  "brand": "Cosmos",
+  "name": "P-Series [3]",
+  "dmxAddress": 71,
+  "movingHead": {
+    "maxPan": 540,
+    "maxTilt": 270
+  },
+  "channels": [
+    {
+      "channel": 1,
+      "type": "dimmer",
+      "defaultValue": 128,
+      "properties": {
+        "max": 255,
+        "min": 1
+      }
+    },
+    {
+      "channel": 2,
+      "type": "custom",
+      "defaultValue": 255,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Slot 1",
+            "to": 255
+          }
+        ],
+        "label": "Red",
+        "liveSliderLabel": "percent",
+        "liveWidget": "slider",
+        "partyInclude": true
+      }
+    },
+    {
+      "channel": 3,
+      "type": "custom",
+      "defaultValue": 255,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Slot 1",
+            "to": 255
+          }
+        ],
+        "label": "Green",
+        "liveSliderLabel": "percent",
+        "liveWidget": "slider",
+        "partyInclude": true
+      }
+    },
+    {
+      "channel": 4,
+      "type": "custom",
+      "defaultValue": 255,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Slot 1",
+            "to": 255
+          }
+        ],
+        "label": "Blue",
+        "liveSliderLabel": "percent",
+        "liveWidget": "slider",
+        "partyInclude": true
+      }
+    },
+    {
+      "channel": 5,
+      "type": "custom",
+      "defaultValue": 0,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Intensity",
+            "liveSlotKind": "slider",
+            "to": 255
+          }
+        ],
+        "label": "Strobe",
+        "liveSliderLabel": "percent",
+        "liveWidget": "slider",
+        "partyInclude": true
+      }
+    },
+    {
+      "channel": 6,
+      "type": "custom",
+      "defaultValue": 255,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Manual Dimming CH 1-6",
+            "to": 9
+          },
+          {
+            "from": 10,
+            "label": "Color Selection",
+            "to": 50
+          },
+          {
+            "from": 51,
+            "label": "Chase",
+            "to": 100
+          },
+          {
+            "from": 101,
+            "label": "Gradient",
+            "to": 150
+          },
+          {
+            "from": 151,
+            "label": "Pulse",
+            "to": 200
+          },
+          {
+            "from": 201,
+            "label": "Sound Mode 1",
+            "to": 220
+          },
+          {
+            "from": 221,
+            "label": "sound Mode 2",
+            "to": 230
+          },
+          {
+            "from": 231,
+            "label": "Sound Mode 3",
+            "to": 240
+          },
+          {
+            "from": 241,
+            "label": "Sound Mode 4",
+            "to": 255
+          }
+        ],
+        "label": "Macros",
+        "liveWidget": "buttons",
+        "partyInclude": false
+      }
+    },
+    {
+      "channel": 7,
+      "type": "custom",
+      "defaultValue": 255,
+      "properties": {
+        "entries": [
+          {
+            "from": 0,
+            "label": "Slot 1",
+            "to": 255
+          }
+        ],
+        "label": "Macro Speed",
+        "liveWidget": "slider",
+        "partyInclude": false
+      }
+    }
+  ],
+  "party": {
+    "strobeEnabled": false,
+    "strobeOnMs": 120,
+    "strobeOffMs": 500
+  }
+}
