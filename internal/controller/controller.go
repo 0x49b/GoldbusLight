@@ -770,6 +770,12 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		normDMX.SelectedUSBDeviceID,
 		c.settings.DMX.ArtNet,
 	)
+	if iface, ok := c.settings.DMX.UniverseInterfaces[DefaultDMXUniverseID]; ok {
+		if usb := strings.TrimSpace(iface.SelectedUSBDeviceID); usb != "" {
+			normDMX.SelectedUSBDeviceID = usb
+		}
+		c.settings.DMX.ArtNet = clampArtNetSettingsPtr(&iface.ArtNet)
+	}
 	c.devices = loaded.Devices
 	c.generalTabState = clampGeneralTabState(generalTab)
 	c.dmxState = normDMX

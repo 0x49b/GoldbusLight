@@ -38,7 +38,7 @@ See [WLED overview](wled/index.md) for full detail.
 ### DMX-only setup
 
 1. **Settings → DMX** — enable the component.
-2. Connect a USB-DMX adapter and configure it on each universe’s interface card in **Settings → DMX**, or enable **Art-Net** per universe.
+2. Connect a USB-DMX adapter and configure it under **Settings → DMX**, or enable **Art-Net**.
 3. Click **+** next to **DMX Devices** to create a fixture (or import a JSON profile).
 4. Open **Universe** to verify addressing and start DMX output.
 5. Open a fixture and use the **Live** tab for manual control.

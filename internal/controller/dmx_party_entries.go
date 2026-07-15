@@ -53,7 +53,14 @@ func readPartyNumber(v any, def int) int {
 	}
 }
 
-func partyCustomIncludeInMode(props map[string]any) bool {
+func partyChannelIncludeInMode(chType string, props map[string]any) bool {
+	norm := strings.ToLower(strings.TrimSpace(chType))
+	switch norm {
+	case "custom", "gobowheel":
+		// default true when unset
+	default:
+		return true
+	}
 	if props == nil {
 		return true
 	}
@@ -61,6 +68,11 @@ func partyCustomIncludeInMode(props map[string]any) bool {
 		return v
 	}
 	return true
+}
+
+// partyCustomIncludeInMode is kept for older call sites / tests.
+func partyCustomIncludeInMode(props map[string]any) bool {
+	return partyChannelIncludeInMode("custom", props)
 }
 
 func partyEntryMid(entries []dmxPartyEntry, idx int) int {

@@ -25,7 +25,7 @@ import {ApplicationVersionCard} from "./ApplicationVersionCard";
 import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
 import {TransportConsolePanel} from "./TransportConsolePanel";
 import {WindowDisplayCard} from "./WindowDisplayCard";
-import {normalizeUniverses, universeInterfaceSettings} from "@/lib/dmxUniverses";
+import {universeInterfaceSettings} from "@/lib/dmxUniverses";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -108,7 +108,6 @@ export function ControllerSettingsView({
     const wledControlsDisabled = busy || !settings.wled.enabled;
     const dmxControlsDisabled = busy || !settings.dmx.enabled;
     const usbTransportEnabled = settings.dmx.usb.enabled ?? true;
-    const universes = normalizeUniverses(dmxState.universes);
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
 
@@ -158,7 +157,7 @@ export function ControllerSettingsView({
     }, [scheduleAutosave, setConfigPatchText]);
 
     const updateUniverseArtNet = useCallback((
-        universeId: string,
+        _universeId: string,
         patch: Partial<ArtNetSettings>,
         mode: "debounced" | "immediate" = "debounced",
     ) => {
@@ -166,14 +165,13 @@ export function ControllerSettingsView({
             if (!prev) {
                 return prev;
             }
-            const current = universeInterfaceSettings(prev, universeId, dmxState);
+            const current = universeInterfaceSettings(prev, "universe-1", dmxState);
             return {
                 ...prev,
                 dmx: {
                     ...prev.dmx,
                     universeInterfaces: {
-                        ...prev.dmx.universeInterfaces,
-                        [universeId]: {
+                        "universe-1": {
                             ...current,
                             artNet: {...current.artNet, ...patch},
                         },
@@ -692,7 +690,7 @@ export function ControllerSettingsView({
                                     }, "immediate")}
                                     disabled={dmxControlsDisabled}
                                 />
-                                <span>Enable USB transport (all universes)</span>
+                                <span>Enable USB transport</span>
                             </label>
                             <div className="flex flex-wrap items-center gap-2">
                                 <Button
@@ -708,15 +706,16 @@ export function ControllerSettingsView({
                         </CardContent>
                     </Card>
 
-                    {universes.map((universe) => {
-                        const iface = universeInterfaceSettings(settings, universe.id, dmxState);
+                    {(() => {
+                        const universeId = "universe-1";
+                        const iface = universeInterfaceSettings(settings, universeId, dmxState);
                         const usbFieldsDisabled = dmxControlsDisabled || !usbTransportEnabled;
                         const artNetFieldsDisabled = dmxControlsDisabled || !iface.artNet.enabled;
                         const usbDeviceId = iface.selectedUSBDeviceId;
                         return (
-                            <Card key={universe.id} className="w-full max-w-none">
+                            <Card className="w-full max-w-none">
                                 <CardHeader>
-                                    <CardTitle className="text-sm font-semibold">{universe.name} interface</CardTitle>
+                                    <CardTitle className="text-sm font-semibold">DMX interface</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="space-y-2">
@@ -725,7 +724,7 @@ export function ControllerSettingsView({
                                             <NativeSelect
                                                 className="w-full md:w-[28rem]"
                                                 value={usbDeviceId ?? ""}
-                                                onChange={(event) => onSelectUSBSerialDevice(event.target.value, universe.id)}
+                                                onChange={(event) => onSelectUSBSerialDevice(event.target.value, universeId)}
                                                 disabled={usbFieldsDisabled}
                                             >
                                                 <NativeSelectOption value="">No device selected</NativeSelectOption>
@@ -747,17 +746,17 @@ export function ControllerSettingsView({
                                         <label className="flex items-center gap-3">
                                             <Switch
                                                 checked={iface.artNet.enabled}
-                                                onCheckedChange={(checked) => updateUniverseArtNet(universe.id, {enabled: checked}, "immediate")}
+                                                onCheckedChange={(checked) => updateUniverseArtNet(universeId, {enabled: checked}, "immediate")}
                                                 disabled={dmxControlsDisabled}
                                             />
-                                            <span>Enable Art-Net for {universe.name}</span>
+                                            <span>Enable Art-Net</span>
                                         </label>
                                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                             <Field>
                                                 <FieldLabel>Target host / broadcast</FieldLabel>
                                                 <Input
                                                     value={iface.artNet.targetHost}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {targetHost: e.target.value})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {targetHost: e.target.value})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -769,7 +768,7 @@ export function ControllerSettingsView({
                                                     min={1}
                                                     max={65535}
                                                     value={iface.artNet.port}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {port: readNumber(e.target.value, 6454)})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {port: readNumber(e.target.value, 6454)})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -781,7 +780,7 @@ export function ControllerSettingsView({
                                                     min={0}
                                                     max={127}
                                                     value={iface.artNet.net}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {net: readNumber(e.target.value, 0)})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {net: readNumber(e.target.value, 0)})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -793,7 +792,7 @@ export function ControllerSettingsView({
                                                     min={0}
                                                     max={15}
                                                     value={iface.artNet.subnet}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {subnet: readNumber(e.target.value, 0)})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {subnet: readNumber(e.target.value, 0)})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -805,7 +804,7 @@ export function ControllerSettingsView({
                                                     min={0}
                                                     max={15}
                                                     value={iface.artNet.universe}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {universe: readNumber(e.target.value, 0)})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {universe: readNumber(e.target.value, 0)})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -817,7 +816,7 @@ export function ControllerSettingsView({
                                                     min={1}
                                                     max={50}
                                                     value={iface.artNet.refreshHz}
-                                                    onChange={(e) => updateUniverseArtNet(universe.id, {refreshHz: readNumber(e.target.value, 44)})}
+                                                    onChange={(e) => updateUniverseArtNet(universeId, {refreshHz: readNumber(e.target.value, 44)})}
                                                     onBlur={flushAutosaveNow}
                                                     disabled={artNetFieldsDisabled}
                                                 />
@@ -827,7 +826,7 @@ export function ControllerSettingsView({
                                 </CardContent>
                             </Card>
                         );
-                    })}
+                    })()}
 
                     <DmxFixtureChannelSweepPanel
                         fixtures={dmxState.fixtures}

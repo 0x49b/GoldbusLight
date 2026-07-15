@@ -1102,25 +1102,24 @@ export function useControllerApp() {
         }
     }, [ensureDMXEnabled, pullUSBSerialDevices, setError]);
 
-    const onSelectUSBSerialDevice = useCallback(async (deviceID: string, universeId = "universe-1") => {
+    const onSelectUSBSerialDevice = useCallback(async (deviceID: string, _universeId = "universe-1") => {
         if (!ensureDMXEnabled()) {
             return;
         }
         try {
-            const next = (await GreetService.SetDMXUniverseUSBDevice(universeId, deviceID)) as DMXState;
+            const next = (await GreetService.SetDMXUniverseUSBDevice("universe-1", deviceID)) as DMXState;
             setDMXState(next);
             setSettings((prev) => {
                 if (!prev) {
                     return prev;
                 }
-                const current = universeInterfaceSettings(prev, universeId, next);
+                const current = universeInterfaceSettings(prev, "universe-1", next);
                 return {
                     ...prev,
                     dmx: {
                         ...prev.dmx,
                         universeInterfaces: {
-                            ...prev.dmx.universeInterfaces,
-                            [universeId]: {
+                            "universe-1": {
                                 ...current,
                                 selectedUSBDeviceId: deviceID,
                             },
@@ -1134,76 +1133,6 @@ export function useControllerApp() {
             setError(String(err));
         }
     }, [ensureDMXEnabled, setDMXState, setError, setSettings]);
-
-    const onCreateDMXUniverse = useCallback(async (name?: string) => {
-        if (!ensureDMXEnabled()) {
-            return null;
-        }
-        try {
-            const created = await GreetService.CreateDMXUniverse(name ?? "");
-            await pullDMXState();
-            const nextDmx = useControllerStore.getState().dmxState;
-            setSettings((prev) => {
-                if (!prev) {
-                    return prev;
-                }
-                return {
-                    ...prev,
-                    dmx: {
-                        ...prev.dmx,
-                        universeInterfaces: {
-                            ...prev.dmx.universeInterfaces,
-                            [created.id]: universeInterfaceSettings(prev, created.id, nextDmx),
-                        },
-                    },
-                };
-            });
-            setRoute((prev) =>
-                prev.kind === "dmxUniverse" ? {kind: "dmxUniverse", universeId: created.id} : prev,
-            );
-            setStatus(`Universe "${created.name}" created`);
-            setError("");
-            return created;
-        } catch (err) {
-            setError(String(err));
-            return null;
-        }
-    }, [ensureDMXEnabled, pullDMXState, setError, setRoute, setSettings]);
-
-    const onDeleteDMXUniverse = useCallback(async (universeId: string) => {
-        if (!ensureDMXEnabled()) {
-            return false;
-        }
-        try {
-            await GreetService.DeleteDMXUniverse(universeId);
-            await pullDMXState();
-            setSettings((prev) => {
-                if (!prev?.dmx.universeInterfaces) {
-                    return prev;
-                }
-                const {[universeId]: _removed, ...rest} = prev.dmx.universeInterfaces;
-                return {
-                    ...prev,
-                    dmx: {
-                        ...prev.dmx,
-                        universeInterfaces: rest,
-                    },
-                };
-            });
-            setRoute((prev) => {
-                if (prev.kind === "dmxUniverse" && prev.universeId === universeId) {
-                    return {kind: "dmxUniverse"};
-                }
-                return prev;
-            });
-            setStatus("Universe deleted");
-            setError("");
-            return true;
-        } catch (err) {
-            setError(String(err));
-            return false;
-        }
-    }, [ensureDMXEnabled, pullDMXState, setError, setRoute, setSettings]);
 
     const flushPartyConfigSend = useCallback(
         async (label?: string) => {
@@ -1995,8 +1924,6 @@ export function useControllerApp() {
         onUpdateDMXFixture,
         onReaddressDMXFixtures,
         onDeleteDMXFixture,
-        onCreateDMXUniverse,
-        onDeleteDMXUniverse,
         refreshUSBSerialDevices,
         onSelectUSBSerialDevice,
         setDMXPartyConfig,

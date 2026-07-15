@@ -34,7 +34,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import {normalizeUniverses, resolveUniverseId} from "@/lib/dmxUniverses";
-import {readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
+import {channelPartyIncludeEnabled, readCustomPartyInclude} from "@/lib/dmxPartyInclude.ts";
 import {
     effectiveEntryLiveSlotKind,
     isInvertiblePanTiltChannel,
@@ -909,7 +909,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         type: fixtureType,
         brand: brand.trim(),
         name: name.trim(),
-        universeId: resolveUniverseId(universeId, universes),
+        universeId: "universe-1",
         dmxAddress: Math.max(1, Math.min(512, Math.round(address) || 1)),
         masterFixtureId: masterFixtureId.trim() || undefined,
         maxPan: Math.max(0, Math.round(maxPan) || 0),
@@ -1357,7 +1357,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     />
                                 </div>
                             </div>
-                            <div className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-4" : "md:grid-cols-2")}>
+                            <div className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-3" : "md:grid-cols-2")}>
                                 <div className="space-y-2">
                                     <Label htmlFor="dmx-fixture-type">Fixture type</Label>
                                     <NativeSelect
@@ -1369,21 +1369,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         {FIXTURE_TYPE_OPTIONS.map((opt) => (
                                             <NativeSelectOption key={opt.value} value={opt.value}>
                                                 {opt.label}
-                                            </NativeSelectOption>
-                                        ))}
-                                    </NativeSelect>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="dmx-fixture-universe">Universe</Label>
-                                    <NativeSelect
-                                        id="dmx-fixture-universe"
-                                        value={universeId}
-                                        onChange={(e) => setUniverseId(e.target.value)}
-                                        disabled={props.busy}
-                                    >
-                                        {universes.map((u) => (
-                                            <NativeSelectOption key={u.id} value={u.id}>
-                                                {u.name}
                                             </NativeSelectOption>
                                         ))}
                                     </NativeSelect>
@@ -2150,7 +2135,22 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 </Button>
                                             </div>
                                         ) : ch.type === "goboWheel" ? (
-                                            <div className="mt-3 space-y-2">
+                                            <div className="mt-3 space-y-3">
+                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                                    <Checkbox
+                                                        checked={readCustomPartyInclude(propsMap)}
+                                                        onCheckedChange={(checked) => {
+                                                            updateChannelAt(originalIdx, {
+                                                                properties: {
+                                                                    ...propsMap,
+                                                                    partyInclude: checked === true,
+                                                                },
+                                                            });
+                                                        }}
+                                                        disabled={props.busy}
+                                                    />
+                                                    <span>Include in party mode</span>
+                                                </label>
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
@@ -3297,7 +3297,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 function toward its default (0% = frozen at default, 100% = full motion).
                             </p>
                             <div className="grid gap-3">
-                                {channels.map((ch) => {
+                                {channels.filter((ch) => channelPartyIncludeEnabled(ch)).map((ch) => {
                                     const key = String(Math.round(ch.channel));
                                     const w = partyChannelWeights[key] ?? 100;
                                     return (

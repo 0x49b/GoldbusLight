@@ -35,7 +35,6 @@ New fixtures show **Import fixture** and **Save** only.
 | **Name** | Display name in sidebar and universe |
 | **Brand** | Manufacturer label |
 | **Fixture type** | See types below |
-| **Universe** | Which logical universe this fixture belongs to |
 | **DMX start address** | 1–512; first channel of the fixture |
 | **Master fixture** | **Standalone** or another fixture to mirror as a slave |
 
@@ -112,6 +111,7 @@ Per-fixture party settings:
 | Setting | Description |
 |---------|-------------|
 | **Per-channel reaction %** | 0–100 — how strongly auto/audio party moves each channel |
+| **Include in party mode** (custom / gobo wheel) | Uncheck to leave that channel untouched during party |
 | **Timed strobe bursts** | Enable + on/off durations (ms) |
 | **Cue chase (pose sequence)** | Ordered cues during party — see [Cues & sequences](presets.md) |
 

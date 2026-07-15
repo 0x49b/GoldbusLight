@@ -1,6 +1,6 @@
 # DMX overview
 
-The **DMX** component controls up to **four DMX universes** (512 channels each) over **USB** (Enttec Pro–compatible adapters) and/or **Art-Net**. You define **fixtures** (logical devices) with channel layouts, then patch, live-control, and automate them.
+The **DMX** component controls a **DMX universe** (512 channels) over **USB** (Enttec Pro–compatible adapters) and/or **Art-Net**. You define **fixtures** (logical devices) with channel layouts, then patch, live-control, and automate them.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ The **DMX** component controls up to **four DMX universes** (512 channels each) 
 
 | Transport | Settings location | Notes |
 |-----------|-------------------|-------|
-| **USB** | Settings → DMX → per-universe interface card → USB device | Global **Enable USB transport (all universes)** must be on |
-| **Art-Net** | Settings → DMX → per-universe interface card → **Enable Art-Net for {universe}** | UDP to target IP/broadcast; net/subnet/universe mapping per universe |
+| **USB** | Settings → DMX → DMX interface → USB device | Global **Enable USB transport** must be on |
+| **Art-Net** | Settings → DMX → DMX interface → **Enable Art-Net** | UDP to target IP/broadcast; net/subnet/Art-Net universe mapping |
 | **Simulators** | Settings → DMX → testing toggles | In-process fake USB/Art-Net for development |
 
 Both USB and Art-Net can be active simultaneously; live output fans out to all enabled transports.
@@ -51,7 +51,3 @@ DMX fixtures can be party targets. While party runs, manual live patches are blo
 ## Channel sweep (test tool)
 
 **Settings → DMX → DMX fixture channel sweep (test mode)** sweeps each channel 0→255 to help identify physical wiring. Requires party mode stopped. See [Settings](../settings/index.md).
-
-## Multiple universes
-
-The Universe view supports up to **four** logical universes. Use **Add Universe** to create another; **Remove Universe** deletes an empty universe only. Each universe has its own USB device and Art-Net settings under **Settings → DMX**. Fixtures are assigned to a universe in the fixture **Editor**.

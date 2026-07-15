@@ -75,7 +75,7 @@ func TestNormalizeDMXPartyConfigClampsAndSanitizes(t *testing.T) {
 	if got.Intensity != 100 || got.Speed != 0 || got.ColorVariation != 100 || got.AudioSensitivity != 0 {
 		t.Fatalf("unexpected clamped values: %+v", got)
 	}
-    if got.AudioInputDeviceID != "mic-1" {
+	if got.AudioInputDeviceID != "mic-1" {
 		t.Fatalf("expected trimmed audio input device id, got %q", got.AudioInputDeviceID)
 	}
 	if len(got.FixtureIDs) != 2 || got.FixtureIDs[0] != "fixture-1" || got.FixtureIDs[1] != "fixture-2" {
@@ -261,6 +261,47 @@ func TestBuildDMXPartyFrameProducesBoundedValues(t *testing.T) {
 	}
 }
 
+func TestBuildDMXPartyFrameMovingHeadDimmerFullBright(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "mh",
+					Type:       DMXFixtureTypeMovingHead,
+					DMXAddress: 10,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "dimmer"},
+						{Channel: 2, Type: "dimmerFine"},
+						{Channel: 3, Type: "pan"},
+					},
+					Party: DMXFixtureParty{
+						ChannelWeights: map[string]int{"1": 20, "2": 20},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{
+		Config: DMXPartyConfig{
+			Enabled:   true,
+			Mode:      DMXPartyModeAuto,
+			Intensity: 10, // would normally produce a low dimmer
+			Speed:     50,
+		},
+	}
+	updates, _ := testBuildDMXPartyFrame(c, state, time.Now())
+	byAddr := map[int]int{}
+	for _, u := range updates {
+		byAddr[u.Address] = u.Value
+	}
+	if byAddr[10] != 255 {
+		t.Fatalf("moving head dimmer = %d, want 255", byAddr[10])
+	}
+	if byAddr[11] != 255 {
+		t.Fatalf("moving head dimmer fine = %d, want 255", byAddr[11])
+	}
+}
+
 func TestPushDMXPartyAudioFeaturesClampsValues(t *testing.T) {
 	c := NewWLEDController(log.New(io.Discard, "", 0))
 	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(t.TempDir(), "dmx.json")}
@@ -365,7 +406,7 @@ func TestPartyEntryMidAndSlotIndex(t *testing.T) {
 func TestPartyColorWheelUsesEntries(t *testing.T) {
 	ch := DMXChannel{
 		Channel: 1,
-		Type: "colorWheel",
+		Type:    "colorWheel",
 		Properties: map[string]any{
 			"entries": []any{
 				map[string]any{"from": 0, "to": 10, "label": "Open"},
@@ -402,7 +443,7 @@ func TestPartyColorWheelUsesEntries(t *testing.T) {
 func TestPartyGoboUsesMidForSlotAdvance(t *testing.T) {
 	ch := DMXChannel{
 		Channel: 1,
-		Type: "goboWheel",
+		Type:    "goboWheel",
 		Properties: map[string]any{
 			"entries": []any{
 				map[string]any{"from": 0, "to": 0, "label": "Open"},
@@ -567,6 +608,44 @@ func TestBuildDMXPartyFrameSkipsCustomExcludedFromParty(t *testing.T) {
 	}
 	if !uOwned[2] {
 		t.Fatalf("expected party to own address 3")
+	}
+}
+
+func TestBuildDMXPartyFrameSkipsGoboWheelExcludedFromParty(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "mh",
+					Type:       DMXFixtureTypeMovingHead,
+					DMXAddress: 1,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "pan"},
+						{Channel: 2, Type: "goboWheel", Properties: map[string]any{"partyInclude": false}},
+						{Channel: 3, Type: "dimmer"},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
+	updates, owned := testBuildDMXPartyFrame(c, state, time.Now())
+	addresses := map[int]struct{}{}
+	for _, update := range updates {
+		addresses[update.Address] = struct{}{}
+	}
+	if _, ok := addresses[1]; !ok {
+		t.Fatalf("expected party on pan")
+	}
+	if _, ok := addresses[2]; ok {
+		t.Fatalf("gobo wheel should be excluded from party")
+	}
+	if _, ok := addresses[3]; !ok {
+		t.Fatalf("expected party on dimmer")
+	}
+	uOwned := owned[DefaultDMXUniverseID]
+	if uOwned[1] {
+		t.Fatalf("party should not own excluded gobo address")
 	}
 }
 

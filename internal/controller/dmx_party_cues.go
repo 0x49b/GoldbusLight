@@ -418,11 +418,20 @@ func buildCueSequenceUpdates(
 	universeID := normalizeFixtureUniverseID(fixture.UniverseID, nil)
 	updates := make([]dmx.DMXOutputUpdate, 0, len(fixture.Channels))
 	for _, ch := range fixture.Channels {
+		if !partyChannelIncludeInMode(ch.Type, ch.Properties) {
+			continue
+		}
 		address := fixture.DMXAddress + ch.Channel - 1
 		if address < 1 || address > 512 {
 			continue
 		}
 		value, claim := cueSequenceChannelValue(seq, frame, fixture.ID, ch.Channel)
+		normType := strings.ToLower(strings.TrimSpace(ch.Type))
+		if normalizeFixtureType(fixture.Type) == DMXFixtureTypeMovingHead &&
+			(normType == "dimmer" || normType == "dimmerfine") {
+			value = 255
+			claim = true
+		}
 		if !claim {
 			continue
 		}

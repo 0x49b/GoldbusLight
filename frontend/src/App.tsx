@@ -117,8 +117,6 @@ function App() {
                 usbSerialDevices={app.usbSerialDevices}
                 setRoute={app.setRoute}
                 onReaddressFixtures={app.onReaddressDMXFixtures}
-                onCreateUniverse={() => app.onCreateDMXUniverse()}
-                onDeleteUniverse={app.onDeleteDMXUniverse}
                 dmxLiveStatus={app.dmxLiveStatus}
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
                 startDMXLiveOutput={app.startDMXLiveOutput}

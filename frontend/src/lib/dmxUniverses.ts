@@ -1,43 +1,35 @@
 import type {ControllerSettings, DMXFixture, DMXState, DMXUniverse, DMXUniverseInterfaceSettings} from "@/types/controller";
-import {DEFAULT_DMX_UNIVERSE_ID, MAX_DMX_UNIVERSES} from "@/types/controller";
+import {DEFAULT_DMX_UNIVERSE_ID} from "@/types/controller";
 
-export function normalizeUniverses(universes: DMXUniverse[] | undefined): DMXUniverse[] {
-    if (!universes?.length) {
-        return [{id: DEFAULT_DMX_UNIVERSE_ID, name: "Universe 1"}];
-    }
-    return universes.slice(0, MAX_DMX_UNIVERSES);
+/** Always a single fixed universe after multi-universe collapse. */
+export function normalizeUniverses(_universes?: DMXUniverse[]): DMXUniverse[] {
+    return [{id: DEFAULT_DMX_UNIVERSE_ID, name: "Universe 1"}];
 }
 
-export function resolveUniverseId(universeId: string | undefined, universes: DMXUniverse[]): string {
-    const trimmed = (universeId ?? "").trim();
-    if (trimmed && universes.some((u) => u.id === trimmed)) {
-        return trimmed;
-    }
-    return universes[0]?.id ?? DEFAULT_DMX_UNIVERSE_ID;
+export function resolveUniverseId(_universeId?: string, _universes?: DMXUniverse[]): string {
+    return DEFAULT_DMX_UNIVERSE_ID;
 }
 
-export function fixturesForUniverse(fixtures: DMXFixture[], universeId: string, universes: DMXUniverse[]): DMXFixture[] {
-    const resolved = resolveUniverseId(universeId, universes);
-    return fixtures.filter((fx) => resolveUniverseId(fx.universeId, universes) === resolved);
+export function fixturesForUniverse(fixtures: DMXFixture[], _universeId?: string, _universes?: DMXUniverse[]): DMXFixture[] {
+    return fixtures;
 }
 
-export function countFixturesOnUniverse(fixtures: DMXFixture[], universeId: string, universes: DMXUniverse[]): number {
-    return fixturesForUniverse(fixtures, universeId, universes).length;
+export function countFixturesOnUniverse(fixtures: DMXFixture[], _universeId?: string, _universes?: DMXUniverse[]): number {
+    return fixtures.length;
 }
 
 export function universeInterfaceSettings(
     settings: ControllerSettings | null,
-    universeId: string,
+    _universeId: string,
     dmxState: DMXState,
 ): DMXUniverseInterfaceSettings {
-    const fromSettings = settings?.dmx.universeInterfaces?.[universeId];
+    const fromSettings = settings?.dmx.universeInterfaces?.[DEFAULT_DMX_UNIVERSE_ID];
     if (fromSettings) {
         return fromSettings;
     }
-    const legacyUSB = universeId === DEFAULT_DMX_UNIVERSE_ID ? (dmxState.selectedUSBDeviceId ?? "") : "";
-    const legacyArtNet = universeId === DEFAULT_DMX_UNIVERSE_ID && settings?.dmx.artNet
-        ? settings.dmx.artNet
-        : {
+    return {
+        selectedUSBDeviceId: dmxState.selectedUSBDeviceId ?? "",
+        artNet: settings?.dmx.artNet ?? {
             enabled: false,
             targetHost: "255.255.255.255",
             port: 6454,
@@ -45,25 +37,6 @@ export function universeInterfaceSettings(
             subnet: 0,
             universe: 0,
             refreshHz: 44,
-        };
-    return {
-        selectedUSBDeviceId: legacyUSB,
-        artNet: legacyArtNet,
+        },
     };
-}
-
-export function canDeleteUniverse(
-    universes: DMXUniverse[],
-    universeId: string,
-    fixtures: DMXFixture[],
-    liveConnected: boolean,
-): boolean {
-    if (liveConnected || universes.length <= 1) {
-        return false;
-    }
-    return countFixturesOnUniverse(fixtures, universeId, universes) === 0;
-}
-
-export function canAddUniverse(universes: DMXUniverse[]): boolean {
-    return universes.length < MAX_DMX_UNIVERSES;
 }

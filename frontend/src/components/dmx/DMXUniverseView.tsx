@@ -9,8 +9,6 @@ import {
     universeRange,
 } from "@/lib/dmxUniverseGrid";
 import {
-    canAddUniverse,
-    canDeleteUniverse,
     fixturesForUniverse,
     normalizeUniverses,
     resolveUniverseId,
@@ -20,7 +18,7 @@ import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlav
 import { cn } from "@/lib/utils";
 import type { ControllerSettings, DMXFixture, DMXUniverse, DetailRoute, JSONMap, USBSerialDevice } from "@/types/controller";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { PiPlus, PiTrash, PiWarningCircle } from "react-icons/pi";
+import { PiPlus, PiWarningCircle } from "react-icons/pi";
 import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx";
 
 export type DMXUniverseViewProps = {
@@ -33,8 +31,6 @@ export type DMXUniverseViewProps = {
     usbSerialDevices: USBSerialDevice[];
     setRoute: (route: DetailRoute) => void;
     onReaddressFixtures: (updates: Array<{ id: string; dmxAddress: number }>, successLabel?: string) => Promise<boolean>;
-    onCreateUniverse: () => Promise<DMXUniverse | null>;
-    onDeleteUniverse: (universeId: string) => Promise<boolean>;
     dmxLiveStatus: DMXLiveStatus | null;
     pullDMXLiveStatus: () => Promise<void>;
     startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
@@ -435,8 +431,6 @@ export function DMXUniverseView({
                                     usbSerialDevices,
                                     setRoute,
                                     onReaddressFixtures,
-                                    onCreateUniverse,
-                                    onDeleteUniverse,
                                     dmxLiveStatus,
                                     pullDMXLiveStatus,
                                     startDMXLiveOutput,
@@ -447,8 +441,7 @@ export function DMXUniverseView({
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
     const [dropBusy, setDropBusy] = useState(false);
-    const [universeActionBusy, setUniverseActionBusy] = useState(false);
-    const viewBusy = busy || dropBusy || universeActionBusy;
+    const viewBusy = busy || dropBusy;
     const universes = useMemo(() => normalizeUniverses(universesProp), [universesProp]);
     const activeUniverseId = resolveUniverseId(selectedUniverseId, universes);
 
@@ -482,12 +475,14 @@ export function DMXUniverseView({
     });
     const liveConnected = dmxLiveStatus?.connected === true;
     const anyLive = liveConnected;
-    const showAddUniverse = canAddUniverse(universes);
-    const showDeleteUniverse = canDeleteUniverse(universes, activeUniverseId, allFixtures, anyLive);
-
-    const selectUniverse = (universeId: string) => {
-        setRoute({kind: "dmxUniverse", universeId});
-    };
+    const interfaceLabel = universeInterfaceLabel(
+        activeUniverseId,
+        settings,
+        universes,
+        allFixtures,
+        selectedUSBDeviceId,
+        usbSerialDevices,
+    );
 
     useEffect(() => {
         void pullDMXLiveStatus();
@@ -588,79 +583,21 @@ export function DMXUniverseView({
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
             
             <div className="flex flex-wrap w-full items-start gap-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    {universes.map((u) => {
-                        const interfaceLabel = universeInterfaceLabel(
-                            u.id,
-                            settings,
-                            universes,
-                            allFixtures,
-                            selectedUSBDeviceId,
-                            usbSerialDevices,
-                        );
-                        const isActive = u.id === activeUniverseId;
-                        return (
-                            <Button
-                                key={u.id}
-                                type="button"
-                                size="sm"
-                                variant={isActive ? "default" : "outline"}
-                                className="h-auto min-w-0 flex-col items-start gap-0.5 px-3 py-2 text-left"
-                                onClick={() => selectUniverse(u.id)}
-                                disabled={viewBusy}
-                            >
-                                <span className="text-sm font-semibold leading-none">{u.name}</span>
-                                <span
-                                    className={cn(
-                                        "max-w-[14rem] truncate text-xs leading-tight",
-                                        isActive ? "opacity-90" : "text-muted-foreground",
-                                    )}
-                                    title={interfaceLabel}
-                                >
-                                    {interfaceLabel}
-                                </span>
-                            </Button>
-                        );
-                    })}
+                <div className="flex min-w-0 flex-col gap-0.5 px-1">
+                    <span className="text-sm font-semibold leading-none">Universe</span>
+                    <span
+                        className="max-w-[18rem] truncate text-xs leading-tight text-muted-foreground"
+                        title={interfaceLabel}
+                    >
+                        {interfaceLabel}
+                    </span>
                 </div>
                 <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-                    {showAddUniverse && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="px-2"
-                            title="Add universe"
-                            onClick={() => {
-                                setUniverseActionBusy(true);
-                                void onCreateUniverse().finally(() => setUniverseActionBusy(false));
-                            }}
-                            disabled={viewBusy}
-                        >
-                            <PiPlus className="size-4"/> Add Universe
-                        </Button>
-                    )}
-                    {showDeleteUniverse && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="px-2 text-destructive hover:text-destructive"
-                            title="Delete empty universe"
-                            onClick={() => {
-                                setUniverseActionBusy(true);
-                                void onDeleteUniverse(activeUniverseId).finally(() => setUniverseActionBusy(false));
-                            }}
-                            disabled={viewBusy}
-                        >
-                            <PiTrash className="size-4"/> Remove Universe
-                        </Button>
-                    )}
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setRoute({kind: "dmxAddFixture", universeId: activeUniverseId})}
+                        onClick={() => setRoute({kind: "dmxAddFixture"})}
                         disabled={viewBusy}
                     >
                         <PiPlus className="mr-1 size-4"/>

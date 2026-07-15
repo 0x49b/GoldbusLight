@@ -4,6 +4,18 @@ export function readCustomPartyInclude(props: JSONMap | undefined): boolean {
     return props?.partyInclude !== false;
 }
 
+/** Channels that support an explicit Include-in-party toggle (default on). */
+export function channelSupportsPartyIncludeToggle(channelType: DMXChannelType): boolean {
+    return channelType === "custom" || channelType === "goboWheel";
+}
+
+export function channelPartyIncludeEnabled(channel: DMXChannel): boolean {
+    if (!channelSupportsPartyIncludeToggle(channel.type)) {
+        return true;
+    }
+    return readCustomPartyInclude(channel.properties as JSONMap | undefined);
+}
+
 const PARTY_MOVING_HEAD = new Set<DMXChannelType>([
     "pan", "panFine", "tilt", "tiltFine", "infinitePan", "infiniteTilt", "movementSpeed",
     "dimmer", "dimmerFine", "colorWheel", "colorComponent", "colorTemperature", "greenSaturation", "xfadeToColor",
@@ -60,10 +72,7 @@ export function channelIncludedInParty(fixture: DMXFixture, channel: DMXChannel)
     if (!partyAllowsChannelType(fixture.type, channel.type)) {
         return false;
     }
-    if (channel.type === "custom") {
-        return readCustomPartyInclude(channel.properties as JSONMap | undefined);
-    }
-    return true;
+    return channelPartyIncludeEnabled(channel);
 }
 
 export function fixturePartyIncludesChannelType(fixture: DMXFixture, type: DMXChannelType): boolean {

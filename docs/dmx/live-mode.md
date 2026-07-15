@@ -13,7 +13,7 @@ The **Live** tab on a fixture page provides manual real-time control over DMX ch
 
 | From | Action |
 |------|--------|
-| **Universe** | **DMX Output - ON** (fixtures in active universe) |
+| **Universe** | **DMX Output - ON** |
 | **Fixture** | **Start live** in toolbar (fixture-focused) |
 
 On fixture open, the controller applies the **idle / startup position** cue if configured, otherwise channel **default values**.
@@ -78,4 +78,4 @@ Stopping pushes power-off values then disconnects transports.
 
 ## USB device selection
 
-Select the USB adapter under **Settings → DMX** on the **{Universe name} interface** card for each universe. Global **Enable USB transport (all universes)** must be on. Click **Refresh USB devices** if you plug in hardware after starting the app.
+Select the USB adapter under **Settings → DMX**. Global **Enable USB transport** must be on. Click **Refresh USB devices** if you plug in hardware after starting the app.

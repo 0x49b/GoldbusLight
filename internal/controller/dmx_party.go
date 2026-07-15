@@ -584,7 +584,7 @@ func (c *WLEDController) buildDMXPartyFrame(
 			if !partyAllowsChannel(fixtureType, ch.Type) {
 				continue
 			}
-			if strings.EqualFold(strings.TrimSpace(ch.Type), "custom") && !partyCustomIncludeInMode(ch.Properties) {
+			if !partyChannelIncludeInMode(ch.Type, ch.Properties) {
 				continue
 			}
 			address := fixture.DMXAddress + ch.Channel - 1
@@ -613,7 +613,11 @@ func (c *WLEDController) buildDMXPartyFrame(
 			}
 			normType := strings.ToLower(strings.TrimSpace(ch.Type))
 			wp := fixturePartyChannelWeightPercent(fixture.Party, ch.Channel)
-			if wp < 100 {
+			// Moving-head dimmers stay full bright regardless of reaction weight.
+			if fixtureType == DMXFixtureTypeMovingHead && (normType == "dimmer" || normType == "dimmerfine") {
+				wp = 100
+				next = 255
+			} else if wp < 100 {
 				neu := partyWeightNeutralByte(ch, normType, fixtureType)
 				next = applyPartyChannelMotionWeight(neu, next, wp)
 			}
@@ -656,6 +660,11 @@ func partyValueForFixtureChannel(
 	case "dimmer", "dimmerfine":
 		if fixtureType == DMXFixtureTypeSmoke || fixtureType == DMXFixtureTypeHazer {
 			return partySmokeFixtureOutput(state.Config, ch, normType, burstAnchor, now), true
+		}
+		// Moving heads stay full open so color/gobo/motion read clearly; intensity
+		// still affects other fixture types and non-dimmer MH channels.
+		if fixtureType == DMXFixtureTypeMovingHead {
+			return 255, true
 		}
 		v := 45 + 180*intensity
 		v += 30 * audioBoost

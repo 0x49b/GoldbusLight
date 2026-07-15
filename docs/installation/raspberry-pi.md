@@ -222,4 +222,4 @@ For `GOLDBUS_SERVICE_MODE=system`, use `journalctl -u goldbuslight.service -f`.
 
 ## USB DMX on the Pi
 
-Plug in your USB-DMX adapter before starting the app. Ensure the run user can access serial devices (often membership in the `dialout` group). Enable **Enable USB transport (all universes)** and select the device on each **{Universe name} interface** card under **Settings → DMX**.
+Plug in your USB-DMX adapter before starting the app. Ensure the run user can access serial devices (often membership in the `dialout` group). Enable **Enable USB transport** and select the device under **Settings → DMX**.

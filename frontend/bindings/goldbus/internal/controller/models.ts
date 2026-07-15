@@ -1007,7 +1007,7 @@ export class DMXTestingSettings {
 }
 
 /**
- * DMXUniverse is a logical DMX universe (up to 512 channels) managed by the app.
+ * DMXUniverse is the single logical DMX universe (512 channels) managed by the app.
  */
 export class DMXUniverse {
     "id": string;
@@ -1035,7 +1035,7 @@ export class DMXUniverse {
 }
 
 /**
- * DMXUniverseInterfaceSettings holds per-universe output interface configuration (Settings → DMX).
+ * DMXUniverseInterfaceSettings holds output interface configuration (Settings → DMX).
  */
 export class DMXUniverseInterfaceSettings {
     "selectedUSBDeviceId": string;

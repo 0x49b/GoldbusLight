@@ -2,24 +2,22 @@ package controller
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"goldbus/internal/dmx"
 )
 
-const (
-	DefaultDMXUniverseID = "universe-1"
-	MaxDMXUniverses      = 4
-)
+const DefaultDMXUniverseID = "universe-1"
 
-// DMXUniverse is a logical DMX universe (up to 512 channels) managed by the app.
+// DMXUniverse is the single logical DMX universe (512 channels) managed by the app.
 type DMXUniverse struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// DMXUniverseInterfaceSettings holds per-universe output interface configuration (Settings → DMX).
+// DMXUniverseInterfaceSettings holds output interface configuration (Settings → DMX).
 type DMXUniverseInterfaceSettings struct {
 	SelectedUSBDeviceID string         `json:"selectedUSBDeviceId"`
 	ArtNet              ArtNetSettings `json:"artNet"`
@@ -37,34 +35,10 @@ func defaultDMXUniverses() []DMXUniverse {
 	return []DMXUniverse{{ID: DefaultDMXUniverseID, Name: "Universe 1"}}
 }
 
+// normalizeDMXUniverses collapses any saved multi-universe list to the single fixed universe.
 func normalizeDMXUniverses(universes []DMXUniverse) []DMXUniverse {
-	if len(universes) == 0 {
-		return defaultDMXUniverses()
-	}
-	out := make([]DMXUniverse, 0, len(universes))
-	seen := make(map[string]struct{}, len(universes))
-	for i, u := range universes {
-		id := strings.TrimSpace(u.ID)
-		if id == "" {
-			id = fmt.Sprintf("universe-%d", i+1)
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		name := strings.TrimSpace(u.Name)
-		if name == "" {
-			name = fmt.Sprintf("Universe %d", len(out)+1)
-		}
-		out = append(out, DMXUniverse{ID: id, Name: name})
-		if len(out) >= MaxDMXUniverses {
-			break
-		}
-	}
-	if len(out) == 0 {
-		return defaultDMXUniverses()
-	}
-	return out
+	_ = universes
+	return defaultDMXUniverses()
 }
 
 func universeIDs(universes []DMXUniverse) []string {
@@ -86,25 +60,15 @@ func findDMXUniverse(universes []DMXUniverse, id string) (DMXUniverse, bool) {
 }
 
 func defaultUniverseIDForFixture(universes []DMXUniverse) string {
-	norm := normalizeDMXUniverses(universes)
-	if len(norm) == 0 {
-		return DefaultDMXUniverseID
-	}
-	return norm[0].ID
+	_ = universes
+	return DefaultDMXUniverseID
 }
 
+// normalizeFixtureUniverseID always maps fixtures onto the single fixed universe.
 func normalizeFixtureUniverseID(universeID string, universes []DMXUniverse) string {
-	universeID = strings.TrimSpace(universeID)
-	norm := normalizeDMXUniverses(universes)
-	if universeID == "" {
-		return defaultUniverseIDForFixture(norm)
-	}
-	for _, u := range norm {
-		if u.ID == universeID {
-			return universeID
-		}
-	}
-	return defaultUniverseIDForFixture(norm)
+	_ = universeID
+	_ = universes
+	return DefaultDMXUniverseID
 }
 
 func countFixturesOnUniverse(fixtures []DMXFixture, universes []DMXUniverse, universeID string) int {
@@ -117,46 +81,92 @@ func countFixturesOnUniverse(fixtures []DMXFixture, universes []DMXUniverse, uni
 	return count
 }
 
+func dmxUniverseInterfaceConfigured(iface DMXUniverseInterfaceSettings) bool {
+	if strings.TrimSpace(iface.SelectedUSBDeviceID) != "" {
+		return true
+	}
+	return iface.ArtNet.Enabled
+}
+
+func mergeDMXUniverseInterface(base, fallback DMXUniverseInterfaceSettings) DMXUniverseInterfaceSettings {
+	out := base
+	out.SelectedUSBDeviceID = strings.TrimSpace(out.SelectedUSBDeviceID)
+	out.ArtNet = clampArtNetSettingsPtr(&out.ArtNet)
+	if out.SelectedUSBDeviceID == "" {
+		out.SelectedUSBDeviceID = strings.TrimSpace(fallback.SelectedUSBDeviceID)
+	}
+	if !out.ArtNet.Enabled {
+		fb := clampArtNetSettingsPtr(&fallback.ArtNet)
+		if fb.Enabled || (strings.TrimSpace(out.ArtNet.TargetHost) == "" && strings.TrimSpace(fb.TargetHost) != "") {
+			out.ArtNet = fb
+		}
+	}
+	return out
+}
+
+// normalizeDMXUniverseInterfaces keeps only universe-1, migrating USB/Art-Net from
+// legacy fields or any previously saved per-universe entry.
+//
+// Important: an empty universe-1 entry must not win over a configured interface that
+// lived on another universe id before the single-universe collapse.
 func normalizeDMXUniverseInterfaces(
 	interfaces map[string]DMXUniverseInterfaceSettings,
 	universes []DMXUniverse,
 	legacyUSB string,
 	legacyArtNet ArtNetSettings,
 ) map[string]DMXUniverseInterfaceSettings {
-	out := make(map[string]DMXUniverseInterfaceSettings, len(universes))
-	for _, u := range universes {
-		if existing, ok := interfaces[u.ID]; ok {
-			cp := existing
-			cp.ArtNet = clampArtNetSettingsPtr(&cp.ArtNet)
-			out[u.ID] = cp
-			continue
+	_ = universes
+	legacy := defaultDMXUniverseInterfaceSettings()
+	legacy.SelectedUSBDeviceID = strings.TrimSpace(legacyUSB)
+	if legacyArtNet.Enabled || strings.TrimSpace(legacyArtNet.TargetHost) != "" {
+		legacy.ArtNet = clampArtNetSettingsPtr(&legacyArtNet)
+	}
+
+	var chosen DMXUniverseInterfaceSettings
+	found := false
+
+	if existing, ok := interfaces[DefaultDMXUniverseID]; ok && dmxUniverseInterfaceConfigured(existing) {
+		chosen = existing
+		found = true
+	} else if len(interfaces) > 0 {
+		keys := make([]string, 0, len(interfaces))
+		for id := range interfaces {
+			if id == DefaultDMXUniverseID {
+				continue
+			}
+			keys = append(keys, id)
 		}
-		def := defaultDMXUniverseInterfaceSettings()
-		if u.ID == DefaultDMXUniverseID {
-			def.SelectedUSBDeviceID = strings.TrimSpace(legacyUSB)
-			if legacyArtNet.Enabled || strings.TrimSpace(legacyArtNet.TargetHost) != "" {
-				def.ArtNet = legacyArtNet
+		slices.Sort(keys)
+		for _, id := range keys {
+			if dmxUniverseInterfaceConfigured(interfaces[id]) {
+				chosen = interfaces[id]
+				found = true
+				break
 			}
 		}
-		out[u.ID] = def
+		if !found {
+			if existing, ok := interfaces[DefaultDMXUniverseID]; ok {
+				chosen = existing
+				found = true
+			} else if len(keys) > 0 {
+				chosen = interfaces[keys[0]]
+				found = true
+			}
+		}
 	}
-	return out
+
+	if !found {
+		chosen = legacy
+	} else {
+		chosen = mergeDMXUniverseInterface(chosen, legacy)
+	}
+
+	return map[string]DMXUniverseInterfaceSettings{DefaultDMXUniverseID: chosen}
 }
 
-// clampDMXUniverseInterfaces sanitizes per-universe interface entries without dropping
-// universes that are not in the provided list (used when merging settings from the UI).
+// clampDMXUniverseInterfaces sanitizes interface entries and collapses to universe-1.
 func clampDMXUniverseInterfaces(interfaces map[string]DMXUniverseInterfaceSettings) map[string]DMXUniverseInterfaceSettings {
-	if len(interfaces) == 0 {
-		return map[string]DMXUniverseInterfaceSettings{}
-	}
-	out := make(map[string]DMXUniverseInterfaceSettings, len(interfaces))
-	for id, iface := range interfaces {
-		cp := iface
-		cp.SelectedUSBDeviceID = strings.TrimSpace(cp.SelectedUSBDeviceID)
-		cp.ArtNet = clampArtNetSettingsPtr(&cp.ArtNet)
-		out[id] = cp
-	}
-	return out
+	return normalizeDMXUniverseInterfaces(interfaces, nil, "", DefaultControllerSettings().DMX.ArtNet)
 }
 
 func clampArtNetSettingsPtr(s *ArtNetSettings) ArtNetSettings {
@@ -169,112 +179,14 @@ func clampArtNetSettingsPtr(s *ArtNetSettings) ArtNetSettings {
 	return cp
 }
 
-// CreateDMXUniverse adds a new universe (up to MaxDMXUniverses).
-func (c *WLEDController) CreateDMXUniverse(name string) (DMXUniverse, error) {
-	if !c.dmxEnabled() {
-		return DMXUniverse{}, fmt.Errorf("dmx component is disabled in settings")
-	}
-	name = strings.TrimSpace(name)
-
-	c.mu.Lock()
-
-	c.dmxState.Universes = normalizeDMXUniverses(c.dmxState.Universes)
-	if len(c.dmxState.Universes) >= MaxDMXUniverses {
-		c.mu.Unlock()
-		return DMXUniverse{}, fmt.Errorf("maximum of %d universes reached", MaxDMXUniverses)
-	}
-
-	nextIndex := len(c.dmxState.Universes) + 1
-	id := fmt.Sprintf("universe-%d", time.Now().UnixNano())
-	if name == "" {
-		name = fmt.Sprintf("Universe %d", nextIndex)
-	}
-	created := DMXUniverse{ID: id, Name: name}
-	c.dmxState.Universes = append(c.dmxState.Universes, created)
-
-	// Ensure interface settings entry exists for the new universe.
-	if c.settings.DMX.UniverseInterfaces == nil {
-		c.settings.DMX.UniverseInterfaces = map[string]DMXUniverseInterfaceSettings{}
-	}
-	c.settings.DMX.UniverseInterfaces[id] = defaultDMXUniverseInterfaceSettings()
-
-	c.dmxState = normalizeDMXState(c.dmxState)
-	c.dmxPersistEnabled = true
-	c.updated = time.Now()
-	c.mu.Unlock()
-
-	if err := c.persistDMX(); err != nil {
-		return DMXUniverse{}, err
-	}
-	if err := c.persist(); err != nil {
-		return DMXUniverse{}, err
-	}
-	return created, nil
-}
-
-// DeleteDMXUniverse removes a universe when DMX is not live and it has no fixtures.
-func (c *WLEDController) DeleteDMXUniverse(universeID string) error {
-	if !c.dmxEnabled() {
-		return fmt.Errorf("dmx component is disabled in settings")
-	}
-	universeID = strings.TrimSpace(universeID)
-	if universeID == "" {
-		return fmt.Errorf("universe id is required")
-	}
-
-	c.dmxLiveMu.Lock()
-	live := c.dmxLiveRunning
-	c.dmxLiveMu.Unlock()
-	if live {
-		return fmt.Errorf("cannot delete universe while DMX live output is running")
-	}
-
-	c.mu.Lock()
-
-	c.dmxState.Universes = normalizeDMXUniverses(c.dmxState.Universes)
-	if len(c.dmxState.Universes) <= 1 {
-		c.mu.Unlock()
-		return fmt.Errorf("cannot delete the last universe")
-	}
-	if _, ok := findDMXUniverse(c.dmxState.Universes, universeID); !ok {
-		c.mu.Unlock()
-		return fmt.Errorf("unknown universe: %s", universeID)
-	}
-	if countFixturesOnUniverse(c.dmxState.Fixtures, c.dmxState.Universes, universeID) > 0 {
-		c.mu.Unlock()
-		return fmt.Errorf("cannot delete universe with fixtures; move or delete fixtures first")
-	}
-
-	next := make([]DMXUniverse, 0, len(c.dmxState.Universes)-1)
-	for _, u := range c.dmxState.Universes {
-		if u.ID != universeID {
-			next = append(next, u)
-		}
-	}
-	c.dmxState.Universes = next
-	delete(c.settings.DMX.UniverseInterfaces, universeID)
-
-	c.dmxState = normalizeDMXState(c.dmxState)
-	c.dmxPersistEnabled = true
-	c.updated = time.Now()
-	c.mu.Unlock()
-
-	if err := c.persistDMX(); err != nil {
-		return err
-	}
-	return c.persist()
-}
-
-// SetDMXUniverseUSBDevice sets the USB device for a specific universe interface.
+// SetDMXUniverseUSBDevice sets the USB device for the single universe interface.
 func (c *WLEDController) SetDMXUniverseUSBDevice(universeID, deviceID string) error {
 	if !c.dmxEnabled() {
 		return fmt.Errorf("dmx component is disabled in settings")
 	}
-	universeID = strings.TrimSpace(universeID)
+	_ = universeID
+	universeID = DefaultDMXUniverseID
 	deviceID = strings.TrimSpace(deviceID)
-	if universeID == "" {
-		return fmt.Errorf("universe id is required")
-	}
 	if deviceID != "" {
 		dev, ok := dmx.PickUSBSerialDevice(deviceID, c.listUSBSerialDevicesWithSimulators())
 		if !ok {
@@ -285,30 +197,21 @@ func (c *WLEDController) SetDMXUniverseUSBDevice(universeID, deviceID string) er
 
 	c.mu.Lock()
 	c.dmxState.Universes = normalizeDMXUniverses(c.dmxState.Universes)
-	if _, ok := findDMXUniverse(c.dmxState.Universes, universeID); !ok {
-		c.mu.Unlock()
-		return fmt.Errorf("unknown universe: %s", universeID)
-	}
 	if c.settings.DMX.UniverseInterfaces == nil {
 		c.settings.DMX.UniverseInterfaces = map[string]DMXUniverseInterfaceSettings{}
 	}
 	iface := c.settings.DMX.UniverseInterfaces[universeID]
 	iface.SelectedUSBDeviceID = deviceID
 	c.settings.DMX.UniverseInterfaces[universeID] = iface
-	// Keep legacy field in sync for universe 1.
-	if universeID == DefaultDMXUniverseID {
-		c.dmxState.SelectedUSBDeviceID = deviceID
-	}
+	c.dmxState.SelectedUSBDeviceID = deviceID
 	c.updated = time.Now()
 	c.mu.Unlock()
 
 	if err := c.persist(); err != nil {
 		return err
 	}
-	if universeID == DefaultDMXUniverseID {
-		if err := c.persistDMX(); err != nil {
-			return err
-		}
+	if err := c.persistDMX(); err != nil {
+		return err
 	}
 	return c.reconcileDMXLiveAdapters()
 }
@@ -320,15 +223,14 @@ func (c *WLEDController) universeInterfaceSettings(universeID string) DMXUnivers
 }
 
 func (c *WLEDController) universeInterfaceSettingsLocked(universeID string) DMXUniverseInterfaceSettings {
+	universeID = DefaultDMXUniverseID
 	if c.settings.DMX.UniverseInterfaces != nil {
 		if iface, ok := c.settings.DMX.UniverseInterfaces[universeID]; ok {
 			return iface
 		}
 	}
 	def := defaultDMXUniverseInterfaceSettings()
-	if universeID == DefaultDMXUniverseID {
-		def.SelectedUSBDeviceID = strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
-		def.ArtNet = c.settings.DMX.ArtNet
-	}
+	def.SelectedUSBDeviceID = strings.TrimSpace(c.dmxState.SelectedUSBDeviceID)
+	def.ArtNet = c.settings.DMX.ArtNet
 	return def
 }

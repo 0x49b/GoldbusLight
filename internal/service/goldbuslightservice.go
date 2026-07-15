@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"goldbus"
 	"goldbus/internal/console"
-	"goldbus/internal/updates"
 	ctrlpkg "goldbus/internal/controller"
 	"goldbus/internal/dmx"
+	"goldbus/internal/updates"
 	"log"
 	"os"
 	"strings"
@@ -17,11 +17,11 @@ import (
 
 // Service timeout constants for operations
 const (
-	TimeoutNetworkApply = 20 * time.Second
+	TimeoutNetworkApply  = 20 * time.Second
 	TimeoutAddWLEDDevice = 8 * time.Second
-	TimeoutDeviceOp     = 5 * time.Second
-	TimeoutDeviceDetail = 8 * time.Second
-	TimeoutProvision    = 8 * time.Second
+	TimeoutDeviceOp      = 5 * time.Second
+	TimeoutDeviceDetail  = 8 * time.Second
+	TimeoutProvision     = 8 * time.Second
 )
 
 type GoldbusLightService struct {
@@ -334,18 +334,6 @@ func (g *GoldbusLightService) SetSelectedUSBSerialDevice(deviceID string) (ctrlp
 			return ctrlpkg.DMXState{}, err
 		}
 		return c.GetDMXState(), nil
-	})
-}
-
-func (g *GoldbusLightService) CreateDMXUniverse(name string) (ctrlpkg.DMXUniverse, error) {
-	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.DMXUniverse, error) {
-		return c.CreateDMXUniverse(name)
-	})
-}
-
-func (g *GoldbusLightService) DeleteDMXUniverse(universeID string) error {
-	return g.withController(func(c *ctrlpkg.WLEDController) error {
-		return c.DeleteDMXUniverse(universeID)
 	})
 }
 

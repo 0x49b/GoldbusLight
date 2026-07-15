@@ -344,7 +344,6 @@ export type DMXUniverse = {
 };
 
 export const DEFAULT_DMX_UNIVERSE_ID = "universe-1";
-export const MAX_DMX_UNIVERSES = 4;
 
 export type USBSerialDevice = {
     id: string;

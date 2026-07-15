@@ -5,7 +5,6 @@ import (
 	"log"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func testControllerWithPersistence(t *testing.T) *WLEDController {
@@ -22,80 +21,32 @@ func testControllerWithPersistence(t *testing.T) *WLEDController {
 	return c
 }
 
-func TestCreateDMXUniversePersistsWithoutDeadlock(t *testing.T) {
-	c := testControllerWithPersistence(t)
-
-	done := make(chan struct{})
-	var created DMXUniverse
-	var err error
-	go func() {
-		created, err = c.CreateDMXUniverse("")
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("CreateDMXUniverse deadlocked while persisting")
-	}
-	if err != nil {
-		t.Fatalf("CreateDMXUniverse: %v", err)
-	}
-	if created.ID == "" || created.Name == "" {
-		t.Fatalf("expected created universe metadata, got %+v", created)
-	}
-
-	st := c.GetDMXState()
-	if len(st.Universes) != 2 {
-		t.Fatalf("expected 2 universes after create, got %d", len(st.Universes))
-	}
-}
-
-func TestDeleteDMXUniversePersistsWithoutDeadlock(t *testing.T) {
-	c := testControllerWithPersistence(t)
-
-	created, err := c.CreateDMXUniverse("Universe 2")
-	if err != nil {
-		t.Fatalf("CreateDMXUniverse: %v", err)
-	}
-
-	done := make(chan struct{})
-	var deleteErr error
-	go func() {
-		deleteErr = c.DeleteDMXUniverse(created.ID)
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("DeleteDMXUniverse deadlocked while persisting")
-	}
-	if deleteErr != nil {
-		t.Fatalf("DeleteDMXUniverse: %v", deleteErr)
-	}
-
-	st := c.GetDMXState()
-	if len(st.Universes) != 1 {
-		t.Fatalf("expected 1 universe after delete, got %d", len(st.Universes))
-	}
-}
-
-func TestSaveSettingsPreservesPerUniverseInterfaces(t *testing.T) {
-	c := testControllerWithPersistence(t)
-
-	u2, err := c.CreateDMXUniverse("Universe 2")
-	if err != nil {
-		t.Fatalf("CreateDMXUniverse: %v", err)
-	}
-
-	c.mu.Lock()
-	c.settings.DMX.UniverseInterfaces = map[string]DMXUniverseInterfaceSettings{
-		DefaultDMXUniverseID: {
-			SelectedUSBDeviceID: "usb-a",
-			ArtNet:              DefaultControllerSettings().DMX.ArtNet,
+func TestNormalizeDMXStateCollapsesMultipleUniverses(t *testing.T) {
+	st := DMXState{
+		Universes: []DMXUniverse{
+			{ID: DefaultDMXUniverseID, Name: "Universe 1"},
+			{ID: "universe-extra", Name: "Universe 2"},
 		},
-		u2.ID: {
+		Fixtures: []DMXFixture{
+			{ID: "fx-1", Name: "A", UniverseID: DefaultDMXUniverseID, DMXAddress: 1, Type: DMXFixtureTypeMovingHead},
+			{ID: "fx-2", Name: "B", UniverseID: "universe-extra", DMXAddress: 10, Type: DMXFixtureTypeMovingHead},
+		},
+		Party: defaultDMXPartyState(),
+	}
+	normalized := normalizeDMXState(st)
+	if len(normalized.Universes) != 1 || normalized.Universes[0].ID != DefaultDMXUniverseID {
+		t.Fatalf("expected single universe-1, got %+v", normalized.Universes)
+	}
+	for _, fx := range normalized.Fixtures {
+		if fx.UniverseID != DefaultDMXUniverseID {
+			t.Fatalf("fixture %s universe = %q, want %s", fx.ID, fx.UniverseID, DefaultDMXUniverseID)
+		}
+	}
+}
+
+func TestNormalizeDMXUniverseInterfacesKeepsUniverse1(t *testing.T) {
+	interfaces := map[string]DMXUniverseInterfaceSettings{
+		"universe-extra": {
 			SelectedUSBDeviceID: "usb-b",
 			ArtNet: ArtNetSettings{
 				Enabled:    true,
@@ -106,6 +57,69 @@ func TestSaveSettingsPreservesPerUniverseInterfaces(t *testing.T) {
 			},
 		},
 	}
+	out := normalizeDMXUniverseInterfaces(interfaces, nil, "usb-legacy", DefaultControllerSettings().DMX.ArtNet)
+	if len(out) != 1 {
+		t.Fatalf("expected 1 interface entry, got %d", len(out))
+	}
+	iface, ok := out[DefaultDMXUniverseID]
+	if !ok {
+		t.Fatal("missing universe-1 interface")
+	}
+	if iface.SelectedUSBDeviceID != "usb-b" {
+		t.Fatalf("usb = %q, want usb-b (migrated from extra universe)", iface.SelectedUSBDeviceID)
+	}
+	if !iface.ArtNet.Enabled || iface.ArtNet.TargetHost != "10.0.0.2" {
+		t.Fatalf("art-net not migrated: %+v", iface.ArtNet)
+	}
+}
+
+func TestNormalizeDMXUniverseInterfacesPrefersConfiguredOverEmptyUniverse1(t *testing.T) {
+	interfaces := map[string]DMXUniverseInterfaceSettings{
+		DefaultDMXUniverseID: {
+			SelectedUSBDeviceID: "",
+			ArtNet:              DefaultControllerSettings().DMX.ArtNet,
+		},
+		"universe-extra": {
+			SelectedUSBDeviceID: "usb-live",
+			ArtNet: ArtNetSettings{
+				Enabled:    true,
+				TargetHost: "192.168.1.50",
+				Port:       6454,
+				Universe:   2,
+				RefreshHz:  40,
+			},
+		},
+	}
+	out := normalizeDMXUniverseInterfaces(interfaces, nil, "", DefaultControllerSettings().DMX.ArtNet)
+	iface := out[DefaultDMXUniverseID]
+	if iface.SelectedUSBDeviceID != "usb-live" {
+		t.Fatalf("usb = %q, want usb-live", iface.SelectedUSBDeviceID)
+	}
+	if !iface.ArtNet.Enabled || iface.ArtNet.TargetHost != "192.168.1.50" || iface.ArtNet.Universe != 2 {
+		t.Fatalf("art-net not taken from configured universe: %+v", iface.ArtNet)
+	}
+}
+
+func TestSaveSettingsPreservesUniverse1Interface(t *testing.T) {
+	c := testControllerWithPersistence(t)
+
+	c.mu.Lock()
+	c.settings.DMX.UniverseInterfaces = map[string]DMXUniverseInterfaceSettings{
+		DefaultDMXUniverseID: {
+			SelectedUSBDeviceID: "usb-a",
+			ArtNet: ArtNetSettings{
+				Enabled:    true,
+				TargetHost: "10.0.0.1",
+				Port:       6454,
+				Universe:   0,
+				RefreshHz:  44,
+			},
+		},
+		"orphan-universe": {
+			SelectedUSBDeviceID: "usb-orphan",
+			ArtNet:              DefaultControllerSettings().DMX.ArtNet,
+		},
+	}
 	saved := c.settings
 	c.mu.Unlock()
 
@@ -113,15 +127,11 @@ func TestSaveSettingsPreservesPerUniverseInterfaces(t *testing.T) {
 		t.Fatalf("SaveSettings: %v", err)
 	}
 
-	iface1 := c.universeInterfaceSettings(DefaultDMXUniverseID)
-	iface2 := c.universeInterfaceSettings(u2.ID)
-	if iface1.SelectedUSBDeviceID != "usb-a" {
-		t.Fatalf("universe 1 usb = %q, want usb-a", iface1.SelectedUSBDeviceID)
+	iface := c.universeInterfaceSettings(DefaultDMXUniverseID)
+	if iface.SelectedUSBDeviceID != "usb-a" {
+		t.Fatalf("universe 1 usb = %q, want usb-a", iface.SelectedUSBDeviceID)
 	}
-	if iface2.SelectedUSBDeviceID != "usb-b" {
-		t.Fatalf("universe 2 usb = %q, want usb-b", iface2.SelectedUSBDeviceID)
-	}
-	if !iface2.ArtNet.Enabled || iface2.ArtNet.TargetHost != "10.0.0.2" {
-		t.Fatalf("universe 2 art-net not preserved: %+v", iface2.ArtNet)
+	if !iface.ArtNet.Enabled || iface.ArtNet.TargetHost != "10.0.0.1" {
+		t.Fatalf("universe 1 art-net not preserved: %+v", iface.ArtNet)
 	}
 }

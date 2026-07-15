@@ -45,7 +45,7 @@ Visible when **Enable DMX component** is on in Settings.
 
 | Item | Route | Description |
 |------|-------|-------------|
-| **Universe** | 512-channel universe grid per logical universe, drag-to-readdress, DMX output toggle |
+| **Universe** | 512-channel universe grid, drag-to-readdress, DMX output toggle |
 | **DMX Devices → *name* - TYPE*** | Fixture editor / live / cues |
 | **+** (group action) | **Create new DMX device** |
 
