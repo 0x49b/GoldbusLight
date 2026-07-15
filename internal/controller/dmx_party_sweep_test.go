@@ -116,3 +116,17 @@ func TestPartySweepPanTiltOutOfLockstep(t *testing.T) {
 		t.Fatal("pan and tilt sweeps should not be identical")
 	}
 }
+
+func TestPartyEffectiveSweepRangeAngleLimit(t *testing.T) {
+	fixture := DMXFixture{MovingHead: MovingHeadConfig{MaxPan: 540, MaxTilt: 270}}
+	cfg := DMXPartyConfig{MovementRange: 100, MovementAngleLimitDeg: 45}
+	got := partyEffectiveSweepRange(cfg, fixture, false)
+	want := 2.0 * 45.0 / 540.0
+	if got > want+0.001 || got < want-0.001 {
+		t.Fatalf("pan angle limit sweep = %.4f, want %.4f", got, want)
+	}
+	narrow := partyEffectiveSweepRange(DMXPartyConfig{MovementRange: 20, MovementAngleLimitDeg: 45}, fixture, false)
+	if narrow > got {
+		t.Fatalf("movement range should further narrow sweep")
+	}
+}

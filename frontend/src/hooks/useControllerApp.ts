@@ -1218,6 +1218,11 @@ export function useControllerApp() {
     }, [ensurePartyEnabled, setDMXState, setError, setStatus, setDMXPartyConfig]);
 
     const stopDMXPartyMode = useCallback(async () => {
+        if (partyConfigTimerRef.current !== undefined) {
+            window.clearTimeout(partyConfigTimerRef.current);
+            partyConfigTimerRef.current = undefined;
+        }
+        partyConfigSendRef.current = null;
         setDMXState((prev) => ({
             ...prev,
             party: {
@@ -2112,6 +2117,21 @@ function clampMs(v: number, min: number, max: number, fallback: number): number 
     return Math.max(min, Math.min(max, n));
 }
 
+function clampMovementAngleLimit(v: number, fallback: number): number {
+    const n = Number.isFinite(v) ? Math.round(v) : fallback;
+    return Math.max(0, Math.min(360, n));
+}
+
+function mergePartyChannelGroups(
+    base: DMXPartyConfig["channelGroups"] | undefined,
+    partial: Partial<DMXPartyConfig["channelGroups"]> | undefined,
+): DMXPartyConfig["channelGroups"] | undefined {
+    if (!base && !partial) {
+        return undefined;
+    }
+    return {...base, ...partial};
+}
+
 function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<DMXPartyConfig>): DMXPartyConfig {
     const modeRaw = partial.mode ?? base?.mode ?? "auto";
     const mode: DMXPartyMode = modeRaw === "audio" ? "audio" : "auto";
@@ -2136,6 +2156,12 @@ function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<
         wledDeviceIds,
         intensity: clampPercent(partial.intensity ?? base?.intensity ?? 80, 80),
         speed: clampPercent(partial.speed ?? base?.speed ?? 55, 55),
+        movementRange: clampPercent(partial.movementRange ?? base?.movementRange ?? 70, 70),
+        movementAngleLimitDeg: clampMovementAngleLimit(
+            partial.movementAngleLimitDeg ?? base?.movementAngleLimitDeg ?? 45,
+            45,
+        ),
+        channelGroups: mergePartyChannelGroups(base?.channelGroups, partial.channelGroups),
         colorVariation: clampPercent(partial.colorVariation ?? base?.colorVariation ?? 70, 70),
         audioSensitivity: clampPercent(partial.audioSensitivity ?? base?.audioSensitivity ?? 60, 60),
         audioInputDeviceId: (partial.audioInputDeviceId ?? base?.audioInputDeviceId ?? "").trim(),

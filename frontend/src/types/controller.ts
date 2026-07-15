@@ -265,6 +265,8 @@ export type DMXFixture = {
 
 export type DMXPartyMode = "auto" | "audio";
 
+export type DMXPartyChannelGroup = "movement" | "color" | "gobo" | "beam" | "effects";
+
 export type DMXPartyConfig = {
     enabled: boolean;
     mode: DMXPartyMode;
@@ -274,6 +276,10 @@ export type DMXPartyConfig = {
     speed: number;
     /** How wide pan/tilt sweeps are (0–100); larger = bigger sweeps. */
     movementRange?: number;
+    /** Max pan/tilt travel from centre in degrees (0 = use movementRange only). */
+    movementAngleLimitDeg?: number;
+    /** Channel category toggles; absent keys default to included. */
+    channelGroups?: Partial<Record<DMXPartyChannelGroup, boolean>>;
     colorVariation: number;
     audioSensitivity: number;
     audioInputDeviceId?: string;

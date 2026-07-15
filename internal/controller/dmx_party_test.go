@@ -701,3 +701,77 @@ func TestStopDMXPartyClearsRunningState(t *testing.T) {
 		t.Fatalf("expected dmxPartyRunning false after stop")
 	}
 }
+
+func TestSetDMXPartyConfigPreservesEnabledWhileRunning(t *testing.T) {
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(t.TempDir(), "dmx.json")}
+	c.mu.Lock()
+	c.settings.DMX.Enabled = true
+	c.dmxState.Party.Config = defaultDMXPartyConfig()
+	c.dmxState.Party.Config.Enabled = true
+	c.dmxState.Party.Status.Running = true
+	c.mu.Unlock()
+
+	cfg := defaultDMXPartyConfig()
+	cfg.Enabled = false
+	cfg.Speed = 22
+	if _, err := c.SetDMXPartyConfig(cfg); err != nil {
+		t.Fatalf("SetDMXPartyConfig: %v", err)
+	}
+	st := c.GetDMXPartyState()
+	if !st.Config.Enabled {
+		t.Fatalf("expected enabled preserved while running, got %+v", st.Config)
+	}
+	if st.Config.Speed != 22 {
+		t.Fatalf("expected speed update, got %d", st.Config.Speed)
+	}
+}
+
+func TestPartyChannelGroupAllowed(t *testing.T) {
+	cfg := DMXPartyConfig{
+		ChannelGroups: map[string]bool{
+			partyChannelGroupGobo: false,
+		},
+	}
+	if !partyChannelGroupAllowed(cfg, "pan") {
+		t.Fatal("movement should be allowed by default")
+	}
+	if partyChannelGroupAllowed(cfg, "gobowheel") {
+		t.Fatal("gobo should be disabled")
+	}
+}
+
+func TestBuildDMXPartyFrameSkipsDisabledChannelGroup(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "mh",
+					Type:       DMXFixtureTypeMovingHead,
+					DMXAddress: 1,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "pan"},
+						{Channel: 2, Type: "goboWheel"},
+						{Channel: 3, Type: "dimmer"},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{
+		Config: DMXPartyConfig{
+			ChannelGroups: map[string]bool{partyChannelGroupGobo: false},
+		},
+	}
+	updates, _ := testBuildDMXPartyFrame(c, state, time.Now())
+	addresses := map[int]struct{}{}
+	for _, update := range updates {
+		addresses[update.Address] = struct{}{}
+	}
+	if _, ok := addresses[1]; !ok {
+		t.Fatalf("expected party on pan")
+	}
+	if _, ok := addresses[2]; ok {
+		t.Fatalf("gobo should be excluded by channel group")
+	}
+}

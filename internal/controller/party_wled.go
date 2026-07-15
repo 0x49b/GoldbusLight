@@ -96,7 +96,7 @@ func computePartyPhaseValues(state DMXPartyState, at time.Time) partyPhaseValues
 }
 
 func advancePartyPhases(values partyPhaseValues, motionPhase, colorPhase *float64) {
-	*motionPhase += 0.09 * values.speedFactor
+	*motionPhase += 0.07 * values.speedFactor
 	*colorPhase += 0.05 * values.speedFactor * (1 + values.treble*0.5)
 }
 

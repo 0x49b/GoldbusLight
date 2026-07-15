@@ -698,7 +698,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
     const [address, setAddress] = useState(1);
-    const universes = useMemo(() => normalizeUniverses(props.dmxState.universes), [props.dmxState.universes]);
+    const universes = normalizeUniverses();
     const [universeId, setUniverseId] = useState(resolveUniverseId(props.defaultUniverseId, universes));
     const [maxPan, setMaxPan] = useState(540);
     const [maxTilt, setMaxTilt] = useState(270);
@@ -769,7 +769,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeOnMs(120);
         setPartyStrobeOffMs(500);
         setPartyCueSequence({});
-    }, [props.fixture?.id, props.fixture?.updatedAt, props.defaultUniverseId, universes]);
+    }, [props.fixture?.id, props.fixture?.updatedAt, props.defaultUniverseId]);
 
     useEffect(() => {
         setPageMode(props.fixture ? "live" : "editor");
