@@ -6,7 +6,7 @@ export function readCustomPartyInclude(props: JSONMap | undefined): boolean {
 
 /** Channels that support an explicit Include-in-party toggle (default on). */
 export function channelSupportsPartyIncludeToggle(channelType: DMXChannelType): boolean {
-    return channelType === "custom" || channelType === "goboWheel";
+    return true;
 }
 
 export function channelPartyIncludeEnabled(channel: DMXChannel): boolean {

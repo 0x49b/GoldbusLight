@@ -54,13 +54,6 @@ func readPartyNumber(v any, def int) int {
 }
 
 func partyChannelIncludeInMode(chType string, props map[string]any) bool {
-	norm := strings.ToLower(strings.TrimSpace(chType))
-	switch norm {
-	case "custom", "gobowheel":
-		// default true when unset
-	default:
-		return true
-	}
 	if props == nil {
 		return true
 	}

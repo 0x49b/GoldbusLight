@@ -1621,6 +1621,22 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             }
                                         />
 
+                                        <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={readCustomPartyInclude(propsMap)}
+                                                onCheckedChange={(checked) => {
+                                                    updateChannelAt(originalIdx, {
+                                                        properties: {
+                                                            ...propsMap,
+                                                            partyInclude: checked === true,
+                                                        },
+                                                    });
+                                                }}
+                                                disabled={props.busy}
+                                            />
+                                            <span>Include in party mode</span>
+                                        </label>
+
                                         {isInvertiblePanTiltChannel(ch) && !slotMode ? (
                                             <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
                                                 <Checkbox
@@ -1646,35 +1662,20 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         {ch.type === "custom" && (
                                             <div className="mt-2 max-w-md space-y-2">
                                                 <div className="grid gap-1">
-                                                <Label className="text-xs">Channel name</Label>
-                                                <Input
-                                                    placeholder="e.g. Red"
-                                                    value={typeof propsMap.label === "string" ? propsMap.label : ""}
-                                                    onChange={(e) => {
-                                                        updateChannelAt(originalIdx, {
-                                                            properties: {
-                                                                ...propsMap,
-                                                                label: e.target.value,
-                                                            },
-                                                        });
-                                                    }}
-                                                />
-                                                </div>
-                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                                                    <Checkbox
-                                                        checked={readCustomPartyInclude(propsMap)}
-                                                        onCheckedChange={(checked) => {
+                                                    <Label className="text-xs">Channel name</Label>
+                                                    <Input
+                                                        placeholder="e.g. Red"
+                                                        value={typeof propsMap.label === "string" ? propsMap.label : ""}
+                                                        onChange={(e) => {
                                                             updateChannelAt(originalIdx, {
                                                                 properties: {
                                                                     ...propsMap,
-                                                                    partyInclude: checked === true,
+                                                                    label: e.target.value,
                                                                 },
                                                             });
                                                         }}
-                                                        disabled={props.busy}
                                                     />
-                                                    <span>Include in party mode</span>
-                                                </label>
+                                                </div>
                                             </div>
                                         )}
 
@@ -2136,21 +2137,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             </div>
                                         ) : ch.type === "goboWheel" ? (
                                             <div className="mt-3 space-y-3">
-                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                                                    <Checkbox
-                                                        checked={readCustomPartyInclude(propsMap)}
-                                                        onCheckedChange={(checked) => {
-                                                            updateChannelAt(originalIdx, {
-                                                                properties: {
-                                                                    ...propsMap,
-                                                                    partyInclude: checked === true,
-                                                                },
-                                                            });
-                                                        }}
-                                                        disabled={props.busy}
-                                                    />
-                                                    <span>Include in party mode</span>
-                                                </label>
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>

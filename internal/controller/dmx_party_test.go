@@ -775,3 +775,41 @@ func TestBuildDMXPartyFrameSkipsDisabledChannelGroup(t *testing.T) {
 		t.Fatalf("gobo should be excluded by channel group")
 	}
 }
+
+func TestBuildDMXPartyFrameSkipsDimmerExcludedFromParty(t *testing.T) {
+	c := &WLEDController{
+		dmxState: DMXState{
+			Fixtures: []DMXFixture{
+				{
+					ID:         "mh",
+					Type:       DMXFixtureTypeMovingHead,
+					DMXAddress: 1,
+					Channels: []DMXChannel{
+						{Channel: 1, Type: "pan"},
+						{Channel: 2, Type: "goboWheel"},
+						{Channel: 3, Type: "dimmer", Properties: map[string]any{"partyInclude": false}},
+					},
+				},
+			},
+		},
+	}
+	state := DMXPartyState{Config: defaultDMXPartyConfig()}
+	updates, owned := testBuildDMXPartyFrame(c, state, time.Now())
+	addresses := map[int]struct{}{}
+	for _, update := range updates {
+		addresses[update.Address] = struct{}{}
+	}
+	if _, ok := addresses[1]; !ok {
+		t.Fatalf("expected party on pan")
+	}
+	if _, ok := addresses[2]; !ok {
+		t.Fatalf("expected party on goboWheel")
+	}
+	if _, ok := addresses[3]; ok {
+		t.Fatalf("dimmer should be excluded from party")
+	}
+	uOwned := owned[DefaultDMXUniverseID]
+	if uOwned[2] {
+		t.Fatalf("party should not own excluded dimmer address")
+	}
+}
