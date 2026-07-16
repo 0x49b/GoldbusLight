@@ -27,8 +27,13 @@ type DMXPartyConfig struct {
 	Speed         int          `json:"speed"`
 	// MovementRange controls how wide pan/tilt sweeps are (0–100): 100 sweeps the full
 	// mechanical range, lower values sweep a tighter arc around the centre.
-	MovementRange      int    `json:"movementRange,omitempty"`
-	ColorVariation     int    `json:"colorVariation"`
+	MovementRange int `json:"movementRange,omitempty"`
+	// MovementAngleLimitDeg caps pan/tilt travel from centre in degrees (0 = use MovementRange only).
+	MovementAngleLimitDeg int `json:"movementAngleLimitDeg,omitempty"`
+	// ChannelGroups toggles which channel categories party animates (movement, color, gobo, beam, effects).
+	// Absent keys default to included.
+	ChannelGroups      map[string]bool `json:"channelGroups,omitempty"`
+	ColorVariation     int             `json:"colorVariation"`
 	AudioSensitivity   int    `json:"audioSensitivity"`
 	AudioInputDeviceID string `json:"audioInputDeviceId,omitempty"`
 	// SmokeBurstOnMS is how long each smoke/hazer burst stays on (milliseconds).
@@ -77,7 +82,8 @@ func defaultDMXPartyConfig() DMXPartyConfig {
 		WLEDDeviceIDs:    []string{},
 		Intensity:        80,
 		Speed:            55,
-		MovementRange:    defaultPartyMovementRange,
+		MovementRange:         defaultPartyMovementRange,
+		MovementAngleLimitDeg: defaultPartyMovementAngleLimitDeg,
 		ColorVariation:   70,
 		AudioSensitivity: 60,
 		SmokeBurstOnMS:   defaultPartySmokeBurstOnMS,
@@ -127,6 +133,23 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 		out.MovementRange = defaultPartyMovementRange
 	}
 	out.MovementRange = clampPercent(out.MovementRange)
+	if out.MovementAngleLimitDeg < 0 {
+		out.MovementAngleLimitDeg = 0
+	}
+	if out.MovementAngleLimitDeg > 360 {
+		out.MovementAngleLimitDeg = 360
+	}
+	if out.ChannelGroups != nil {
+		next := make(map[string]bool, len(out.ChannelGroups))
+		for k, v := range out.ChannelGroups {
+			key := strings.TrimSpace(strings.ToLower(k))
+			if key == "" {
+				continue
+			}
+			next[key] = v
+		}
+		out.ChannelGroups = next
+	}
 	out.ColorVariation = clampPercent(out.ColorVariation)
 	out.AudioSensitivity = clampPercent(out.AudioSensitivity)
 	out.AudioInputDeviceID = strings.TrimSpace(out.AudioInputDeviceID)
@@ -240,6 +263,9 @@ func (c *WLEDController) SetDMXPartyConfig(config DMXPartyConfig) (DMXPartyState
 	c.mu.Lock()
 	next := normalizeDMXPartyConfig(config)
 	current := normalizeDMXPartyState(c.dmxState.Party)
+	// Runtime enabled flag is owned by Start/Stop — slider/target updates must not
+	// accidentally disable a running party (which leaves the worker alive but idle).
+	next.Enabled = current.Config.Enabled
 	current.Config = next
 	current.Status.Mode = next.Mode
 	current.Status.AudioInputDeviceID = next.AudioInputDeviceID
@@ -319,8 +345,11 @@ func (c *WLEDController) StartDMXParty() error {
 
 	c.dmxLiveMu.Lock()
 	if c.dmxPartyRunning {
+		// Recover from a stale worker flag (e.g. config flush set enabled=false while the
+		// goroutine was still registered). Stop synchronously, then start fresh.
 		c.dmxLiveMu.Unlock()
-		return fmt.Errorf("party mode is already running")
+		c.stopDMXPartyInternal("", true)
+		c.dmxLiveMu.Lock()
 	}
 	ctx := c.rootCtx
 	if ctx == nil {
@@ -464,7 +493,10 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 					return
 				}
 				state := c.GetDMXPartyState()
-				if !state.Config.Enabled || !state.Status.Running {
+				if !state.Config.Enabled {
+					return
+				}
+				if !state.Status.Running {
 					return
 				}
 
@@ -584,6 +616,10 @@ func (c *WLEDController) buildDMXPartyFrame(
 			if !partyAllowsChannel(fixtureType, ch.Type) {
 				continue
 			}
+			normType := strings.ToLower(strings.TrimSpace(ch.Type))
+			if !partyChannelGroupAllowed(state.Config, normType) {
+				continue
+			}
 			if !partyChannelIncludeInMode(ch.Type, ch.Properties) {
 				continue
 			}
@@ -611,7 +647,6 @@ func (c *WLEDController) buildDMXPartyFrame(
 			if !ok {
 				continue
 			}
-			normType := strings.ToLower(strings.TrimSpace(ch.Type))
 			wp := fixturePartyChannelWeightPercent(fixture.Party, ch.Channel)
 			// Moving-head dimmers stay full bright regardless of reaction weight.
 			if fixtureType == DMXFixtureTypeMovingHead && (normType == "dimmer" || normType == "dimmerfine") {
@@ -648,7 +683,6 @@ func partyValueForFixtureChannel(
 ) (int, bool) {
 	normType := strings.ToLower(strings.TrimSpace(ch.Type))
 	entries := parseDMXPartyEntries(ch.Properties)
-	sweepRange := partySweepRange(state.Config)
 	oscSlow := (math.Sin(motionPhase) + 1) * 0.5
 	oscFast := (math.Sin(motionPhase*2.5) + 1) * 0.5
 	colorOsc := (math.Sin(colorPhase) + 1) * 0.5
@@ -683,16 +717,16 @@ func partyValueForFixtureChannel(
 		}
 		return 0, false
 	case "pan", "infinitepan":
-		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, sweepRange)
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, state.Config)
 		return int(pos >> 8), true
 	case "panfine":
-		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, sweepRange)
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, false, state.Config)
 		return int(pos & 0xFF), true
 	case "tilt", "infinitetilt":
-		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, sweepRange)
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, state.Config)
 		return int(pos >> 8), true
 	case "tiltfine":
-		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, sweepRange)
+		pos := partyPanTiltPos16(fixture, ch, motionPhase, true, state.Config)
 		return int(pos & 0xFF), true
 	case "movementspeed":
 		return partyMovementSpeedByte(state.Config), true

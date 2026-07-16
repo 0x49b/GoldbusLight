@@ -143,6 +143,7 @@ const (
 	defaultPartySmokeBurstOffMS = 45000
 	defaultPartySmokeVolume     = 55
 	defaultPartyMovementRange   = 70
+	defaultPartyMovementAngleLimitDeg = 45
 )
 
 // partySweepRange maps the configured MovementRange (0–100) to a 0..1 sweep amplitude.
@@ -170,12 +171,40 @@ func partyPanTiltInvertProps(fixture DMXFixture, ch DMXChannel) map[string]any {
 }
 
 // partyPanTiltPos16 computes a 16-bit pan/tilt position, honouring per-channel invert.
-func partyPanTiltPos16(fixture DMXFixture, ch DMXChannel, motionPhase float64, tilt bool, sweepRange float64) uint16 {
+func partyPanTiltPos16(fixture DMXFixture, ch DMXChannel, motionPhase float64, tilt bool, cfg DMXPartyConfig) uint16 {
+	sweepRange := partyEffectiveSweepRange(cfg, fixture, tilt)
 	pos := partySweepPosition16(motionPhase, tilt, sweepRange)
 	if channelInvert(partyPanTiltInvertProps(fixture, ch)) {
 		return 65535 - pos
 	}
 	return pos
+}
+
+// partyEffectiveSweepRange combines MovementRange (0–100%) with an optional degree cap.
+func partyEffectiveSweepRange(cfg DMXPartyConfig, fixture DMXFixture, tilt bool) float64 {
+	sweep := partySweepRange(cfg)
+	limitDeg := cfg.MovementAngleLimitDeg
+	if limitDeg <= 0 {
+		return sweep
+	}
+	maxDeg := 540.0
+	if tilt {
+		maxDeg = 270.0
+	}
+	if fixture.MovingHead.MaxPan > 0 && !tilt {
+		maxDeg = float64(fixture.MovingHead.MaxPan)
+	}
+	if fixture.MovingHead.MaxTilt > 0 && tilt {
+		maxDeg = float64(fixture.MovingHead.MaxTilt)
+	}
+	if maxDeg <= 0 {
+		return sweep
+	}
+	angleSweep := 2.0 * float64(limitDeg) / maxDeg
+	if angleSweep < sweep {
+		return angleSweep
+	}
+	return sweep
 }
 
 // partySweepPosition16 computes a smooth 16-bit pan/tilt position (0..65535) for one axis,

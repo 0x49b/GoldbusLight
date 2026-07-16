@@ -707,6 +707,16 @@ export class DMXPartyConfig {
      * mechanical range, lower values sweep a tighter arc around the centre.
      */
     "movementRange"?: number;
+
+    /**
+     * MovementAngleLimitDeg caps pan/tilt travel from centre in degrees (0 = use MovementRange only).
+     */
+    "movementAngleLimitDeg"?: number;
+
+    /**
+     * ChannelGroups toggles which channel categories party animates.
+     */
+    "channelGroups"?: Record<string, boolean>;
     "colorVariation": number;
     "audioSensitivity": number;
     "audioInputDeviceId"?: string;

@@ -17,6 +17,11 @@ import {
 } from "@/lib/dmxPartyAudio";
 import {PartyAudioEqualizer} from "@/components/party/PartyAudioEqualizer";
 import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave";
+import {
+    PARTY_CHANNEL_GROUPS,
+    partyChannelGroupEnabled,
+    togglePartyChannelGroup,
+} from "@/lib/dmxPartyChannelGroups";
 
 type PartyModeViewProps = {
     fixtures: DMXFixture[];
@@ -34,11 +39,13 @@ type PartySliderField =
     "intensity"
     | "speed"
     | "movementRange"
+    | "movementAngleLimitDeg"
     | "colorVariation"
     | "audioSensitivity"
     | "smokeVolume";
 
 const DEFAULT_MOVEMENT_RANGE = 70;
+const DEFAULT_MOVEMENT_ANGLE_LIMIT_DEG = 45;
 
 type PartySmokeDraft = {
     burstOnSec: number;
@@ -55,6 +62,13 @@ function normalizePercent(v: number): number {
         return 0;
     }
     return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+function normalizeAngleLimit(v: number): number {
+    if (!Number.isFinite(v)) {
+        return 0;
+    }
+    return Math.max(0, Math.min(180, Math.round(v)));
 }
 
 function clampMs(v: number, min: number, max: number, fallback: number): number {
@@ -132,6 +146,7 @@ export function PartyModeView({
         intensity: normalizePercent(config.intensity),
         speed: normalizePercent(config.speed),
         movementRange: normalizePercent(config.movementRange ?? DEFAULT_MOVEMENT_RANGE),
+        movementAngleLimitDeg: normalizeAngleLimit(config.movementAngleLimitDeg ?? DEFAULT_MOVEMENT_ANGLE_LIMIT_DEG),
         colorVariation: normalizePercent(config.colorVariation),
         audioSensitivity: normalizePercent(config.audioSensitivity),
         smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
@@ -147,6 +162,7 @@ export function PartyModeView({
             intensity: normalizePercent(config.intensity),
             speed: normalizePercent(config.speed),
             movementRange: normalizePercent(config.movementRange ?? DEFAULT_MOVEMENT_RANGE),
+            movementAngleLimitDeg: normalizeAngleLimit(config.movementAngleLimitDeg ?? DEFAULT_MOVEMENT_ANGLE_LIMIT_DEG),
             colorVariation: normalizePercent(config.colorVariation),
             audioSensitivity: normalizePercent(config.audioSensitivity),
             smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
@@ -156,6 +172,7 @@ export function PartyModeView({
         config.intensity,
         config.speed,
         config.movementRange,
+        config.movementAngleLimitDeg,
         config.colorVariation,
         config.audioSensitivity,
         config.smokeVolume,
@@ -202,6 +219,10 @@ export function PartyModeView({
             void onUpdateConfig({smokeVolume: normalizePercent(raw)});
             return;
         }
+        if (field === "movementAngleLimitDeg") {
+            void onUpdateConfig({movementAngleLimitDeg: normalizeAngleLimit(raw)});
+            return;
+        }
         void onUpdateConfig({[field]: normalizePercent(raw)});
     };
 
@@ -239,25 +260,37 @@ export function PartyModeView({
         field: PartySliderField,
         label: string,
         value: number,
-    ) => (
+        options?: {min?: number; max?: number; step?: number; format?: (v: number) => string},
+    ) => {
+        const min = options?.min ?? 0;
+        const max = options?.max ?? 100;
+        const step = options?.step ?? 1;
+        const display = options?.format ? options.format(value) : `${normalizePercent(value)}%`;
+        const normalizedValue = field === "movementAngleLimitDeg"
+            ? normalizeAngleLimit(value)
+            : normalizePercent(value);
+        return (
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-            <span className="font-medium">{label}: {normalizePercent(value)}%</span>
+            <span className="font-medium">{label}: {display}</span>
             <Slider
-                min={0}
-                max={100}
-                step={1}
-                value={[normalizePercent(value)]}
+                min={min}
+                max={max}
+                step={step}
+                value={[normalizedValue]}
                 disabled={busy}
                 onValueChange={([next]) =>
                     setSliderDraft((prev) => ({
                         ...prev,
-                        [field]: normalizePercent(next ?? 0),
+                        [field]: field === "movementAngleLimitDeg"
+                            ? normalizeAngleLimit(next ?? 0)
+                            : normalizePercent(next ?? 0),
                     }))
                 }
                 onValueCommit={([next]) => setSlider(field, next ?? 0)}
             />
         </label>
-    );
+        );
+    };
 
     return (
         <section className="space-y-3 rounded-lg border bg-card p-4">
@@ -318,8 +351,54 @@ export function PartyModeView({
                 {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
                 {renderSlider("speed", "Speed", sliderDraft.speed)}
                 {renderSlider("movementRange", "Movement range", sliderDraft.movementRange)}
+                {renderSlider(
+                    "movementAngleLimitDeg",
+                    "Max angle from centre",
+                    sliderDraft.movementAngleLimitDeg,
+                    {
+                        min: 0,
+                        max: 180,
+                        step: 1,
+                        format: (v) => (v <= 0 ? "off (use range %)" : `${v}°`),
+                    },
+                )}
                 {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                 {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <div>
+                    <h3 className="text-sm font-medium">Animated channels</h3>
+                    <p className="text-xs text-muted-foreground">
+                        Choose which channel groups party mode drives on moving heads and similar fixtures.
+                        Uncheck groups to calm nervous motion (e.g. disable gobo or beam).
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {PARTY_CHANNEL_GROUPS.map((group) => (
+                        <label
+                            key={group.id}
+                            className="flex min-w-[10rem] items-start gap-2 text-xs"
+                            title={group.description}
+                        >
+                            <input
+                                type="checkbox"
+                                className="mt-0.5"
+                                checked={partyChannelGroupEnabled(config, group.id)}
+                                disabled={busy}
+                                onChange={(event) => {
+                                    void onUpdateConfig(
+                                        togglePartyChannelGroup(config, group.id, event.target.checked),
+                                    );
+                                }}
+                            />
+                            <span>
+                                <span className="font-medium">{group.label}</span>
+                                <span className="block text-muted-foreground">{group.description}</span>
+                            </span>
+                        </label>
+                    ))}
+                </div>
             </div>
 
             {hasSmokeFixtures && (
