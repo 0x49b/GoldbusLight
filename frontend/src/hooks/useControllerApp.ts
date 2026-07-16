@@ -1351,7 +1351,10 @@ export function useControllerApp() {
             await GreetService.ApplyDMXLivePatch(updates);
             await pullDMXLiveStatus();
         } catch (err) {
-            setError(String(err));
+            const errMsg = String(err);
+            if (!errMsg.includes("not running")) {
+                setError(errMsg);
+            }
             await pullDMXLiveStatus();
         }
     }, [pullDMXLiveStatus, setError]);
@@ -1403,16 +1406,14 @@ export function useControllerApp() {
             window.clearTimeout(dmxLiveFlushTimerRef.current);
             dmxLiveFlushTimerRef.current = undefined;
         }
-        if (dmxLivePendingRef.current.size > 0) {
-            await flushDmxLivePatch();
-        }
+        dmxLivePendingRef.current = new Map();
         try {
             await GreetService.StopDMXLive();
         } catch {
             /* ignore */
         }
         await pullDMXLiveStatus();
-    }, [flushDmxLivePatch, pullDMXLiveStatus]);
+    }, [pullDMXLiveStatus]);
 
     const onDismissError = useCallback(() => {
         setError("");

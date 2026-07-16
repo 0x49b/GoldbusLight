@@ -147,7 +147,6 @@ function App() {
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
                 partyRunning={app.dmxPartyState?.status?.running === true}
-                pullDMXState={app.pullDMXState}
                 onEmergency={app.triggerDMXEmergency}
             />
         );

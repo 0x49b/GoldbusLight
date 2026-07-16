@@ -155,7 +155,6 @@ type DMXFixtureEditorViewProps = {
     onRefreshUSBSerialDevices: () => Promise<void>;
     onSelectUSBSerialDevice: (deviceID: string) => Promise<void>;
     partyRunning: boolean;
-    pullDMXState: () => Promise<unknown>;
     onEmergency: () => void | Promise<void>;
 };
 
@@ -848,7 +847,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     partyRunning={props.partyRunning}
                     queueDmxLivePatch={props.queueDmxLivePatch}
                     liveUniverse={props.dmxState.liveUniverse}
-                    pullDMXState={props.pullDMXState}
                     onSaveCueSequence={handleSaveCueSequence}
                     displayMode={pageMode}
                     editLayout={editLayout}

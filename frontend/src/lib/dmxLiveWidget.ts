@@ -26,7 +26,19 @@ export const DMX_LIVE_WIDGET_OPTIONS: { value: DMXLiveWidget; label: string }[] 
     {value: "shutterModes", label: "Shutter modes"},
 ];
 
-const FINE_TYPES = new Set<DMXChannelType>(["panFine", "tiltFine", "dimmerFine", "zoomFine", "focusFine", "irisFine", "frostFine"]);
+const FINE_TYPES = new Set<DMXChannelType>([
+    "panFine",
+    "tiltFine",
+    "dimmerFine",
+    "zoomFine",
+    "focusFine",
+    "irisFine",
+    "frostFine",
+    "colorTemperatureFine",
+    "greenSaturationFine",
+    "xfadeToColorFine",
+    "prismIndexingFine",
+]);
 
 const LIVE_MAPPABLE_TYPES = new Set<DMXChannelType>([
     "pan",
@@ -40,6 +52,12 @@ const LIVE_MAPPABLE_TYPES = new Set<DMXChannelType>([
     "dimmerFine",
     "colorWheel",
     "colorComponent",
+    "colorTemperature",
+    "colorTemperatureFine",
+    "greenSaturation",
+    "greenSaturationFine",
+    "xfadeToColor",
+    "xfadeToColorFine",
     "goboWheel",
     "goboIndexing",
     "goboIndexingFine",
@@ -56,7 +74,14 @@ const LIVE_MAPPABLE_TYPES = new Set<DMXChannelType>([
     "frost",
     "frostFine",
     "prism",
+    "prismIndexing",
+    "prismIndexingFine",
     "prismRotation",
+    "onOff",
+    "lamp",
+    "timer",
+    "command",
+    "operatingMode",
     "fog",
     "custom",
 ]);

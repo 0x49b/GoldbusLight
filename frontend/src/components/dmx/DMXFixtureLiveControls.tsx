@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
+import {GetDMXState} from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 import type {DMXFixture} from "@/types/controller.ts";
 import {isFixtureSlave, resolveFixtureMaster} from "@/lib/dmxFixtureMasterSlave";
 import {
@@ -40,7 +41,6 @@ type DMXFixtureLiveControlsProps = {
     partyRunning: boolean;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
     liveUniverse?: number[];
-    pullDMXState?: () => Promise<unknown>;
     onSaveCueSequence?: (next: DMXFixtureCueSequence) => Promise<boolean>;
     /**
      * Which section to display. The component stays mounted in both modes so
@@ -210,7 +210,6 @@ export function DMXFixtureLiveControls({
     partyRunning,
     queueDmxLivePatch,
     liveUniverse,
-    pullDMXState,
     onSaveCueSequence,
     displayMode = "live",
     editLayout: editLayoutProp,
@@ -220,6 +219,8 @@ export function DMXFixtureLiveControls({
     // Live DMX buffer sourced directly from the poll (see effect below) so the party
     // mirror does not depend on the parent re-passing `liveUniverse` in time.
     const [polledUniverse, setPolledUniverse] = useState<number[] | undefined>(undefined);
+    const fixtureRef = useRef(fixture);
+    fixtureRef.current = fixture;
 
     useEffect(() => {
         // Start from the fixture's idle pose (if configured) so it opens in the saved
@@ -244,22 +245,37 @@ export function DMXFixtureLiveControls({
         });
     }, [fixture.channels]);
 
+    // Send on liveState/connect changes only. Do NOT depend on the `fixture` object
+    // identity: parent GetDMXState polls replace fixtures every tick and would
+    // retrigger this effect faster than the 45ms debounce, so patches never flush
+    // until you leave the page.
     useEffect(() => {
-        if (!connected || partyRunning || isFixtureSlave(fixture)) {
+        const fx = fixtureRef.current;
+        if (!connected || partyRunning || isFixtureSlave(fx)) {
             return;
         }
-        queueDmxLivePatch(buildDmxLivePatch(fixture, liveState));
-    }, [connected, fixture, liveState, partyRunning, queueDmxLivePatch]);
+        queueDmxLivePatch(buildDmxLivePatch(fx, liveState));
+    }, [connected, liveState, partyRunning, queueDmxLivePatch]);
 
+    const slaveFixture = isFixtureSlave(fixture);
+    const needsUniverseMirror = partyRunning || slaveFixture;
+
+    // Poll live universe only when mirroring party/slave output. Calling pullDMXState
+    // here used to set parent DMX state every tick, churning `fixture` identity and
+    // starving the live-patch debounce.
     useEffect(() => {
-        if ((!connected && !partyRunning && !isFixtureSlave(fixture)) || !pullDMXState) {
+        if (!needsUniverseMirror) {
             return;
         }
         let active = true;
         const tick = async () => {
-            const st = (await pullDMXState()) as {liveUniverse?: number[]} | undefined;
-            if (active && st && Array.isArray(st.liveUniverse)) {
-                setPolledUniverse(st.liveUniverse);
+            try {
+                const st = (await GetDMXState()) as {liveUniverse?: number[]} | undefined;
+                if (active && st && Array.isArray(st.liveUniverse)) {
+                    setPolledUniverse(st.liveUniverse);
+                }
+            } catch {
+                /* ignore transient poll errors */
             }
         };
         void tick();
@@ -268,14 +284,13 @@ export function DMXFixtureLiveControls({
             active = false;
             window.clearInterval(id);
         };
-    }, [connected, fixture, partyRunning, pullDMXState]);
+    }, [needsUniverseMirror, fixture.id]);
 
-    const slaveFixture = isFixtureSlave(fixture);
     const masterFixture = useMemo(
         () => resolveFixtureMaster(fixture, allFixtures),
         [allFixtures, fixture],
     );
-    const universe = partyRunning || slaveFixture ? (polledUniverse ?? liveUniverse) : liveUniverse;
+    const universe = needsUniverseMirror ? (polledUniverse ?? liveUniverse) : liveUniverse;
 
     const universeMirrorState = useMemo(() => {
         if (!universe || universe.length < 512) {

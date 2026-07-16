@@ -161,7 +161,10 @@ export function useDMXController(options: UseDMXControllerOptions) {
             await GreetService.ApplyDMXLivePatch(updates);
             await pullDMXLiveStatus();
         } catch (err) {
-            setError(String(err));
+            const errMsg = String(err);
+            if (!errMsg.includes("not running")) {
+                setError(errMsg);
+            }
             await pullDMXLiveStatus();
         }
     }, [pullDMXLiveStatus, setError]);

@@ -2,6 +2,7 @@ import type {ReactNode} from "react";
 import {Badge} from "@/components/ui/badge";
 import {Label} from "@/components/ui/label";
 import {cn} from "@/lib/utils";
+import {PartyPopper} from "lucide-react";
 
 type LiveControlLabelProps = {
     children: ReactNode;
@@ -16,10 +17,9 @@ export function LiveControlLabel({children, party = false, className}: LiveContr
             {party && (
                 <Badge
                     variant="outline"
-                    className="h-4 shrink-0 border-violet-500/40 bg-violet-500/10 px-1.5 text-[10px] font-medium text-violet-700 dark:text-violet-300"
                     title="Included in party mode"
                 >
-                    Party
+                    <PartyPopper/>
                 </Badge>
             )}
         </div>

@@ -1,39 +1,41 @@
-import { EyeOff } from "lucide-react";
-import { PiTrash } from "react-icons/pi";
-import type { DMXChannel, DMXChannelType, JSONMap } from "@/types/controller.ts";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { readCustomPartyInclude } from "@/lib/dmxPartyInclude";
-import { readChannelInvert } from "@/lib/dmxLiveMap";
+import {EyeOff} from "lucide-react";
+import {PiTrash} from "react-icons/pi";
+import type {DMXChannel, DMXChannelTyp, DMXChannelType, JSONMap} from "@/types/controller.ts";
+import {Badge} from "@/components/ui/badge";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {Checkbox} from "@/components/ui/checkbox";
+import {Separator} from "@/components/ui/separator";
+import {Button} from "@/components/ui/button";
+import {ButtonGroup} from "@/components/ui/button-group";
+import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
+import {readCustomPartyInclude} from "@/lib/dmxPartyInclude";
+import {readChannelInvert} from "@/lib/dmxLiveMap";
 import {
     isInvertiblePanTiltChannel,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     resolveLiveWidget,
 } from "@/lib/dmxLiveWidget";
-import { cn } from "@/lib/utils";
+import {cn} from "@/lib/utils";
+import {LiveControlEditorField} from "../LiveControlEditorField";
 
-import {
-    parseEntries,
-    usesSlots,
-    defaultPropsForType,
-    MOTION_TABLE_TYPES,
-} from "./ChannelBase";
+import {defaultPropsForType, MOTION_TABLE_TYPES, parseEntries, usesSlots,} from "./ChannelBase";
 
-import { CustomChannelEditor } from "./CustomChannelEditor";
-import { ColorWheelChannelEditor } from "./ColorWheelChannelEditor";
-import { GoboWheelChannelEditor } from "./GoboWheelChannelEditor";
-import { ShutterStrobeChannelEditor } from "./ShutterStrobeChannelEditor";
-import { MotionChannelEditor } from "./MotionChannelEditor";
-import { DefaultChannelEditor } from "./DefaultChannelEditor";
+import {CustomChannelEditor} from "./CustomChannelEditor";
+import {ColorWheelChannelEditor} from "./ColorWheelChannelEditor";
+import {GoboWheelChannelEditor} from "./GoboWheelChannelEditor";
+import {ShutterStrobeChannelEditor} from "./ShutterStrobeChannelEditor";
+import {MotionChannelEditor} from "./MotionChannelEditor";
+import {DefaultChannelEditor} from "./DefaultChannelEditor";
 
-export const DMX_CHANNEL_TYPES: DMXChannelType[] = [
+
+function camelToTitleCase(str: string): string {
+    const result = str.replace(/([A-Z])/g, " $1");
+    return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
+const RAW_CHANNEL_TYPES: DMXChannelType[] = [
     "colorComponent",
     "colorTemperature",
     "colorTemperatureFine",
@@ -79,6 +81,11 @@ export const DMX_CHANNEL_TYPES: DMXChannelType[] = [
     "zoomFine",
 ];
 
+export const DMX_CHANNEL_TYPES: DMXChannelTyp[] = RAW_CHANNEL_TYPES.map((t) => ({
+    type: t,
+    label: camelToTitleCase(t),
+}));
+
 interface BaseChannelEditorProps {
     ch: DMXChannel;
     originalIdx: number;
@@ -93,17 +100,17 @@ interface BaseChannelEditorProps {
 }
 
 export function BaseChannelEditor({
-    ch,
-    originalIdx,
-    slotBudget,
-    isDuplicateOffset,
-    busy,
-    channelsLength,
-    updateChannelAt,
-    replaceChannelAt,
-    removeChannelAt,
-    setGoboPickerTarget,
-}: BaseChannelEditorProps) {
+                                      ch,
+                                      originalIdx,
+                                      slotBudget,
+                                      isDuplicateOffset,
+                                      busy,
+                                      channelsLength,
+                                      updateChannelAt,
+                                      replaceChannelAt,
+                                      removeChannelAt,
+                                      setGoboPickerTarget,
+                                  }: BaseChannelEditorProps) {
     const propsMap = (ch.properties ?? {}) as JSONMap;
     const slots = parseEntries(propsMap);
     const slotMode = usesSlots(propsMap);
@@ -136,7 +143,8 @@ export function BaseChannelEditor({
         >
             <div className="flex flex-wrap items-end gap-2">
                 {isDuplicateOffset ? (
-                    <Badge variant="outline" className="mb-5 border-destructive/50 text-[10px] text-destructive">
+                    <Badge variant="outline"
+                           className="mb-5 border-destructive/50 text-[10px] text-destructive">
                         Duplicate offset
                     </Badge>
                 ) : null}
@@ -146,7 +154,7 @@ export function BaseChannelEditor({
                         className="mb-5 gap-1 border-amber-600/45 bg-amber-500/10 text-[10px] text-amber-900 dark:text-amber-200"
                         title="This channel has no tile on the live tab"
                     >
-                        <EyeOff className="size-3 shrink-0" aria-hidden />
+                        <EyeOff className="size-3 shrink-0" aria-hidden/>
                         {liveWidgetHiddenBadgeLabel(liveHiddenSource)}
                     </Badge>
                 ) : null}
@@ -177,11 +185,11 @@ export function BaseChannelEditor({
                             const raw = e.target.value.trim();
                             const nextDefault =
                                 raw === "" ? undefined : Math.max(0, Math.min(255, Math.round(Number(raw) || 0)));
-                            updateChannelAt(originalIdx, { defaultValue: nextDefault });
+                            updateChannelAt(originalIdx, {defaultValue: nextDefault});
                         }}
                         onBlur={(e) => {
                             if (!e.target.value.trim()) {
-                                updateChannelAt(originalIdx, { defaultValue: undefined });
+                                updateChannelAt(originalIdx, {defaultValue: undefined});
                             }
                         }}
                         placeholder="0-255"
@@ -193,17 +201,21 @@ export function BaseChannelEditor({
                         value={ch.type}
                         onChange={(e) => {
                             const nextType = e.target.value as DMXChannelType;
+                            const nextProps = { ...defaultPropsForType(nextType) };
+                            if (propsMap.label) {
+                                nextProps.label = propsMap.label;
+                            }
                             replaceChannelAt(originalIdx, {
                                 channel: ch.channel,
                                 type: nextType,
                                 defaultValue: ch.defaultValue,
-                                properties: defaultPropsForType(nextType),
+                                properties: nextProps,
                             });
                         }}
                     >
                         {DMX_CHANNEL_TYPES.map((t) => (
-                            <NativeSelectOption key={t} value={t}>
-                                {t}
+                            <NativeSelectOption key={t.type} value={t.type}>
+                                {t.label}
                             </NativeSelectOption>
                         ))}
                     </NativeSelect>
@@ -216,7 +228,7 @@ export function BaseChannelEditor({
                         onClick={() => {
                             replaceChannelAt(originalIdx, {
                                 ...ch,
-                                properties: { min: minV, max: maxV },
+                                properties: {min: minV, max: maxV},
                             });
                         }}
                     >
@@ -231,16 +243,16 @@ export function BaseChannelEditor({
                                 slots.length > 0
                                     ? slots
                                     : [
-                                          {
-                                              from: 0,
-                                              to: 255,
-                                              label: "Slot 1",
-                                          },
-                                      ];
+                                        {
+                                            from: 0,
+                                            to: 255,
+                                            label: "Slot 1",
+                                        },
+                                    ];
                             replaceChannelAt(originalIdx, {
                                 ...ch,
                                 properties: {
-                                    entries: nextEntries.map((s) => ({ ...s })),
+                                    entries: nextEntries.map((s) => ({...s})),
                                 },
                             });
                         }}
@@ -257,7 +269,7 @@ export function BaseChannelEditor({
                     onClick={() => removeChannelAt(originalIdx)}
                     disabled={busy || channelsLength <= 1}
                 >
-                    <PiTrash className="size-4" />
+                    <PiTrash className="size-4"/>
                 </Button>
             </div>
 
@@ -282,13 +294,13 @@ export function BaseChannelEditor({
                     <Checkbox
                         checked={readChannelInvert(propsMap)}
                         onCheckedChange={(checked) => {
-                            const nextProps = { ...propsMap };
+                            const nextProps = {...propsMap};
                             if (checked === true) {
                                 nextProps.invert = true;
                             } else {
                                 delete nextProps.invert;
                             }
-                            updateChannelAt(originalIdx, { properties: nextProps });
+                            updateChannelAt(originalIdx, {properties: nextProps});
                         }}
                         disabled={busy}
                     />
@@ -298,6 +310,17 @@ export function BaseChannelEditor({
                     </span>
                 </label>
             ) : null}
+
+            <div className="mt-2">
+                <LiveControlEditorField
+                    channel={ch}
+                    properties={propsMap}
+                    busy={busy}
+                    onPropertiesChange={(nextProps) =>
+                        updateChannelAt(originalIdx, {properties: nextProps})
+                    }
+                />
+            </div>
 
             {/* Sub-editors based on channel type */}
             {ch.type === "custom" ? (
@@ -358,7 +381,7 @@ export function BaseChannelEditor({
                     </div>
                 ) : null
             ) : null}
-            <Separator className="my-3" />
+            <Separator className="my-3"/>
         </div>
     );
 }

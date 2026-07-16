@@ -325,7 +325,7 @@ export function channelLiveLabel(ch: DMXChannel): string {
         return props.label.trim();
     }
     const typeLabel = ch.type.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
-    return `${typeLabel.trim()} · ch ${ch.channel}`;
+    return `${typeLabel.trim()}`;
 }
 
 /** @deprecated */

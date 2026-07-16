@@ -151,6 +151,11 @@ export type DMXChannel = {
     properties?: JSONMap;
 };
 
+export type DMXChannelTyp={
+    type: string;
+    label: string;
+}
+
 export type DMXChannelType =
     | "pan"
     | "panFine"

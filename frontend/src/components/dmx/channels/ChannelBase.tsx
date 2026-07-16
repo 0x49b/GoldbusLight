@@ -57,11 +57,11 @@ export function EntryLiveSlotKindSelect({
     value,
     onChange,
     disabled,
-}: {
+}: Readonly<{
     value: LiveSlotKind | undefined;
     onChange: (kind: LiveSlotKind) => void;
     disabled?: boolean;
-}) {
+}>) {
     return (
         <NativeSelect
             value={value ?? "button"}
