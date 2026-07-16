@@ -38,10 +38,10 @@ import {channelPartyIncludeEnabled, readCustomPartyInclude} from "@/lib/dmxParty
 import {
     effectiveEntryLiveSlotKind,
     isInvertiblePanTiltChannel,
+    type LiveSlotKind,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
     resolveLiveWidget,
-    type LiveSlotKind,
 } from "@/lib/dmxLiveWidget.ts";
 import {readChannelInvert} from "@/lib/dmxLiveMap";
 import {LiveControlEditorField} from "./LiveControlEditorField";
@@ -64,7 +64,15 @@ import {
     Zap
 } from "lucide-react";
 import {Badge} from "@/components/ui/badge";
-import {type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {
+    type ChangeEvent,
+    type ReactNode,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react";
 import {PiPlus, PiTrash} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {
@@ -72,8 +80,8 @@ import type {
     DMXChannel,
     DMXChannelType,
     DMXFixture,
-    DMXFixtureParty,
     DMXFixtureCueSequence,
+    DMXFixtureParty,
     DMXFixtureType,
     DMXState,
     JSONMap,
@@ -82,10 +90,7 @@ import type {
 } from "@/types/controller.ts";
 import {ButtonGroup} from "../ui/button-group";
 import {DMXEmergencyButton} from "./DMXEmergencyButton";
-import {
-    type ColorWheelScrollRamp,
-    isColorWheelScrollSlot,
-} from "@/lib/colorWheelSlot";
+import {type ColorWheelScrollRamp, isColorWheelScrollSlot,} from "@/lib/colorWheelSlot";
 import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
 import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
@@ -614,10 +619,10 @@ function usesSlots(properties: JSONMap | undefined): boolean {
 }
 
 function EntryLiveSlotKindSelect({
-    value,
-    onChange,
-    disabled,
-}: {
+                                     value,
+                                     onChange,
+                                     disabled,
+                                 }: {
     value: LiveSlotKind | undefined;
     onChange: (kind: LiveSlotKind) => void;
     disabled?: boolean;
@@ -722,7 +727,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         && !isFixtureSlave(props.fixture)
         && liveTileIdsForFixture(props.fixture).length > 0;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
-    const showPanTiltInputs     = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
+    const showPanTiltInputs = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
     const masterOptions = useMemo(
         () => masterEligibleFixtures(props.dmxState.fixtures, props.fixture?.id),
         [props.dmxState.fixtures, props.fixture?.id],
@@ -892,7 +897,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
         setChannels((prev) => [
             ...prev,
-            {channel: nextOff, type: "dimmer", defaultValue: 255, properties: defaultPropsForType("dimmer")},
+            {
+                channel: nextOff,
+                type: "dimmer",
+                defaultValue: 255,
+                properties: defaultPropsForType("dimmer")
+            },
         ]);
         setSaveHint(null);
     }, [address, channels, slotBudget]);
@@ -1161,7 +1171,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     {props.fixture ? (
                         <>
                             <ButtonGroup>
-                            <Button
+                                <Button
                                     type="button"
                                     variant="outline"
                                     className={pageMode === "live" ? "btn-active" : ""}
@@ -1243,7 +1253,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 Import fixture
                             </Button>
                         )}
-                        <Button onClick={handleSave} disabled={actionGroupDisabled} size="sm" variant="outline">
+                        <Button onClick={handleSave} disabled={actionGroupDisabled} size="sm"
+                                variant="outline">
                             Save
                         </Button>
                         {props.fixture && (
@@ -1290,7 +1301,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     <DialogHeader>
                         <DialogTitle>Delete fixture?</DialogTitle>
                         <DialogDescription>
-                            This action permanently deletes {props.fixture ? `"${props.fixture.name}"` : "this fixture"}.
+                            This action permanently
+                            deletes {props.fixture ? `"${props.fixture.name}"` : "this fixture"}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-end gap-2">
@@ -1337,7 +1349,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             <CardTitle className="text-base">Fixture</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-4 sm:grid-cols-3">
                                 <div className="space-y-2">
                                     <Label htmlFor="dmx-fixture-name">Name</Label>
                                     <Input
@@ -1356,24 +1368,49 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         autoComplete="off"
                                     />
                                 </div>
-                            </div>
-                            <div className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-3" : "md:grid-cols-2")}>
-                                <div className="space-y-2">
-                                    <Label htmlFor="dmx-fixture-type">Fixture type</Label>
-                                    <NativeSelect
-                                        id="dmx-fixture-type"
-                                        value={fixtureType}
-                                        onChange={(e) => setFixtureType(e.target.value as DMXFixtureType)}
-                                        disabled={props.busy}
-                                    >
-                                        {FIXTURE_TYPE_OPTIONS.map((opt) => (
-                                            <NativeSelectOption key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </NativeSelectOption>
-                                        ))}
-                                    </NativeSelect>
+
+                                <div className="space-y-2 grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dmx-fixture-type">Fixture type</Label>
+                                        <NativeSelect
+                                            id="dmx-fixture-type"
+                                            value={fixtureType}
+                                            onChange={(e) => setFixtureType(e.target.value as DMXFixtureType)}
+                                            disabled={props.busy}
+                                        >
+                                            {FIXTURE_TYPE_OPTIONS.map((opt) => (
+                                                <NativeSelectOption key={opt.value}
+                                                                    value={opt.value}>
+                                                    {opt.label}
+                                                </NativeSelectOption>
+                                            ))}
+                                        </NativeSelect>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dmx-fixture-master">Master fixture</Label>
+                                        <NativeSelect
+                                            id="dmx-fixture-master"
+                                            value={masterFixtureId}
+                                            onChange={(e) => setMasterFixtureId(e.target.value)}
+                                            disabled={masterSelectDisabled}
+                                        >
+                                            <NativeSelectOption
+                                                value="">Standalone</NativeSelectOption>
+                                            {masterOptions.map((fx) => (
+                                                <NativeSelectOption key={fx.id} value={fx.id}>
+                                                    {fx.name}
+                                                </NativeSelectOption>
+                                            ))}
+                                        </NativeSelect>
+                                    </div>
+
                                 </div>
-                                <div className="space-y-2">
+
+                            </div>
+                            <div
+                                className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-3" : "md:grid-cols-2")}>
+
+                                <div className="space-y-2 w-40">
                                     <Label htmlFor="dmx-fixture-address">DMX start address</Label>
                                     <Input
                                         id="dmx-fixture-address"
@@ -1384,9 +1421,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         onChange={(e) => setAddress(Number(e.target.value) || 1)}
                                     />
                                 </div>
+
                                 {showPanTiltInputs && (
                                     <>
-                                        <div className="space-y-2">
+                                        <div></div>
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="space-y-2 w-40">
                                             <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
                                             <Input
                                                 id="dmx-max-pan"
@@ -1397,7 +1437,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 onChange={(e) => setMaxPan(Number(e.target.value) || 0)}
                                             />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 w-40">
                                             <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
                                             <Input
                                                 id="dmx-max-tilt"
@@ -1408,32 +1448,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                 onChange={(e) => setMaxTilt(Number(e.target.value) || 0)}
                                             />
                                         </div>
+                                        </div>
                                     </>
                                 )}
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="dmx-fixture-master">Master fixture</Label>
-                                <NativeSelect
-                                    id="dmx-fixture-master"
-                                    value={masterFixtureId}
-                                    onChange={(e) => setMasterFixtureId(e.target.value)}
-                                    disabled={masterSelectDisabled}
-                                >
-                                    <NativeSelectOption value="">Standalone</NativeSelectOption>
-                                    {masterOptions.map((fx) => (
-                                        <NativeSelectOption key={fx.id} value={fx.id}>
-                                            {fx.name}
-                                        </NativeSelectOption>
-                                    ))}
-                                </NativeSelect>
-                                <p className="text-xs text-muted-foreground">
-                                    {masterSelectDisabled && props.fixture && fixtureHasSlaves(props.dmxState.fixtures, props.fixture.id)
-                                        ? "Remove slave fixtures before assigning this device as a slave."
-                                        : masterFixtureId.trim()
-                                            ? "This device mirrors DMX output from its master and is excluded from party mode."
-                                            : "Optional. Slaves copy channel values from the selected master fixture."}
-                                </p>
-                            </div>
+
                         </CardContent>
                     </Card>
 
@@ -1449,10 +1468,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {duplicateChannelOffsets.size > 0 ? (
-                                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                <div
+                                    className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                                     Duplicate channel offsets:{" "}
                                     {[...duplicateChannelOffsets].sort((a, b) => a - b).join(", ")}.
-                                    Only one function per offset is saved — use separate offsets for gobo wheel,
+                                    Only one function per offset is saved — use separate offsets for
+                                    gobo wheel,
                                     gobo rotation, gobo shake, etc. (e.g. 9 and 10).
                                 </div>
                             ) : null}
@@ -1477,9 +1498,9 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         className={cn(
                                             "rounded-lg border bg-muted/20 p-3 shadow-sm",
                                             liveHiddenSource &&
-                                                "border-amber-500/35 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
+                                            "border-amber-500/35 bg-amber-500/[0.04] dark:bg-amber-500/[0.06]",
                                             isDuplicateOffset &&
-                                                "border-destructive/40 bg-destructive/[0.04]",
+                                            "border-destructive/40 bg-destructive/[0.04]",
                                         )}
                                     >
                                         <div className="flex flex-wrap items-end gap-2">
@@ -1497,7 +1518,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                     className="mb-5 gap-1 border-amber-600/45 bg-amber-500/10 text-[10px] text-amber-900 dark:text-amber-200"
                                                     title="This channel has no tile on the live tab"
                                                 >
-                                                    <EyeOff className="size-3 shrink-0" aria-hidden/>
+                                                    <EyeOff className="size-3 shrink-0"
+                                                            aria-hidden/>
                                                     {liveWidgetHiddenBadgeLabel(liveHiddenSource)}
                                                 </Badge>
                                             ) : null}
@@ -1621,7 +1643,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             }
                                         />
 
-                                        <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+                                        <label
+                                            className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
                                             <Checkbox
                                                 checked={readCustomPartyInclude(propsMap)}
                                                 onCheckedChange={(checked) => {
@@ -1638,7 +1661,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         </label>
 
                                         {isInvertiblePanTiltChannel(ch) && !slotMode ? (
-                                            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+                                            <label
+                                                className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
                                                 <Checkbox
                                                     checked={readChannelInvert(propsMap)}
                                                     onCheckedChange={(checked) => {
@@ -2029,14 +2053,17 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                             }}
                                                                         >
                                                                             {!isRainbowColorSlot(slot) ? (
-                                                                                <NativeSelectOption value="none">
+                                                                                <NativeSelectOption
+                                                                                    value="none">
                                                                                     —
                                                                                 </NativeSelectOption>
                                                                             ) : null}
-                                                                            <NativeSelectOption value="cw">
+                                                                            <NativeSelectOption
+                                                                                value="cw">
                                                                                 CW
                                                                             </NativeSelectOption>
-                                                                            <NativeSelectOption value="ccw">
+                                                                            <NativeSelectOption
+                                                                                value="ccw">
                                                                                 CCW
                                                                             </NativeSelectOption>
                                                                         </NativeSelect>
@@ -2061,10 +2088,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                                     });
                                                                                 }}
                                                                             >
-                                                                                <NativeSelectOption value="fastToSlow">
+                                                                                <NativeSelectOption
+                                                                                    value="fastToSlow">
                                                                                     Fast→slow
                                                                                 </NativeSelectOption>
-                                                                                <NativeSelectOption value="slowToFast">
+                                                                                <NativeSelectOption
+                                                                                    value="slowToFast">
                                                                                     Slow→fast
                                                                                 </NativeSelectOption>
                                                                             </NativeSelect>
@@ -2594,7 +2623,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         </div>
                                                                     </TableCell>
                                                                     {showSlotKindEditor ? (
-                                                                        <TableCell className="align-middle">
+                                                                        <TableCell
+                                                                            className="align-middle">
                                                                             <EntryLiveSlotKindSelect
                                                                                 value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                                 disabled={props.busy}
@@ -2697,7 +2727,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                 Speed
                                                             </TableHead>
                                                             {showSlotKindEditor ? (
-                                                                <TableHead className="w-[108px] text-muted-foreground">
+                                                                <TableHead
+                                                                    className="w-[108px] text-muted-foreground">
                                                                     Live slot
                                                                 </TableHead>
                                                             ) : null}
@@ -2906,7 +2937,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                                         </div>
                                                                     </TableCell>
                                                                     {showSlotKindEditor ? (
-                                                                        <TableCell className="align-middle">
+                                                                        <TableCell
+                                                                            className="align-middle">
                                                                             <EntryLiveSlotKindSelect
                                                                                 value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                                 disabled={props.busy}
@@ -2999,7 +3031,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             <div className="mt-3 space-y-2">
                                                 {showSlotKindEditor && (
                                                     <p className="text-xs text-muted-foreground">
-                                                        Switch + slider: set each slot to Switch or Slider for
+                                                        Switch + slider: set each slot to Switch or
+                                                        Slider for
                                                         live control.
                                                     </p>
                                                 )}
@@ -3080,7 +3113,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                                         </div>
                                                         {showSlotKindEditor ? (
                                                             <div className="grid gap-1">
-                                                                <Label className="text-xs">Live slot</Label>
+                                                                <Label className="text-xs">Live
+                                                                    slot</Label>
                                                                 <EntryLiveSlotKindSelect
                                                                     value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                                                     disabled={props.busy}
@@ -3279,15 +3313,18 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <p className="text-xs text-muted-foreground">
-                                Per-channel reaction scales how strongly auto and audio party algorithms move each
-                                function toward its default (0% = frozen at default, 100% = full motion).
+                                Per-channel reaction scales how strongly auto and audio party
+                                algorithms move each
+                                function toward its default (0% = frozen at default, 100% = full
+                                motion).
                             </p>
                             <div className="grid gap-3">
                                 {channels.filter((ch) => channelPartyIncludeEnabled(ch)).map((ch) => {
                                     const key = String(Math.round(ch.channel));
                                     const w = partyChannelWeights[key] ?? 100;
                                     return (
-                                        <label key={`${key}-${ch.type}`} className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                        <label key={`${key}-${ch.type}`}
+                                               className="flex flex-col gap-1 text-xs text-muted-foreground">
                                             <span className="font-medium text-foreground">
                                                 Offset {ch.channel} ({ch.type}) — {w}%
                                             </span>
@@ -3311,7 +3348,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             <Separator/>
                             <div className="space-y-3 rounded-md border bg-muted/20 p-3">
                                 <p className="text-xs text-muted-foreground">
-                                    Timed strobe applies to shutter/strobe channels and LED strobe or sound macros.
+                                    Timed strobe applies to shutter/strobe channels and LED strobe
+                                    or sound macros.
                                 </p>
                                 <label className="flex items-center gap-2 text-sm">
                                     <Checkbox
@@ -3338,7 +3376,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label htmlFor="party-strobe-off">Pause between (ms)</Label>
+                                            <Label htmlFor="party-strobe-off">Pause between
+                                                (ms)</Label>
                                             <Input
                                                 id="party-strobe-off"
                                                 type="number"
@@ -3356,7 +3395,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             </div>
                             <Separator/>
                             <div className="space-y-2">
-                                <p className="text-xs font-medium text-foreground">Cue chase (pose sequence)</p>
+                                <p className="text-xs font-medium text-foreground">Cue chase (pose
+                                    sequence)</p>
                                 <DMXFixtureCueSequenceEditor
                                     channels={channels}
                                     value={partyCueSequence}
