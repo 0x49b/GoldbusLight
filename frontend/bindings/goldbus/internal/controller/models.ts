@@ -8,9 +8,6 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as serial$0 from "../serial/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as time$0 from "../../../time/models.js";
 
 export class AccessPointSettings {
     "enabled": boolean;
@@ -253,9 +250,10 @@ export class ControllerSnapshot {
     "scenes"?: LightingScene[];
     "activeSceneId"?: string;
     "defaultSceneId"?: string;
+    "partySceneId"?: string;
     "generalTabState": GeneralTabState;
     "persistencePath": string;
-    "updatedAt": time$0.Time;
+    "updatedAt": string;
     "capabilities": ControllerCapabilities;
 
     /** Creates a new ControllerSnapshot instance. */
@@ -273,7 +271,7 @@ export class ControllerSnapshot {
             this["persistencePath"] = "";
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = null;
+            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("capabilities" in $$source)) {
             this["capabilities"] = (new ControllerCapabilities());
@@ -289,8 +287,8 @@ export class ControllerSnapshot {
         const $$createField0_0 = $$createType6;
         const $$createField1_0 = $$createType8;
         const $$createField2_0 = $$createType10;
-        const $$createField5_0 = $$createType11;
-        const $$createField8_0 = $$createType12;
+        const $$createField6_0 = $$createType11;
+        const $$createField9_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("settings" in $$parsedSource) {
             $$parsedSource["settings"] = $$createField0_0($$parsedSource["settings"]);
@@ -302,10 +300,10 @@ export class ControllerSnapshot {
             $$parsedSource["scenes"] = $$createField2_0($$parsedSource["scenes"]);
         }
         if ("generalTabState" in $$parsedSource) {
-            $$parsedSource["generalTabState"] = $$createField5_0($$parsedSource["generalTabState"]);
+            $$parsedSource["generalTabState"] = $$createField6_0($$parsedSource["generalTabState"]);
         }
         if ("capabilities" in $$parsedSource) {
-            $$parsedSource["capabilities"] = $$createField8_0($$parsedSource["capabilities"]);
+            $$parsedSource["capabilities"] = $$createField9_0($$parsedSource["capabilities"]);
         }
         return new ControllerSnapshot($$parsedSource as Partial<ControllerSnapshot>);
     }
@@ -362,8 +360,8 @@ export class DMXFixture {
      */
     "sceneCues"?: DMXFixtureCue[];
     "channels": DMXChannel[];
-    "createdAt": time$0.Time;
-    "updatedAt": time$0.Time;
+    "createdAt": string;
+    "updatedAt": string;
 
     /** Creates a new DMXFixture instance. */
     constructor($$source: Partial<DMXFixture> = {}) {
@@ -389,10 +387,10 @@ export class DMXFixture {
             this["channels"] = [];
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = null;
+            this["createdAt"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = null;
+            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
         }
 
         Object.assign(this, $$source);
@@ -627,7 +625,7 @@ export class DMXPartyAudioFeatures {
     "treble": number;
     "beat": number;
     "bpm": number;
-    "capturedAt": time$0.Time;
+    "capturedAt": string;
     "deviceId"?: string;
 
     /** Creates a new DMXPartyAudioFeatures instance. */
@@ -651,7 +649,7 @@ export class DMXPartyAudioFeatures {
             this["bpm"] = 0;
         }
         if (!("capturedAt" in $$source)) {
-            this["capturedAt"] = null;
+            this["capturedAt"] = "0001-01-01T00:00:00.000Z";
         }
 
         Object.assign(this, $$source);
@@ -853,8 +851,8 @@ export class DMXPartyStatus {
     "running": boolean;
     "mode": DMXPartyMode;
     "error"?: string;
-    "lastFrameAt"?: time$0.Time;
-    "lastAudioAt"?: time$0.Time;
+    "lastFrameAt"?: string;
+    "lastAudioAt"?: string;
     "audioInputDeviceId"?: string;
     "partyBlocksManualPatch": boolean;
     "audioCapturing": boolean;
@@ -1150,8 +1148,10 @@ export class LightingScene {
     "name": string;
     "wled": SceneWLEDEntry[];
     "dmx": SceneDMXEntry[];
-    "createdAt": time$0.Time;
-    "updatedAt": time$0.Time;
+    "partyWledDeviceIds"?: string[];
+    "partyFixtureIds"?: string[];
+    "createdAt": string;
+    "updatedAt": string;
 
     /** Creates a new LightingScene instance. */
     constructor($$source: Partial<LightingScene> = {}) {
@@ -1168,10 +1168,10 @@ export class LightingScene {
             this["dmx"] = [];
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = null;
+            this["createdAt"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = null;
+            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
         }
 
         Object.assign(this, $$source);
@@ -1183,12 +1183,20 @@ export class LightingScene {
     static createFrom($$source: any = {}): LightingScene {
         const $$createField2_0 = $$createType41;
         const $$createField3_0 = $$createType43;
+        const $$createField4_0 = $$createType23;
+        const $$createField5_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("wled" in $$parsedSource) {
             $$parsedSource["wled"] = $$createField2_0($$parsedSource["wled"]);
         }
         if ("dmx" in $$parsedSource) {
             $$parsedSource["dmx"] = $$createField3_0($$parsedSource["dmx"]);
+        }
+        if ("partyWledDeviceIds" in $$parsedSource) {
+            $$parsedSource["partyWledDeviceIds"] = $$createField4_0($$parsedSource["partyWledDeviceIds"]);
+        }
+        if ("partyFixtureIds" in $$parsedSource) {
+            $$parsedSource["partyFixtureIds"] = $$createField5_0($$parsedSource["partyFixtureIds"]);
         }
         return new LightingScene($$parsedSource as Partial<LightingScene>);
     }
@@ -1492,6 +1500,8 @@ export class UpsertLightingSceneInput {
     "name": string;
     "wled": SceneWLEDEntry[];
     "dmx": SceneDMXEntry[];
+    "partyWledDeviceIds"?: string[];
+    "partyFixtureIds"?: string[];
 
     /** Creates a new UpsertLightingSceneInput instance. */
     constructor($$source: Partial<UpsertLightingSceneInput> = {}) {
@@ -1517,12 +1527,20 @@ export class UpsertLightingSceneInput {
     static createFrom($$source: any = {}): UpsertLightingSceneInput {
         const $$createField2_0 = $$createType41;
         const $$createField3_0 = $$createType43;
+        const $$createField4_0 = $$createType23;
+        const $$createField5_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("wled" in $$parsedSource) {
             $$parsedSource["wled"] = $$createField2_0($$parsedSource["wled"]);
         }
         if ("dmx" in $$parsedSource) {
             $$parsedSource["dmx"] = $$createField3_0($$parsedSource["dmx"]);
+        }
+        if ("partyWledDeviceIds" in $$parsedSource) {
+            $$parsedSource["partyWledDeviceIds"] = $$createField4_0($$parsedSource["partyWledDeviceIds"]);
+        }
+        if ("partyFixtureIds" in $$parsedSource) {
+            $$parsedSource["partyFixtureIds"] = $$createField5_0($$parsedSource["partyFixtureIds"]);
         }
         return new UpsertLightingSceneInput($$parsedSource as Partial<UpsertLightingSceneInput>);
     }
@@ -1555,7 +1573,7 @@ export class WLEDDevice {
     "host": string;
     "address": string;
     "port": number;
-    "lastSeen": time$0.Time;
+    "lastSeen": string;
     "online": boolean;
     "provisioned": boolean;
     "ignored": boolean;
@@ -1589,7 +1607,7 @@ export class WLEDDevice {
             this["port"] = 0;
         }
         if (!("lastSeen" in $$source)) {
-            this["lastSeen"] = null;
+            this["lastSeen"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("online" in $$source)) {
             this["online"] = false;
@@ -1692,8 +1710,8 @@ export class WLEDDevicePreset {
     "id": string;
     "name": string;
     "state": { [_ in string]?: any };
-    "createdAt": time$0.Time;
-    "updatedAt": time$0.Time;
+    "createdAt": string;
+    "updatedAt": string;
 
     /** Creates a new WLEDDevicePreset instance. */
     constructor($$source: Partial<WLEDDevicePreset> = {}) {
@@ -1707,10 +1725,10 @@ export class WLEDDevicePreset {
             this["state"] = {};
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = null;
+            this["createdAt"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = null;
+            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
         }
 
         Object.assign(this, $$source);

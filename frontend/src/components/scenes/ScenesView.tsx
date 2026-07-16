@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
-import {PiArrowLeft, PiGearSix, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
+import {PiArrowLeft, PiGearSix, PiPlay, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {TransferList} from "@/components/scenes/TransferList";
+import {PartyTargetsPicker} from "@/components/party/PartyTargetsPicker";
 import type {
     DMXFixture,
     LightingScene,
@@ -30,6 +31,8 @@ type ScenesViewProps = {
     scenes: LightingScene[];
     activeSceneId?: string;
     defaultSceneId?: string;
+    partySceneId?: string;
+    partyRunning?: boolean;
     devices: WLEDDevice[];
     fixtures: DMXFixture[];
     wledEnabled: boolean;
@@ -38,66 +41,83 @@ type ScenesViewProps = {
     dmxInterfaceConfigured: boolean;
     busy: boolean;
     onApply: (id: string) => Promise<void>;
+    onStartParty: () => Promise<void>;
     onCreate: (input: UpsertLightingSceneInput) => Promise<LightingScene>;
     onUpdate: (input: UpsertLightingSceneInput) => Promise<LightingScene>;
     onDelete: (id: string) => Promise<void>;
     onExport: (id: string) => Promise<string>;
     onImport: () => Promise<LightingScene | null>;
     onSetDefault: (id: string) => Promise<void>;
+    onSetPartyScene: (id: string) => Promise<void>;
     onOpenSettings?: () => void;
 };
 
 type SceneDraft = {
     id: string;
     name: string;
+    partyMode: boolean;
     wledDeviceIds: string[];
     dmxFixtureIds: string[];
     wledPresetByDevice: Record<string, string>;
     dmxCueByFixture: Record<string, string>;
+    partyWledDeviceIds: string[];
+    partyFixtureIds: string[];
 };
 
 function emptyDraft(): SceneDraft {
     return {
         id: "",
         name: "",
+        partyMode: false,
         wledDeviceIds: [],
         dmxFixtureIds: [],
         wledPresetByDevice: {},
         dmxCueByFixture: {},
+        partyWledDeviceIds: [],
+        partyFixtureIds: [],
     };
 }
 
-function draftFromScene(scene: LightingScene): SceneDraft {
+function draftFromScene(scene: LightingScene, partySceneId?: string): SceneDraft {
     const wled = scene.wled ?? [];
     const dmx = scene.dmx ?? [];
     return {
         id: scene.id,
         name: scene.name,
+        partyMode: partySceneId === scene.id,
         wledDeviceIds: wled.map((e) => e.deviceId),
         dmxFixtureIds: dmx.map((e) => e.fixtureId),
         wledPresetByDevice: Object.fromEntries(wled.map((e) => [e.deviceId, e.presetId])),
         dmxCueByFixture: Object.fromEntries(dmx.map((e) => [e.fixtureId, e.cueId])),
+        partyWledDeviceIds: scene.partyWledDeviceIds ?? [],
+        partyFixtureIds: scene.partyFixtureIds ?? [],
     };
 }
 
 function draftToInput(draft: SceneDraft): UpsertLightingSceneInput {
-    const wled: SceneWLEDEntry[] = draft.wledDeviceIds
-        .map((deviceId) => ({
-            deviceId,
-            presetId: draft.wledPresetByDevice[deviceId] ?? "",
-        }))
-        .filter((e) => e.presetId);
-    const dmx: SceneDMXEntry[] = draft.dmxFixtureIds
-        .map((fixtureId) => ({
-            fixtureId,
-            cueId: draft.dmxCueByFixture[fixtureId] ?? "",
-        }))
-        .filter((e) => e.cueId);
+    const wled: SceneWLEDEntry[] = draft.partyMode
+        ? []
+        : draft.wledDeviceIds
+              .map((deviceId) => ({
+                  deviceId,
+                  presetId: draft.wledPresetByDevice[deviceId] ?? "",
+              }))
+              .filter((e) => e.presetId);
+    const dmx: SceneDMXEntry[] = draft.partyMode
+        ? []
+        : draft.dmxFixtureIds
+              .map((fixtureId) => ({
+                  fixtureId,
+                  cueId: draft.dmxCueByFixture[fixtureId] ?? "",
+              }))
+              .filter((e) => e.cueId);
     return {
         id: draft.id || undefined,
         name: draft.name.trim(),
         wled,
         dmx,
+        partyWledDeviceIds: draft.partyMode ? draft.partyWledDeviceIds : [],
+        partyFixtureIds: draft.partyMode ? draft.partyFixtureIds : [],
     };
 }
 
@@ -105,6 +125,8 @@ export function ScenesView({
     scenes,
     activeSceneId,
     defaultSceneId,
+    partySceneId,
+    partyRunning = false,
     devices,
     fixtures,
     wledEnabled,
@@ -112,20 +134,24 @@ export function ScenesView({
     dmxInterfaceConfigured,
     busy,
     onApply,
+    onStartParty,
     onCreate,
     onUpdate,
     onDelete,
     onExport,
     onImport,
     onSetDefault,
+    onSetPartyScene,
     onOpenSettings,
 }: ScenesViewProps) {
     const [managing, setManaging] = useState(false);
     const [draft, setDraft] = useState<SceneDraft>(emptyDraft);
     const [applyingId, setApplyingId] = useState<string | null>(null);
+    const [startingParty, setStartingParty] = useState(false);
     const [saving, setSaving] = useState(false);
     const [defaultReplaceOpen, setDefaultReplaceOpen] = useState(false);
     const [pendingDefaultId, setPendingDefaultId] = useState<string | null>(null);
+    const [partyReplaceOpen, setPartyReplaceOpen] = useState(false);
 
     const sortedScenes = useMemo(
         () => [...scenes].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity: "base"})),
@@ -135,6 +161,16 @@ export function ScenesView({
     const currentDefaultScene = useMemo(
         () => scenes.find((s) => s.id === defaultSceneId) ?? null,
         [scenes, defaultSceneId],
+    );
+
+    const currentPartyScene = useMemo(
+        () => scenes.find((s) => s.id === partySceneId) ?? null,
+        [scenes, partySceneId],
+    );
+
+    const partyWledDevices = useMemo(
+        () => devices.filter((device) => device.online && !device.ignored),
+        [devices],
     );
 
     const wledItems = useMemo(
@@ -186,6 +222,27 @@ export function ScenesView({
         void onSetDefault(id);
     };
 
+    const applyPartyMode = (enabled: boolean) => {
+        setDraft((prev) => ({...prev, partyMode: enabled}));
+    };
+
+    const requestPartyMode = (enabled: boolean) => {
+        if (!enabled) {
+            applyPartyMode(false);
+            return;
+        }
+        if (draft.id && partySceneId && partySceneId !== draft.id) {
+            setPartyReplaceOpen(true);
+            return;
+        }
+        applyPartyMode(true);
+    };
+
+    const confirmReplaceParty = () => {
+        setPartyReplaceOpen(false);
+        applyPartyMode(true);
+    };
+
     useEffect(() => {
         if (!draft.id) {
             return;
@@ -197,7 +254,7 @@ export function ScenesView({
     }, [scenes, draft.id]);
 
     const openManage = (scene?: LightingScene) => {
-        setDraft(scene ? draftFromScene(scene) : emptyDraft());
+        setDraft(scene ? draftFromScene(scene, partySceneId) : emptyDraft());
         setManaging(true);
     };
 
@@ -213,12 +270,22 @@ export function ScenesView({
         }
         setSaving(true);
         try {
+            let sceneId = draft.id;
             if (draft.id) {
                 const updated = await onUpdate({...input, id: draft.id});
-                setDraft(draftFromScene(updated));
+                sceneId = updated.id;
+                setDraft(draftFromScene(updated, draft.partyMode ? sceneId : partySceneId));
             } else {
                 const created = await onCreate(input);
-                setDraft(draftFromScene(created));
+                sceneId = created.id;
+                setDraft(draftFromScene(created, draft.partyMode ? sceneId : partySceneId));
+            }
+            if (draft.partyMode && sceneId) {
+                if (partySceneId !== sceneId) {
+                    await onSetPartyScene(sceneId);
+                }
+            } else if (!draft.partyMode && partySceneId === sceneId) {
+                await onSetPartyScene("");
             }
         } finally {
             setSaving(false);
@@ -342,7 +409,7 @@ export function ScenesView({
                                             "w-full rounded-md px-2 py-1.5 text-left text-sm",
                                             draft.id === scene.id ? "bg-accent font-medium" : "hover:bg-muted/60",
                                         )}
-                                        onClick={() => setDraft(draftFromScene(scene))}
+                                        onClick={() => setDraft(draftFromScene(scene, partySceneId))}
                                     >
                                         {scene.name}
                                     </button>
@@ -381,7 +448,7 @@ export function ScenesView({
                                 <label className="flex items-center gap-2 text-sm">
                                     <Checkbox
                                         checked={defaultSceneId === draft.id}
-                                        disabled={busy || saving}
+                                        disabled={busy || saving || draft.partyMode}
                                         onCheckedChange={(checked) => {
                                             requestSetDefault(checked === true ? draft.id : "");
                                         }}
@@ -390,7 +457,43 @@ export function ScenesView({
                                 </label>
                             ) : null}
 
-                            {wledEnabled ? (
+                            <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                    checked={draft.partyMode}
+                                    disabled={busy || saving}
+                                    onCheckedChange={(checked) => {
+                                        requestPartyMode(checked === true);
+                                    }}
+                                />
+                                <span>Party mode scene</span>
+                            </label>
+
+                            {draft.partyMode ? (
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label>Party targets</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Choose which WLED devices and DMX fixtures participate when you start party
+                                            mode from this scene. Only one scene can be the party scene at a time.
+                                        </p>
+                                    </div>
+                                    <PartyTargetsPicker
+                                        wledDevices={partyWledDevices}
+                                        fixtures={fixtures}
+                                        selectedWledIds={draft.partyWledDeviceIds}
+                                        selectedFixtureIds={draft.partyFixtureIds}
+                                        disabled={busy || saving}
+                                        onChangeWledIds={(ids) => {
+                                            setDraft((prev) => ({...prev, partyWledDeviceIds: ids}));
+                                        }}
+                                        onChangeFixtureIds={(ids) => {
+                                            setDraft((prev) => ({...prev, partyFixtureIds: ids}));
+                                        }}
+                                    />
+                                </div>
+                            ) : null}
+
+                            {!draft.partyMode && wledEnabled ? (
                                 <div className="space-y-3">
                                     <Label>WLED devices</Label>
                                     <TransferList
@@ -464,7 +567,7 @@ export function ScenesView({
                                 </div>
                             ) : null}
 
-                            {dmxEnabled ? (
+                            {!draft.partyMode && dmxEnabled ? (
                                 <div className="space-y-3">
                                     <Label>DMX fixtures</Label>
                                     <TransferList
@@ -584,6 +687,39 @@ export function ScenesView({
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                <Dialog
+                    open={partyReplaceOpen}
+                    onOpenChange={(open) => {
+                        setPartyReplaceOpen(open);
+                    }}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Replace party scene?</DialogTitle>
+                            <DialogDescription>
+                                Only one scene can be the party scene.
+                                {currentPartyScene
+                                    ? ` “${currentPartyScene.name}” is currently the party scene. Make this scene the new party scene instead?`
+                                    : " Another scene is already marked as the party scene. Continue?"}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setPartyReplaceOpen(false);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="button" onClick={confirmReplaceParty}>
+                                Replace party scene
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         );
     }
@@ -635,47 +771,84 @@ export function ScenesView({
                     {sortedScenes.map((scene) => {
                         const wledCount = scene.wled?.length ?? 0;
                         const dmxCount = scene.dmx?.length ?? 0;
+                        const partyWledCount = scene.partyWledDeviceIds?.length ?? 0;
+                        const partyDmxCount = scene.partyFixtureIds?.length ?? 0;
                         const isApplying = applyingId === scene.id;
                         const isActive = activeSceneId === scene.id;
                         const isDefault = defaultSceneId === scene.id;
+                        const isPartyScene = partySceneId === scene.id;
                         return (
-                            <button
+                            <Card
                                 key={scene.id}
-                                type="button"
-                                disabled={busy || isApplying}
-                                aria-pressed={isActive}
                                 className={cn(
-                                    "rounded-lg border bg-card p-4 text-left shadow-sm transition",
-                                    "hover:border-foreground/30 hover:bg-accent/40",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                    "disabled:opacity-60",
-                                    isActive && "border-primary bg-primary/10 ring-2 ring-primary/40",
+                                    "overflow-hidden transition",
+                                    isActive && !isPartyScene && "border-primary bg-primary/10 ring-2 ring-primary/40",
+                                    isPartyScene && partyRunning && "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/40",
                                 )}
-                                onClick={() => {
-                                    setApplyingId(scene.id);
-                                    void onApply(scene.id).finally(() => setApplyingId(null));
-                                }}
                             >
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="text-lg font-semibold">{scene.name}</div>
-                                    <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                                        {isDefault ? (
-                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                                Default
-                                            </span>
-                                        ) : null}
-                                        {isActive ? (
-                                            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-                                                Active
-                                            </span>
-                                        ) : null}
+                                <button
+                                    type="button"
+                                    disabled={busy || isApplying || isPartyScene}
+                                    aria-pressed={isActive}
+                                    className={cn(
+                                        "w-full p-4 text-left transition",
+                                        !isPartyScene && "hover:bg-accent/40",
+                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                        "disabled:opacity-60",
+                                    )}
+                                    onClick={() => {
+                                        if (isPartyScene) {
+                                            return;
+                                        }
+                                        setApplyingId(scene.id);
+                                        void onApply(scene.id).finally(() => setApplyingId(null));
+                                    }}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="text-lg font-semibold">{scene.name}</div>
+                                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                                            {isPartyScene ? (
+                                                <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                                    Party
+                                                </span>
+                                            ) : null}
+                                            {isDefault ? (
+                                                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    Default
+                                                </span>
+                                            ) : null}
+                                            {isActive && !isPartyScene ? (
+                                                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                                                    Active
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                    {wledCount} WLED · {dmxCount} DMX
-                                    {isApplying ? " · Applying…" : ""}
-                                </div>
-                            </button>
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                        {isPartyScene
+                                            ? `${partyWledCount} WLED · ${partyDmxCount} DMX party targets`
+                                            : `${wledCount} WLED · ${dmxCount} DMX`}
+                                        {isApplying ? " · Applying…" : ""}
+                                    </div>
+                                </button>
+                                {isPartyScene ? (
+                                    <div className="border-t px-4 py-3">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="w-full gap-1.5"
+                                            disabled={busy || startingParty || partyRunning}
+                                            onClick={() => {
+                                                setStartingParty(true);
+                                                void onStartParty().finally(() => setStartingParty(false));
+                                            }}
+                                        >
+                                            <PiPlay className="size-4" aria-hidden />
+                                            {startingParty ? "Starting…" : partyRunning ? "Party running" : "Start party"}
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </Card>
                         );
                     })}
                 </div>

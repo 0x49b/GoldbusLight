@@ -8,6 +8,7 @@ The application uses a persistent **sidebar** and a **main content** area. Navig
 Goldbus Light Controller
 <status line>
 
+Scenes                         [if WLED or DMX enabled]
 WLED                           [if WLED enabled]
   General
   Devices  [+]
@@ -26,6 +27,14 @@ Settings
 
 - **Title:** Goldbus Light Controller
 - **Status line:** Live summary from the controller (connectivity, last update). Hover for the full string if truncated.
+
+### Scenes section
+
+Visible when **WLED** or **DMX** is enabled. Opens the [Scenes](../scenes/index.md) page.
+
+| Item | Route | Description |
+|------|-------|-------------|
+| **Scenes** | Scene grid and manager | Apply standard looks or start party from the designated party scene |
 
 ### WLED section
 

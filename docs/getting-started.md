@@ -49,11 +49,20 @@ See [DMX overview](dmx/index.md) for full detail.
 
 1. Configure WLED devices and DMX fixtures as above.
 2. Optionally tune per-fixture party behavior in each fixture’s **Editor** tab.
-3. Open **Party** from the sidebar.
-4. Select WLED and DMX targets, choose **Auto show** or **Audio reactive**, adjust sliders.
-5. Click **Start Party**.
+3. Either:
+   - Open **Party** from the sidebar, select targets, and click **Start Party**, or
+   - Open **Scenes → Manage**, create a **Party mode scene** with party targets, then use **Start party** on the Scenes grid.
+4. Choose **Auto show** or **Audio reactive** and adjust sliders on the Party page.
 
-See [Party mode](party-mode/index.md) for full detail.
+See [Party mode](party-mode/index.md) and [Scenes](scenes/index.md) for full detail.
+
+### Recall a saved look (scenes)
+
+1. Open **Sidebar → Scenes**.
+2. Tap a scene card to apply WLED presets and DMX scene cues together.
+3. Use **Manage** to create scenes, set a startup default, or configure a party scene.
+
+See [Scenes](scenes/index.md) for party scenes, import/export, and troubleshooting.
 
 ### Move configuration to another machine
 
