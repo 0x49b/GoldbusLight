@@ -33,11 +33,14 @@ import type {
   DMXPartyState,
   DMXState,
   JSONMap,
+  LightingScene,
   NetworkApplyResult,
   UpsertDMXFixtureInput,
+  UpsertLightingSceneInput,
   USBSerialDevice,
   WLEDDevice,
   WLEDDeviceDetail,
+  WLEDDevicePreset,
 } from "../types/controller";
 
 const DEVICE_DETAIL_MAX_TRIES = 5;
@@ -319,6 +322,7 @@ export function useControllerApp() {
     }, []);
 
     const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
+    const scenes = useMemo(() => snapshot?.scenes ?? [], [snapshot]);
 
     const selectedDevice = useMemo(() => {
         if (route.kind !== "device") return undefined;
@@ -345,6 +349,9 @@ export function useControllerApp() {
                 return {kind: "settings"};
             }
             if (!settings.dmx.enabled && (prev.kind === "dmxUniverse" || prev.kind === "dmxAddFixture" || prev.kind === "dmxFixture")) {
+                return {kind: "settings"};
+            }
+            if (prev.kind === "scenes" && !settings.wled.enabled && !settings.dmx.enabled) {
                 return {kind: "settings"};
             }
             return prev;
@@ -922,6 +929,123 @@ export function useControllerApp() {
             throw err;
         }
     }, [setStatus, setError]);
+
+    const onCreateWLEDDevicePreset = useCallback(
+        async (deviceID: string, name: string): Promise<WLEDDevicePreset> => {
+            const preset = (await GreetService.CreateWLEDDevicePreset(deviceID, name)) as unknown as WLEDDevicePreset;
+            await pullSnapshot();
+            setStatus(`Saved preset “${name}”`);
+            return preset;
+        },
+        [pullSnapshot, setStatus],
+    );
+
+    const onDeleteWLEDDevicePreset = useCallback(
+        async (deviceID: string, presetID: string) => {
+            const updated = (await GreetService.DeleteWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            setStatus("Preset deleted");
+        },
+        [setSnapshot, setStatus],
+    );
+
+    const onApplyWLEDDevicePreset = useCallback(
+        async (deviceID: string, presetID: string) => {
+            const updated = (await GreetService.ApplyWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            setStatus("Preset applied");
+        },
+        [setSnapshot, setStatus],
+    );
+
+    const onCreateLightingScene = useCallback(
+        async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
+            const scene = (await GreetService.CreateLightingScene(input as never)) as unknown as LightingScene;
+            await pullSnapshot();
+            setStatus(`Scene “${scene.name}” created`);
+            return scene;
+        },
+        [pullSnapshot, setStatus],
+    );
+
+    const onUpdateLightingScene = useCallback(
+        async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
+            const scene = (await GreetService.UpdateLightingScene(input as never)) as unknown as LightingScene;
+            await pullSnapshot();
+            setStatus(`Scene “${scene.name}” saved`);
+            return scene;
+        },
+        [pullSnapshot, setStatus],
+    );
+
+    const onDeleteLightingScene = useCallback(
+        async (id: string) => {
+            const updated = (await GreetService.DeleteLightingScene(id)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            setStatus("Scene deleted");
+        },
+        [setSnapshot, setStatus],
+    );
+
+    const onApplyLightingScene = useCallback(
+        async (id: string) => {
+            const updated = (await GreetService.ApplyLightingScene(id)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            try {
+                await pullDMXPartyState();
+            } catch {
+                /* party may already be stopped */
+            }
+            setStatus("Scene applied");
+        },
+        [pullDMXPartyState, setSnapshot, setStatus],
+    );
+
+    const onSetDefaultLightingScene = useCallback(
+        async (id: string) => {
+            const updated = (await GreetService.SetDefaultLightingScene(id)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            setStatus(id ? "Default startup scene set" : "Default startup scene cleared");
+        },
+        [setSnapshot, setStatus],
+    );
+
+    const onExportLightingScene = useCallback(
+        async (id: string): Promise<string> => {
+            try {
+                const path = await GreetService.ExportLightingScene(id);
+                const msg = `Scene exported to ${path}`;
+                setStatus(msg);
+                setError("");
+                return msg;
+            } catch (err) {
+                if (String(err).includes("configuration backup cancelled")) {
+                    return "Export cancelled.";
+                }
+                throw err;
+            }
+        },
+        [setStatus, setError],
+    );
+
+    const onImportLightingScene = useCallback(async (): Promise<LightingScene | null> => {
+        try {
+            const scene = (await GreetService.ImportLightingScene()) as unknown as LightingScene;
+            await pullSnapshot();
+            try {
+                await pullDMXState();
+            } catch {
+                /* fixtures may have gained cues */
+            }
+            setStatus(`Scene “${scene.name}” imported`);
+            return scene;
+        } catch (err) {
+            if (String(err).includes("configuration backup cancelled")) {
+                return null;
+            }
+            throw err;
+        }
+    }, [pullDMXState, pullSnapshot, setStatus]);
 
     const onExportDMXFixtureConfig = useCallback(
         async (suggestedFilename: string, contents: string): Promise<string> => {
@@ -1903,6 +2027,7 @@ export function useControllerApp() {
         editingDeviceName,
         setEditingDeviceName,
         devices,
+        scenes,
         selectedDevice,
         selectedFixture,
         pullSnapshot,
@@ -1926,6 +2051,16 @@ export function useControllerApp() {
         applyWarmWhitePreset,
         applyColdWhitePreset,
         applyNamedColorPreset,
+        onCreateWLEDDevicePreset,
+        onDeleteWLEDDevicePreset,
+        onApplyWLEDDevicePreset,
+        onCreateLightingScene,
+        onUpdateLightingScene,
+        onDeleteLightingScene,
+        onApplyLightingScene,
+        onSetDefaultLightingScene,
+        onExportLightingScene,
+        onImportLightingScene,
         onCreateDMXFixture,
         onUpdateDMXFixture,
         onReaddressDMXFixtures,
@@ -1991,6 +2126,7 @@ function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDM
         maxPan: fixture.movingHead?.maxPan ?? 540,
         maxTilt: fixture.movingHead?.maxTilt ?? 270,
         party: fixture.party,
+        sceneCues: fixture.sceneCues,
         channels: fixture.channels,
     };
 }

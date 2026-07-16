@@ -6,6 +6,7 @@ import {
     PiPlus,
     PiSquaresFour,
     PiHeadlights, PiCloud,
+    PiMonitorPlay,
 } from "react-icons/pi";
 import type {DetailRoute, DMXFixture, DMXPartyState, WLEDDevice} from "@/types/controller.ts";
 import {Alert, AlertDescription} from "@/components/ui/alert";
@@ -106,6 +107,26 @@ export function AppShell({
                     </p>
                 </SidebarHeader>
                 <SidebarContent>
+                    {(wledEnabled || dmxEnabled) && (
+                        <SidebarGroup>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        type="button"
+                                        isActive={route.kind === "scenes"}
+                                        className={cn(
+                                            route.kind === "scenes" &&
+                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
+                                        )}
+                                        onClick={() => setRoute({kind: "scenes"})}
+                                    >
+                                        <PiMonitorPlay className="size-4 shrink-0" aria-hidden/>
+                                        <span className="min-w-0 flex-1 truncate">Scenes</span>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+                    )}
                     {wledEnabled && (
                         <>
                             <div className="px-2 pt-1">

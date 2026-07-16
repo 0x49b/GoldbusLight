@@ -34,6 +34,8 @@ export type DMXFixtureCueManagerProps = {
     /** ID of the cue most recently applied to live; used to highlight it. */
     activeCueId?: string | null;
     busy?: boolean;
+    /** Party cues include chase/idle controls; scene cues are static poses only. */
+    mode?: "party" | "scene";
 };
 
 function newCueId(): string {
@@ -46,7 +48,8 @@ type DialogState =
     | null;
 
 export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
-    const {fixture, sequence, captureValues, onSave, onApplyCue, canApply, activeCueId, busy} = props;
+    const {fixture, sequence, captureValues, onSave, onApplyCue, canApply, activeCueId, busy, mode = "party"} = props;
+    const isSceneMode = mode === "scene";
 
     const cues = sequence?.cues ?? [];
     const enabled = !!sequence?.enabled;
@@ -200,13 +203,15 @@ export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
             <CardContent className="space-y-3 py-4">
                 <div className="flex items-center justify-between gap-2">
                     <div>
-                        <p className="text-sm font-semibold">Show cues</p>
+                        <p className="text-sm font-semibold">{isSceneMode ? "Scene cues" : "Show cues"}</p>
                         <p className="text-xs text-muted-foreground">
-                            Move the fixture above, then capture its current position as a pose.
+                            {isSceneMode
+                                ? "Set the look on the Live tab, then capture it here. Scene cues are separate from party cues."
+                                : "Set the look on the Live tab, then capture it here as a party pose."}
                         </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                        {canGenerateShow && (
+                        {!isSceneMode && canGenerateShow && (
                             <Button
                                 type="button"
                                 size="sm"
@@ -224,13 +229,15 @@ export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
                             disabled={disabled}
                             onClick={() => setDialog({mode: "create", name: ""})}
                         >
-                            <PiFloppyDisk className="size-4"/> Save as cue
+                            <PiFloppyDisk className="size-4"/> Create from live
                         </Button>
                     </div>
                 </div>
 
                 {cues.length > 0 ? (
                     <>
+                        {!isSceneMode && (
+                            <>
                         <label className="flex items-center gap-2 text-sm">
                             <Checkbox
                                 checked={enabled}
@@ -306,9 +313,11 @@ export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
                         <Separator/>
 
                         <p className="text-xs text-muted-foreground">
-                            Reorder with the arrows to set how poses play through the show. Set a pose's Hold/Fade to
+                            Reorder with the arrows to set how poses play through the show. Set a pose&apos;s Hold/Fade to
                             vary its timing (0 = use the defaults above).
                         </p>
+                            </>
+                        )}
                         {onApplyCue && (
                             <p className="text-xs text-muted-foreground">
                                 Shortcuts: press <kbd className="rounded border bg-muted px-1">1</kbd>–<kbd className="rounded border bg-muted px-1">9</kbd> / <kbd className="rounded border bg-muted px-1">0</kbd> to recall cues 1–10, or <kbd className="rounded border bg-muted px-1">Shift</kbd>+<kbd className="rounded border bg-muted px-1">↑</kbd>/<kbd className="rounded border bg-muted px-1">↓</kbd> to step.
@@ -450,7 +459,7 @@ export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
                     </>
                 ) : (
                     <p className="text-xs text-muted-foreground">
-                        No cues yet. Position the fixture, then “Save as cue” to capture it.
+                        No cues yet. Dial in the fixture on Live, then use “Create from live” to capture it.
                     </p>
                 )}
             </CardContent>
@@ -458,11 +467,11 @@ export function DMXFixtureCueManager(props: DMXFixtureCueManagerProps) {
             <Dialog open={dialog !== null} onOpenChange={(open) => (!open ? setDialog(null) : undefined)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{dialog?.mode === "rename" ? "Rename cue" : "Save cue"}</DialogTitle>
+                        <DialogTitle>{dialog?.mode === "rename" ? "Rename cue" : "Create cue from live"}</DialogTitle>
                         <DialogDescription>
                             {dialog?.mode === "rename"
                                 ? "Give this cue a new name."
-                                : "Capture the fixture's current position as a named cue."}
+                                : "Captures the fixture’s current Live tab values as a named cue."}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">

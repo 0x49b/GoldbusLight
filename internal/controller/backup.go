@@ -35,10 +35,13 @@ func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, e
 	c.mu.RLock()
 	generalTab := c.generalTabState
 	stateToBackup := persistentState{
-		Version:  persistentStateVersion,
-		SavedAt:  time.Now().UTC(),
-		Settings: c.settings,
-		Devices:  cloneDeviceMap(c.devices),
+		Version:        persistentStateVersion,
+		SavedAt:        time.Now().UTC(),
+		Settings:       c.settings,
+		Devices:        cloneDeviceMap(c.devices),
+		Scenes:         cloneLightingScenes(c.scenes),
+		ActiveSceneID:  c.activeSceneID,
+		DefaultSceneID: c.defaultSceneID,
 	}
 	c.mu.RUnlock()
 
@@ -195,6 +198,19 @@ func (c *WLEDController) reloadFromPersistence() error {
 	wledWas := c.settings.WLED.Enabled
 	c.settings = mergeWithDefaults(loaded.Settings)
 	c.devices = loaded.Devices
+	c.scenes = normalizeLightingScenes(loaded.Scenes)
+	c.activeSceneID = strings.TrimSpace(loaded.ActiveSceneID)
+	if c.activeSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.activeSceneID); !ok {
+			c.activeSceneID = ""
+		}
+	}
+	c.defaultSceneID = strings.TrimSpace(loaded.DefaultSceneID)
+	if c.defaultSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.defaultSceneID); !ok {
+			c.defaultSceneID = ""
+		}
+	}
 	c.generalTabState = clampGeneralTabState(generalTab)
 	c.dmxState = normDMX
 	c.dmxPersistEnabled = dmxPersistEnabled
@@ -262,6 +278,19 @@ func (c *WLEDController) reloadFromImportBundle(bundle ConfigurationBackup) erro
 	wledWas := c.settings.WLED.Enabled
 	c.settings = mergeWithDefaults(loaded.Settings)
 	c.devices = loaded.Devices
+	c.scenes = normalizeLightingScenes(loaded.Scenes)
+	c.activeSceneID = strings.TrimSpace(loaded.ActiveSceneID)
+	if c.activeSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.activeSceneID); !ok {
+			c.activeSceneID = ""
+		}
+	}
+	c.defaultSceneID = strings.TrimSpace(loaded.DefaultSceneID)
+	if c.defaultSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.defaultSceneID); !ok {
+			c.defaultSceneID = ""
+		}
+	}
 	c.generalTabState = clampGeneralTabState(generalTab)
 	c.dmxState = normDMX
 	c.dmxPersistEnabled = true

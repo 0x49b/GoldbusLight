@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"goldbus"
@@ -362,6 +363,138 @@ func (g *GoldbusLightService) StopDMXLive() {
 func (g *GoldbusLightService) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error {
 	return g.withController(func(c *ctrlpkg.WLEDController) error {
 		return c.ApplyDMXLivePatch(updates)
+	})
+}
+
+func (g *GoldbusLightService) CreateWLEDDevicePreset(deviceID, name string) (ctrlpkg.WLEDDevicePreset, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.WLEDDevicePreset, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceOp)
+		defer cancel()
+		return c.CreateWLEDDevicePreset(ctx, deviceID, name)
+	})
+}
+
+func (g *GoldbusLightService) UpdateWLEDDevicePreset(deviceID, presetID, name string, state map[string]any) (ctrlpkg.WLEDDevicePreset, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.WLEDDevicePreset, error) {
+		return c.UpdateWLEDDevicePreset(deviceID, presetID, name, state)
+	})
+}
+
+func (g *GoldbusLightService) DeleteWLEDDevicePreset(deviceID, presetID string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.DeleteWLEDDevicePreset(deviceID, presetID); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+func (g *GoldbusLightService) ApplyWLEDDevicePreset(deviceID, presetID string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutDeviceOp)
+		defer cancel()
+		if err := c.ApplyWLEDDevicePreset(ctx, deviceID, presetID); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+func (g *GoldbusLightService) CreateLightingScene(input ctrlpkg.UpsertLightingSceneInput) (ctrlpkg.LightingScene, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.LightingScene, error) {
+		return c.CreateLightingScene(input)
+	})
+}
+
+func (g *GoldbusLightService) UpdateLightingScene(input ctrlpkg.UpsertLightingSceneInput) (ctrlpkg.LightingScene, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.LightingScene, error) {
+		return c.UpdateLightingScene(input)
+	})
+}
+
+func (g *GoldbusLightService) DeleteLightingScene(id string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.DeleteLightingScene(id); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+func (g *GoldbusLightService) ApplyLightingScene(id string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := c.ApplyLightingScene(ctx, id); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+// SetDefaultLightingScene marks a scene as the startup default. Pass an empty id to clear.
+func (g *GoldbusLightService) SetDefaultLightingScene(id string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.SetDefaultLightingScene(id); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+// ExportLightingScene prompts for a destination and writes a portable scene JSON file.
+func (g *GoldbusLightService) ExportLightingScene(id string) (string, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (string, error) {
+		prompt := g.backupCallbacks.PromptSaveFixturePath
+		if prompt == nil {
+			prompt = g.backupCallbacks.PromptSavePath
+		}
+		if prompt == nil {
+			return "", errors.New("scene export is unavailable")
+		}
+		data, err := c.ExportLightingSceneBundle(id)
+		if err != nil {
+			return "", err
+		}
+		suggested := "scene-untitled" + ctrlpkg.LightingSceneExportExtension()
+		var bundle ctrlpkg.PortableLightingSceneBundle
+		if json.Unmarshal(data, &bundle) == nil {
+			suggested = ctrlpkg.SuggestLightingSceneExportFilename(bundle.Scene.Name)
+		}
+		path, err := prompt(suggested)
+		if err != nil {
+			return "", err
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return "", ctrlpkg.ErrConfigurationBackupCancelled
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			return "", fmt.Errorf("write scene: %w", err)
+		}
+		return path, nil
+	})
+}
+
+// ImportLightingScene prompts for a portable scene file and creates it locally.
+func (g *GoldbusLightService) ImportLightingScene() (ctrlpkg.LightingScene, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.LightingScene, error) {
+		if g.backupCallbacks.PromptOpenPath == nil {
+			return ctrlpkg.LightingScene{}, errors.New("scene import is unavailable")
+		}
+		path, err := g.backupCallbacks.PromptOpenPath()
+		if err != nil {
+			return ctrlpkg.LightingScene{}, err
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return ctrlpkg.LightingScene{}, ctrlpkg.ErrConfigurationBackupCancelled
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return ctrlpkg.LightingScene{}, fmt.Errorf("read scene: %w", err)
+		}
+		return c.ImportLightingSceneBundle(data)
 	})
 }
 

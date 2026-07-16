@@ -74,6 +74,9 @@ export type DeviceDetailViewProps = {
     onRemoveDevice: (id: string) => void;
     onSetDeviceState: (id: string, state: JSONMap) => void;
     onRenameDevice: (id: string, name: string) => void;
+    onCreatePreset: (deviceId: string, name: string) => Promise<void>;
+    onApplyPreset: (deviceId: string, presetId: string) => Promise<void>;
+    onDeletePreset: (deviceId: string, presetId: string) => Promise<void>;
 };
 
 export function DeviceDetailView({
@@ -110,10 +113,15 @@ export function DeviceDetailView({
                                      onRemoveDevice,
                                      onSetDeviceState,
                                      onRenameDevice,
+                                     onCreatePreset,
+                                     onApplyPreset,
+                                     onDeletePreset,
                                  }: DeviceDetailViewProps) {
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
+    const [presetNameDraft, setPresetNameDraft] = useState("");
+    const [presetDialogOpen, setPresetDialogOpen] = useState(false);
 
     if (!d) {
         return <p className="opacity-70">Device not found.</p>;
@@ -465,6 +473,108 @@ export function DeviceDetailView({
 
             </Card>
 
+
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+                    <CardTitle>Presets</CardTitle>
+                    <Button
+                        type="button"
+                        size="sm"
+                        disabled={busy || !d}
+                        onClick={() => {
+                            setPresetNameDraft("");
+                            setPresetDialogOpen(true);
+                        }}
+                    >
+                        Save current
+                    </Button>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    {(d?.presets?.length ?? 0) === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            Save the current look as a named preset for use in Scenes.
+                        </p>
+                    ) : (
+                        (d?.presets ?? []).map((preset) => (
+                            <div
+                                key={preset.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+                            >
+                                <span className="text-sm font-medium">{preset.name}</span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={busy}
+                                        onClick={() => {
+                                            if (d) {
+                                                void onApplyPreset(d.id, preset.id);
+                                            }
+                                        }}
+                                    >
+                                        Apply
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="destructive"
+                                        disabled={busy}
+                                        onClick={() => {
+                                            if (d) {
+                                                void onDeletePreset(d.id, preset.id);
+                                            }
+                                        }}
+                                    >
+                                        Delete
+                                    </Button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </CardContent>
+            </Card>
+
+            <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Save preset</DialogTitle>
+                        <DialogDescription>
+                            Capture this device&apos;s current look as a named preset.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor="wled-preset-name">Name</Label>
+                        <Input
+                            id="wled-preset-name"
+                            value={presetNameDraft}
+                            onChange={(e) => setPresetNameDraft(e.target.value)}
+                            placeholder="Warm lobby"
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={() => setPresetDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={busy || !presetNameDraft.trim() || !d}
+                            onClick={() => {
+                                if (!d || !presetNameDraft.trim()) {
+                                    return;
+                                }
+                                void onCreatePreset(d.id, presetNameDraft.trim()).then(() => {
+                                    setPresetDialogOpen(false);
+                                    setPresetNameDraft("");
+                                });
+                            }}
+                        >
+                            Save
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Card>
                 <CardHeader>

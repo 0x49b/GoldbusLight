@@ -42,12 +42,12 @@ type DMXFixtureLiveControlsProps = {
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
     liveUniverse?: number[];
     onSaveCueSequence?: (next: DMXFixtureCueSequence) => Promise<boolean>;
+    onSaveSceneCues?: (next: DMXFixtureCue[]) => Promise<boolean>;
     /**
-     * Which section to display. The component stays mounted in both modes so
-     * live state (and the active cue) survives switching between the Live
-     * and Cues tabs.
+     * Which section to display. The component stays mounted across modes so
+     * live state (and the active cue) survives switching between Live / Cues tabs.
      */
-    displayMode?: "live" | "cues";
+    displayMode?: "live" | "cues" | "sceneCues";
     /** When set with `setEditLayout`, layout edit mode is controlled by the parent (e.g. top bar). */
     editLayout?: boolean;
     setEditLayout?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -211,6 +211,7 @@ export function DMXFixtureLiveControls({
     queueDmxLivePatch,
     liveUniverse,
     onSaveCueSequence,
+    onSaveSceneCues,
     displayMode = "live",
     editLayout: editLayoutProp,
 }: DMXFixtureLiveControlsProps) {
@@ -550,8 +551,11 @@ export function DMXFixtureLiveControls({
         ],
     );
 
+    // Live controls only on the Live tab. Cue tabs capture from the current live
+    // state via "Save as cue" / "Update from live" — they should not re-show the grid.
     const showLive = displayMode === "live";
-    const showCues = displayMode === "cues";
+    const showPartyCues = displayMode === "cues";
+    const showSceneCues = displayMode === "sceneCues";
 
     return (
         <div className="space-y-4">
@@ -602,7 +606,7 @@ export function DMXFixtureLiveControls({
             </div>
 
             {onSaveCueSequence && (
-                <div className={showCues ? "" : "hidden"} aria-hidden={!showCues}>
+                <div className={showPartyCues ? "" : "hidden"} aria-hidden={!showPartyCues}>
                     <DMXFixtureCueManager
                         fixture={fixture}
                         sequence={fixture.party?.cueSequence}
@@ -612,6 +616,23 @@ export function DMXFixtureLiveControls({
                         canApply={canApplyCue}
                         activeCueId={activeCueId}
                         busy={busy}
+                        mode="party"
+                    />
+                </div>
+            )}
+
+            {onSaveSceneCues && (
+                <div className={showSceneCues ? "" : "hidden"} aria-hidden={!showSceneCues}>
+                    <DMXFixtureCueManager
+                        fixture={fixture}
+                        sequence={{cues: fixture.sceneCues ?? []}}
+                        captureValues={captureCurrentValues}
+                        onSave={async (next) => onSaveSceneCues(next.cues ?? [])}
+                        onApplyCue={applyCue}
+                        canApply={canApplyCue}
+                        activeCueId={activeCueId}
+                        busy={busy}
+                        mode="scene"
                     />
                 </div>
             )}

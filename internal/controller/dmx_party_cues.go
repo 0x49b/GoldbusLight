@@ -211,6 +211,17 @@ func normalizeFixtureCueSequence(in DMXFixtureCueSequence) DMXFixtureCueSequence
 	return out
 }
 
+func normalizeFixtureSceneCues(in []DMXFixtureCue) []DMXFixtureCue {
+	if len(in) == 0 {
+		return nil
+	}
+	seq := normalizeFixtureCueSequence(DMXFixtureCueSequence{Cues: in})
+	if len(seq.Cues) == 0 {
+		return nil
+	}
+	return seq.Cues
+}
+
 // cueSequenceActive reports whether the sequence should drive the fixture.
 func cueSequenceActive(seq DMXFixtureCueSequence) bool {
 	return seq.Enabled && len(seq.Cues) > 0

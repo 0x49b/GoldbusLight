@@ -48,6 +48,7 @@ import type {
     DetailRoute,
     DMXChannel,
     DMXFixture,
+    DMXFixtureCue,
     DMXFixtureCueSequence,
     DMXFixtureParty,
     DMXFixtureType,
@@ -63,7 +64,7 @@ import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixtureCueSequenceEditor} from "./DMXFixtureCueSequenceEditor";
 
-type FixturePageMode = "editor" | "live" | "cues";
+type FixturePageMode = "editor" | "live" | "cues" | "sceneCues";
 
 const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string }> = [
     {value: "colorChanger", label: "Color Changer"},
@@ -195,6 +196,7 @@ function fixtureToUpsertInput(f: DMXFixture): UpsertDMXFixtureInput {
         maxPan: Math.max(0, Math.round(f.movingHead?.maxPan ?? 0)),
         maxTilt: Math.max(0, Math.round(f.movingHead?.maxTilt ?? 0)),
         party: f.party,
+        sceneCues: f.sceneCues,
         channels: cloneChannels(f.channels),
     };
 }
@@ -483,6 +485,23 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         [props.fixture, props.onUpdate],
     );
 
+    const handleSaveSceneCues = useCallback(
+        async (next: DMXFixtureCue[]): Promise<boolean> => {
+            const current = props.fixture;
+            if (!current) {
+                return false;
+            }
+            const sanitized = sanitizeCueSequenceForSave({cues: next});
+            const input: UpsertDMXFixtureInput = {
+                ...fixtureToUpsertInput(current),
+                sceneCues: sanitized?.cues ?? [],
+            };
+            const saved = await props.onUpdate(input);
+            return saved != null;
+        },
+        [props.fixture, props.onUpdate],
+    );
+
     const handleSave = async () => {
         setSaveHint(null);
         const trimmedBrand = brand.trim();
@@ -698,7 +717,16 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     aria-pressed={pageMode === "cues"}
                                     onClick={() => setPageMode("cues")}
                                 >
-                                    Cues
+                                    Party cues
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className={pageMode === "sceneCues" ? "btn-active" : ""}
+                                    aria-pressed={pageMode === "sceneCues"}
+                                    onClick={() => setPageMode("sceneCues")}
+                                >
+                                    Scene cues
                                 </Button>
                                 <Button
                                     type="button"
@@ -848,6 +876,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     queueDmxLivePatch={props.queueDmxLivePatch}
                     liveUniverse={props.dmxState.liveUniverse}
                     onSaveCueSequence={handleSaveCueSequence}
+                    onSaveSceneCues={handleSaveSceneCues}
                     displayMode={pageMode}
                     editLayout={editLayout}
                     setEditLayout={setEditLayout}

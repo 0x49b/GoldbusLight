@@ -126,7 +126,7 @@ const initialState: ControllerStoreState = {
     generalSx: 128,
     generalIx: 128,
     busy: false,
-    route: {kind: "presets"},
+    route: {kind: "scenes"},
     deviceDetail: null,
     deviceDetailInitializing: false,
     deviceDetailReloading: false,

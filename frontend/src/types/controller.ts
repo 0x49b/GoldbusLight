@@ -64,6 +64,14 @@ export type ControllerSettings = {
     dmx: DMXSettings;
 };
 
+export type WLEDDevicePreset = {
+    id: string;
+    name: string;
+    state: JSONMap;
+    createdAt?: string;
+    updatedAt?: string;
+};
+
 export type WLEDDevice = {
     id: string;
     name: string;
@@ -76,11 +84,41 @@ export type WLEDDevice = {
     ignored?: boolean;
     info?: JSONMap;
     lastState?: JSONMap;
+    presets?: WLEDDevicePreset[];
+};
+
+export type SceneWLEDEntry = {
+    deviceId: string;
+    presetId: string;
+};
+
+export type SceneDMXEntry = {
+    fixtureId: string;
+    cueId: string;
+};
+
+export type LightingScene = {
+    id: string;
+    name: string;
+    wled?: SceneWLEDEntry[];
+    dmx?: SceneDMXEntry[];
+    createdAt?: string;
+    updatedAt?: string;
+};
+
+export type UpsertLightingSceneInput = {
+    id?: string;
+    name: string;
+    wled?: SceneWLEDEntry[];
+    dmx?: SceneDMXEntry[];
 };
 
 export type ControllerSnapshot = {
     settings: ControllerSettings;
     devices: WLEDDevice[];
+    scenes?: LightingScene[];
+    activeSceneId?: string;
+    defaultSceneId?: string;
     generalTabState?: {
         on: boolean;
         bri: number;
@@ -263,6 +301,8 @@ export type DMXFixture = {
         maxTilt: number;
     };
     party?: DMXFixtureParty;
+    /** Static poses for Lighting Scenes (separate from party cueSequence). */
+    sceneCues?: DMXFixtureCue[];
     channels: DMXChannel[];
     createdAt: string;
     updatedAt: string;
@@ -375,12 +415,14 @@ export type UpsertDMXFixtureInput = {
     maxPan: number;
     maxTilt: number;
     party?: DMXFixtureParty;
+    sceneCues?: DMXFixtureCue[];
     channels: DMXChannel[];
 };
 
 export type DetailRoute =
     | { kind: "party" }
     | { kind: "presets" }
+    | { kind: "scenes" }
     | { kind: "settings" }
     | { kind: "device"; id: string }
     | { kind: "wledAddDevice" }

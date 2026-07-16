@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "exportedAt": "2026-07-16T13:52:34.810334Z",
+  "scene": {
+    "name": "Weisses Licht",
+    "wled": [
+      {
+        "deviceId": "ccdba7df183c",
+        "deviceName": "WLED Test Strip",
+        "address": "192.168.178.68",
+        "presetName": "White",
+        "state": {
+          "AudioReactive": {
+            "on": false
+          },
+          "bri": 255,
+          "bs": 0,
+          "ledmap": 0,
+          "lor": 0,
+          "mainseg": 0,
+          "nl": {
+            "dur": 60,
+            "mode": 1,
+            "on": false,
+            "rem": -1,
+            "tbri": 0
+          },
+          "on": true,
+          "pl": -1,
+          "ps": -1,
+          "seg": [
+            {
+              "bm": 0,
+              "bri": 255,
+              "c1": 128,
+              "c2": 128,
+              "c3": 16,
+              "cct": 127,
+              "col": [
+                [
+                  255,
+                  255,
+                  255
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "frz": false,
+              "fx": 0,
+              "grp": 1,
+              "id": 0,
+              "ix": 128,
+              "lc": 1,
+              "len": 6,
+              "m12": 0,
+              "mi": false,
+              "o1": false,
+              "o2": false,
+              "o3": false,
+              "of": 0,
+              "on": true,
+              "pal": 0,
+              "rev": false,
+              "sel": true,
+              "set": 0,
+              "si": 0,
+              "spc": 0,
+              "start": 0,
+              "stop": 6,
+              "sx": 128
+            }
+          ],
+          "transition": 7,
+          "udpn": {
+            "recv": true,
+            "rgrp": 1,
+            "send": false,
+            "sgrp": 1
+          }
+        }
+      }
+    ],
+    "dmx": [
+      {
+        "fixtureId": "fixture-1779184904523861896",
+        "fixtureBrand": "Idealight",
+        "fixtureName": "[1] Spot 575",
+        "cueLabel": "Home Center",
+        "values": {
+          "1": 128,
+          "10": 128,
+          "11": 16,
+          "13": 100,
+          "14": 5,
+          "2": 141,
+          "4": 255,
+          "5": 11,
+          "6": 8,
+          "7": 13,
+          "9": 5
+        }
+      },
+      {
+        "fixtureId": "fixture-1781946156772333000",
+        "fixtureBrand": "Idealight",
+        "fixtureName": "[2] Spot 575",
+        "cueLabel": "Home Center",
+        "values": {
+          "1": 128,
+          "10": 128,
+          "11": 16,
+          "13": 100,
+          "14": 5,
+          "2": 141,
+          "4": 255,
+          "5": 11,
+          "6": 8,
+          "7": 13,
+          "9": 5
+        }
+      },
+      {
+        "fixtureId": "fixture-1781946242462370000",
+        "fixtureBrand": "Idealight",
+        "fixtureName": "[3] Spot 575",
+        "cueLabel": "Home Center",
+        "values": {
+          "1": 128,
+          "10": 128,
+          "11": 16,
+          "13": 100,
+          "14": 5,
+          "2": 141,
+          "4": 255,
+          "5": 11,
+          "6": 8,
+          "7": 13,
+          "9": 5
+        }
+      },
+      {
+        "fixtureId": "fixture-1782277907008318000",
+        "fixtureBrand": "Idealight",
+        "fixtureName": "[4] Spot 575",
+        "cueLabel": "Home Center",
+        "values": {
+          "1": 128,
+          "10": 128,
+          "11": 16,
+          "13": 100,
+          "14": 5,
+          "2": 141,
+          "4": 255,
+          "5": 11,
+          "6": 8,
+          "7": 13,
+          "9": 5
+        }
+      }
+    ]
+  }
+}

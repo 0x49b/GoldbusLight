@@ -20,7 +20,22 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 	c.mu.Lock()
 	c.settings = DefaultControllerSettings()
 	c.settings.WLED.Enabled = true
-	c.devices = map[string]WLEDDevice{"dev-1": {ID: "dev-1", Name: "Test"}}
+	c.devices = map[string]WLEDDevice{
+		"dev-1": {
+			ID:   "dev-1",
+			Name: "Test",
+			Presets: []WLEDDevicePreset{{
+				ID:    "preset-1",
+				Name:  "Warm",
+				State: map[string]any{"on": true, "bri": 200},
+			}},
+		},
+	}
+	c.scenes = []LightingScene{{
+		ID:   "scene-1",
+		Name: "Lobby",
+		WLED: []SceneWLEDEntry{{DeviceID: "dev-1", PresetID: "preset-1"}},
+	}}
 	c.generalTabState = GeneralTabState{On: true, Bri: 128}
 	c.dmxState = defaultDMXState()
 	c.dmxState.Fixtures = []DMXFixture{{ID: "fx-1", Name: "Par", DMXAddress: 1, Type: DMXFixtureTypeDimmer}}
@@ -43,6 +58,16 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 			t.Fatalf("missing %s in bundle", name)
 		}
 	}
+	var state persistentState
+	if err := json.Unmarshal(bundle.Files[defaultStateFileName], &state); err != nil {
+		t.Fatalf("state json: %v", err)
+	}
+	if len(state.Scenes) != 1 || state.Scenes[0].ID != "scene-1" {
+		t.Fatalf("scenes in export = %+v", state.Scenes)
+	}
+	if len(state.Devices["dev-1"].Presets) != 1 || state.Devices["dev-1"].Presets[0].ID != "preset-1" {
+		t.Fatalf("presets in export = %+v", state.Devices["dev-1"].Presets)
+	}
 
 	c2 := NewWLEDController(log.New(io.Discard, "", 0))
 	c2.persistence = &StatePersistenceManager{path: filepath.Join(dir, "import-"+defaultStateFileName)}
@@ -61,6 +86,7 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 	c2.mu.Lock()
 	c2.settings = DefaultControllerSettings()
 	c2.devices = map[string]WLEDDevice{}
+	c2.scenes = nil
 	c2.mu.Unlock()
 
 	if err := c2.ImportConfigurationBackup(data); err != nil {
@@ -71,6 +97,12 @@ func TestConfigurationBackupRoundTrip(t *testing.T) {
 	defer c2.mu.RUnlock()
 	if len(c2.devices) != 1 {
 		t.Fatalf("devices = %d", len(c2.devices))
+	}
+	if len(c2.devices["dev-1"].Presets) != 1 || c2.devices["dev-1"].Presets[0].Name != "Warm" {
+		t.Fatalf("presets after import = %+v", c2.devices["dev-1"].Presets)
+	}
+	if len(c2.scenes) != 1 || c2.scenes[0].Name != "Lobby" {
+		t.Fatalf("scenes after import = %+v", c2.scenes)
 	}
 	if !c2.generalTabState.On || c2.generalTabState.Bri != 128 {
 		t.Fatalf("general tab = %+v", c2.generalTabState)

@@ -7,3 +7,4 @@ build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 .DS_Store
 /goldbus-kmp/
+.mypy_cache/

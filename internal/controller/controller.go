@@ -121,6 +121,15 @@ type ControllerSettings struct {
 	Testing      TestingSettings         `json:"testing,omitempty"`
 }
 
+// WLEDDevicePreset is a named look saved on a WLED device for Scenes recall.
+type WLEDDevicePreset struct {
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	State     map[string]any `json:"state"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+}
+
 type WLEDDevice struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
@@ -134,6 +143,38 @@ type WLEDDevice struct {
 	Info        map[string]any `json:"info,omitempty"`
 	// LastState holds the last known WLED JSON state payload applied to the device (merged over time) for restore on reconnect.
 	LastState map[string]any `json:"lastState,omitempty"`
+	// Presets are named device looks used by Lighting Scenes.
+	Presets []WLEDDevicePreset `json:"presets,omitempty"`
+}
+
+// SceneWLEDEntry includes a WLED device in a scene and which preset to apply.
+type SceneWLEDEntry struct {
+	DeviceID string `json:"deviceId"`
+	PresetID string `json:"presetId"`
+}
+
+// SceneDMXEntry includes a DMX fixture in a scene and which cue pose to apply.
+type SceneDMXEntry struct {
+	FixtureID string `json:"fixtureId"`
+	CueID     string `json:"cueId"`
+}
+
+// LightingScene is a named switch-plate look spanning WLED presets and DMX cues.
+type LightingScene struct {
+	ID        string           `json:"id"`
+	Name      string           `json:"name"`
+	WLED      []SceneWLEDEntry `json:"wled"`
+	DMX       []SceneDMXEntry  `json:"dmx"`
+	CreatedAt time.Time        `json:"createdAt"`
+	UpdatedAt time.Time        `json:"updatedAt"`
+}
+
+// UpsertLightingSceneInput creates or updates a lighting scene.
+type UpsertLightingSceneInput struct {
+	ID   string           `json:"id"`
+	Name string           `json:"name"`
+	WLED []SceneWLEDEntry `json:"wled"`
+	DMX  []SceneDMXEntry  `json:"dmx"`
 }
 
 func isSimulatedWLED(device WLEDDevice, settings ControllerSettings) bool {
@@ -166,17 +207,23 @@ func newSimulatedWLEDDevice() WLEDDevice {
 }
 
 type persistentState struct {
-	Version  int                   `json:"version"`
-	SavedAt  time.Time             `json:"savedAt"`
-	Settings ControllerSettings    `json:"settings"`
-	Devices  map[string]WLEDDevice `json:"devices"`
+	Version        int                   `json:"version"`
+	SavedAt        time.Time             `json:"savedAt"`
+	Settings       ControllerSettings    `json:"settings"`
+	Devices        map[string]WLEDDevice `json:"devices"`
+	Scenes         []LightingScene       `json:"scenes,omitempty"`
+	ActiveSceneID  string                `json:"activeSceneId,omitempty"`
+	DefaultSceneID string                `json:"defaultSceneId,omitempty"`
 }
 
-const persistentStateVersion = 3
+const persistentStateVersion = 4
 
 type ControllerSnapshot struct {
 	Settings        ControllerSettings     `json:"settings"`
 	Devices         []WLEDDevice           `json:"devices"`
+	Scenes          []LightingScene        `json:"scenes,omitempty"`
+	ActiveSceneID   string                 `json:"activeSceneId,omitempty"`
+	DefaultSceneID  string                 `json:"defaultSceneId,omitempty"`
 	GeneralTabState GeneralTabState        `json:"generalTabState"`
 	PersistencePath string                 `json:"persistencePath"`
 	UpdatedAt       time.Time              `json:"updatedAt"`
@@ -235,9 +282,11 @@ type DMXFixture struct {
 	MasterFixtureID string           `json:"masterFixtureId,omitempty"`
 	MovingHead      MovingHeadConfig `json:"movingHead"`
 	Party           DMXFixtureParty  `json:"party,omitempty"`
-	Channels        []DMXChannel     `json:"channels"`
-	CreatedAt       time.Time        `json:"createdAt"`
-	UpdatedAt       time.Time        `json:"updatedAt"`
+	// SceneCues are static poses used by Lighting Scenes (separate from party cueSequence).
+	SceneCues []DMXFixtureCue `json:"sceneCues,omitempty"`
+	Channels  []DMXChannel    `json:"channels"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
 }
 
 type DMXState struct {
@@ -265,6 +314,7 @@ type UpsertDMXFixtureInput struct {
 	MaxPan          int             `json:"maxPan"`
 	MaxTilt         int             `json:"maxTilt"`
 	Party           DMXFixtureParty `json:"party,omitempty"`
+	SceneCues       []DMXFixtureCue `json:"sceneCues,omitempty"`
 	Channels        []DMXChannel    `json:"channels"`
 }
 
@@ -575,6 +625,9 @@ type WLEDController struct {
 	importingConfig   atomic.Bool // suppresses periodic persist while ImportConfigurationBackup runs
 	settings          ControllerSettings
 	devices           map[string]WLEDDevice
+	scenes            []LightingScene
+	activeSceneID     string
+	defaultSceneID    string
 	generalTabState   GeneralTabState
 	dmxState          DMXState
 	dmxPersistEnabled bool // false when dmx.json failed to load — avoids overwriting fixtures on disk
@@ -616,6 +669,7 @@ func NewWLEDController(logger *log.Logger) *WLEDController {
 		console:                  bus,
 		settings:                 DefaultControllerSettings(),
 		devices:                  map[string]WLEDDevice{},
+		scenes:                   nil,
 		generalTabState:          defaultGeneralTabState(),
 		dmxState:                 defaultDMXState(),
 		updated:                  time.Now(),
@@ -642,6 +696,9 @@ func (c *WLEDController) syncSimulatedDeviceLocked() {
 			base.Ignored = existing.Ignored
 			if existing.Info != nil {
 				base.Info = cloneJSONMap(existing.Info)
+			}
+			if len(existing.Presets) > 0 {
+				base.Presets = cloneWLEDDevicePresets(existing.Presets)
 			}
 			base.LastSeen = time.Now()
 		}
@@ -777,6 +834,19 @@ func (c *WLEDController) Start(ctx context.Context) error {
 		c.settings.DMX.ArtNet = clampArtNetSettingsPtr(&iface.ArtNet)
 	}
 	c.devices = loaded.Devices
+	c.scenes = normalizeLightingScenes(loaded.Scenes)
+	c.activeSceneID = strings.TrimSpace(loaded.ActiveSceneID)
+	if c.activeSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.activeSceneID); !ok {
+			c.activeSceneID = ""
+		}
+	}
+	c.defaultSceneID = strings.TrimSpace(loaded.DefaultSceneID)
+	if c.defaultSceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.defaultSceneID); !ok {
+			c.defaultSceneID = ""
+		}
+	}
 	c.generalTabState = clampGeneralTabState(generalTab)
 	c.dmxState = normDMX
 	c.dmxPersistEnabled = dmxPersistEnabled
@@ -808,7 +878,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
-	go c.recallWLEDDevicePresetsOnBoot(runCtx)
+	go c.applyDefaultOrRecallWLEDOnBoot(runCtx)
 
 	return nil
 }
@@ -847,6 +917,9 @@ func (c *WLEDController) Snapshot() ControllerSnapshot {
 	return ControllerSnapshot{
 		Settings:        c.settings,
 		Devices:         devices,
+		Scenes:          cloneLightingScenes(c.scenes),
+		ActiveSceneID:   c.activeSceneID,
+		DefaultSceneID:  c.defaultSceneID,
 		GeneralTabState: c.generalTabState,
 		PersistencePath: c.persistence.Path(),
 		UpdatedAt:       c.updated,
@@ -1912,6 +1985,30 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 	}
 }
 
+// applyDefaultOrRecallWLEDOnBoot applies the configured default scene after startup,
+// or falls back to recalling each WLED device's flash preset when none is set.
+func (c *WLEDController) applyDefaultOrRecallWLEDOnBoot(ctx context.Context) {
+	c.mu.RLock()
+	defaultID := c.defaultSceneID
+	c.mu.RUnlock()
+	if defaultID == "" {
+		c.recallWLEDDevicePresetsOnBoot(ctx)
+		return
+	}
+
+	select {
+	case <-time.After(2 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+
+	applyCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := c.ApplyLightingScene(applyCtx, defaultID); err != nil {
+		c.logger.Printf("default scene on boot failed: %v", err)
+	}
+}
+
 // recallWLEDDevicePresetsOnBoot tells each known WLED unit to load a preset from its own
 // flash (HTTP JSON "ps") instead of replaying merged LastState from the desktop session.
 func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
@@ -2044,10 +2141,13 @@ func (c *WLEDController) persist() error {
 	}
 	c.mu.RLock()
 	state := persistentState{
-		Version:  persistentStateVersion,
-		SavedAt:  time.Now(),
-		Settings: c.settings,
-		Devices:  cloneDeviceMap(c.devices),
+		Version:        persistentStateVersion,
+		SavedAt:        time.Now(),
+		Settings:       c.settings,
+		Devices:        cloneDeviceMap(c.devices),
+		Scenes:         cloneLightingScenes(c.scenes),
+		ActiveSceneID:  c.activeSceneID,
+		DefaultSceneID: c.defaultSceneID,
 	}
 	c.mu.RUnlock()
 	return c.persistence.Save(state)
@@ -2091,6 +2191,7 @@ func cloneDMXState(in DMXState) DMXState {
 		cp.Name = strings.TrimSpace(cp.Name)
 		cp.UniverseID = normalizeFixtureUniverseID(cp.UniverseID, out.Universes)
 		cp.Party = normalizeFixtureParty(cp.Party)
+		cp.SceneCues = normalizeFixtureSceneCues(cp.SceneCues)
 		if len(cp.Party.ChannelWeights) > 0 {
 			wm := make(map[string]int, len(cp.Party.ChannelWeights))
 			for k, v := range cp.Party.ChannelWeights {
@@ -2537,6 +2638,7 @@ func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput, 
 		MaxTilt: input.MaxTilt,
 	}
 	fixture.Party = normalizeFixtureParty(input.Party)
+	fixture.SceneCues = normalizeFixtureSceneCues(input.SceneCues)
 	fixture.Channels = channels
 	masterID, err := validateMasterFixtureID(fixtures, fixture.ID, input.MasterFixtureID)
 	if err != nil {

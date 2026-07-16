@@ -340,6 +340,7 @@ func (c *WLEDController) StartDMXParty() error {
 	party.Status.Running = true
 	party.Status.AudioInputDeviceID = party.Config.AudioInputDeviceID
 	c.dmxState.Party = party
+	c.activeSceneID = ""
 	c.updated = time.Now()
 	c.mu.Unlock()
 

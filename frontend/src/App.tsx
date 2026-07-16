@@ -5,10 +5,28 @@ import {DeviceDetailView} from "@/components/wled/device/DeviceDetailView";
 import {WLEDAddDeviceView} from "./components/wled/WLEDAddDeviceView";
 import {AppShell} from "./components/layout/AppShell";
 import {PartyModeView} from "./components/party/PartyModeView";
+import {ScenesView} from "./components/scenes/ScenesView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
 import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
 import {useControllerApp} from "./hooks/useControllerApp";
+import {universeInterfaceSettings} from "./lib/dmxUniverses";
+import type {ControllerSettings, DMXState} from "./types/controller";
+import {DEFAULT_DMX_UNIVERSE_ID} from "./types/controller";
+
+function isDmxInterfaceConfigured(settings: ControllerSettings | null, dmxState: DMXState): boolean {
+    if (!settings?.dmx.enabled) {
+        return false;
+    }
+    if (settings.dmx.testing.simulateUsbDmx || settings.dmx.testing.simulateArtNet) {
+        return true;
+    }
+    const iface = universeInterfaceSettings(settings, DEFAULT_DMX_UNIVERSE_ID, dmxState);
+    if (iface.selectedUSBDeviceId.trim()) {
+        return true;
+    }
+    return iface.artNet.enabled;
+}
 
 function App() {
     const app = useControllerApp();
@@ -28,7 +46,35 @@ function App() {
     }
 
     let main: ReactNode = null;
-    if (app.route.kind === "party" && (app.wledEnabled || app.dmxEnabled)) {
+    if (app.route.kind === "scenes" && (app.wledEnabled || app.dmxEnabled)) {
+        main = (
+            <ScenesView
+                scenes={app.scenes}
+                activeSceneId={app.snapshot?.activeSceneId}
+                defaultSceneId={app.snapshot?.defaultSceneId}
+                devices={app.devices}
+                fixtures={app.dmxState.fixtures}
+                wledEnabled={app.wledEnabled}
+                dmxEnabled={app.dmxEnabled}
+                dmxInterfaceConfigured={isDmxInterfaceConfigured(app.settings, app.dmxState)}
+                busy={app.busy}
+                onApply={async (id) => {
+                    await app.onApplyLightingScene(id);
+                }}
+                onCreate={app.onCreateLightingScene}
+                onUpdate={app.onUpdateLightingScene}
+                onDelete={app.onDeleteLightingScene}
+                onExport={app.onExportLightingScene}
+                onImport={app.onImportLightingScene}
+                onSetDefault={async (id) => {
+                    await app.onSetDefaultLightingScene(id);
+                }}
+                onOpenSettings={() => {
+                    app.setRoute({kind: "settings"});
+                }}
+            />
+        );
+    } else if (app.route.kind === "party" && (app.wledEnabled || app.dmxEnabled)) {
         main = (
             <PartyModeView
                 fixtures={app.dmxState.fixtures}
@@ -194,6 +240,15 @@ function App() {
                 onRemoveDevice={app.onRemoveDevice}
                 onSetDeviceState={app.onSetDeviceState}
                 onRenameDevice={app.onRenameDevice}
+                onCreatePreset={async (deviceId, name) => {
+                    await app.onCreateWLEDDevicePreset(deviceId, name);
+                }}
+                onApplyPreset={async (deviceId, presetId) => {
+                    await app.onApplyWLEDDevicePreset(deviceId, presetId);
+                }}
+                onDeletePreset={async (deviceId, presetId) => {
+                    await app.onDeleteWLEDDevicePreset(deviceId, presetId);
+                }}
             />
         );
     } else {
