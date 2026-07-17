@@ -354,6 +354,9 @@ export function useControllerApp() {
             if (prev.kind === "scenes" && !settings.wled.enabled && !settings.dmx.enabled) {
                 return {kind: "settings"};
             }
+            if (prev.kind === "settings" && prev.tab === "party" && !settings.wled.enabled && !settings.dmx.enabled) {
+                return {kind: "settings"};
+            }
             return prev;
         });
     }, [setRoute, settings]);
@@ -1411,7 +1414,7 @@ export function useControllerApp() {
     }, [dmxPartyState?.status?.running, pullDMXPartyState]);
 
     useEffect(() => {
-        const shouldFastPoll = route.kind === "party" || (dmxPartyState?.status?.running === true && dmxPartyState?.config?.mode === "audio");
+        const shouldFastPoll = route.kind === "settings" || (dmxPartyState?.status?.running === true && dmxPartyState?.config?.mode === "audio");
         if (!shouldFastPoll) {
             return;
         }

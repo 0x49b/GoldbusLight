@@ -1,6 +1,8 @@
 import {useEffect, useMemo, useState} from "react";
 import {Button} from "@/components/ui/button";
 import {Slider} from "@/components/ui/slider";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {TransferList} from "@/components/scenes/TransferList";
 import type {
     DMXFixture,
     DMXPartyAudioInputDevice,
@@ -43,6 +45,15 @@ type PartySliderField =
     | "colorVariation"
     | "audioSensitivity"
     | "smokeVolume";
+
+type PartyConfigTab = "wled" | "dmx" | "smoke";
+
+function parsePartyConfigTab(value: string): PartyConfigTab {
+    if (value === "dmx" || value === "smoke") {
+        return value;
+    }
+    return "wled";
+}
 
 const DEFAULT_MOVEMENT_RANGE = 70;
 const DEFAULT_MOVEMENT_ANGLE_LIMIT_DEG = 45;
@@ -120,25 +131,65 @@ export function PartyModeView({
     const running = party.status.running;
     const mode = config.mode || "auto";
     const partyFixtures = useMemo(() => partySelectableFixtures(fixtures), [fixtures]);
-    const selectedFixtureIDs = new Set(config.fixtureIds ?? []);
-    const selectedWledIDs = new Set(config.wledDeviceIds ?? []);
-    const allFixturesSelected =
-        partyFixtures.length > 0 && partyFixtures.every((fixture) => selectedFixtureIDs.has(fixture.id));
-    const allWledSelected = wledDevices.length > 0 && wledDevices.every((device) => selectedWledIDs.has(device.id));
-    const hasTargets = selectedFixtureIDs.size > 0 || selectedWledIDs.size > 0;
-
-    const hasSmokeFixtures = partyFixtures.some(isAtmosphereFixture);
-    const atmosphereFixtures = useMemo(
+    const dmxPartyFixtures = useMemo(
+        () => partyFixtures.filter((fixture) => !isAtmosphereFixture(fixture)),
+        [partyFixtures],
+    );
+    const smokePartyFixtures = useMemo(
         () => partyFixtures.filter(isAtmosphereFixture),
         [partyFixtures],
     );
-    const selectedSmokeCount = atmosphereFixtures.filter((fixture) =>
-        selectedFixtureIDs.has(fixture.id),
-    ).length;
-    const smokeAutoIncluded = atmosphereFixtures.filter(
+    const fixtureIds = config.fixtureIds ?? [];
+    const wledDeviceIds = config.wledDeviceIds ?? [];
+    const hasTargets = fixtureIds.length > 0 || wledDeviceIds.length > 0;
+
+    const dmxIncludedIds = useMemo(() => {
+        const allowed = new Set(dmxPartyFixtures.map((fixture) => fixture.id));
+        return fixtureIds.filter((id) => allowed.has(id));
+    }, [fixtureIds, dmxPartyFixtures]);
+
+    const smokeIncludedIds = useMemo(() => {
+        const allowed = new Set(smokePartyFixtures.map((fixture) => fixture.id));
+        return fixtureIds.filter((id) => allowed.has(id));
+    }, [fixtureIds, smokePartyFixtures]);
+
+    const wledItems = useMemo(
+        () =>
+            wledDevices.map((device) => ({
+                id: device.id,
+                label: device.name || device.host || device.id,
+                hint: device.online ? "Online" : "Offline",
+            })),
+        [wledDevices],
+    );
+
+    const dmxItems = useMemo(
+        () =>
+            dmxPartyFixtures.map((fixture) => ({
+                id: fixture.id,
+                label: [fixture.brand, fixture.name].filter(Boolean).join(" ") || fixture.id,
+                hint: fixture.type,
+            })),
+        [dmxPartyFixtures],
+    );
+
+    const smokeItems = useMemo(
+        () =>
+            smokePartyFixtures.map((fixture) => ({
+                id: fixture.id,
+                label: [fixture.brand, fixture.name].filter(Boolean).join(" ") || fixture.id,
+                hint: fixture.type,
+            })),
+        [smokePartyFixtures],
+    );
+
+    const smokeAutoIncluded = smokePartyFixtures.filter(
         (fixture) => (config.smokeVolume ?? DEFAULT_SMOKE_VOLUME) > 0,
     );
 
+    const [activeTab, setActiveTab] = useState<PartyConfigTab>(() =>
+        wledDevices.length > 0 ? "wled" : "dmx",
+    );
     const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
         inferAudioSourcePreset(config, audioInputDevices),
     );
@@ -236,24 +287,11 @@ export function PartyModeView({
         void onUpdateConfig({smokeBurstOffMs: Math.round(sec * 1000)});
     };
 
-    const toggleFixture = (fixtureId: string) => {
-        const next = new Set(config.fixtureIds ?? []);
-        if (next.has(fixtureId)) {
-            next.delete(fixtureId);
-        } else {
-            next.add(fixtureId);
-        }
-        void onUpdateConfig({fixtureIds: Array.from(next)});
-    };
-
-    const toggleWled = (deviceId: string) => {
-        const next = new Set(config.wledDeviceIds ?? []);
-        if (next.has(deviceId)) {
-            next.delete(deviceId);
-        } else {
-            next.add(deviceId);
-        }
-        void onUpdateConfig({wledDeviceIds: Array.from(next)});
+    const replaceFixtureGroupIncluded = (group: DMXFixture[], nextIncludedIds: string[]) => {
+        const groupIds = new Set(group.map((fixture) => fixture.id));
+        const preserved = (config.fixtureIds ?? []).filter((id) => !groupIds.has(id));
+        const nextGroup = nextIncludedIds.filter((id) => groupIds.has(id));
+        void onUpdateConfig({fixtureIds: [...preserved, ...nextGroup]});
     };
 
     const renderSlider = (
@@ -298,7 +336,7 @@ export function PartyModeView({
                 <div>
                     <h2 className="text-base font-semibold">Party Mode</h2>
                     <p className="text-xs text-muted-foreground">
-                        Unified automode for selected WLED devices and DMX fixtures.
+                        Configure WLED and DMX party behaviour separately.
                         {running && (
                             <>
                                 <span>&nbsp;Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
@@ -331,7 +369,6 @@ export function PartyModeView({
                 </div>
             </div>
 
-
             <div className="flex flex-wrap gap-3">
                 <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
                     <span className="font-medium">Mode</span>
@@ -348,118 +385,8 @@ export function PartyModeView({
                         <option value="audio">Audio reactive</option>
                     </select>
                 </label>
-                {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
-                {renderSlider("speed", "Speed", sliderDraft.speed)}
-                {renderSlider("movementRange", "Movement range", sliderDraft.movementRange)}
-                {renderSlider(
-                    "movementAngleLimitDeg",
-                    "Max angle from centre",
-                    sliderDraft.movementAngleLimitDeg,
-                    {
-                        min: 0,
-                        max: 180,
-                        step: 1,
-                        format: (v) => (v <= 0 ? "off (use range %)" : `${v}°`),
-                    },
-                )}
-                {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                 {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
             </div>
-
-            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                <div>
-                    <h3 className="text-sm font-medium">Animated channels</h3>
-                    <p className="text-xs text-muted-foreground">
-                        Choose which channel groups party mode drives on moving heads and similar fixtures.
-                        Uncheck groups to calm nervous motion (e.g. disable gobo or beam).
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {PARTY_CHANNEL_GROUPS.map((group) => (
-                        <label
-                            key={group.id}
-                            className="flex min-w-[10rem] items-start gap-2 text-xs"
-                            title={group.description}
-                        >
-                            <input
-                                type="checkbox"
-                                className="mt-0.5"
-                                checked={partyChannelGroupEnabled(config, group.id)}
-                                disabled={busy}
-                                onChange={(event) => {
-                                    void onUpdateConfig(
-                                        togglePartyChannelGroup(config, group.id, event.target.checked),
-                                    );
-                                }}
-                            />
-                            <span>
-                                <span className="font-medium">{group.label}</span>
-                                <span className="block text-muted-foreground">{group.description}</span>
-                            </span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-
-            {hasSmokeFixtures && (
-                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                    <div>
-                        <h3 className="text-sm font-medium">Smoke / fog bursts</h3>
-                        <p className="text-xs text-muted-foreground">
-                            Short bursts with pauses between them. When burst volume is above 0, all
-                            smoke and
-                            hazer fixtures run automatically
-                            {smokeAutoIncluded.length > 0
-                                ? `: ${smokeAutoIncluded.map((f) => f.name).join(", ")}.`
-                                : "."}
-                            {selectedSmokeCount > 0 ? ` ${selectedSmokeCount} also checked in DMX targets.` : ""}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                        <label
-                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                            <span className="font-medium">
-                                Burst duration: {smokeDraft.burstOnSec.toFixed(1)} s
-                            </span>
-                            <Slider
-                                min={0.2}
-                                max={15}
-                                step={0.1}
-                                value={[smokeDraft.burstOnSec]}
-                                disabled={busy}
-                                onValueChange={([next]) =>
-                                    setSmokeDraft((prev) => ({
-                                        ...prev,
-                                        burstOnSec: Math.max(0.2, Math.min(15, next ?? prev.burstOnSec)),
-                                    }))
-                                }
-                                onValueCommit={([next]) => setSmokeBurstOnSec(next ?? smokeDraft.burstOnSec)}
-                            />
-                        </label>
-                        <label
-                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                            <span className="font-medium">
-                                Pause between bursts: {Math.round(smokeDraft.burstOffSec)} s
-                            </span>
-                            <Slider
-                                min={5}
-                                max={300}
-                                step={1}
-                                value={[smokeDraft.burstOffSec]}
-                                disabled={busy}
-                                onValueChange={([next]) =>
-                                    setSmokeDraft((prev) => ({
-                                        ...prev,
-                                        burstOffSec: Math.max(5, Math.min(300, next ?? prev.burstOffSec)),
-                                    }))
-                                }
-                                onValueCommit={([next]) => setSmokeBurstOffSec(next ?? smokeDraft.burstOffSec)}
-                            />
-                        </label>
-                        {renderSlider("smokeVolume", "Burst volume", sliderDraft.smokeVolume)}
-                    </div>
-                </div>
-            )}
 
             {mode === "audio" && (
                 <div className="space-y-2 rounded-md border bg-muted/30 p-2">
@@ -561,75 +488,184 @@ export function PartyModeView({
                 </div>
             )}
 
-            <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-md border bg-muted/20 p-2">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                        <span
-                            className="text-xs font-medium text-muted-foreground">WLED targets</span>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy || wledDevices.length === 0}
-                            onClick={() => void onUpdateConfig({wledDeviceIds: allWledSelected ? [] : wledDevices.map((d) => d.id)})}
-                        >
-                            {allWledSelected ? "Clear selection" : "Select all"}
-                        </Button>
-                    </div>
-                    <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
-                        {wledDevices.map((device) => (
-                            <label key={device.id}
-                                   className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedWledIDs.has(device.id)}
-                                    disabled={busy}
-                                    onChange={() => toggleWled(device.id)}
-                                />
-                                <span className="truncate">{device.name}</span>
-                            </label>
-                        ))}
-                        {wledDevices.length === 0 && (
-                            <p className="text-xs text-muted-foreground">No online WLED devices
-                                available.</p>
-                        )}
-                    </div>
-                </div>
+            <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(parsePartyConfigTab(value))}
+                className="gap-3"
+            >
+                <TabsList>
+                    <TabsTrigger value="wled">WLED</TabsTrigger>
+                    <TabsTrigger value="dmx">DMX</TabsTrigger>
+                    <TabsTrigger value="smoke">Smoke</TabsTrigger>
+                </TabsList>
 
-                <div className="rounded-md border bg-muted/20 p-2">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                        <span
-                            className="text-xs font-medium text-muted-foreground">DMX targets</span>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy || partyFixtures.length === 0}
-                            onClick={() => void onUpdateConfig({fixtureIds: allFixturesSelected ? [] : partyFixtures.map((f) => f.id)})}
-                        >
-                            {allFixturesSelected ? "Clear selection" : "Select all"}
-                        </Button>
+                <TabsContent value="wled" className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                        LED strips only — color, brightness, and speed. No pan, tilt, or movement settings.
+                    </p>
+
+                    <div className="flex flex-wrap gap-3">
+                        {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
+                        {renderSlider("speed", "Speed", sliderDraft.speed)}
+                        {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
                     </div>
-                    <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
-                        {partyFixtures.map((fixture) => (
-                            <label key={fixture.id}
-                                   className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedFixtureIDs.has(fixture.id)}
-                                    disabled={busy}
-                                    onChange={() => toggleFixture(fixture.id)}
-                                />
-                                <span className="truncate">{fixture.name}</span>
-                            </label>
-                        ))}
-                        {partyFixtures.length === 0 && (
-                            <p className="text-xs text-muted-foreground">No DMX fixtures
-                                available.</p>
+
+                    <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">WLED targets</div>
+                        <TransferList
+                            availableLabel="Available"
+                            includedLabel="Included"
+                            items={wledItems}
+                            includedIds={wledDeviceIds}
+                            disabled={busy}
+                            onChange={(ids) => {
+                                void onUpdateConfig({wledDeviceIds: ids});
+                            }}
+                        />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="dmx" className="space-y-3">
+                    <div className="flex flex-wrap gap-3">
+                        {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
+                        {renderSlider("speed", "Speed", sliderDraft.speed)}
+                        {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
+                        {renderSlider("movementRange", "Movement range", sliderDraft.movementRange)}
+                        {renderSlider(
+                            "movementAngleLimitDeg",
+                            "Max angle from centre",
+                            sliderDraft.movementAngleLimitDeg,
+                            {
+                                min: 0,
+                                max: 180,
+                                step: 1,
+                                format: (v) => (v <= 0 ? "off (use range %)" : `${v}°`),
+                            },
                         )}
                     </div>
-                </div>
-            </div>
+
+                    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                        <div>
+                            <h3 className="text-sm font-medium">Animated channels</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Choose which channel groups party mode drives on moving heads and similar fixtures.
+                                Uncheck groups to calm nervous motion (e.g. disable gobo or beam).
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {PARTY_CHANNEL_GROUPS.map((group) => (
+                                <label
+                                    key={group.id}
+                                    className="flex min-w-[10rem] items-start gap-2 text-xs"
+                                    title={group.description}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        className="mt-0.5"
+                                        checked={partyChannelGroupEnabled(config, group.id)}
+                                        disabled={busy}
+                                        onChange={(event) => {
+                                            void onUpdateConfig(
+                                                togglePartyChannelGroup(config, group.id, event.target.checked),
+                                            );
+                                        }}
+                                    />
+                                    <span>
+                                        <span className="font-medium">{group.label}</span>
+                                        <span className="block text-muted-foreground">{group.description}</span>
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">DMX targets</div>
+                        <TransferList
+                            availableLabel="Available"
+                            includedLabel="Included"
+                            items={dmxItems}
+                            includedIds={dmxIncludedIds}
+                            disabled={busy}
+                            onChange={(ids) => replaceFixtureGroupIncluded(dmxPartyFixtures, ids)}
+                        />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="smoke" className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                        Burst timing for smoke and hazer fixtures. Configure which machines take part below.
+                    </p>
+
+                    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                        <div>
+                            <h3 className="text-sm font-medium">Smoke / fog bursts</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Short bursts with pauses between them. When burst volume is above 0, all
+                                smoke and hazer fixtures run automatically
+                                {smokeAutoIncluded.length > 0
+                                    ? `: ${smokeAutoIncluded.map((f) => f.name).join(", ")}.`
+                                    : "."}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <label
+                                className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                                <span className="font-medium">
+                                    Burst duration: {smokeDraft.burstOnSec.toFixed(1)} s
+                                </span>
+                                <Slider
+                                    min={0.2}
+                                    max={15}
+                                    step={0.1}
+                                    value={[smokeDraft.burstOnSec]}
+                                    disabled={busy}
+                                    onValueChange={([next]) =>
+                                        setSmokeDraft((prev) => ({
+                                            ...prev,
+                                            burstOnSec: Math.max(0.2, Math.min(15, next ?? prev.burstOnSec)),
+                                        }))
+                                    }
+                                    onValueCommit={([next]) => setSmokeBurstOnSec(next ?? smokeDraft.burstOnSec)}
+                                />
+                            </label>
+                            <label
+                                className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                                <span className="font-medium">
+                                    Pause between bursts: {Math.round(smokeDraft.burstOffSec)} s
+                                </span>
+                                <Slider
+                                    min={5}
+                                    max={300}
+                                    step={1}
+                                    value={[smokeDraft.burstOffSec]}
+                                    disabled={busy}
+                                    onValueChange={([next]) =>
+                                        setSmokeDraft((prev) => ({
+                                            ...prev,
+                                            burstOffSec: Math.max(5, Math.min(300, next ?? prev.burstOffSec)),
+                                        }))
+                                    }
+                                    onValueCommit={([next]) => setSmokeBurstOffSec(next ?? smokeDraft.burstOffSec)}
+                                />
+                            </label>
+                            {renderSlider("smokeVolume", "Burst volume", sliderDraft.smokeVolume)}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">Smoke targets</div>
+                        <TransferList
+                            availableLabel="Available"
+                            includedLabel="Included"
+                            items={smokeItems}
+                            includedIds={smokeIncludedIds}
+                            disabled={busy}
+                            onChange={(ids) => replaceFixtureGroupIncluded(smokePartyFixtures, ids)}
+                        />
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {party.status.error ? (
                 <p className="text-xs text-destructive">{party.status.error}</p>

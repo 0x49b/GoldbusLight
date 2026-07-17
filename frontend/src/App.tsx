@@ -4,7 +4,6 @@ import {DMXUniverseView} from "./components/dmx/DMXUniverseView";
 import {DeviceDetailView} from "@/components/wled/device/DeviceDetailView";
 import {WLEDAddDeviceView} from "./components/wled/WLEDAddDeviceView";
 import {AppShell} from "./components/layout/AppShell";
-import {PartyModeView} from "./components/party/PartyModeView";
 import {ScenesView} from "./components/scenes/ScenesView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
@@ -80,22 +79,6 @@ function App() {
                 }}
             />
         );
-    } else if (app.route.kind === "party" && (app.wledEnabled || app.dmxEnabled)) {
-        main = (
-            <PartyModeView
-                fixtures={app.dmxState.fixtures}
-                wledDevices={app.devices.filter((device) => device.online && !device.ignored)}
-                party={app.dmxPartyState}
-                busy={app.busy}
-                audioInputDevices={app.partyAudioInputDevices}
-                onRefreshAudioDevices={async () => {
-                    await app.pullPartyAudioInputDevices();
-                }}
-                onUpdateConfig={app.setDMXPartyConfig}
-                onStart={app.startDMXPartyMode}
-                onStop={app.stopDMXPartyMode}
-            />
-        );
     } else if (app.route.kind === "presets" && app.wledEnabled) {
         main = (
             <GeneralPanel
@@ -140,7 +123,18 @@ function App() {
                 updatesSupported={app.updatesSupported}
                 dmxState={app.dmxState}
                 dmxEnabled={app.dmxEnabled}
+                wledEnabled={app.wledEnabled}
                 dmxPartyRunning={app.dmxPartyState?.status?.running === true}
+                party={app.dmxPartyState}
+                partyWledDevices={app.devices.filter((device) => device.online && !device.ignored)}
+                partyAudioInputDevices={app.partyAudioInputDevices}
+                onRefreshPartyAudioDevices={async () => {
+                    await app.pullPartyAudioInputDevices();
+                }}
+                onUpdatePartyConfig={app.setDMXPartyConfig}
+                onStartParty={app.startDMXPartyMode}
+                onStopParty={app.stopDMXPartyMode}
+                initialTab={app.route.tab}
                 startDMXLiveOutput={app.startDMXLiveOutput}
                 stopDMXLiveOutput={app.stopDMXLiveOutput}
                 setError={app.setError}

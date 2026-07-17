@@ -8,6 +8,9 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as serial$0 from "../serial/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as time$0 from "../../../time/models.js";
 
 export class AccessPointSettings {
     "enabled": boolean;
@@ -253,7 +256,7 @@ export class ControllerSnapshot {
     "partySceneId"?: string;
     "generalTabState": GeneralTabState;
     "persistencePath": string;
-    "updatedAt": string;
+    "updatedAt": time$0.Time;
     "capabilities": ControllerCapabilities;
 
     /** Creates a new ControllerSnapshot instance. */
@@ -271,7 +274,7 @@ export class ControllerSnapshot {
             this["persistencePath"] = "";
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
+            this["updatedAt"] = null;
         }
         if (!("capabilities" in $$source)) {
             this["capabilities"] = (new ControllerCapabilities());
@@ -360,8 +363,8 @@ export class DMXFixture {
      */
     "sceneCues"?: DMXFixtureCue[];
     "channels": DMXChannel[];
-    "createdAt": string;
-    "updatedAt": string;
+    "createdAt": time$0.Time;
+    "updatedAt": time$0.Time;
 
     /** Creates a new DMXFixture instance. */
     constructor($$source: Partial<DMXFixture> = {}) {
@@ -387,10 +390,10 @@ export class DMXFixture {
             this["channels"] = [];
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = "0001-01-01T00:00:00.000Z";
+            this["createdAt"] = null;
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
+            this["updatedAt"] = null;
         }
 
         Object.assign(this, $$source);
@@ -625,7 +628,7 @@ export class DMXPartyAudioFeatures {
     "treble": number;
     "beat": number;
     "bpm": number;
-    "capturedAt": string;
+    "capturedAt": time$0.Time;
     "deviceId"?: string;
 
     /** Creates a new DMXPartyAudioFeatures instance. */
@@ -649,7 +652,7 @@ export class DMXPartyAudioFeatures {
             this["bpm"] = 0;
         }
         if (!("capturedAt" in $$source)) {
-            this["capturedAt"] = "0001-01-01T00:00:00.000Z";
+            this["capturedAt"] = null;
         }
 
         Object.assign(this, $$source);
@@ -851,8 +854,8 @@ export class DMXPartyStatus {
     "running": boolean;
     "mode": DMXPartyMode;
     "error"?: string;
-    "lastFrameAt"?: string;
-    "lastAudioAt"?: string;
+    "lastFrameAt"?: time$0.Time;
+    "lastAudioAt"?: time$0.Time;
     "audioInputDeviceId"?: string;
     "partyBlocksManualPatch": boolean;
     "audioCapturing": boolean;
@@ -1150,8 +1153,8 @@ export class LightingScene {
     "dmx": SceneDMXEntry[];
     "partyWledDeviceIds"?: string[];
     "partyFixtureIds"?: string[];
-    "createdAt": string;
-    "updatedAt": string;
+    "createdAt": time$0.Time;
+    "updatedAt": time$0.Time;
 
     /** Creates a new LightingScene instance. */
     constructor($$source: Partial<LightingScene> = {}) {
@@ -1168,10 +1171,10 @@ export class LightingScene {
             this["dmx"] = [];
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = "0001-01-01T00:00:00.000Z";
+            this["createdAt"] = null;
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
+            this["updatedAt"] = null;
         }
 
         Object.assign(this, $$source);
@@ -1573,7 +1576,7 @@ export class WLEDDevice {
     "host": string;
     "address": string;
     "port": number;
-    "lastSeen": string;
+    "lastSeen": time$0.Time;
     "online": boolean;
     "provisioned": boolean;
     "ignored": boolean;
@@ -1607,7 +1610,7 @@ export class WLEDDevice {
             this["port"] = 0;
         }
         if (!("lastSeen" in $$source)) {
-            this["lastSeen"] = "0001-01-01T00:00:00.000Z";
+            this["lastSeen"] = null;
         }
         if (!("online" in $$source)) {
             this["online"] = false;
@@ -1710,8 +1713,8 @@ export class WLEDDevicePreset {
     "id": string;
     "name": string;
     "state": { [_ in string]?: any };
-    "createdAt": string;
-    "updatedAt": string;
+    "createdAt": time$0.Time;
+    "updatedAt": time$0.Time;
 
     /** Creates a new WLEDDevicePreset instance. */
     constructor($$source: Partial<WLEDDevicePreset> = {}) {
@@ -1725,10 +1728,10 @@ export class WLEDDevicePreset {
             this["state"] = {};
         }
         if (!("createdAt" in $$source)) {
-            this["createdAt"] = "0001-01-01T00:00:00.000Z";
+            this["createdAt"] = null;
         }
         if (!("updatedAt" in $$source)) {
-            this["updatedAt"] = "0001-01-01T00:00:00.000Z";
+            this["updatedAt"] = null;
         }
 
         Object.assign(this, $$source);

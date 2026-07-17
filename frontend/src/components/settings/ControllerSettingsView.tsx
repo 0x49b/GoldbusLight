@@ -16,11 +16,16 @@ import type {
     ConsoleEntry,
     ControllerSettings,
     ControllerSnapshot,
+    DMXPartyAudioInputDevice,
+    DMXPartyConfig,
+    DMXPartyState,
     DMXState,
     NetworkApplyResult,
+    SettingsTab,
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
+import {PartyModeView} from "@/components/party/PartyModeView";
 import {ApplicationVersionCard} from "./ApplicationVersionCard";
 import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
 import {TransportConsolePanel} from "./TransportConsolePanel";
@@ -46,7 +51,16 @@ export type ControllerSettingsViewProps = {
     updatesSupported: boolean;
     dmxState: DMXState;
     dmxEnabled: boolean;
+    wledEnabled: boolean;
     dmxPartyRunning: boolean;
+    party: DMXPartyState;
+    partyWledDevices: WLEDDevice[];
+    partyAudioInputDevices: DMXPartyAudioInputDevice[];
+    onRefreshPartyAudioDevices: () => Promise<void>;
+    onUpdatePartyConfig: (partial: Partial<DMXPartyConfig>) => Promise<boolean>;
+    onStartParty: () => Promise<boolean>;
+    onStopParty: () => Promise<void>;
+    initialTab?: SettingsTab;
     startDMXLiveOutput: (fixtureId: string) => Promise<boolean>;
     stopDMXLiveOutput: () => Promise<void>;
     setError: (message: string) => void;
@@ -82,7 +96,16 @@ export function ControllerSettingsView({
                                            updatesSupported,
                                            dmxState,
                                            dmxEnabled,
+                                           wledEnabled,
                                            dmxPartyRunning,
+                                           party,
+                                           partyWledDevices,
+                                           partyAudioInputDevices,
+                                           onRefreshPartyAudioDevices,
+                                           onUpdatePartyConfig,
+                                           onStartParty,
+                                           onStopParty,
+                                           initialTab = "general",
                                            startDMXLiveOutput,
                                            stopDMXLiveOutput,
                                            setError,
@@ -215,11 +238,15 @@ export function ControllerSettingsView({
                 <h2 className="text-lg font-semibold">Controller settings</h2>
             </div>
 
-            <Tabs key={consoleDetached ? "console-detached" : "console-attached"} defaultValue="general">
+            <Tabs
+                key={`${consoleDetached ? "console-detached" : "console-attached"}-${initialTab}`}
+                defaultValue={initialTab === "console" && consoleDetached ? "general" : initialTab}
+            >
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="wled">WLED</TabsTrigger>
                     <TabsTrigger value="dmx">DMX</TabsTrigger>
+                    {(wledEnabled || dmxEnabled) && <TabsTrigger value="party">Party</TabsTrigger>}
                     {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
                 </TabsList>
 
@@ -841,6 +868,22 @@ export function ControllerSettingsView({
                         setError={setError}
                     />
                 </TabsContent>
+
+                {(wledEnabled || dmxEnabled) && (
+                    <TabsContent value="party" className="space-y-5">
+                        <PartyModeView
+                            fixtures={dmxState.fixtures}
+                            wledDevices={partyWledDevices}
+                            party={party}
+                            busy={busy}
+                            audioInputDevices={partyAudioInputDevices}
+                            onRefreshAudioDevices={onRefreshPartyAudioDevices}
+                            onUpdateConfig={onUpdatePartyConfig}
+                            onStart={onStartParty}
+                            onStop={onStopParty}
+                        />
+                    </TabsContent>
+                )}
 
                 {!consoleDetached && (
                     <TabsContent value="console" className="space-y-5">

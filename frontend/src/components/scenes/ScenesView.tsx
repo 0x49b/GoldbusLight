@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
-import {PiArrowLeft, PiGearSix, PiPlay, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
+import {PiArrowLeft, PiGearSix, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
@@ -152,6 +152,7 @@ export function ScenesView({
     const [defaultReplaceOpen, setDefaultReplaceOpen] = useState(false);
     const [pendingDefaultId, setPendingDefaultId] = useState<string | null>(null);
     const [partyReplaceOpen, setPartyReplaceOpen] = useState(false);
+    const [pendingActivateId, setPendingActivateId] = useState<string | null>(null);
 
     const sortedScenes = useMemo(
         () => [...scenes].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity: "base"})),
@@ -167,6 +168,13 @@ export function ScenesView({
         () => scenes.find((s) => s.id === partySceneId) ?? null,
         [scenes, partySceneId],
     );
+
+    const pendingActivateScene = useMemo(
+        () => scenes.find((s) => s.id === pendingActivateId) ?? null,
+        [scenes, pendingActivateId],
+    );
+
+    const pendingActivateIsParty = pendingActivateId != null && pendingActivateId === partySceneId;
 
     const partyWledDevices = useMemo(
         () => devices.filter((device) => device.online && !device.ignored),
@@ -241,6 +249,35 @@ export function ScenesView({
     const confirmReplaceParty = () => {
         setPartyReplaceOpen(false);
         applyPartyMode(true);
+    };
+
+    const requestActivateScene = (scene: LightingScene) => {
+        const isPartyScene = partySceneId === scene.id;
+        if (isPartyScene) {
+            if (partyRunning || startingParty) {
+                return;
+            }
+        } else if (activeSceneId === scene.id || applyingId === scene.id) {
+            return;
+        }
+        setPendingActivateId(scene.id);
+    };
+
+    const confirmActivateScene = () => {
+        const id = pendingActivateId;
+        if (!id) {
+            setPendingActivateId(null);
+            return;
+        }
+        const isPartyScene = partySceneId === id;
+        setPendingActivateId(null);
+        if (isPartyScene) {
+            setStartingParty(true);
+            void onStartParty().finally(() => setStartingParty(false));
+            return;
+        }
+        setApplyingId(id);
+        void onApply(id).finally(() => setApplyingId(null));
     };
 
     useEffect(() => {
@@ -729,7 +766,7 @@ export function ScenesView({
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">Scenes</h1>
-                    <p className="text-sm text-muted-foreground">Tap a scene to apply it.</p>
+                    <p className="text-sm text-muted-foreground">Tap a scene to switch to it.</p>
                 </div>
                 <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => openManage()}>
                     <PiGearSix className="size-4" aria-hidden />
@@ -777,82 +814,97 @@ export function ScenesView({
                         const isActive = activeSceneId === scene.id;
                         const isDefault = defaultSceneId === scene.id;
                         const isPartyScene = partySceneId === scene.id;
+                        const isPartyActive = isPartyScene && partyRunning;
+                        const isBusyActivating = isApplying || (isPartyScene && startingParty);
+                        const isCurrent = isPartyScene ? isPartyActive : isActive;
+                        const disabled =
+                            busy || isBusyActivating || isCurrent || applyingId != null || startingParty;
                         return (
-                            <Card
+                            <button
                                 key={scene.id}
+                                type="button"
+                                disabled={disabled}
+                                aria-pressed={isCurrent}
+                                onClick={() => requestActivateScene(scene)}
                                 className={cn(
-                                    "overflow-hidden transition",
+                                    "flex flex-col overflow-hidden rounded-xl bg-card p-4 text-left text-sm text-card-foreground ring-1 ring-foreground/10 transition",
+                                    "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                    "disabled:opacity-60",
                                     isActive && !isPartyScene && "border-primary bg-primary/10 ring-2 ring-primary/40",
-                                    isPartyScene && partyRunning && "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/40",
+                                    isPartyActive && "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/40",
                                 )}
                             >
-                                <button
-                                    type="button"
-                                    disabled={busy || isApplying || isPartyScene}
-                                    aria-pressed={isActive}
-                                    className={cn(
-                                        "w-full p-4 text-left transition",
-                                        !isPartyScene && "hover:bg-accent/40",
-                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                        "disabled:opacity-60",
-                                    )}
-                                    onClick={() => {
-                                        if (isPartyScene) {
-                                            return;
-                                        }
-                                        setApplyingId(scene.id);
-                                        void onApply(scene.id).finally(() => setApplyingId(null));
-                                    }}
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="text-lg font-semibold">{scene.name}</div>
-                                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                                            {isPartyScene ? (
-                                                <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-                                                    Party
-                                                </span>
-                                            ) : null}
-                                            {isDefault ? (
-                                                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                                    Default
-                                                </span>
-                                            ) : null}
-                                            {isActive && !isPartyScene ? (
-                                                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-                                                    Active
-                                                </span>
-                                            ) : null}
-                                        </div>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="text-lg font-semibold">{scene.name}</div>
+                                    <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                                        {isPartyScene ? (
+                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                                Party
+                                            </span>
+                                        ) : null}
+                                        {isDefault ? (
+                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                Default
+                                            </span>
+                                        ) : null}
+                                        {isCurrent ? (
+                                            <span
+                                                className={cn(
+                                                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                                    isPartyScene
+                                                        ? "bg-violet-600 text-white"
+                                                        : "bg-primary text-primary-foreground",
+                                                )}
+                                            >
+                                                Active
+                                            </span>
+                                        ) : null}
                                     </div>
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                        {isPartyScene
-                                            ? `${partyWledCount} WLED · ${partyDmxCount} DMX party targets`
-                                            : `${wledCount} WLED · ${dmxCount} DMX`}
-                                        {isApplying ? " · Applying…" : ""}
-                                    </div>
-                                </button>
-                                {isPartyScene ? (
-                                    <div className="border-t px-4 py-3">
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="w-full gap-1.5"
-                                            disabled={busy || startingParty || partyRunning}
-                                            onClick={() => {
-                                                setStartingParty(true);
-                                                void onStartParty().finally(() => setStartingParty(false));
-                                            }}
-                                        >
-                                            <PiPlay className="size-4" aria-hidden />
-                                            {startingParty ? "Starting…" : partyRunning ? "Party running" : "Start party"}
-                                        </Button>
-                                    </div>
-                                ) : null}
-                            </Card>
+                                </div>
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                    {isPartyScene
+                                        ? `${partyWledCount} WLED · ${partyDmxCount} DMX party targets`
+                                        : `${wledCount} WLED · ${dmxCount} DMX`}
+                                    {isApplying ? " · Applying…" : ""}
+                                    {isPartyScene && startingParty ? " · Starting…" : ""}
+                                </div>
+                            </button>
                         );
                     })}
                 </div>
             )}
+
+            <Dialog
+                open={pendingActivateId != null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingActivateId(null);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {pendingActivateIsParty ? "Start party mode?" : "Switch scene?"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {pendingActivateIsParty
+                                ? `Start party mode using “${pendingActivateScene?.name ?? "this scene"}”? This will stop any currently applied scene.`
+                                : `Switch to “${pendingActivateScene?.name ?? "this scene"}”?${
+                                      partyRunning ? " Party mode will be stopped." : ""
+                                  }`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setPendingActivateId(null)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={confirmActivateScene}>
+                            {pendingActivateIsParty ? "Start party" : "Switch scene"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

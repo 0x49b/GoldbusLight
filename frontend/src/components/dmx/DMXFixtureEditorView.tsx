@@ -290,6 +290,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         && liveTileIdsForFixture(props.fixture).length > 0;
     const actionGroupDisabled = props.busy || isCurrentFixtureLive;
     const showPanTiltInputs = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
+    const showPartyCuesTab = fixtureType !== "smoke" && fixtureType !== "colorChanger";
+    const showSceneCuesTab = fixtureType !== "smoke";
     const masterOptions = useMemo(
         () => masterEligibleFixtures(props.dmxState.fixtures, props.fixture?.id),
         [props.dmxState.fixtures, props.fixture?.id],
@@ -301,6 +303,16 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     useEffect(() => {
         setEditLayout(false);
     }, [props.fixture?.id, pageMode]);
+
+    useEffect(() => {
+        if (pageMode === "cues" && !showPartyCuesTab) {
+            setPageMode("live");
+            return;
+        }
+        if (pageMode === "sceneCues" && !showSceneCuesTab) {
+            setPageMode("live");
+        }
+    }, [pageMode, showPartyCuesTab, showSceneCuesTab]);
 
     useEffect(() => {
         if (props.fixture) {
@@ -681,7 +693,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             return;
         }
         if (props.partyRunning && fixturePartyIncluded) {
-            props.setRoute({kind: "party"});
+            props.setRoute({kind: "settings", tab: "party"});
             return;
         }
         if (isCurrentFixtureLive) {
@@ -710,24 +722,28 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 >
                                     Live
                                 </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className={pageMode === "cues" ? "btn-active" : ""}
-                                    aria-pressed={pageMode === "cues"}
-                                    onClick={() => setPageMode("cues")}
-                                >
-                                    Party cues
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className={pageMode === "sceneCues" ? "btn-active" : ""}
-                                    aria-pressed={pageMode === "sceneCues"}
-                                    onClick={() => setPageMode("sceneCues")}
-                                >
-                                    Scene cues
-                                </Button>
+                                {showPartyCuesTab ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className={pageMode === "cues" ? "btn-active" : ""}
+                                        aria-pressed={pageMode === "cues"}
+                                        onClick={() => setPageMode("cues")}
+                                    >
+                                        Party cues
+                                    </Button>
+                                ) : null}
+                                {showSceneCuesTab ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className={pageMode === "sceneCues" ? "btn-active" : ""}
+                                        aria-pressed={pageMode === "sceneCues"}
+                                        onClick={() => setPageMode("sceneCues")}
+                                    >
+                                        Scene cues
+                                    </Button>
+                                ) : null}
                                 <Button
                                     type="button"
                                     variant="outline"

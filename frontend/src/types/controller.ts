@@ -424,11 +424,12 @@ export type UpsertDMXFixtureInput = {
     channels: DMXChannel[];
 };
 
+export type SettingsTab = "general" | "wled" | "dmx" | "party" | "console";
+
 export type DetailRoute =
-    | { kind: "party" }
     | { kind: "presets" }
     | { kind: "scenes" }
-    | { kind: "settings" }
+    | { kind: "settings"; tab?: SettingsTab }
     | { kind: "device"; id: string }
     | { kind: "wledAddDevice" }
     | { kind: "dmxUniverse"; universeId?: string }

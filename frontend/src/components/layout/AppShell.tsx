@@ -318,30 +318,6 @@ export function AppShell({
                         </>
                     )}
 
-                    {(wledEnabled || dmxEnabled) && (
-                        <SidebarGroup>
-                            <SidebarMenu>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton
-                                        type="button"
-                                        isActive={route.kind === "party"}
-                                        className={cn(
-                                            route.kind === "party" &&
-                                            "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold"
-                                        )}
-                                        onClick={() => setRoute({kind: "party"})}
-                                    >
-                                        <PiLightbulb className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">Party</span>
-                                        <span
-                                            className={cn("status status-sm shrink-0", partyRunning ? "status-success" : "status-neutral")}
-                                            aria-hidden
-                                        />
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            </SidebarMenu>
-                        </SidebarGroup>
-                    )}
                 </SidebarContent>
 
                 <SidebarFooter>
