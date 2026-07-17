@@ -2653,7 +2653,9 @@ func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput, 
 		MaxTilt: input.MaxTilt,
 	}
 	fixture.Party = normalizeFixtureParty(input.Party)
-	fixture.SceneCues = normalizeFixtureSceneCues(input.SceneCues)
+	if input.SceneCues != nil {
+		fixture.SceneCues = normalizeFixtureSceneCues(input.SceneCues)
+	}
 	fixture.Channels = channels
 	masterID, err := validateMasterFixtureID(fixtures, fixture.ID, input.MasterFixtureID)
 	if err != nil {

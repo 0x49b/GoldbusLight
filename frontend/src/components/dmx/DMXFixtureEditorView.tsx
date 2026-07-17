@@ -457,6 +457,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             partyStrobeOffMs,
             partyCueSequence,
         ),
+        sceneCues: props.fixture?.sceneCues,
         channels: cloneChannels(channels),
     }), [
         address,
@@ -473,6 +474,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         partyStrobeOffMs,
         partyStrobeOnMs,
         props.fixture?.id,
+        props.fixture?.sceneCues,
         universeId,
         universes,
     ]);
