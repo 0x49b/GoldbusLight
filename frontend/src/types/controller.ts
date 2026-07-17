@@ -102,6 +102,8 @@ export type LightingScene = {
     name: string;
     wled?: SceneWLEDEntry[];
     dmx?: SceneDMXEntry[];
+    partyWledDeviceIds?: string[];
+    partyFixtureIds?: string[];
     createdAt?: string;
     updatedAt?: string;
 };
@@ -111,6 +113,8 @@ export type UpsertLightingSceneInput = {
     name: string;
     wled?: SceneWLEDEntry[];
     dmx?: SceneDMXEntry[];
+    partyWledDeviceIds?: string[];
+    partyFixtureIds?: string[];
 };
 
 export type ControllerSnapshot = {
@@ -119,6 +123,7 @@ export type ControllerSnapshot = {
     scenes?: LightingScene[];
     activeSceneId?: string;
     defaultSceneId?: string;
+    partySceneId?: string;
     generalTabState?: {
         on: boolean;
         bri: number;

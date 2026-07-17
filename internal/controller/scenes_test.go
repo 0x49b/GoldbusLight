@@ -85,3 +85,82 @@ func TestLightingSceneExportImportRoundTrip(t *testing.T) {
 		t.Fatalf("dmx entries = %+v", c.scenes[0].DMX)
 	}
 }
+
+func TestSetPartyLightingSceneExclusivity(t *testing.T) {
+	dir := t.TempDir()
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.persistence = &StatePersistenceManager{path: filepath.Join(dir, defaultStateFileName)}
+	c.generalTabPersistence = &GeneralTabStatePersistenceManager{path: filepath.Join(dir, generalTabStateFileName)}
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(dir, dmxStateFileName)}
+	c.dmxLiveLayoutPersistence = &DMXFixtureLiveLayoutPersistenceManager{path: filepath.Join(dir, dmxFixtureLiveLayoutsFileName)}
+
+	c.mu.Lock()
+	c.scenes = []LightingScene{
+		{ID: "scene-a", Name: "A"},
+		{ID: "scene-b", Name: "B"},
+	}
+	c.mu.Unlock()
+
+	if err := c.SetPartyLightingScene("scene-a"); err != nil {
+		t.Fatalf("set party scene a: %v", err)
+	}
+	c.mu.RLock()
+	if c.partySceneID != "scene-a" {
+		t.Fatalf("partySceneID = %q", c.partySceneID)
+	}
+	c.mu.RUnlock()
+
+	if err := c.SetPartyLightingScene("scene-b"); err != nil {
+		t.Fatalf("set party scene b: %v", err)
+	}
+	c.mu.RLock()
+	if c.partySceneID != "scene-b" {
+		t.Fatalf("partySceneID = %q", c.partySceneID)
+	}
+	c.mu.RUnlock()
+
+	if err := c.SetPartyLightingScene(""); err != nil {
+		t.Fatalf("clear party scene: %v", err)
+	}
+	c.mu.RLock()
+	if c.partySceneID != "" {
+		t.Fatalf("partySceneID = %q, want empty", c.partySceneID)
+	}
+	c.mu.RUnlock()
+}
+
+func TestUpdateLightingSceneStoresPartyTargets(t *testing.T) {
+	dir := t.TempDir()
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.persistence = &StatePersistenceManager{path: filepath.Join(dir, defaultStateFileName)}
+	c.generalTabPersistence = &GeneralTabStatePersistenceManager{path: filepath.Join(dir, generalTabStateFileName)}
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(dir, dmxStateFileName)}
+	c.dmxLiveLayoutPersistence = &DMXFixtureLiveLayoutPersistenceManager{path: filepath.Join(dir, dmxFixtureLiveLayoutsFileName)}
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.settings.DMX.Enabled = true
+	c.devices = map[string]WLEDDevice{"dev-1": {ID: "dev-1", Name: "Strip"}}
+	c.dmxState = defaultDMXState()
+	c.dmxState.Fixtures = []DMXFixture{{ID: "fx-1", Name: "Spot", DMXAddress: 1, Type: DMXFixtureTypeMovingHead}}
+	c.dmxPersistEnabled = true
+	c.scenes = []LightingScene{{ID: "scene-1", Name: "Party Look"}}
+	c.mu.Unlock()
+
+	updated, err := c.UpdateLightingScene(UpsertLightingSceneInput{
+		ID:                 "scene-1",
+		Name:               "Party Look",
+		PartyWLEDDeviceIDs: []string{"dev-1"},
+		PartyFixtureIDs:    []string{"fx-1"},
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(updated.PartyWLEDDeviceIDs) != 1 || updated.PartyWLEDDeviceIDs[0] != "dev-1" {
+		t.Fatalf("party wled = %+v", updated.PartyWLEDDeviceIDs)
+	}
+	if len(updated.PartyFixtureIDs) != 1 || updated.PartyFixtureIDs[0] != "fx-1" {
+		t.Fatalf("party fixtures = %+v", updated.PartyFixtureIDs)
+	}
+}

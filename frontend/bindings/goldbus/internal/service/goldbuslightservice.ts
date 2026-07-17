@@ -313,6 +313,15 @@ export function SetGlobalState(state: { [_ in string]?: any }): $CancellableProm
     });
 }
 
+/**
+ * SetPartyLightingScene marks a scene as the designated party-mode scene. Pass an empty id to clear.
+ */
+export function SetPartyLightingScene(id: string): $CancellablePromise<controller$0.ControllerSnapshot> {
+    return $Call.ByID(1174917270, id).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function SetSelectedUSBSerialDevice(deviceID: string): $CancellablePromise<controller$0.DMXState> {
     return $Call.ByID(3976246093, deviceID).then(($result: any) => {
         return $$createType9($result);
@@ -325,6 +334,15 @@ export function StartDMXLive(fixtureID: string): $CancellablePromise<void> {
 
 export function StartDMXParty(): $CancellablePromise<void> {
     return $Call.ByID(4103913889);
+}
+
+/**
+ * StartLightingSceneParty starts party mode using the configured party scene's targets.
+ */
+export function StartLightingSceneParty(): $CancellablePromise<controller$0.ControllerSnapshot> {
+    return $Call.ByID(2576441862).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 export function StopDMXLive(): $CancellablePromise<void> {

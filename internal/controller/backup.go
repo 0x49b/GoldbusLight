@@ -42,6 +42,7 @@ func (c *WLEDController) ExportConfigurationBackup(appVersion string) ([]byte, e
 		Scenes:         cloneLightingScenes(c.scenes),
 		ActiveSceneID:  c.activeSceneID,
 		DefaultSceneID: c.defaultSceneID,
+		PartySceneID:   c.partySceneID,
 	}
 	c.mu.RUnlock()
 
@@ -209,6 +210,12 @@ func (c *WLEDController) reloadFromPersistence() error {
 	if c.defaultSceneID != "" {
 		if _, _, ok := c.findSceneLocked(c.defaultSceneID); !ok {
 			c.defaultSceneID = ""
+		}
+	}
+	c.partySceneID = strings.TrimSpace(loaded.PartySceneID)
+	if c.partySceneID != "" {
+		if _, _, ok := c.findSceneLocked(c.partySceneID); !ok {
+			c.partySceneID = ""
 		}
 	}
 	c.generalTabState = clampGeneralTabState(generalTab)

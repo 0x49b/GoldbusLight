@@ -52,6 +52,8 @@ function App() {
                 scenes={app.scenes}
                 activeSceneId={app.snapshot?.activeSceneId}
                 defaultSceneId={app.snapshot?.defaultSceneId}
+                partySceneId={app.snapshot?.partySceneId}
+                partyRunning={app.dmxPartyState.status.running}
                 devices={app.devices}
                 fixtures={app.dmxState.fixtures}
                 wledEnabled={app.wledEnabled}
@@ -61,6 +63,7 @@ function App() {
                 onApply={async (id) => {
                     await app.onApplyLightingScene(id);
                 }}
+                onStartParty={app.onStartLightingSceneParty}
                 onCreate={app.onCreateLightingScene}
                 onUpdate={app.onUpdateLightingScene}
                 onDelete={app.onDeleteLightingScene}
@@ -68,6 +71,9 @@ function App() {
                 onImport={app.onImportLightingScene}
                 onSetDefault={async (id) => {
                     await app.onSetDefaultLightingScene(id);
+                }}
+                onSetPartyScene={async (id) => {
+                    await app.onSetPartyLightingScene(id);
                 }}
                 onOpenSettings={() => {
                     app.setRoute({kind: "settings"});

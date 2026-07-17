@@ -50,12 +50,14 @@ func cloneLightingScenes(in []LightingScene) []LightingScene {
 	out := make([]LightingScene, len(in))
 	for i, s := range in {
 		out[i] = LightingScene{
-			ID:        s.ID,
-			Name:      s.Name,
-			WLED:      append([]SceneWLEDEntry(nil), s.WLED...),
-			DMX:       append([]SceneDMXEntry(nil), s.DMX...),
-			CreatedAt: s.CreatedAt,
-			UpdatedAt: s.UpdatedAt,
+			ID:                 s.ID,
+			Name:               s.Name,
+			WLED:               append([]SceneWLEDEntry(nil), s.WLED...),
+			DMX:                append([]SceneDMXEntry(nil), s.DMX...),
+			PartyWLEDDeviceIDs: append([]string(nil), s.PartyWLEDDeviceIDs...),
+			PartyFixtureIDs:    append([]string(nil), s.PartyFixtureIDs...),
+			CreatedAt:          s.CreatedAt,
+			UpdatedAt:          s.UpdatedAt,
 		}
 	}
 	return out
@@ -74,6 +76,8 @@ func normalizeLightingScenes(in []LightingScene) []LightingScene {
 		}
 		s.WLED = normalizeSceneWLEDEntries(s.WLED)
 		s.DMX = normalizeSceneDMXEntries(s.DMX)
+		s.PartyWLEDDeviceIDs = normalizeScenePartyDeviceIDs(s.PartyWLEDDeviceIDs)
+		s.PartyFixtureIDs = normalizeScenePartyFixtureIDs(s.PartyFixtureIDs)
 		out = append(out, s)
 	}
 	return out
@@ -105,16 +109,42 @@ func normalizeSceneDMXEntries(in []SceneDMXEntry) []SceneDMXEntry {
 	return dmxEntries
 }
 
+func normalizeScenePartyDeviceIDs(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, id := range in {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func normalizeScenePartyFixtureIDs(in []string) []string {
+	return normalizeScenePartyDeviceIDs(in)
+}
+
 func normalizeUpsertLightingScene(input UpsertLightingSceneInput) (LightingScene, error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		return LightingScene{}, fmt.Errorf("scene name is required")
 	}
 	return LightingScene{
-		ID:   strings.TrimSpace(input.ID),
-		Name: name,
-		WLED: normalizeSceneWLEDEntries(input.WLED),
-		DMX:  normalizeSceneDMXEntries(input.DMX),
+		ID:                 strings.TrimSpace(input.ID),
+		Name:               name,
+		WLED:               normalizeSceneWLEDEntries(input.WLED),
+		DMX:                normalizeSceneDMXEntries(input.DMX),
+		PartyWLEDDeviceIDs: normalizeScenePartyDeviceIDs(input.PartyWLEDDeviceIDs),
+		PartyFixtureIDs:    normalizeScenePartyFixtureIDs(input.PartyFixtureIDs),
 	}, nil
 }
 
@@ -206,6 +236,9 @@ func (c *WLEDController) DeleteLightingScene(id string) error {
 	if c.defaultSceneID == id {
 		c.defaultSceneID = ""
 	}
+	if c.partySceneID == id {
+		c.partySceneID = ""
+	}
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
@@ -230,6 +263,21 @@ func (c *WLEDController) validateSceneReferences(scene LightingScene) error {
 		}
 		if _, ok := cueByID(fixture.SceneCues, e.CueID); !ok {
 			return fmt.Errorf("unknown scene cue %s on fixture %s", e.CueID, e.FixtureID)
+		}
+	}
+	for _, id := range scene.PartyWLEDDeviceIDs {
+		device, ok := c.devices[id]
+		if !ok || device.Ignored {
+			return fmt.Errorf("unknown wled device: %s", id)
+		}
+	}
+	for _, id := range scene.PartyFixtureIDs {
+		fixture, ok := findFixtureByID(c.dmxState.Fixtures, id)
+		if !ok {
+			return fmt.Errorf("unknown dmx fixture: %s", id)
+		}
+		if fixture.MasterFixtureID != "" {
+			return fmt.Errorf("dmx fixture %s is a slave and cannot be a party target", id)
 		}
 	}
 	return nil
@@ -327,6 +375,52 @@ func (c *WLEDController) SetDefaultLightingScene(id string) error {
 	c.updated = time.Now()
 	c.mu.Unlock()
 	return c.persist()
+}
+
+// SetPartyLightingScene marks a scene as the designated party-mode scene. Pass an empty id to clear.
+func (c *WLEDController) SetPartyLightingScene(id string) error {
+	id = strings.TrimSpace(id)
+	c.mu.Lock()
+	if id != "" {
+		if _, _, ok := c.findSceneLocked(id); !ok {
+			c.mu.Unlock()
+			return fmt.Errorf("unknown scene: %s", id)
+		}
+	}
+	c.partySceneID = id
+	c.updated = time.Now()
+	c.mu.Unlock()
+	return c.persist()
+}
+
+// StartLightingSceneParty applies the scene's party targets to party config and starts party mode.
+func (c *WLEDController) StartLightingSceneParty() error {
+	c.mu.RLock()
+	partySceneID := strings.TrimSpace(c.partySceneID)
+	if partySceneID == "" {
+		c.mu.RUnlock()
+		return fmt.Errorf("no party scene is configured")
+	}
+	_, scene, ok := c.findSceneLocked(partySceneID)
+	c.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("unknown party scene: %s", partySceneID)
+	}
+
+	wledIDs := normalizeScenePartyDeviceIDs(scene.PartyWLEDDeviceIDs)
+	fixtureIDs := normalizeScenePartyFixtureIDs(scene.PartyFixtureIDs)
+	if len(wledIDs) == 0 && len(fixtureIDs) == 0 {
+		return fmt.Errorf("party scene %q has no WLED or DMX targets selected", scene.Name)
+	}
+
+	state := c.GetDMXPartyState()
+	config := state.Config
+	config.WLEDDeviceIDs = wledIDs
+	config.FixtureIDs = fixtureIDs
+	if _, err := c.SetDMXPartyConfig(config); err != nil {
+		return err
+	}
+	return c.StartDMXParty()
 }
 
 func (c *WLEDController) buildSceneDMXUpdates(entries []SceneDMXEntry) ([]dmx.DMXOutputUpdate, error) {

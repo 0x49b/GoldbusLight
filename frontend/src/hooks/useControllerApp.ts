@@ -1010,6 +1010,25 @@ export function useControllerApp() {
         [setSnapshot, setStatus],
     );
 
+    const onSetPartyLightingScene = useCallback(
+        async (id: string) => {
+            const updated = (await GreetService.SetPartyLightingScene(id)) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            setStatus(id ? "Party scene set" : "Party scene cleared");
+        },
+        [setSnapshot, setStatus],
+    );
+
+    const onStartLightingSceneParty = useCallback(
+        async () => {
+            const updated = (await GreetService.StartLightingSceneParty()) as unknown as ControllerSnapshot;
+            setSnapshot(updated);
+            await pullDMXPartyState();
+            setStatus("Party mode started from scene");
+        },
+        [pullDMXPartyState, setSnapshot, setStatus],
+    );
+
     const onExportLightingScene = useCallback(
         async (id: string): Promise<string> => {
             try {
@@ -2059,6 +2078,8 @@ export function useControllerApp() {
         onDeleteLightingScene,
         onApplyLightingScene,
         onSetDefaultLightingScene,
+        onSetPartyLightingScene,
+        onStartLightingSceneParty,
         onExportLightingScene,
         onImportLightingScene,
         onCreateDMXFixture,

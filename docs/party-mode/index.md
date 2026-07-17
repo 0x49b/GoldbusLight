@@ -16,6 +16,8 @@ While party mode runs:
 
 Stop with **Stop Party** or **Blackout**.
 
+You can also start party mode from a [party scene](../scenes/index.md) on the Scenes page — one scene can store WLED and DMX party targets and launch party with **Start party**.
+
 ## Start and stop
 
 | Button | Requirement |

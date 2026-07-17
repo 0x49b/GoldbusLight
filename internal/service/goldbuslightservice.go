@@ -442,6 +442,26 @@ func (g *GoldbusLightService) SetDefaultLightingScene(id string) (ctrlpkg.Contro
 	})
 }
 
+// SetPartyLightingScene marks a scene as the designated party-mode scene. Pass an empty id to clear.
+func (g *GoldbusLightService) SetPartyLightingScene(id string) (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.SetPartyLightingScene(id); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
+// StartLightingSceneParty starts party mode using the configured party scene's targets.
+func (g *GoldbusLightService) StartLightingSceneParty() (ctrlpkg.ControllerSnapshot, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (ctrlpkg.ControllerSnapshot, error) {
+		if err := c.StartLightingSceneParty(); err != nil {
+			return ctrlpkg.ControllerSnapshot{}, err
+		}
+		return c.Snapshot(), nil
+	})
+}
+
 // ExportLightingScene prompts for a destination and writes a portable scene JSON file.
 func (g *GoldbusLightService) ExportLightingScene(id string) (string, error) {
 	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (string, error) {
