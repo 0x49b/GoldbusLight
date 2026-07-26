@@ -60,6 +60,8 @@ Lists **online, non-ignored** WLED devices. Use **Select all** / **Clear selecti
 
 Lists party-eligible fixtures (**slave** fixtures mirroring a master are omitted — they follow the master). Use **Select all** / **Clear selection**.
 
+If a Color Changer master has **Color Sweep** enabled, party drives a spatial rainbow across that master and its slaves instead of cloning one color onto every fixture. See [DMX fixtures — Color Sweep](../dmx/fixtures.md#color-changer--color-sweep).
+
 At least one target from either list is required.
 
 ## Smoke and fog bursts
