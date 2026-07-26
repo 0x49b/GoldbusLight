@@ -519,7 +519,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 						c.stopDMXPartyInternal("dmx live output is disconnected", false)
 						return
 					}
-					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets, now, burstAnchor)
+					updates, owned := c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, dmxTargets, fixtures, now, burstAnchor)
 					updates = expandDMXUpdatesToSlaves(fixtures, updates, &owned)
 					if len(updates) > 0 {
 						c.dmxLiveMu.Lock()
@@ -586,12 +586,16 @@ func (c *WLEDController) buildDMXPartyFrame(
 	colorPhase float64,
 	values partyPhaseValues,
 	targeted []DMXFixture,
+	allFixtures []DMXFixture,
 	now time.Time,
 	burstAnchor time.Time,
 ) ([]dmx.DMXOutputUpdate, map[string][512]bool) {
 	owned := map[string][512]bool{}
 	if len(targeted) == 0 {
 		return nil, owned
+	}
+	if len(allFixtures) == 0 {
+		allFixtures = targeted
 	}
 
 	intensity := values.intensity
@@ -610,6 +614,19 @@ func (c *WLEDController) buildDMXPartyFrame(
 		// running the generative algorithm.
 		if seq := normalizeFixtureCueSequence(fixture.Party.CueSequence); cueSequenceActive(seq) {
 			updates = append(updates, buildCueSequenceUpdates(fixture, seq, burstAnchor, now, &owned)...)
+			continue
+		}
+
+		// Color Sweep drives a spatial rainbow across the master + its slaves.
+		if colorSweepActive(fixture) {
+			hueDeg := math.Mod(colorPhase*180/math.Pi, 360)
+			updates = append(updates, buildColorSweepUpdatesForMaster(
+				allFixtures,
+				fixture,
+				hueDeg,
+				intensity,
+				&owned,
+			)...)
 			continue
 		}
 

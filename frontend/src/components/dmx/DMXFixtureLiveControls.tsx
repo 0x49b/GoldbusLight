@@ -2,7 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import {GetDMXState} from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 import type {DMXFixture} from "@/types/controller.ts";
-import {isFixtureSlave, resolveFixtureMaster} from "@/lib/dmxFixtureMasterSlave";
+import {fixtureHasSlaves, isFixtureSlave, resolveFixtureMaster, slavesOf} from "@/lib/dmxFixtureMasterSlave";
 import {
     buildDmxLivePatch,
     channelOutputByte,
@@ -30,7 +30,8 @@ import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
 import {DMXFixtureCueManager} from "./DMXFixtureCueManager";
 import {LiveChannelControl} from "./LiveChannelControl";
-import type {DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
+import {ColorSweepPanel} from "./ColorSweepPanel";
+import type {DMXColorSweep, DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -43,6 +44,7 @@ type DMXFixtureLiveControlsProps = {
     liveUniverse?: number[];
     onSaveCueSequence?: (next: DMXFixtureCueSequence) => Promise<boolean>;
     onSaveSceneCues?: (next: DMXFixtureCue[]) => Promise<boolean>;
+    onSaveColorSweep?: (next: DMXColorSweep) => Promise<boolean>;
     /**
      * Which section to display. The component stays mounted across modes so
      * live state (and the active cue) survives switching between Live / Cues tabs.
@@ -212,6 +214,7 @@ export function DMXFixtureLiveControls({
     liveUniverse,
     onSaveCueSequence,
     onSaveSceneCues,
+    onSaveColorSweep,
     displayMode = "live",
     editLayout: editLayoutProp,
 }: DMXFixtureLiveControlsProps) {
@@ -222,6 +225,13 @@ export function DMXFixtureLiveControls({
     const [polledUniverse, setPolledUniverse] = useState<number[] | undefined>(undefined);
     const fixtureRef = useRef(fixture);
     fixtureRef.current = fixture;
+    const colorSweepEnabled = fixture.type === "colorChanger" && fixture.colorSweep?.enabled === true;
+    const showColorSweep =
+        fixture.type === "colorChanger" && !isFixtureSlave(fixture) && !!onSaveColorSweep;
+    const slaveCount = useMemo(
+        () => (showColorSweep ? slavesOf(allFixtures, fixture.id).length : 0),
+        [allFixtures, fixture.id, showColorSweep],
+    );
 
     useEffect(() => {
         // Start from the fixture's idle pose (if configured) so it opens in the saved
@@ -252,14 +262,14 @@ export function DMXFixtureLiveControls({
     // until you leave the page.
     useEffect(() => {
         const fx = fixtureRef.current;
-        if (!connected || partyRunning || isFixtureSlave(fx)) {
+        if (!connected || partyRunning || isFixtureSlave(fx) || colorSweepEnabled) {
             return;
         }
         queueDmxLivePatch(buildDmxLivePatch(fx, liveState));
-    }, [connected, liveState, partyRunning, queueDmxLivePatch]);
+    }, [connected, liveState, partyRunning, queueDmxLivePatch, colorSweepEnabled]);
 
     const slaveFixture = isFixtureSlave(fixture);
-    const needsUniverseMirror = partyRunning || slaveFixture;
+    const needsUniverseMirror = partyRunning || slaveFixture || colorSweepEnabled;
 
     // Poll live universe only when mirroring party/slave output. Calling pullDMXState
     // here used to set parent DMX state every tick, churning `fixture` identity and
@@ -297,7 +307,7 @@ export function DMXFixtureLiveControls({
         if (!universe || universe.length < 512) {
             return null;
         }
-        if (!partyRunning && !slaveFixture) {
+        if (!partyRunning && !slaveFixture && !colorSweepEnabled) {
             return null;
         }
         const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
@@ -312,16 +322,16 @@ export function DMXFixtureLiveControls({
             }
         }
         return dmxLiveControlStateFromCue(fixture, values);
-    }, [fixture, partyRunning, slaveFixture, universe]);
+    }, [fixture, partyRunning, slaveFixture, colorSweepEnabled, universe]);
 
     const displayState = universeMirrorState ?? liveState;
 
     const maxPanDeg = Math.max(0, Math.round(fixture.movingHead?.maxPan ?? 540));
     const maxTiltDeg = Math.max(0, Math.round(fixture.movingHead?.maxTilt ?? 270));
     // Preview follows the live UI while editing. Only mirror the polled DMX buffer during
-    // party mode or slave follow — otherwise the backend universe (often stale zeros right
-    // after connect) would override slider values and hide the beam.
-    const previewUniverse = partyRunning || slaveFixture ? universe : undefined;
+    // party mode, color sweep, or slave follow — otherwise the backend universe (often stale
+    // zeros right after connect) would override slider values and hide the beam.
+    const previewUniverse = partyRunning || slaveFixture || colorSweepEnabled ? universe : undefined;
     const previewDrive = fixturePreviewDrive(fixture, previewUniverse, displayState);
     const previewPanDeg = legacyPan01(fixture, displayState) * maxPanDeg;
     const previewTiltDeg = legacyTilt01(fixture, displayState) * maxTiltDeg;
@@ -380,7 +390,7 @@ export function DMXFixtureLiveControls({
         };
     }, [editLayout, fixture.id]);
 
-    const sliderDisabled = busy || !connected || partyRunning || slaveFixture;
+    const sliderDisabled = busy || !connected || partyRunning || slaveFixture || colorSweepEnabled;
 
     const captureCurrentValues = useCallback((): Record<string, number> => {
         const base = Math.max(1, Math.round(fixture.dmxAddress || 1));
@@ -418,7 +428,7 @@ export function DMXFixtureLiveControls({
     }, [activeCueDirty, activeCueId, liveState]);
 
     const cues = useMemo(() => fixture.party?.cueSequence?.cues ?? [], [fixture.party?.cueSequence?.cues]);
-    const canApplyCue = connected && !partyRunning && !busy && !slaveFixture;
+    const canApplyCue = connected && !partyRunning && !busy && !slaveFixture && !colorSweepEnabled;
 
     const [savingActiveCue, setSavingActiveCue] = useState(false);
     const updateActiveCueFromLive = useCallback(async () => {
@@ -585,8 +595,28 @@ export function DMXFixtureLiveControls({
                     Party mode controls this fixture. Stop Party to use manual live controls.
                 </div>
             )}
+            {colorSweepEnabled && !partyRunning && !slaveFixture && (
+                <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm text-sky-900 dark:text-sky-200">
+                    Color Sweep is running
+                    {fixtureHasSlaves(allFixtures, fixture.id)
+                        ? " across this master and its slaves"
+                        : ""}
+                    . Disable Sweep to use manual color controls.
+                </div>
+            )}
 
             <div className={showLive ? "space-y-4" : "hidden"} aria-hidden={!showLive}>
+                {showColorSweep ? (
+                    <ColorSweepPanel
+                        variant="live"
+                        value={fixture.colorSweep ?? {}}
+                        onChange={(next) => {
+                            void onSaveColorSweep?.(next);
+                        }}
+                        slaveCount={slaveCount}
+                        busy={busy}
+                    />
+                ) : null}
                 {noneConfigured ? (
                     <Card>
                         <CardContent className="py-8 text-center text-sm text-muted-foreground">

@@ -290,6 +290,16 @@ export type DMXFixtureParty = {
     cueSequence?: DMXFixtureCueSequence;
 };
 
+/** Spatial rainbow across a Color Changer master and its slaves. */
+export type DMXColorSweep = {
+    /** When true, a rainbow hue travels across the master + slave chain. */
+    enabled?: boolean;
+    /** `ltr` = ascending DMX address; `rtl` = reverse. */
+    direction?: "ltr" | "rtl";
+    /** 1–100; higher advances the hue faster. Default 50. */
+    speed?: number;
+};
+
 export type DMXFixture = {
     id: string;
     type: DMXFixtureType;
@@ -306,6 +316,8 @@ export type DMXFixture = {
         maxTilt: number;
     };
     party?: DMXFixtureParty;
+    /** Color Changer master effect: rainbow sweep across master + slaves. */
+    colorSweep?: DMXColorSweep;
     /** Static poses for Lighting Scenes (separate from party cueSequence). */
     sceneCues?: DMXFixtureCue[];
     channels: DMXChannel[];
@@ -420,6 +432,7 @@ export type UpsertDMXFixtureInput = {
     maxPan: number;
     maxTilt: number;
     party?: DMXFixtureParty;
+    colorSweep?: DMXColorSweep;
     sceneCues?: DMXFixtureCue[];
     channels: DMXChannel[];
 };

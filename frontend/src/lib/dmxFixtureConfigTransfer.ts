@@ -1,6 +1,7 @@
 import type {
     DMXChannel,
     DMXChannelType,
+    DMXColorSweep,
     DMXFixtureParty,
     DMXFixtureType,
     JSONMap,
@@ -84,6 +85,7 @@ export type DMXFixtureConfigPayload = {
     };
     channels: DMXChannel[];
     party?: DMXFixtureParty;
+    colorSweep?: DMXColorSweep;
 };
 
 export type ParseDMXFixtureConfigResult =
@@ -223,6 +225,18 @@ export function buildDMXFixtureConfigPayload(input: UpsertDMXFixtureInput): DMXF
             payload.party = {...p};
         }
     }
+    if (input.type === "colorChanger" && input.colorSweep) {
+        const sweep = input.colorSweep;
+        if (sweep.enabled || sweep.direction || sweep.speed != null) {
+            payload.colorSweep = {
+                ...(sweep.enabled ? {enabled: true} : {}),
+                ...(sweep.direction === "rtl" || sweep.direction === "ltr"
+                    ? {direction: sweep.direction}
+                    : {}),
+                ...(typeof sweep.speed === "number" ? {speed: sweep.speed} : {}),
+            };
+        }
+    }
     return payload;
 }
 
@@ -279,6 +293,30 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
         party = parsePartyRecord(value.party);
     }
 
+    let colorSweep: DMXColorSweep | undefined;
+    if (
+        fileVersion === 2 &&
+        value.type === "colorChanger" &&
+        "colorSweep" in value &&
+        isRecord(value.colorSweep)
+    ) {
+        const raw = value.colorSweep;
+        const next: DMXColorSweep = {};
+        if (raw.enabled === true) {
+            next.enabled = true;
+        }
+        if (raw.direction === "ltr" || raw.direction === "rtl") {
+            next.direction = raw.direction;
+        }
+        const speed = finiteNumber(raw.speed);
+        if (speed != null) {
+            next.speed = Math.max(1, Math.min(100, Math.round(speed)));
+        }
+        if (next.enabled || next.direction || next.speed != null) {
+            colorSweep = next;
+        }
+    }
+
     return {
         ok: true,
         input: {
@@ -290,6 +328,7 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
             maxTilt: Math.round(maxTilt),
             channels: parsedChannels.channels,
             ...(party ? {party} : {}),
+            ...(colorSweep ? {colorSweep} : {}),
         },
     };
 }

@@ -359,6 +359,11 @@ export class DMXFixture {
     "party"?: DMXFixtureParty;
 
     /**
+     * ColorSweep is a Color Changer master effect that drives a rainbow across master+slaves.
+     */
+    "colorSweep"?: DMXColorSweep;
+
+    /**
      * SceneCues are static poses used by Lighting Scenes (separate from party cueSequence).
      */
     "sceneCues"?: DMXFixtureCue[];
@@ -405,8 +410,9 @@ export class DMXFixture {
     static createFrom($$source: any = {}): DMXFixture {
         const $$createField7_0 = $$createType14;
         const $$createField8_0 = $$createType15;
-        const $$createField9_0 = $$createType17;
-        const $$createField10_0 = $$createType19;
+        const $$createField9_0 = $$createType49;
+        const $$createField10_0 = $$createType17;
+        const $$createField11_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("movingHead" in $$parsedSource) {
             $$parsedSource["movingHead"] = $$createField7_0($$parsedSource["movingHead"]);
@@ -414,13 +420,51 @@ export class DMXFixture {
         if ("party" in $$parsedSource) {
             $$parsedSource["party"] = $$createField8_0($$parsedSource["party"]);
         }
+        if ("colorSweep" in $$parsedSource) {
+            $$parsedSource["colorSweep"] = $$createField9_0($$parsedSource["colorSweep"]);
+        }
         if ("sceneCues" in $$parsedSource) {
-            $$parsedSource["sceneCues"] = $$createField9_0($$parsedSource["sceneCues"]);
+            $$parsedSource["sceneCues"] = $$createField10_0($$parsedSource["sceneCues"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField10_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField11_0($$parsedSource["channels"]);
         }
         return new DMXFixture($$parsedSource as Partial<DMXFixture>);
+    }
+}
+
+/**
+ * DMXColorSweep runs a spatial rainbow across a Color Changer master and its slaves.
+ * Only meaningful for fixture type colorChanger on a non-slave fixture.
+ */
+export class DMXColorSweep {
+    /**
+     * Enabled turns the rainbow sweep on while live output is running (and during party).
+     */
+    "enabled"?: boolean;
+
+    /**
+     * Direction is "ltr" (left→right / ascending address) or "rtl" (right→left).
+     */
+    "direction"?: string;
+
+    /**
+     * Speed is 1–100 (default 50). Higher values advance the hue faster.
+     */
+    "speed"?: number;
+
+    /** Creates a new DMXColorSweep instance. */
+    constructor($$source: Partial<DMXColorSweep> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DMXColorSweep instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DMXColorSweep {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DMXColorSweep($$parsedSource as Partial<DMXColorSweep>);
     }
 }
 
@@ -1444,6 +1488,7 @@ export class UpsertDMXFixtureInput {
     "maxPan": number;
     "maxTilt": number;
     "party"?: DMXFixtureParty;
+    "colorSweep"?: DMXColorSweep;
     "sceneCues"?: DMXFixtureCue[];
     "channels": DMXChannel[];
 
@@ -1479,17 +1524,21 @@ export class UpsertDMXFixtureInput {
      */
     static createFrom($$source: any = {}): UpsertDMXFixtureInput {
         const $$createField9_0 = $$createType15;
-        const $$createField10_0 = $$createType17;
-        const $$createField11_0 = $$createType19;
+        const $$createField10_0 = $$createType49;
+        const $$createField11_0 = $$createType17;
+        const $$createField12_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("party" in $$parsedSource) {
             $$parsedSource["party"] = $$createField9_0($$parsedSource["party"]);
         }
+        if ("colorSweep" in $$parsedSource) {
+            $$parsedSource["colorSweep"] = $$createField10_0($$parsedSource["colorSweep"]);
+        }
         if ("sceneCues" in $$parsedSource) {
-            $$parsedSource["sceneCues"] = $$createField10_0($$parsedSource["sceneCues"]);
+            $$parsedSource["sceneCues"] = $$createField11_0($$parsedSource["sceneCues"]);
         }
         if ("channels" in $$parsedSource) {
-            $$parsedSource["channels"] = $$createField11_0($$parsedSource["channels"]);
+            $$parsedSource["channels"] = $$createField12_0($$parsedSource["channels"]);
         }
         return new UpsertDMXFixtureInput($$parsedSource as Partial<UpsertDMXFixtureInput>);
     }
@@ -1901,3 +1950,4 @@ const $$createType45 = $Create.Array($$createType44);
 const $$createType46 = WLEDDevicePreset.createFrom;
 const $$createType47 = $Create.Array($$createType46);
 const $$createType48 = WLEDDebugSettings.createFrom;
+const $$createType49 = DMXColorSweep.createFrom;

@@ -2150,6 +2150,7 @@ function fixtureToUpsertInput(fixture: DMXFixture, dmxAddress: number): UpsertDM
         maxPan: fixture.movingHead?.maxPan ?? 540,
         maxTilt: fixture.movingHead?.maxTilt ?? 270,
         party: fixture.party,
+        colorSweep: fixture.colorSweep,
         sceneCues: fixture.sceneCues,
         channels: fixture.channels,
     };

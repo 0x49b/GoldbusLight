@@ -89,6 +89,10 @@ func expandDMXUpdatesToSlaves(fixtures []DMXFixture, updates []dmx.DMXOutputUpda
 			if isDMXSlaveFixture(fx) {
 				continue
 			}
+			// Color Sweep writes distinct hues per fixture; do not clone master → slaves.
+			if colorSweepActive(fx) {
+				continue
+			}
 			fxUniverse := normalizeFixtureUniverseID(fx.UniverseID, nil)
 			if fxUniverse != k.universeID {
 				continue

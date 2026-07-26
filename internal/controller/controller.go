@@ -277,6 +277,17 @@ type MovingHeadConfig struct {
 	MaxTilt int `json:"maxTilt"`
 }
 
+// DMXColorSweep runs a spatial rainbow across a Color Changer master and its slaves.
+// Only meaningful for fixture type colorChanger on a non-slave fixture.
+type DMXColorSweep struct {
+	// Enabled turns the rainbow sweep on while live output is running (and during party).
+	Enabled bool `json:"enabled,omitempty"`
+	// Direction is "ltr" (left→right / ascending address) or "rtl" (right→left).
+	Direction string `json:"direction,omitempty"`
+	// Speed is 1–100 (default 50). Higher values advance the hue faster.
+	Speed int `json:"speed,omitempty"`
+}
+
 type DMXFixture struct {
 	ID         string         `json:"id"`
 	Type       DMXFixtureType `json:"type"`
@@ -288,6 +299,8 @@ type DMXFixture struct {
 	MasterFixtureID string           `json:"masterFixtureId,omitempty"`
 	MovingHead      MovingHeadConfig `json:"movingHead"`
 	Party           DMXFixtureParty  `json:"party,omitempty"`
+	// ColorSweep is a Color Changer master effect that drives a rainbow across master+slaves.
+	ColorSweep DMXColorSweep `json:"colorSweep,omitempty"`
 	// SceneCues are static poses used by Lighting Scenes (separate from party cueSequence).
 	SceneCues []DMXFixtureCue `json:"sceneCues,omitempty"`
 	Channels  []DMXChannel    `json:"channels"`
@@ -320,6 +333,7 @@ type UpsertDMXFixtureInput struct {
 	MaxPan          int             `json:"maxPan"`
 	MaxTilt         int             `json:"maxTilt"`
 	Party           DMXFixtureParty `json:"party,omitempty"`
+	ColorSweep      DMXColorSweep   `json:"colorSweep,omitempty"`
 	SceneCues       []DMXFixtureCue `json:"sceneCues,omitempty"`
 	Channels        []DMXChannel    `json:"channels"`
 }
@@ -658,6 +672,10 @@ type WLEDController struct {
 	partyOwnedByUniverse map[string][512]bool
 	partyAudioMu         sync.Mutex
 	partyAudioCapture    *audio.Capture
+
+	dmxColorSweepRunning bool
+	dmxColorSweepCancel  context.CancelFunc
+	dmxColorSweepWG      sync.WaitGroup
 }
 
 func NewWLEDController(logger *log.Logger) *WLEDController {
@@ -1531,6 +1549,9 @@ func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	if reconcileErr != nil {
 		c.logger.Printf("dmx live: started with partial adapters: %v", reconcileErr)
 	}
+	c.dmxLiveMu.Lock()
+	c.startDMXColorSweepLocked()
+	c.dmxLiveMu.Unlock()
 	return nil
 }
 
@@ -1844,12 +1865,17 @@ func (c *WLEDController) StopDMXLive() {
 func (c *WLEDController) stopDMXLiveLocked() {
 	c.stopDMXPartyWithReason("")
 	c.dmxLiveMu.Lock()
+	wasSweep := c.dmxColorSweepRunning
+	c.cancelDMXColorSweepLocked()
 	c.stopAllDMXLiveAdaptersLocked()
 	c.dmxLiveUniverses = nil
 	c.dmxLiveRunning = false
 	c.dmxLiveErr = ""
 	c.dmxLiveFixID = ""
 	c.dmxLiveMu.Unlock()
+	if wasSweep {
+		c.dmxColorSweepWG.Wait()
+	}
 	c.dmxLiveUSBWG.Wait()
 	c.dmxLiveArtWG.Wait()
 }
@@ -2206,6 +2232,7 @@ func cloneDMXState(in DMXState) DMXState {
 		cp.Name = strings.TrimSpace(cp.Name)
 		cp.UniverseID = normalizeFixtureUniverseID(cp.UniverseID, out.Universes)
 		cp.Party = normalizeFixtureParty(cp.Party)
+		cp.ColorSweep = normalizeColorSweep(cp.ColorSweep, cp.Type)
 		cp.SceneCues = normalizeFixtureSceneCues(cp.SceneCues)
 		if len(cp.Party.ChannelWeights) > 0 {
 			wm := make(map[string]int, len(cp.Party.ChannelWeights))
@@ -2653,6 +2680,7 @@ func buildDMXFixtureForUpdate(existing DMXFixture, input UpsertDMXFixtureInput, 
 		MaxTilt: input.MaxTilt,
 	}
 	fixture.Party = normalizeFixtureParty(input.Party)
+	fixture.ColorSweep = normalizeColorSweep(input.ColorSweep, fixtureType)
 	if input.SceneCues != nil {
 		fixture.SceneCues = normalizeFixtureSceneCues(input.SceneCues)
 	}
