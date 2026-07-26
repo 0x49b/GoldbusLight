@@ -1,18 +1,28 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import {GetDMXState} from "../../../bindings/goldbus/internal/service/goldbuslightservice";
-import type {DMXFixture} from "@/types/controller.ts";
-import {fixtureHasSlaves, isFixtureSlave, resolveFixtureMaster, slavesOf} from "@/lib/dmxFixtureMasterSlave";
+import type {
+    DMXColorSweep,
+    DMXFixture,
+    DMXFixtureCue,
+    DMXFixtureCueSequence
+} from "@/types/controller.ts";
+import {
+    fixtureHasSlaves,
+    isFixtureSlave,
+    resolveFixtureMaster,
+    slavesOf
+} from "@/lib/dmxFixtureMasterSlave";
 import {
     buildDmxLivePatch,
     channelOutputByte,
     defaultDmxLiveControlState,
     defaultEntryStateForChannel,
+    type DMXLiveControlState,
     dmxLiveControlStateFromCue,
     legacyFocus01,
     legacyPan01,
     legacyTilt01,
-    type DMXLiveControlState,
 } from "@/lib/dmxLiveMap.ts";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
@@ -21,17 +31,19 @@ import {fixturePreview3DVariant} from "@/lib/dmxFixturePreviewVariant";
 import {fixturePreviewDrive, type PreviewBeamShutter} from "@/lib/dmxFixturePreviewDrive.ts";
 import {
     LIVE_LAYOUT_DOC_VERSION,
+    type LiveLayoutTile,
     liveTileIdsForFixture,
     mergeLiveLayoutWithActiveIds,
-    type LiveLayoutTile,
 } from "@/lib/dmxFixtureLiveLayout";
-import {loadFixtureLiveLayoutDocument, saveFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
+import {
+    loadFixtureLiveLayoutDocument,
+    saveFixtureLiveLayoutDocument
+} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveLayoutGrid} from "./DMXFixtureLiveLayoutGrid";
 import {DMXFixturePreview3D} from "./DMXFixturePreview3D";
 import {DMXFixtureCueManager} from "./DMXFixtureCueManager";
 import {LiveChannelControl} from "./LiveChannelControl";
 import {ColorSweepPanel} from "./ColorSweepPanel";
-import type {DMXColorSweep, DMXFixtureCue, DMXFixtureCueSequence} from "@/types/controller.ts";
 
 type DMXFixtureLiveControlsProps = {
     fixture: DMXFixture;
@@ -91,7 +103,8 @@ function renderLiveTile(
         return (
             <div className="flex h-full min-h-0 flex-col gap-1.5">
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</span>
+                    <span
+                        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</span>
                     {opts.activeCueLabel ? (
                         <>
                             <span
@@ -103,9 +116,11 @@ function renderLiveTile(
                                 title={opts.activeCueDirty ? "Live values differ from this cue" : "Currently applied cue"}
                             >
                                 {opts.activeCueIndex != null && (
-                                    <span className="font-semibold opacity-80">#{opts.activeCueIndex + 1}</span>
+                                    <span
+                                        className="font-semibold opacity-80">#{opts.activeCueIndex + 1}</span>
                                 )}
-                                <span className="max-w-[12rem] truncate">{opts.activeCueLabel}</span>
+                                <span
+                                    className="max-w-[12rem] truncate">{opts.activeCueLabel}</span>
                                 {opts.activeCueDirty && <span className="font-semibold">•</span>}
                             </span>
                             <Button
@@ -204,20 +219,20 @@ function renderLiveTile(
 }
 
 export function DMXFixtureLiveControls({
-    fixture,
-    allFixtures,
-    onOpenFixture,
-    busy,
-    liveStatus,
-    partyRunning,
-    queueDmxLivePatch,
-    liveUniverse,
-    onSaveCueSequence,
-    onSaveSceneCues,
-    onSaveColorSweep,
-    displayMode = "live",
-    editLayout: editLayoutProp,
-}: DMXFixtureLiveControlsProps) {
+                                           fixture,
+                                           allFixtures,
+                                           onOpenFixture,
+                                           busy,
+                                           liveStatus,
+                                           partyRunning,
+                                           queueDmxLivePatch,
+                                           liveUniverse,
+                                           onSaveCueSequence,
+                                           onSaveSceneCues,
+                                           onSaveColorSweep,
+                                           displayMode = "live",
+                                           editLayout: editLayoutProp,
+                                       }: DMXFixtureLiveControlsProps) {
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
     // Live DMX buffer sourced directly from the poll (see effect below) so the party
@@ -281,7 +296,7 @@ export function DMXFixtureLiveControls({
         let active = true;
         const tick = async () => {
             try {
-                const st = (await GetDMXState()) as {liveUniverse?: number[]} | undefined;
+                const st = (await GetDMXState()) as { liveUniverse?: number[] } | undefined;
                 if (active && st && Array.isArray(st.liveUniverse)) {
                     setPolledUniverse(st.liveUniverse);
                 }
@@ -377,7 +392,10 @@ export function DMXFixtureLiveControls({
 
     useEffect(() => {
         if (prevEditRef.current && !editLayout) {
-            void saveFixtureLiveLayoutDocument(fixture.id, {version: LIVE_LAYOUT_DOC_VERSION, tiles: layoutTilesRef.current});
+            void saveFixtureLiveLayoutDocument(fixture.id, {
+                version: LIVE_LAYOUT_DOC_VERSION,
+                tiles: layoutTilesRef.current
+            });
         }
         prevEditRef.current = editLayout;
     }, [editLayout, fixture.id]);
@@ -385,7 +403,10 @@ export function DMXFixtureLiveControls({
     useEffect(() => {
         return () => {
             if (editLayout) {
-                void saveFixtureLiveLayoutDocument(fixture.id, {version: LIVE_LAYOUT_DOC_VERSION, tiles: layoutTilesRef.current});
+                void saveFixtureLiveLayoutDocument(fixture.id, {
+                    version: LIVE_LAYOUT_DOC_VERSION,
+                    tiles: layoutTilesRef.current
+                });
             }
         };
     }, [editLayout, fixture.id]);
@@ -570,9 +591,10 @@ export function DMXFixtureLiveControls({
     return (
         <div className="space-y-4">
             {slaveFixture && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border  bg-orange-100 px-3 py-2 text-sm text-muted-foreground">
+                <div
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border border-orange-400 bg-orange-500/10 px-3 py-2 text-sm text-muted-foreground">
                     <span>
-                        This fixture is a slave and mirrors{" "}
+                        This fixture is a slave and get commands from{" "}
                         <span className="font-medium text-foreground">
                             {masterFixture?.name ?? "its master"}
                         </span>
@@ -583,6 +605,7 @@ export function DMXFixtureLiveControls({
                             type="button"
                             size="sm"
                             variant="secondary"
+                            className="bg-orange-200"
                             onClick={() => onOpenFixture(masterFixture.id)}
                         >
                             Open master
@@ -591,12 +614,14 @@ export function DMXFixtureLiveControls({
                 </div>
             )}
             {partyRunning && !slaveFixture && (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                <div
+                    className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
                     Party mode controls this fixture. Stop Party to use manual live controls.
                 </div>
             )}
             {colorSweepEnabled && !partyRunning && !slaveFixture && (
-                <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm text-sky-900 dark:text-sky-200">
+                <div
+                    className="rounded-md border border-indigo-500 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-950 dark:text-indigo-950">
                     Color Sweep is running
                     {fixtureHasSlaves(allFixtures, fixture.id)
                         ? " across this master and its slaves"
@@ -620,7 +645,8 @@ export function DMXFixtureLiveControls({
                 {noneConfigured ? (
                     <Card>
                         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                            No mappable channels found for live control (configure channels in the fixture editor).
+                            No mappable channels found for live control (configure channels in the
+                            fixture editor).
                         </CardContent>
                     </Card>
                 ) : (

@@ -33,23 +33,19 @@ export function ColorSweepPanel({
 
     const body = (
         <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-                Rainbow hue travels across this Color Changer and its linked slaves
-                {slaveCount > 0 ? ` (${slaveCount} slave${slaveCount === 1 ? "" : "s"})` : ""}.
-                Order follows DMX start address.
-            </p>
             {slaveCount < 1 ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
                     Link other Color Changers as slaves of this fixture to create a spatial left↔right sweep.
                 </p>
             ) : null}
-            <label className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium">Enable Sweep</span>
+            <label className="flex items-center justify-left gap-3 text-sm">
+
                 <Switch
                     checked={sweep.enabled}
                     disabled={busy}
                     onCheckedChange={(checked) => onChange({...sweep, enabled: checked})}
                 />
+                <span className="font-medium">Enable Sweep</span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
