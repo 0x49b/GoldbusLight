@@ -4,22 +4,22 @@ overview: Make DMX packet sending automatic whenever the DMX component is on and
 todos:
   - id: backend-ensure
     content: Add EnsureDMXLiveOutput; wire boot/settings/USB/Art-Net; make StartDMXLive idempotent
-    status: in_progress
+    status: completed
   - id: backend-blackout
     content: Change DMXEmergencyStop to zero channels and keep streaming; update Go tests
-    status: pending
+    status: completed
   - id: fe-indicator
     content: Add DMXOutputIndicator; use on Universe, Fixture, Scenes
-    status: pending
+    status: completed
   - id: fe-remove-toggles
     content: Remove Universe DMX Output toggle and Fixture Start/Stop live; keep Blackout + Party active nav
-    status: pending
+    status: completed
   - id: fe-hooks-status
     content: Update emergency status text and live-status refresh after settings/interface changes
-    status: pending
+    status: completed
   - id: docs-update
     content: Update user docs per comprehensive-user-docs skill; mkdocs build verify
-    status: pending
+    status: completed
 isProject: false
 ---
 
