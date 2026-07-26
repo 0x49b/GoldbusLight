@@ -9,6 +9,7 @@ export {
     ControllerSettings,
     ControllerSnapshot,
     DMXChannel,
+    DMXColorSweep,
     DMXFixture,
     DMXFixtureCue,
     DMXFixtureCueSequence,

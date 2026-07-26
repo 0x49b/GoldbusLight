@@ -27,6 +27,7 @@ import {
     fixtureHasSlaves,
     isFixtureSlave,
     masterEligibleFixtures,
+    slavesOf,
 } from "@/lib/dmxFixtureMasterSlave";
 import {cn} from "@/lib/utils";
 import {MoreHorizontal} from "lucide-react";
@@ -47,6 +48,7 @@ import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {
     DetailRoute,
     DMXChannel,
+    DMXColorSweep,
     DMXFixture,
     DMXFixtureCue,
     DMXFixtureCueSequence,
@@ -63,6 +65,7 @@ import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
 import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixtureCueSequenceEditor} from "./DMXFixtureCueSequenceEditor";
+import {ColorSweepPanel} from "./ColorSweepPanel";
 
 type FixturePageMode = "editor" | "live" | "cues" | "sceneCues";
 
@@ -196,6 +199,7 @@ function fixtureToUpsertInput(f: DMXFixture): UpsertDMXFixtureInput {
         maxPan: Math.max(0, Math.round(f.movingHead?.maxPan ?? 0)),
         maxTilt: Math.max(0, Math.round(f.movingHead?.maxTilt ?? 0)),
         party: f.party,
+        colorSweep: f.colorSweep,
         sceneCues: f.sceneCues,
         channels: cloneChannels(f.channels),
     };
@@ -276,6 +280,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [partyStrobeOnMs, setPartyStrobeOnMs] = useState(120);
     const [partyStrobeOffMs, setPartyStrobeOffMs] = useState(500);
     const [partyCueSequence, setPartyCueSequence] = useState<DMXFixtureCueSequence>({});
+    const [colorSweep, setColorSweep] = useState<DMXColorSweep>({});
     const [saveHint, setSaveHint] = useState<string | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [editLayout, setEditLayout] = useState(false);
@@ -331,6 +336,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeOnMs(Math.max(20, props.fixture.party?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, props.fixture.party?.strobeOffMs ?? 500));
             setPartyCueSequence(props.fixture.party?.cueSequence ? {...props.fixture.party.cueSequence} : {});
+            setColorSweep(props.fixture.colorSweep ? {...props.fixture.colorSweep} : {});
             setSaveHint(null);
             return;
         }
@@ -347,6 +353,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeEnabled(false);
         setPartyStrobeOnMs(120);
         setPartyStrobeOffMs(500);
+        setColorSweep({});
         setPartyCueSequence({});
     }, [props.fixture?.id, props.fixture?.updatedAt, props.defaultUniverseId]);
 
@@ -457,12 +464,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             partyStrobeOffMs,
             partyCueSequence,
         ),
+        colorSweep: fixtureType === "colorChanger" ? colorSweep : undefined,
         sceneCues: props.fixture?.sceneCues,
         channels: cloneChannels(channels),
     }), [
         address,
         brand,
         channels,
+        colorSweep,
         fixtureType,
         masterFixtureId,
         maxPan,
@@ -509,6 +518,23 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             const input: UpsertDMXFixtureInput = {
                 ...fixtureToUpsertInput(current),
                 sceneCues: sanitized?.cues ?? [],
+            };
+            const saved = await props.onUpdate(input);
+            return saved != null;
+        },
+        [props.fixture, props.onUpdate],
+    );
+
+    const handleSaveColorSweep = useCallback(
+        async (next: DMXColorSweep): Promise<boolean> => {
+            const current = props.fixture;
+            if (!current || current.type !== "colorChanger") {
+                return false;
+            }
+            setColorSweep(next);
+            const input: UpsertDMXFixtureInput = {
+                ...fixtureToUpsertInput(current),
+                colorSweep: next,
             };
             const saved = await props.onUpdate(input);
             return saved != null;
@@ -682,6 +708,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeOnMs(Math.max(20, impParty?.strobeOnMs ?? 120));
             setPartyStrobeOffMs(Math.max(20, impParty?.strobeOffMs ?? 500));
             setPartyCueSequence(impParty?.cueSequence ? {...impParty.cueSequence} : {});
+            setColorSweep(parsed.input.colorSweep ? {...parsed.input.colorSweep} : {});
             setPageMode("editor");
             setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
         } catch (e) {
@@ -895,6 +922,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     liveUniverse={props.dmxState.liveUniverse}
                     onSaveCueSequence={handleSaveCueSequence}
                     onSaveSceneCues={handleSaveSceneCues}
+                    onSaveColorSweep={handleSaveColorSweep}
                     displayMode={pageMode}
                     editLayout={editLayout}
                     setEditLayout={setEditLayout}
@@ -1080,6 +1108,20 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                         setPartyStrobeOffMs={setPartyStrobeOffMs}
                         busy={props.busy}
                     />
+
+                    {fixtureType === "colorChanger" && !masterFixtureId.trim() ? (
+                        <ColorSweepPanel
+                            variant="editor"
+                            value={colorSweep}
+                            onChange={setColorSweep}
+                            slaveCount={
+                                props.fixture
+                                    ? slavesOf(props.dmxState.fixtures, props.fixture.id).length
+                                    : 0
+                            }
+                            busy={props.busy}
+                        />
+                    ) : null}
 
                     <Card>
                         <CardHeader>

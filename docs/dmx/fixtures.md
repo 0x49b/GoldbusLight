@@ -51,6 +51,18 @@ Additional fields:
 
 Used for 3D preview and party movement range calculations.
 
+### Color Changer — Color Sweep
+
+Color Changer masters can run a **Color Sweep**: a rainbow hue that travels across the master and its linked slaves (ordered by DMX start address).
+
+| Setting | Description |
+|---------|-------------|
+| **Enable Sweep** | Turns the effect on while live output is running (also used in party mode) |
+| **Direction** | Left → right (ascending address) or Right → left |
+| **Speed** | How fast the hue advances (1–100%) |
+
+Configure on the **Live** tab (quick toggle) or in the **Editor**. Link other Color Changers as slaves of the master so the rainbow moves across the row. While Sweep is enabled, manual color controls on that master are disabled; slaves continue to follow the sweep rather than a 1:1 channel mirror.
+
 ## DMX channels
 
 Each channel row has:

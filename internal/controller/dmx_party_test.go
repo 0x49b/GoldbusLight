@@ -21,7 +21,7 @@ func testBuildDMXPartyFrame(c *WLEDController, state DMXPartyState, at time.Time
 	var motionPhase float64
 	var colorPhase float64
 	advancePartyPhases(values, &motionPhase, &colorPhase)
-	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted, at, time.Time{})
+	return c.buildDMXPartyFrame(state, motionPhase, colorPhase, values, targeted, fixtures, at, time.Time{})
 }
 
 func TestCloneDMXStatePreservesPartyRuntime(t *testing.T) {
@@ -187,7 +187,7 @@ func TestBuildDMXPartyFrameVF1600SmokeBurst(t *testing.T) {
 	at := time.Unix(0, 0)
 	values := computePartyPhaseValues(state, at)
 	targets := partyDMXTargets(c.dmxState.Fixtures, cfg)
-	updates, owned := c.buildDMXPartyFrame(state, 0, 0, values, targets, at, anchor)
+	updates, owned := c.buildDMXPartyFrame(state, 0, 0, values, targets, c.dmxState.Fixtures, at, anchor)
 	if len(targets) != 1 {
 		t.Fatalf("expected auto-included smoke fixture, got %d targets", len(targets))
 	}

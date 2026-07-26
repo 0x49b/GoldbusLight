@@ -35,6 +35,16 @@ If party mode is running and controls this fixture, the Live tab becomes read-on
 
 The display mirrors live universe values but does not accept input.
 
+## Color Sweep (Color Changer)
+
+On a Color Changer that is not a slave, the Live tab shows a **Color Sweep** panel:
+
+1. Link other Color Changers as slaves of this master (Editor → Master fixture)
+2. Start live output
+3. Enable **Sweep**, pick direction and speed
+
+A rainbow hue moves across the master and its slaves. Disable Sweep to return to manual color control.
+
 ## Live layout editor
 
 1. Click **Edit layout** on the Live tab
