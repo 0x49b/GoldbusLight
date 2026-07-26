@@ -98,7 +98,7 @@ function VerticalFader({
                 />
             </div>
             {valueLabel != null ? (
-                <span className="text-center text-xs tabular-nums text-muted-foreground">{valueLabel}</span>
+                <span className="shrink-0 text-center text-xs tabular-nums text-muted-foreground">{valueLabel}</span>
             ) : null}
         </div>
     );

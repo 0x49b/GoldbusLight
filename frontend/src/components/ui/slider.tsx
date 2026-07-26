@@ -33,7 +33,7 @@ function Slider({
             max={max}
             step={step}
             className={cn(
-                "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-40 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col mt-3",
+                "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-40 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col data-[orientation=vertical]:py-3.5 mt-3 data-[orientation=vertical]:mt-0",
                 className
             )}
             {...props}
