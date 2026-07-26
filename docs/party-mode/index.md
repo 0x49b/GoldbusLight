@@ -8,7 +8,7 @@ Requires **WLED** and/or **DMX** enabled in Settings.
 
 While party mode runs:
 
-- A **violet animated border** surrounds the application window
+- A **violet animated border** surrounds the application window (only while party is running — not for normal automatic DMX output)
 - The Party sidebar item shows a green status dot
 - Included targets show green dots in the sidebar
 - Manual DMX live patches are blocked for party-controlled fixtures
@@ -125,7 +125,7 @@ Generative algorithm moves pan/tilt, color wheels, dimmers, etc., weighted by pe
 |---------|------------------------|
 | DMX Live tab | Read-only while party controls fixture |
 | DMX channel sweep | Requires party stopped |
-| **Blackout** | Stops party, blackouts DMX, and stops live output |
+| **Blackout** | Stops party and sets all DMX channels to 0%; live output keeps streaming zeros |
 | General WLED presets | Useless for devices in party until party stops |
 
 ## Linux audio requirements

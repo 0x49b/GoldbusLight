@@ -58,6 +58,7 @@ function App() {
                 wledEnabled={app.wledEnabled}
                 dmxEnabled={app.dmxEnabled}
                 dmxInterfaceConfigured={isDmxInterfaceConfigured(app.settings, app.dmxState)}
+                dmxLiveConnected={app.dmxLiveStatus?.connected === true}
                 busy={app.busy}
                 onApply={async (id) => {
                     await app.onApplyLightingScene(id);
@@ -136,7 +137,6 @@ function App() {
                 onStopParty={app.stopDMXPartyMode}
                 initialTab={app.route.tab}
                 startDMXLiveOutput={app.startDMXLiveOutput}
-                stopDMXLiveOutput={app.stopDMXLiveOutput}
                 setError={app.setError}
                 usbSerialDevices={app.usbSerialDevices}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
@@ -165,9 +165,6 @@ function App() {
                 onReaddressFixtures={app.onReaddressDMXFixtures}
                 dmxLiveStatus={app.dmxLiveStatus}
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
-                startDMXLiveOutput={app.startDMXLiveOutput}
-                stopDMXLiveOutput={app.stopDMXLiveOutput}
-                queueDmxLivePatch={app.queueDmxLivePatch}
                 onEmergency={app.triggerDMXEmergency}
             />
         );
@@ -188,8 +185,6 @@ function App() {
                 setRoute={app.setRoute}
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
                 queueDmxLivePatch={app.queueDmxLivePatch}
-                startDMXLiveOutput={app.startDMXLiveOutput}
-                stopDMXLiveOutput={app.stopDMXLiveOutput}
                 onRefreshUSBSerialDevices={app.refreshUSBSerialDevices}
                 onSelectUSBSerialDevice={app.onSelectUSBSerialDevice}
                 partyRunning={app.dmxPartyState?.status?.running === true}

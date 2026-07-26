@@ -16,7 +16,7 @@ export function DMXEmergencyButton({busy, className, onEmergency}: DMXEmergencyB
             size="sm"
             className={cn("shrink-0", className)}
             disabled={busy}
-            title="Stop party mode, blackout all DMX channels, and stop live output"
+            title="Stop party mode and blackout all DMX channels to 0% (output keeps streaming)"
             onClick={() => void onEmergency()}
         >
             <OctagonAlert className="size-4" aria-hidden/>

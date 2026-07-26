@@ -41,11 +41,14 @@ func TestDMXEmergencyStopClearsPartyAndBlackouts(t *testing.T) {
 
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
-	if c.dmxLiveRunning {
-		t.Fatal("expected live output stopped")
+	if !c.dmxLiveRunning {
+		t.Fatal("expected live output to keep running after blackout")
 	}
 	if c.dmxPartyRunning {
 		t.Fatal("expected party worker flag cleared")
+	}
+	if rt.buf[10] != 0 {
+		t.Fatalf("expected channel blackout, got %d", rt.buf[10])
 	}
 }
 
@@ -81,7 +84,10 @@ func TestDMXEmergencyStopWithUSBSimulatorWorker(t *testing.T) {
 
 	c.dmxLiveMu.Lock()
 	defer c.dmxLiveMu.Unlock()
-	if c.dmxLiveRunning {
-		t.Fatal("expected live output stopped")
+	if !c.dmxLiveRunning {
+		t.Fatal("expected live output to keep running after blackout")
+	}
+	if !c.hasAnyDMXLiveAdapterLocked() {
+		t.Fatal("expected USB adapter to remain open after blackout")
 	}
 }

@@ -911,6 +911,10 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.healthLoop(runCtx)
 	go c.applyDefaultOrRecallWLEDOnBoot(runCtx)
 
+	if err := c.EnsureDMXLiveOutput(); err != nil {
+		c.logger.Printf("dmx live ensure on start: %v", err)
+	}
+
 	return nil
 }
 
@@ -992,8 +996,8 @@ func (c *WLEDController) SaveSettings(settings ControllerSettings) error {
 
 	if !merged.DMX.Enabled {
 		c.StopDMXLive()
-	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
-		c.logger.Printf("dmx live reconcile after settings save: %v", err)
+	} else if err := c.EnsureDMXLiveOutput(); err != nil {
+		c.logger.Printf("dmx live ensure after settings save: %v", err)
 	}
 	return c.persist()
 }
@@ -1500,58 +1504,88 @@ func (c *WLEDController) dmxLiveUSBDisplayName(openPath string) string {
 	return ""
 }
 
-// StartDMXLive starts DMX output workers and opens adapter channels.
+type ensureDMXLiveOptions struct {
+	requireAdapter bool
+	fixtureID      string
+}
+
+// EnsureDMXLiveOutput starts or reconciles DMX live output when the DMX component
+// is enabled and at least one USB/Art-Net adapter can open. When DMX is disabled
+// or no adapter is available, live output is stopped. Missing adapters is not an error.
+func (c *WLEDController) EnsureDMXLiveOutput() error {
+	c.dmxLiveOpMu.Lock()
+	defer c.dmxLiveOpMu.Unlock()
+	return c.ensureDMXLiveOutputHoldingOpMu(ensureDMXLiveOptions{})
+}
+
+// StartDMXLive ensures DMX live output is running with at least one adapter.
+// It is idempotent when output is already connected.
 func (c *WLEDController) StartDMXLive(fixtureID string) error {
 	c.dmxLiveOpMu.Lock()
 	defer c.dmxLiveOpMu.Unlock()
+	return c.ensureDMXLiveOutputHoldingOpMu(ensureDMXLiveOptions{
+		requireAdapter: true,
+		fixtureID:      fixtureID,
+	})
+}
+
+func (c *WLEDController) ensureDMXLiveOutputHoldingOpMu(opts ensureDMXLiveOptions) error {
 	c.mu.RLock()
-	dmxSettings := c.settings.DMX
+	enabled := c.settings.DMX.Enabled
 	fixtures := append([]DMXFixture(nil), c.dmxState.Fixtures...)
 	c.mu.RUnlock()
-	if !dmxSettings.Enabled {
-		return fmt.Errorf("dmx component is disabled in settings")
+	if !enabled {
+		c.stopDMXLiveLocked()
+		if opts.requireAdapter {
+			return fmt.Errorf("dmx component is disabled in settings")
+		}
+		return nil
 	}
 
 	c.dmxLiveMu.Lock()
-	if c.dmxLiveRunning {
-		c.dmxLiveMu.Unlock()
-		return fmt.Errorf("DMX live output is already running")
-	}
-	c.dmxLiveRunning = true
-	c.dmxLiveErr = ""
-	c.dmxLiveFixID = strings.TrimSpace(fixtureID)
-	c.ensureDMXLiveUniversesLocked()
-	for id := range c.dmxLiveUniverses {
-		for i := range c.dmxLiveUniverses[id].buf {
-			c.dmxLiveUniverses[id].buf[i] = 0
+	alreadyConnected := c.dmxLiveRunning && c.hasAnyDMXLiveAdapterLocked()
+	if !c.dmxLiveRunning {
+		c.dmxLiveRunning = true
+		c.dmxLiveErr = ""
+		c.dmxLiveFixID = strings.TrimSpace(opts.fixtureID)
+		c.ensureDMXLiveUniversesLocked()
+		for id := range c.dmxLiveUniverses {
+			for i := range c.dmxLiveUniverses[id].buf {
+				c.dmxLiveUniverses[id].buf[i] = 0
+			}
 		}
+	} else if fid := strings.TrimSpace(opts.fixtureID); fid != "" {
+		c.dmxLiveFixID = fid
 	}
 	c.dmxLiveMu.Unlock()
 
 	reconcileErr := c.reconcileDMXLiveAdaptersLocked()
+
 	c.dmxLiveMu.Lock()
 	hasAdapter := c.hasAnyDMXLiveAdapterLocked()
-	if hasAdapter {
+	if !alreadyConnected && hasAdapter {
 		updates := buildDMXLiveInitUpdates(fixtures)
 		if len(updates) > 0 {
 			c.applyDMXLiveUpdatesLocked(updates)
 		}
 		c.fanOutAllDMXLiveUniversesLocked()
+		c.startDMXColorSweepLocked()
 	}
 	c.dmxLiveMu.Unlock()
+
 	if !hasAdapter {
 		c.stopDMXLiveLocked()
-		if reconcileErr != nil {
-			return reconcileErr
+		if opts.requireAdapter {
+			if reconcileErr != nil {
+				return reconcileErr
+			}
+			return fmt.Errorf("no active DMX adapters; enable USB transport and select USB, and/or enable Art-Net")
 		}
-		return fmt.Errorf("no active DMX adapters; enable USB transport and select USB, and/or enable Art-Net")
+		return nil
 	}
 	if reconcileErr != nil {
-		c.logger.Printf("dmx live: started with partial adapters: %v", reconcileErr)
+		c.logger.Printf("dmx live: ensure with partial adapters: %v", reconcileErr)
 	}
-	c.dmxLiveMu.Lock()
-	c.startDMXColorSweepLocked()
-	c.dmxLiveMu.Unlock()
 	return nil
 }
 

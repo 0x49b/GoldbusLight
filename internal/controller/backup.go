@@ -244,8 +244,8 @@ func (c *WLEDController) reloadFromPersistence() error {
 
 	if !dmxEnabled {
 		c.StopDMXLive()
-	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
-		c.logger.Printf("dmx live reconcile after import: %v", err)
+	} else if err := c.EnsureDMXLiveOutput(); err != nil {
+		c.logger.Printf("dmx live ensure after import: %v", err)
 	}
 
 	return nil
@@ -320,8 +320,8 @@ func (c *WLEDController) reloadFromImportBundle(bundle ConfigurationBackup) erro
 
 	if !dmxEnabled {
 		c.StopDMXLive()
-	} else if err := c.reconcileDMXLiveAdapters(); err != nil {
-		c.logger.Printf("dmx live reconcile after import: %v", err)
+	} else if err := c.EnsureDMXLiveOutput(); err != nil {
+		c.logger.Printf("dmx live ensure after import: %v", err)
 	}
 
 	if err := c.persistDMXForBackup(); err != nil {

@@ -479,6 +479,12 @@ export function useControllerApp() {
             setUSBSerialDevices([]);
         }
         try {
+            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+            setDmxLiveStatus(st);
+        } catch {
+            setDmxLiveStatus(null);
+        }
+        try {
             await pullPartyAudioInputDevices();
         } catch {
             setPartyAudioInputDevices([]);
@@ -901,6 +907,12 @@ export function useControllerApp() {
             const saved = (await GreetService.SaveControllerSettings(merged as never)) as unknown as ControllerSnapshot;
             setSnapshot(saved);
             setSettings(saved.settings);
+            try {
+                const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                setDmxLiveStatus(st);
+            } catch {
+                setDmxLiveStatus(null);
+            }
             setStatus("Settings saved");
             setError("");
             return true;
@@ -1273,6 +1285,12 @@ export function useControllerApp() {
                     },
                 };
             });
+            try {
+                const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                setDmxLiveStatus(st);
+            } catch {
+                setDmxLiveStatus(null);
+            }
             setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
             setError("");
         } catch (err) {
@@ -1464,7 +1482,7 @@ export function useControllerApp() {
             const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
             setDMXState((prev) => ({...prev, party: state}));
             await pullDMXLiveStatus();
-            setStatus("Emergency stop: party off, DMX blackout, output stopped");
+            setStatus("Emergency stop: party off, DMX blackout");
             setError("");
         } catch (err) {
             setError(String(err));

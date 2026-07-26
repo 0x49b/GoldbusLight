@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// DMXEmergencyStop stops party mode, sends a full-universe blackout when live output
-// is active, then stops DMX live output (USB/Art-Net workers).
+// DMXEmergencyStop stops party mode and sends a full-universe blackout when live
+// output is active. Streaming continues with all channels at zero.
 func (c *WLEDController) DMXEmergencyStop() error {
 	if !c.dmxEnabled() {
 		return fmt.Errorf("dmx component is disabled in settings")
@@ -27,7 +27,7 @@ func (c *WLEDController) DMXEmergencyStop() error {
 			now := time.Now()
 			if now.Sub(c.dmxLivePatchLog) >= dmxLivePatchConsoleInterval {
 				c.dmxLivePatchLog = now
-				summary := "Emergency stop: party off, universe blackout, live output stopped"
+				summary := "Emergency stop: party off, universe blackout"
 				paths, _ := c.collectDMXLiveStatusPaths()
 				for _, target := range paths {
 					if strings.Contains(target, "artnet") || strings.HasPrefix(target, "sim://artnet") {
@@ -41,6 +41,5 @@ func (c *WLEDController) DMXEmergencyStop() error {
 	}
 	c.dmxLiveMu.Unlock()
 
-	c.StopDMXLive()
 	return nil
 }

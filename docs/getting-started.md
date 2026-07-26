@@ -40,7 +40,7 @@ See [WLED overview](wled/index.md) for full detail.
 1. **Settings → DMX** — enable the component.
 2. Connect a USB-DMX adapter and configure it under **Settings → DMX**, or enable **Art-Net**.
 3. Click **+** next to **DMX Devices** to create a fixture (or import a JSON profile).
-4. Open **Universe** to verify addressing and start DMX output.
+4. Open **Universe** to verify addressing — when an interface is ready, **DMX Output - ON** appears automatically.
 5. Open a fixture and use the **Live** tab for manual control.
 
 See [DMX overview](dmx/index.md) for full detail.
@@ -73,13 +73,13 @@ See [Backup & restore](settings/backup-restore.md).
 
 ## Blackout (emergency stop)
 
-The red **Blackout** button appears on the DMX **Universe** view and on each fixture’s toolbar. Tooltip: *Stop party mode, blackout all DMX channels, and stop live output*.
+The red **Blackout** button appears on the DMX **Universe** view and on each fixture’s toolbar. Tooltip: *Stop party mode and blackout all DMX channels to 0% (output keeps streaming)*.
 
 1. Stops Party mode
-2. Blackouts all DMX channels (if live output was active)
-3. Stops DMX live output
+2. Sets all DMX channels to 0% immediately (if live output was active)
+3. Keeps streaming those zeros to the attached interface
 
-The status line confirms: `Emergency stop: party off, DMX blackout, output stopped`.
+The status line confirms: `Emergency stop: party off, DMX blackout`.
 
 ## Keyboard shortcuts (DMX live)
 

@@ -17,6 +17,7 @@ import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {TransferList} from "@/components/scenes/TransferList";
 import {PartyTargetsPicker} from "@/components/party/PartyTargetsPicker";
+import {DMXOutputIndicator} from "@/components/dmx/DMXOutputIndicator";
 import type {
     DMXFixture,
     LightingScene,
@@ -39,6 +40,8 @@ type ScenesViewProps = {
     dmxEnabled: boolean;
     /** True when a USB/Art-Net/simulator output is configured for DMX. */
     dmxInterfaceConfigured: boolean;
+    /** True when the app is currently sending DMX packets to an attached interface. */
+    dmxLiveConnected?: boolean;
     busy: boolean;
     onApply: (id: string) => Promise<void>;
     onStartParty: () => Promise<void>;
@@ -132,6 +135,7 @@ export function ScenesView({
     wledEnabled,
     dmxEnabled,
     dmxInterfaceConfigured,
+    dmxLiveConnected = false,
     busy,
     onApply,
     onStartParty,
@@ -362,7 +366,8 @@ export function ScenesView({
                             Create and edit looks across WLED presets and DMX scene cues.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
                         <Button type="button" size="sm" onClick={() => setDraft(emptyDraft())} disabled={busy || saving}>
                             <PiPlus className="size-4" aria-hidden />
                             Create scene
@@ -768,10 +773,13 @@ export function ScenesView({
                     <h1 className="text-xl font-semibold tracking-tight">Scenes</h1>
                     <p className="text-sm text-muted-foreground">Tap a scene to switch to it.</p>
                 </div>
-                <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => openManage()}>
-                    <PiGearSix className="size-4" aria-hidden />
-                    Manage
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
+                    <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => openManage()}>
+                        <PiGearSix className="size-4" aria-hidden />
+                        Manage
+                    </Button>
+                </div>
             </div>
 
             {dmxEnabled && !dmxInterfaceConfigured ? (

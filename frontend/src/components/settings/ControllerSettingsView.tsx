@@ -62,7 +62,6 @@ export type ControllerSettingsViewProps = {
     onStopParty: () => Promise<void>;
     initialTab?: SettingsTab;
     startDMXLiveOutput: (fixtureId: string) => Promise<boolean>;
-    stopDMXLiveOutput: () => Promise<void>;
     setError: (message: string) => void;
     usbSerialDevices: USBSerialDevice[];
     onRefreshUSBSerialDevices: () => void;
@@ -107,7 +106,6 @@ export function ControllerSettingsView({
                                            onStopParty,
                                            initialTab = "general",
                                            startDMXLiveOutput,
-                                           stopDMXLiveOutput,
                                            setError,
                                            usbSerialDevices,
                                            onRefreshUSBSerialDevices,
@@ -864,7 +862,6 @@ export function ControllerSettingsView({
                         partyRunning={dmxPartyRunning}
                         busy={busy}
                         startDMXLiveOutput={startDMXLiveOutput}
-                        stopDMXLiveOutput={stopDMXLiveOutput}
                         setError={setError}
                     />
                 </TabsContent>

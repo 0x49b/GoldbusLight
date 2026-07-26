@@ -86,17 +86,19 @@ Always available at the bottom of the sidebar. Opens [Settings](../settings/inde
 
 ### Party running
 
-When party mode is active:
+When party mode is active (software takes control):
 
-- Animated **violet border** around the entire window
+- Animated **violet border** around the entire window — reserved for party mode only
 - Party sidebar item shows a green status dot
-- Fixtures and WLED devices **included in the party** show green dots even if not individually “live”
+- Fixtures and WLED devices **included in the party** show green dots
+
+Normal automatic DMX output (party off) does **not** show the violet border.
 
 ### DMX live output
 
-When DMX live output is connected:
+When DMX is enabled and a USB or Art-Net interface is attached and ready, the app sends packets automatically. The **DMX Output - ON/OFF** indicator on Universe, fixture pages, and Scenes shows that state.
 
-- Fixture entries in the sidebar may show a green dot when that fixture is part of live output
+- Fixture entries in the sidebar may show a green dot when live output is connected
 - Universe grid shows green **Live** markers on active fixture blocks; slaves show **Slave**
 
 ### Device loading

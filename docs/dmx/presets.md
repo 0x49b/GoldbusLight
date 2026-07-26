@@ -32,7 +32,7 @@ Configure how cues play during **party mode** or for idle startup:
 |---------|-------------|
 | **Play these cues in party mode (cue chase)** | Enable cue chase instead of generative party for this fixture |
 | **Loop — restart from the first pose after the last (otherwise hold the final pose)** | Repeat the sequence |
-| **Idle / startup position** | Cue applied when live output starts (`None (channel defaults)` or a saved cue) |
+| **Idle / startup position** | Cue applied when DMX output first connects (`None (channel defaults)` or a saved cue) |
 | **Default time per pose (ms)** | `stepMs` — 100–600000 (default 2000) |
 | **Default crossfade (ms)** | `fadeMs` — 0 = instant snap (default 0) |
 
@@ -49,7 +49,7 @@ Set per-channel behavior in the sequence editor.
 
 ## Manual recall
 
-With live output on and party off:
+With **DMX Output - ON** and party off:
 
 - Click **Apply** on a cue row
 - Use keyboard `1`–`0` on the Live tab
@@ -64,7 +64,7 @@ When **Play these cues in party mode** is enabled for a fixture:
 
 ## Idle / startup position
 
-Select an **idle / startup** cue to position the fixture whenever live output starts. Useful for a defined “home” look before manual or party control.
+Select an **idle / startup** cue to position the fixture whenever DMX output first connects (for example after selecting a USB or Art-Net interface). Useful for a defined “home” look before manual or party control.
 
 ## 3D preview integration
 

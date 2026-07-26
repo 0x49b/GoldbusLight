@@ -9,22 +9,11 @@ The header shows the active interface summary (USB device name, Art-Net, or **No
 | Control | Description |
 |---------|-------------|
 | **Add fixture** | Open the create-fixture page |
-| **Blackout** | Stop party, blackout all DMX channels, stop live output |
-| **DMX Output - ON/OFF** | Start or stop live DMX output |
+| **Blackout** | Stop party mode and set all DMX channels to 0% (output keeps streaming) |
+| **DMX Output - ON/OFF** | Read-only indicator — whether packets are being sent to the attached interface |
 
-### DMX Output ON
-
-When you turn output **ON**:
-
-- Live output starts on enabled transports (USB and/or Art-Net)
-- All fixtures receive a “power on” patch (dimmer / lamp / onOff / shutterStrobe channels, or all channels to 255 as fallback)
-
-### DMX Output OFF
-
-When you turn output **OFF**:
-
-- Fixtures receive a power-off patch
-- Live output stops
+!!! note "Automatic output"
+    You do not toggle DMX output on or off. When DMX is enabled and a USB or Art-Net interface is selected and enabled, the app sends packets automatically. The **DMX Output** control only shows the current state.
 
 ## Universe grid
 
@@ -40,4 +29,4 @@ Click a fixture block to open its editor. Drag fixtures to readdress; overlappin
 
 ## Interface setup
 
-USB device and Art-Net settings are under **Settings → DMX** (**DMX interface** card). Global **Enable USB transport** must be on for USB output. If no device is selected, the header shows **No interface**.
+USB device and Art-Net settings are under **Settings → DMX** (**DMX interface** card). Global **Enable USB transport** must be on for USB output. If no device is selected, the header shows **No interface** and **DMX Output - OFF**.

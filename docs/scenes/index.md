@@ -21,7 +21,7 @@ Scenes and party mode are **mutually exclusive at runtime**: applying a standard
 The card shows an **Active** badge while that scene is applied. Counts under the name show how many WLED devices and DMX fixtures are included.
 
 !!! tip "DMX output"
-    If a scene includes DMX fixtures, a USB or Art-Net interface must be configured under **Settings → DMX**. The controller tries to start DMX live output automatically when you apply a scene.
+    If a scene includes DMX fixtures, a USB or Art-Net interface must be configured under **Settings → DMX**. When an interface is ready, the app sends DMX automatically — the **DMX Output - ON/OFF** indicator on the Scenes header shows whether packets are being sent. Applying a scene uses that live output.
 
 ## Manage scenes
 

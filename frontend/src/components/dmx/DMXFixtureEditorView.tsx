@@ -61,6 +61,7 @@ import type {
 } from "@/types/controller.ts";
 import {ButtonGroup} from "../ui/button-group";
 import {DMXEmergencyButton} from "./DMXEmergencyButton";
+import {DMXOutputIndicator} from "./DMXOutputIndicator";
 import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
 import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
@@ -154,8 +155,6 @@ type DMXFixtureEditorViewProps = {
     setRoute: (route: DetailRoute) => void;
     pullDMXLiveStatus: () => Promise<void>;
     queueDmxLivePatch: (entries: Array<{ address: number; value: number }>) => void;
-    startDMXLiveOutput: (fixtureID: string) => Promise<boolean>;
-    stopDMXLiveOutput: () => Promise<void>;
     onRefreshUSBSerialDevices: () => Promise<void>;
     onSelectUSBSerialDevice: (deviceID: string) => Promise<void>;
     partyRunning: boolean;
@@ -717,23 +716,6 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 : "Could not import fixture file.");
         }
     };
-    const handleToggleLive = async () => {
-        if (!props.fixture || props.busy) {
-            return;
-        }
-        if (props.partyRunning && fixturePartyIncluded) {
-            props.setRoute({kind: "settings", tab: "party"});
-            return;
-        }
-        if (isCurrentFixtureLive) {
-            await props.stopDMXLiveOutput();
-            await props.pullDMXLiveStatus();
-            return;
-        }
-        await props.startDMXLiveOutput("");
-        await props.pullDMXLiveStatus();
-    };
-
     return (
         <div className="space-y-4">
             <div
@@ -792,19 +774,18 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <DMXEmergencyButton busy={props.busy} onEmergency={props.onEmergency}/>
-                    {props.fixture && (
+                    <DMXOutputIndicator connected={props.dmxLiveStatus?.connected === true}/>
+                    {props.fixture && props.partyRunning && fixturePartyIncluded ? (
                         <Button
                             type="button"
-                            variant={props.partyRunning && fixturePartyIncluded ? "outline" : isCurrentFixtureLive ? "destructive" : "secondary"}
+                            variant="outline"
                             size="sm"
-                            onClick={() => void handleToggleLive()}
+                            onClick={() => props.setRoute({kind: "settings", tab: "party"})}
                             disabled={props.busy}
                         >
-                            {props.partyRunning && fixturePartyIncluded
-                                ? "Party active"
-                                : isCurrentFixtureLive ? "Stop live" : "Start live"}
+                            Party active
                         </Button>
-                    )}
+                    ) : null}
                     {props.fixture && pageMode === "live" && liveLayoutConfigurable && (
                         <Button
                             type="button"

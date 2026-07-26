@@ -29,7 +29,7 @@ Common issues and fixes for Goldbus Light Controller.
 1. **Settings → DMX → Enable DMX component**
 2. USB: enable **Enable USB transport**, select adapter under **DMX interface**, click **Refresh USB devices**
 3. Art-Net: enable **Enable Art-Net**, verify target IP and Art-Net universe
-4. **Universe → DMX Output - ON**
+4. Confirm the toolbar shows **DMX Output - ON** (automatic when an interface is ready). If it stays **OFF**, the interface is not attached, selected, or enabled
 5. Check **Transport console** for write errors
 
 ### USB device not listed
@@ -131,7 +131,7 @@ export GOLDBUS_LOG_FILE=/tmp/goldbuslight.log
 
 ## Blackout (emergency recovery)
 
-**Blackout** stops party, blackouts DMX, and stops live output.
+**Blackout** stops party and sets all DMX channels to 0%. Live output keeps streaming those zeros until you raise levels again (Live controls, a scene, or party).
 
 If the UI is unresponsive, stop the process or service:
 

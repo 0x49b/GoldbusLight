@@ -19,11 +19,11 @@ Existing fixtures open on the **Live** tab by default. Switch tabs: **Live**, **
 | Control | Description |
 |---------|-------------|
 | **Live / Cues / Editor** | View tabs |
-| **Blackout** | Stop party, blackout all channels, stop live output |
-| **Start live / Stop live** | Toggle live output for this fixture (or universe-wide when appropriate) |
-| **Party active** | Shown when party controls this fixture; link to Party page |
+| **Blackout** | Stop party and set all DMX channels to 0% (output keeps streaming) |
+| **DMX Output - ON/OFF** | Read-only indicator — whether packets are being sent |
+| **Party active** | Shown when party controls this fixture; opens Settings → Party |
 | **Edit layout** | Live tab only — rearrange control tiles |
-| **Save** | Persist fixture (disabled while live connected on Editor) |
+| **Save** | Persist fixture (disabled while live output is connected on Editor) |
 | **⋮ menu** | Export, Clone, Delete |
 
 New fixtures show **Import fixture** and **Save** only.
@@ -134,5 +134,5 @@ Moving head gobo wheels can pick images from a built-in Rosco-style catalog (`/g
 ## Save behavior
 
 - Editor changes require **Save**
-- **Save** is disabled while live output is connected to prevent inconsistent patches
-- Stop live output before major structural edits
+- **Save** is disabled while live output is connected (**DMX Output - ON**) to prevent inconsistent patches
+- For major structural edits, disconnect or clear the USB/Art-Net interface in **Settings → DMX** so **DMX Output** shows **OFF**, then edit and **Save**

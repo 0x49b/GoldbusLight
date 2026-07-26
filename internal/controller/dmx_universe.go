@@ -213,7 +213,7 @@ func (c *WLEDController) SetDMXUniverseUSBDevice(universeID, deviceID string) er
 	if err := c.persistDMX(); err != nil {
 		return err
 	}
-	return c.reconcileDMXLiveAdapters()
+	return c.EnsureDMXLiveOutput()
 }
 
 func (c *WLEDController) universeInterfaceSettings(universeID string) DMXUniverseInterfaceSettings {

@@ -67,7 +67,6 @@ export type DmxFixtureChannelSweepPanelProps = {
     partyRunning: boolean;
     busy: boolean;
     startDMXLiveOutput: (fixtureId: string) => Promise<boolean>;
-    stopDMXLiveOutput: () => Promise<void>;
     setError: (msg: string) => void;
 };
 
@@ -80,7 +79,6 @@ export function DmxFixtureChannelSweepPanel({
     partyRunning,
     busy,
     startDMXLiveOutput,
-    stopDMXLiveOutput,
     setError,
 }: DmxFixtureChannelSweepPanelProps) {
     const [fixtureId, setFixtureId] = useState<string>("");
@@ -185,13 +183,19 @@ export function DmxFixtureChannelSweepPanel({
         pausedRef.current = false;
         setPaused(false);
         try {
-            await stopDMXLiveOutput();
+            await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+        } catch {
+            /* ignore */
+        }
+        // Keep automatic DMX streaming; restore connection if the sweep had restarted it.
+        try {
+            await startDMXLiveOutput("");
         } catch {
             /* ignore */
         }
         runningRef.current = false;
         setRunning(false);
-    }, [stopDMXLiveOutput]);
+    }, [startDMXLiveOutput]);
 
     const runSweep = useCallback(async () => {
         if (!selectedFixture || sortedChannels.length === 0) {
@@ -214,7 +218,6 @@ export function DmxFixtureChannelSweepPanel({
         const delayMs = Math.max(4, Math.round(260 - speed * 2.5));
 
         try {
-            await stopDMXLiveOutput();
             const ok = await startDMXLiveOutput(selectedFixture.id);
             if (!ok || abortRef.current) {
                 return;
@@ -285,14 +288,19 @@ export function DmxFixtureChannelSweepPanel({
             }
         } finally {
             try {
-                await stopDMXLiveOutput();
+                await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+            } catch {
+                /* ignore */
+            }
+            try {
+                await startDMXLiveOutput("");
             } catch {
                 /* ignore */
             }
             runningRef.current = false;
             setRunning(false);
         }
-    }, [partyRunning, selectedFixture, sortedChannels, setError, speed, startDMXLiveOutput, stopDMXLiveOutput]);
+    }, [partyRunning, selectedFixture, sortedChannels, setError, speed, startDMXLiveOutput]);
 
     useEffect(() => {
         return () => {
@@ -300,7 +308,12 @@ export function DmxFixtureChannelSweepPanel({
                 return;
             }
             abortRef.current = true;
-            void GreetService.StopDMXLive();
+            void GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch()).catch(() => {
+                /* ignore */
+            });
+            void GreetService.StartDMXLive("").catch(() => {
+                /* ignore */
+            });
         };
     }, []);
 
