@@ -6,7 +6,7 @@ require github.com/wailsapp/wails/v3 v3.0.0-alpha2.118 //49.0.20251220134012-30a
 
 require (
 	github.com/gen2brain/malgo v0.11.25
-	go.bug.st/serial v1.7.1
+	go.bug.st/serial v1.8.0
 )
 
 require (
