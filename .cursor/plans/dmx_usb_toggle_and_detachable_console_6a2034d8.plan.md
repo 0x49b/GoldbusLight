@@ -55,7 +55,7 @@ Implement three coordinated changes:
   - Wire app/window access from [`/Users/florianthievent/workspace/private/GoldbusLight/cmd/goldbuslight/main.go`](/Users/florianthievent/workspace/private/GoldbusLight/cmd/goldbuslight/main.go) so the service can create/manage one secondary window.
   - Open the second window with URL/view marker (query/hash) for console-only rendering.
 - Frontend split:
-  - Extract current console panel rendering from `ControllerSettingsView` into a reusable component (e.g., transport console panel).
+  - Extract current console panel rendering from `SettingsView` into a reusable component (e.g., transport console panel).
   - In [`/Users/florianthievent/workspace/private/GoldbusLight/frontend/src/App.tsx`](/Users/florianthievent/workspace/private/GoldbusLight/frontend/src/App.tsx), branch by URL/view marker:
     - `console-window` view renders only the console panel.
     - normal view renders full app.

@@ -66,7 +66,7 @@ export type ControllerSettingsViewProps = {
     onCheckForUpdates: () => Promise<void>;
 };
 
-export function ControllerSettingsView({
+export function SettingsView({
     settings,
     setSettings,
     snapshot,

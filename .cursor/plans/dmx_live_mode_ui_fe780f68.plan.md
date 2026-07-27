@@ -29,7 +29,7 @@ isProject: false
 
 - Fixture **design** is implemented in [`frontend/src/components/dmx/DMXFixtureEditorView.tsx`](frontend/src/components/dmx/DMXFixtureEditorView.tsx) with rich channel typing (`colorWheel`, `goboWheel`, `pan`/`tilt`, `shutterStrobe`, `movementSpeed`, `focus`, `zoom`, `iris`, `frost`, etc.).
 - [`controller.go`](controller.go) persists [`DMXState`](controller.go) (fixtures + `selectedUSBDeviceId`) but **never opens the serial port or sends DMX**.
-- USB enumeration + selection already exists ([`ListUSBSerialDevices`](greetservice.go) / [`SetSelectedUSBSerialDevice`](greetservice.go), UI in [`ControllerSettingsView.tsx`](frontend/src/components/settings/ControllerSettingsView.tsx)).
+- USB enumeration + selection already exists ([`ListUSBSerialDevices`](greetservice.go) / [`SetSelectedUSBSerialDevice`](greetservice.go), UI in [`SettingsView.tsx`](frontend/src/components/settings/ControllerSettingsView.tsx)).
 - Frontend already depends on `@audio-ui/react` ([`frontend/package.json`](frontend/package.json)) and wraps `Fader` in [`frontend/src/components/audio/fader.tsx`](frontend/src/components/audio/fader.tsx). The package exports **`XYPad`**, **`Knob`**, **`ChannelStrip`**, **`Transport`** ([`node_modules/@audio-ui/react/dist/index.d.ts`](frontend/node_modules/@audio-ui/react/dist/index.d.ts)) — align new wrappers with the same pattern as `fader.tsx` (Tailwind + shadcn tokens). Optional: add more primitives via `npx shadcn@latest add` from the `@audio` registry defined in [`frontend/components.json`](frontend/components.json).
 
 ## Architecture

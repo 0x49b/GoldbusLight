@@ -71,7 +71,7 @@ requirements-docs.txt
 | `frontend/src/App.tsx` | Route → view mapping |
 | `frontend/src/components/layout/AppShell.tsx` | Sidebar tree, exact labels, status dots |
 | `frontend/src/types/controller.ts` | All settings fields, DMX types, party config |
-| `frontend/src/components/settings/ControllerSettingsView.tsx` | Every settings tab control |
+| `../../../../frontend/src/components/settings/SettingsView.tsx` | Every settings tab control |
 | `frontend/src/components/party/PartyModeView.tsx` | Party sliders, audio, smoke |
 | `frontend/src/components/dmx/DMXUniverseView.tsx` | Grid, drag readdress, emergency |
 | `frontend/src/components/dmx/DMXFixtureEditorView.tsx` | Editor/live/presets tabs |
@@ -131,7 +131,7 @@ Extra top-level: Installation, Interface, Troubleshooting (not in app but user-n
 ## Quality highlights users praised
 
 1. **Exact UI labels** — "Goldbus Light Controller", "In case of emergency"
-2. **Complete settings coverage** — every toggle in ControllerSettingsView
+2. **Complete settings coverage** — every toggle in SettingsView
 3. **Install fidelity** — commands copied from shell scripts
 4. **Workflows** — first-time WLED, DMX, party, migration
 5. **Honest gaps** — no Provision button documented

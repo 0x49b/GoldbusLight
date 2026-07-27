@@ -170,7 +170,7 @@ When code ≠ UI:
 | Bad | Good |
 |-----|------|
 | "The user can configure DMX" | "Open **Settings → DMX** and enable **Enable DMX component**" |
-| `ControllerSettingsView` | "Controller settings" |
+| `SettingsView` | "Controller settings" |
 | Huge prose paragraphs | Tables + short paragraphs |
 | Documenting every channel type | Group by fixture editor sections; link to types only in advanced appendix if needed |
 | Inventing menu items | Grep `SidebarMenuButton` and route kinds |

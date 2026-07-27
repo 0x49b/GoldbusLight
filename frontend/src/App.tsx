@@ -6,7 +6,7 @@ import {WLEDAddDeviceView} from "./components/wled/WLEDAddDeviceView";
 import {AppShell} from "./components/layout/AppShell";
 import {ScenesView} from "./components/scenes/ScenesView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
-import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
+import {SettingsView} from "./components/settings/SettingsView.tsx";
 import {TransportConsolePanel} from "./components/settings/tabs/TransportConsolePanel.tsx";
 import {useControllerApp} from "./hooks/useControllerApp";
 import {universeInterfaceSettings} from "./lib/dmxUniverses";
@@ -105,7 +105,7 @@ function App() {
         );
     } else if (app.route.kind === "settings") {
         main = (
-            <ControllerSettingsView
+            <SettingsView
                 settings={app.settings}
                 setSettings={app.setSettings}
                 snapshot={app.snapshot}

@@ -31,7 +31,7 @@ Explore the [PRODUCT_NAME] repository at [REPO_PATH] to document all user-facing
 Read key files:
 - [App entry: e.g. frontend/src/App.tsx]
 - [Shell/nav: e.g. AppShell.tsx]
-- [Settings view: e.g. ControllerSettingsView.tsx]
+- [Settings view: e.g. SettingsView.tsx]
 - [Types: e.g. types/controller.ts]
 - [Hooks/store: e.g. useControllerApp.ts] (first 150 lines + grep for action names)
 - [Main backend entry if relevant: e.g. cmd/*/main.go]
@@ -61,7 +61,7 @@ Explore the GoldbusLight repository at /workspace to document all user-facing fe
 5. Installation: Raspberry Pi scripts, releases
 6. Any existing pages/ or docs/ structure
 
-Read key files: DMXUniverseView.tsx, DMXFixtureEditorView.tsx, DMXFixtureLiveControls.tsx, GeneralPanel.tsx, DeviceDetailView.tsx, ControllerSettingsView.tsx (rest), scripts/install-*.sh, cmd/goldbuslight/main.go
+Read key files: DMXUniverseView.tsx, DMXFixtureEditorView.tsx, DMXFixtureLiveControls.tsx, GeneralPanel.tsx, DeviceDetailView.tsx, SettingsView.tsx (rest), scripts/install-*.sh, cmd/goldbuslight/main.go
 
 Return a structured outline of all features with enough detail to write a user manual. Include UI navigation paths, key settings names, and workflows.
 ```
