@@ -262,7 +262,7 @@ export function DeviceDetailView({
                             className="inline-flex max-w-full items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm text-muted-foreground"
                         >
                             <Spinner className="size-4 shrink-0 text-primary" aria-hidden/>
-                            <span className="truncate tabular-nums">{fetchStatusLabel}</span>
+                            <span className="truncate tabular-nums">{fetchStatusLabel} tries</span>
                         </div>
                     ) : null}
                 </div>

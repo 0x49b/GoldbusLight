@@ -45,7 +45,7 @@ export function AppErrorBanner({error, onDismiss}: AppErrorBannerProps) {
         <Alert
             variant="destructive"
             role="alert"
-            className="pointer-events-auto absolute inset-x-0 top-0 z-[100] w-full rounded-none border-x-0 border-t-0 border-b border-destructive/40 bg-destructive/15 text-destructive shadow-lg px-4 py-3 md:px-6 *:data-[slot=alert-description]:text-destructive/90"
+            className="pointer-events-auto absolute inset-x-0 top-0 z-[100] w-full rounded-none border-x-0 border-t-0 border-b border-destructive/40 !bg-[color-mix(in_oklab,var(--destructive)_18%,var(--background))] text-destructive shadow-lg px-4 py-3 md:px-6 *:data-[slot=alert-description]:text-destructive/90"
             onMouseEnter={() => {
                 hoveredRef.current = true;
             }}
