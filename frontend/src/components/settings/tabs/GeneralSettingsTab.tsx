@@ -3,10 +3,12 @@ import {Button} from "@/components/ui/button.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {useState} from "react";
 import {PiDownloadSimple, PiUploadSimple} from "react-icons/pi";
+import {useTranslation} from "react-i18next";
 import {prettyJSON} from "../../../lib/json.ts";
 import type {NetworkApplyResult} from "@/types/controller.ts";
 import {AppearanceCard} from "../components/AppearanceCard.tsx";
 import {ApplicationVersionCard} from "../components/ApplicationVersionCard.tsx";
+import {LanguageCard} from "../components/LanguageCard.tsx";
 import {WindowDisplayCard} from "../components/WindowDisplayCard.tsx";
 
 export type GeneralSettingsTabProps = {
@@ -30,6 +32,7 @@ export function GeneralSettingsTab({
     onCheckForUpdates,
     setError,
 }: GeneralSettingsTabProps) {
+    const {t} = useTranslation("settings");
     const [backupBusy, setBackupBusy] = useState(false);
     const [backupMessage, setBackupMessage] = useState<string | null>(null);
     const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
@@ -51,16 +54,14 @@ export function GeneralSettingsTab({
 
             <AppearanceCard/>
 
+            <LanguageCard/>
+
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Configuration backup</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("backup.title")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <p className="text-sm opacity-70">
-                        Export or import all persisted data: controller settings, WLED devices,
-                        DMX fixtures and party config, general tab state, and per-fixture live layouts.
-                        Use this to copy a complete setup from one host to another.
-                    </p>
+                    <p className="text-sm opacity-70">{t("backup.description")}</p>
                     <div className="flex flex-wrap gap-2">
                         <Button
                             size="sm"
@@ -76,7 +77,7 @@ export function GeneralSettingsTab({
                             }}
                         >
                             <PiDownloadSimple/>
-                            Export backup
+                            {t("backup.export")}
                         </Button>
                         <Button
                             size="sm"
@@ -92,7 +93,7 @@ export function GeneralSettingsTab({
                             }}
                         >
                             <PiUploadSimple/>
-                            Import backup
+                            {t("backup.import")}
                         </Button>
                     </div>
                     {backupMessage && (
@@ -103,14 +104,14 @@ export function GeneralSettingsTab({
 
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Network apply result</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("networkApply.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
+                    {!applyResult && <p className="text-sm opacity-70">{t("networkApply.noAction")}</p>}
                     {applyResult && (
                         <div className="space-y-2">
                             <p className="text-sm">
-                                {applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}
+                                {applyResult.dryRun ? t("networkApply.dryRun") : t("networkApply.applied")}
                             </p>
                             {(applyResult.warnings ?? []).map((warning) => (
                                 <Alert key={warning} className="py-1 text-xs">

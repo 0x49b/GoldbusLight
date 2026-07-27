@@ -17,6 +17,7 @@ import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlav
 import { cn } from "@/lib/utils";
 import type { ControllerSettings, DMXFixture, DMXUniverse, DetailRoute, USBSerialDevice } from "@/types/controller";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { PiPlus, PiWarningCircle } from "react-icons/pi";
 import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx";
 
@@ -204,17 +205,15 @@ function resolveForwardChainPush(
 export function DMXUniverseView({
                                     universes: universesProp,
                                     selectedUniverseId,
-                                    settings,
                                     fixtures: allFixtures,
                                     busy,
-                                    selectedUSBDeviceId,
-                                    usbSerialDevices,
                                     setRoute,
                                     onReaddressFixtures,
                                     dmxLiveStatus,
                                     pullDMXLiveStatus,
                                     onEmergency,
                                 }: DMXUniverseViewProps) {
+    const {t} = useTranslation("dmx");
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
     const [dropBusy, setDropBusy] = useState(false);
@@ -274,7 +273,7 @@ export function DMXUniverseView({
         }
         const plan = resolveForwardChainPush(fixtures, draggingFixtureId, targetChannel);
         if (!plan) {
-            await onReaddressFixtures([], "Move rejected: no space left in DMX universe.");
+            await onReaddressFixtures([], t("universe.moveRejectedNoSpace"));
             setDropChannel(null);
             setDraggingFixtureId(null);
             return;
@@ -288,7 +287,18 @@ export function DMXUniverseView({
         const draggedFixture = fixtureById.get(draggingFixtureId);
         const moved = plan.updates.find((update) => update.id === draggingFixtureId);
         const movedTo = moved?.dmxAddress ?? targetChannel;
-        const successLabel = `Moved "${draggedFixture?.name ?? "fixture"}" to ${padChannel(movedTo)}${plan.shiftedCount > 0 ? ` and shifted ${plan.shiftedCount} fixture${plan.shiftedCount === 1 ? "" : "s"}` : ""}.`;
+        const draggedName = draggedFixture?.name ?? t("universe.fixtureFallback");
+        const successLabel =
+            plan.shiftedCount > 0
+                ? t("universe.movedShifted", {
+                      count: plan.shiftedCount,
+                      name: draggedName,
+                      address: padChannel(movedTo),
+                  })
+                : t("universe.movedNoShift", {
+                      name: draggedName,
+                      address: padChannel(movedTo),
+                  });
 
         setDropBusy(true);
         try {
@@ -336,7 +346,7 @@ export function DMXUniverseView({
                         disabled={viewBusy}
                     >
                         <PiPlus className="mr-1 size-4"/>
-                        Add fixture
+                        {t("universe.addFixture")}
                     </Button>
                     <DMXEmergencyButton busy={viewBusy} onEmergency={onEmergency}/>
                     <DMXOutputIndicator connected={liveConnected}/>
@@ -462,8 +472,11 @@ export function DMXUniverseView({
                                     }}
                                     title={
                                         slaveFixture
-                                            ? `Slave of ${masterFixture?.name ?? "master"} — open ${fx.name}`
-                                            : `Open ${fx.name}`
+                                            ? t("universe.slaveOfMaster", {
+                                                  master: masterFixture?.name ?? t("universe.slaveOfFallback"),
+                                                  name: fx.name,
+                                              })
+                                            : t("universe.openFixture", {name: fx.name})
                                     }
                                 >
                                     <span
@@ -495,7 +508,7 @@ export function DMXUniverseView({
                           )}
                           aria-hidden
                       />
-                                            {slaveFixture ? "Slave" : fixtureLive ? "Live" : "Idle"}
+                                            {slaveFixture ? t("universe.slave") : fixtureLive ? t("universe.live") : t("universe.idle")}
                                             {conflict && (
                                                 <PiWarningCircle className="size-3 shrink-0 text-destructive" aria-hidden/>
                                             )}
@@ -504,7 +517,7 @@ export function DMXUniverseView({
                                         <span
                                             className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-destructive">
                       <PiWarningCircle className="size-3 shrink-0" aria-hidden/>
-                      <span className="sr-only">Address overlap</span>
+                      <span className="sr-only">{t("universe.addressOverlap")}</span>
                     </span>
                                     ) : null}
                                 </button>

@@ -1,0 +1,97 @@
+{
+  "title": "Party-Modus",
+  "description": "Konfigurieren Sie das WLED- und DMX-Party-Verhalten separat.",
+  "online": "Online",
+  "offline": "Offline",
+  "running": "Läuft",
+  "stopped": "Gestoppt",
+  "startParty": "Party starten",
+  "stopParty": "Party stoppen",
+  "lastFrame": " Letztes Bild: {{time}}",
+  "lastAudio": " Letztes Audio: {{time}}",
+  "mode": {
+    "label": "Modus",
+    "auto": "Auto-Show",
+    "audio": "Audio-reaktiv"
+  },
+  "audioSensitivity": "Audio-Empfindlichkeit",
+  "audio": {
+    "sourcePreset": "Quellen-Preset",
+    "presetMic": "Eingebautes Mikrofon",
+    "presetUsbMic": "USB-Mikrofon",
+    "presetLoopback": "Loopback / Line-In",
+    "presetCustom": "Benutzerdefiniertes Gerät",
+    "usbMic": "USB-Mikrofon",
+    "usbMicPlaceholder": "USB-Mikro {{id}}",
+    "inputDevice": "Eingabegerät",
+    "audioInputPlaceholder": "Audio-Eingang {{id}}",
+    "systemDefaultSuffix": " (Systemstandard)",
+    "defaultInput": "Standard-Eingang",
+    "noUsbMic": "Kein USB-Mikrofon gefunden",
+    "refreshDevices": "Geräte aktualisieren",
+    "captureActive": "Aufnahme: aktiv (nativ)",
+    "captureStarting": "Aufnahme: startet…",
+    "captureStartsWithParty": "Aufnahme: startet mit der Party",
+    "noSignal": "Kein Signal erkannt",
+    "noLoopback": "Kein Loopback-Gerät gefunden."
+  },
+  "tabs": {
+    "wled": "WLED",
+    "dmx": "DMX",
+    "smoke": "Nebel"
+  },
+  "wled": {
+    "description": "Nur LED-Streifen — Farbe, Helligkeit und Geschwindigkeit. Keine Pan-, Tilt- oder Bewegungseinstellungen.",
+    "targets": "WLED-Ziele"
+  },
+  "dmx": {
+    "targets": "DMX-Ziele",
+    "animated": {
+      "title": "Animierte Kanäle",
+      "description": "Wählen Sie, welche Kanalgruppen der Party-Modus auf Moving Heads und ähnlichen Fixtures ansteuert. Deaktivieren Sie Gruppen, um nervöse Bewegungen zu beruhigen (z. B. Gobo oder Beam deaktivieren)."
+    }
+  },
+  "smoke": {
+    "description": "Burst-Timing für Nebelmaschinen und Hazer. Konfigurieren Sie unten, welche Geräte teilnehmen.",
+    "sectionTitle": "Nebel-/Fog-Bursts",
+    "sectionDescription": "Kurze Bursts mit Pausen dazwischen. Wenn die Burst-Menge über 0 liegt, laufen alle Nebel- und Hazer-Fixtures automatisch",
+    "autoIncluded": ": {{names}}.",
+    "autoIncludedNone": ".",
+    "burstDuration": "Burst-Dauer: {{value}} s",
+    "burstPause": "Pause zwischen Bursts: {{value}} s",
+    "burstVolume": "Burst-Menge",
+    "targets": "Nebel-Ziele"
+  },
+  "sliders": {
+    "intensity": "Intensität",
+    "speed": "Geschwindigkeit",
+    "colorVariation": "Farbvariation",
+    "movementRange": "Bewegungsbereich",
+    "movementAngleLimit": "Max. Winkel von der Mitte",
+    "smokeVolume": "Burst-Menge"
+  },
+  "angle": {
+    "off": "aus (Bereich % verwenden)",
+    "value": "{{value}}°"
+  },
+  "targets": {
+    "available": "Verfügbar",
+    "included": "Enthalten",
+    "wledTargets": "WLED-Ziele",
+    "dmxTargets": "DMX-Ziele",
+    "selectAll": "Alle auswählen",
+    "clearSelection": "Auswahl leeren",
+    "noWledOnline": "Keine WLED-Geräte online.",
+    "noDmxFixtures": "Keine DMX-Fixtures verfügbar."
+  },
+  "audioLevel": "Audiopegel-Equalizer",
+  "bands": {
+    "level": "Pegel",
+    "bass": "Bass",
+    "mid": "Mitten",
+    "treble": "Höhen",
+    "beat": "Beat",
+    "bpm": "BPM",
+    "bpmHint": "aus Beat-Erkennung"
+  }
+}

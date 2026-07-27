@@ -20,6 +20,7 @@ import {
     RAINBOW_SWATCH_CONIC,
     isRainbowModeExplicit,
 } from "./ChannelBase";
+import { useTranslation } from "react-i18next";
 
 function isRainbowColorSlot(slot: { label: string; mode?: string }): boolean {
     return isColorWheelScrollSlot(slot);
@@ -34,14 +35,15 @@ export function ColorWheelChannelEditor({
     replaceChannelAt,
     busy,
 }: ChannelEditorProps) {
+    const { t } = useTranslation("dmx");
     return (
         <div className="mt-3 space-y-2">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[140px] text-muted-foreground">Range</TableHead>
-                        <TableHead className="text-muted-foreground">Color</TableHead>
-                        <TableHead className="w-[200px] text-right text-muted-foreground">Speed</TableHead>
+                        <TableHead className="w-[140px] text-muted-foreground">{t("channelEditor.columnRange")}</TableHead>
+                        <TableHead className="text-muted-foreground">{t("channelEditor.columnColor")}</TableHead>
+                        <TableHead className="w-[200px] text-right text-muted-foreground">{t("channelEditor.columnSpeed")}</TableHead>
                         <TableHead className="w-12" />
                     </TableRow>
                 </TableHeader>
@@ -142,7 +144,7 @@ export function ColorWheelChannelEditor({
                                         </PopoverTrigger>
                                         <PopoverContent className="w-64">
                                             <div className="grid gap-2">
-                                                <Label className="text-xs">Color</Label>
+                                                <Label className="text-xs">{t("channelEditor.color")}</Label>
                                                 <Button
                                                     type="button"
                                                     variant={isRainbowModeExplicit(slot) ? "secondary" : "outline"}
@@ -171,7 +173,7 @@ export function ColorWheelChannelEditor({
                                                         }}
                                                     />
                                                     <span className="text-left text-sm font-medium leading-tight">
-                                                        Rainbow
+                                                        {t("channelEditor.rainbow")}
                                                     </span>
                                                 </Button>
                                                 <input
@@ -239,7 +241,7 @@ export function ColorWheelChannelEditor({
                                                         }}
                                                         title="Clears rainbow mode so you can edit hex again"
                                                     >
-                                                        Solid color
+                                                        {t("channelEditor.solidColor")}
                                                     </Button>
                                                 ) : null}
                                             </div>
@@ -290,10 +292,10 @@ export function ColorWheelChannelEditor({
                                         }}
                                     >
                                         {!isRainbowColorSlot(slot) ? (
-                                            <NativeSelectOption value="none">—</NativeSelectOption>
+                                            <NativeSelectOption value="none">{t("channelEditor.noneDash")}</NativeSelectOption>
                                         ) : null}
-                                        <NativeSelectOption value="cw">CW</NativeSelectOption>
-                                        <NativeSelectOption value="ccw">CCW</NativeSelectOption>
+                                        <NativeSelectOption value="cw">{t("channelEditor.cw")}</NativeSelectOption>
+                                        <NativeSelectOption value="ccw">{t("channelEditor.ccw")}</NativeSelectOption>
                                     </NativeSelect>
                                     {isRainbowColorSlot(slot) ? (
                                         <NativeSelect
@@ -315,8 +317,8 @@ export function ColorWheelChannelEditor({
                                                 });
                                             }}
                                         >
-                                            <NativeSelectOption value="fastToSlow">Fast→slow</NativeSelectOption>
-                                            <NativeSelectOption value="slowToFast">Slow→fast</NativeSelectOption>
+                                            <NativeSelectOption value="fastToSlow">{t("channelEditor.fastToSlow")}</NativeSelectOption>
+                                            <NativeSelectOption value="slowToFast">{t("channelEditor.slowToFast")}</NativeSelectOption>
                                         </NativeSelect>
                                     ) : null}
                                 </div>
@@ -326,7 +328,7 @@ export function ColorWheelChannelEditor({
                                     type="button"
                                     size="icon"
                                     variant="ghost"
-                                    title="Remove slot"
+                                    title={t("channelEditor.removeSlot")}
                                     onClick={() => {
                                         const next = slots.filter((_, j) => j !== si);
                                         if (next.length === 0) {

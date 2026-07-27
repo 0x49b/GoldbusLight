@@ -1,4 +1,6 @@
 import type {ReactNode} from "react";
+import {useTranslation} from "react-i18next";
+import i18n from "@/i18n";
 import type {DMXChannel, DMXFixture, JSONMap} from "@/types/controller.ts";
 import type {DMXLiveShutterMode, DMXLiveControlState, EntryChannelLiveState} from "@/lib/dmxLiveMap.ts";
 import {
@@ -37,11 +39,11 @@ import {ColorWheelSegmentControl} from "./ColorWheelSegmentControl";
 import {GoboWheelSegmentControl} from "./GoboWheelSegmentControl";
 import {LiveControlLabel} from "./LiveControlLabel";
 
-const SHUTTER_OPTIONS: { value: DMXLiveShutterMode; label: string; symbol: string }[] = [
-    {value: "open", label: "Open", symbol: "●"},
-    {value: "closed", label: "Closed", symbol: "○"},
-    {value: "strobe", label: "Strobe", symbol: "⚡"},
-    {value: "pulse", label: "Pulse", symbol: "▲"},
+const SHUTTER_OPTION_KEYS: { value: DMXLiveShutterMode; labelKey: string; symbol: string }[] = [
+    {value: "open", labelKey: "liveChannel.shutterModes.open", symbol: "●"},
+    {value: "closed", labelKey: "liveChannel.shutterModes.closed", symbol: "○"},
+    {value: "strobe", labelKey: "liveChannel.shutterModes.strobe", symbol: "⚡"},
+    {value: "pulse", labelKey: "liveChannel.shutterModes.pulse", symbol: "▲"},
 ];
 
 type LiveChannelControlProps = {
@@ -112,6 +114,7 @@ export function LiveChannelControl({
     disabled = false,
     compact = false,
 }: LiveChannelControlProps) {
+    const {t} = useTranslation("dmx");
     const widget = resolveLiveWidget(channel);
     if (widget === "hidden") {
         return null;
@@ -221,9 +224,9 @@ export function LiveChannelControl({
                         disabled && "pointer-events-none opacity-60",
                     )}
                     role="group"
-                    aria-label="Shutter and strobe modes"
+                    aria-label={t("liveChannel.shutterAndStrobeAria")}
                 >
-                    {SHUTTER_OPTIONS.map((o, idx) => {
+                    {SHUTTER_OPTION_KEYS.map((o, idx) => {
                         const active = (st.shutter ?? "open") === o.value;
                         return (
                             <button
@@ -242,7 +245,7 @@ export function LiveChannelControl({
                                 disabled={disabled}
                             >
                                 <span className="text-base leading-none" aria-hidden>{o.symbol}</span>
-                                <span>{o.label}</span>
+                                <span>{t(o.labelKey)}</span>
                             </button>
                         );
                     })}
@@ -258,7 +261,8 @@ export function LiveChannelControl({
         const sliderIdx = st.activeSliderIdx ?? firstSliderSlotIndex(kinds);
         const isOff = offIdx >= 0 && buttonSlot === offIdx;
 
-        const slotLabel = (idx: number) => entries[idx]?.label?.trim() || `Slot ${idx + 1}`;
+        const slotLabel = (idx: number) =>
+            entries[idx]?.label?.trim() || t("liveChannel.slotFallback", {index: idx + 1});
 
         const onSwitchChange = (idx: number, nextChecked: boolean) => {
             if (offIdx >= 0 && idx === offIdx) {
@@ -297,7 +301,7 @@ export function LiveChannelControl({
             return (
                 <div key={`sw-${idx}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                     <LiveControlLabel party={party} className="text-xs">
-                        {offIdx >= 0 && idx === offIdx ? "Output enabled" : slotLabel(idx)}
+                        {offIdx >= 0 && idx === offIdx ? t("liveChannel.outputEnabled") : slotLabel(idx)}
                     </LiveControlLabel>
                     <Switch
                         checked={checked}
@@ -396,7 +400,7 @@ export function LiveChannelControl({
                 <div className={cn("flex flex-wrap gap-1.5", disabled && "pointer-events-none opacity-60")}>
                     {entries.map((entry, idx) => {
                         const active = st.slotIdx === idx;
-                        const label = entry.label?.trim() || `Slot ${idx + 1}`;
+                        const label = entry.label?.trim() || t("liveChannel.slotFallback", {index: idx + 1});
                         return (
                             <Button
                                 key={idx}
@@ -420,7 +424,8 @@ export function LiveChannelControl({
         const maxIdx = Math.max(0, entries.length - 1);
         const isFrost = channel.type === "frost";
         const activeSlotIdx = Math.min(st.slotIdx, maxIdx);
-        const slotPickerLabel = entries[activeSlotIdx]?.label ?? `Slot ${st.slotIdx + 1}`;
+        const slotPickerLabel =
+            entries[activeSlotIdx]?.label ?? t("liveChannel.slotFallback", {index: st.slotIdx + 1});
         const frostModeButtons = isFrost ? (
             <div className={cn("flex flex-wrap gap-2", vertical && "justify-center")}>
                 <Button
@@ -430,7 +435,7 @@ export function LiveChannelControl({
                     onClick={() => patch({frostCurve: "linear"})}
                     disabled={disabled}
                 >
-                    Linear
+                    {t("liveChannel.linear")}
                 </Button>
                 <Button
                     type="button"
@@ -439,7 +444,7 @@ export function LiveChannelControl({
                     onClick={() => patch({frostCurve: "pulse"})}
                     disabled={disabled}
                 >
-                    Pulse
+                    {t("liveChannel.pulseCurve")}
                 </Button>
             </div>
         ) : null;
@@ -463,7 +468,7 @@ export function LiveChannelControl({
                     ) : (
                         <div className="flex min-h-0 flex-1 items-stretch gap-3">
                             <VerticalFader
-                                label="Slot"
+                                label={t("liveChannel.slot")}
                                 min={0}
                                 max={maxIdx}
                                 value={activeSlotIdx}
@@ -573,7 +578,7 @@ export function LiveChannelControl({
     const dmxHint =
         !compact && (min !== 0 || max !== 255) ? (
             <p className="text-[10px] text-muted-foreground">
-                DMX {min}–{max}
+                {t("liveChannel.dmxRange", {min, max})}
             </p>
         ) : null;
 
@@ -627,41 +632,60 @@ export function liveWidgetPreviewLine(ch: DMXChannel): string {
     if (w === "hidden") {
         const source = liveWidgetHiddenSource(ch);
         if (source === "override") {
-            return "Not shown on live tab (Live control = Hidden).";
+            return i18n.t("dmx:liveControl.previewLine.hiddenOverride");
         }
         if (source === "inferred") {
-            return "Not shown on live tab (Auto: fine/aux channel or no live mapping).";
+            return i18n.t("dmx:liveControl.previewLine.hiddenInferred");
         }
-        return "Not shown on live tab.";
+        return i18n.t("dmx:liveControl.previewLine.hiddenPlain");
     }
     const entries = parseFixtureEntries(ch.properties as JSONMap | undefined);
-    const orient = readLiveSliderOrientation(ch.properties as JSONMap | undefined) === "vertical" ? "vertical" : "horizontal";
+    const orientKey = readLiveSliderOrientation(ch.properties as JSONMap | undefined) === "vertical" ? "vertical" : "horizontal";
+    const orient = i18n.t(`dmx:liveControl.previewLine.${orientKey}`);
     if (w === "buttons" && entries.length > 0) {
-        return `Live tab: Buttons (${entries.length} slots)`;
+        return i18n.t("dmx:liveControl.previewLine.buttons", {count: entries.length});
     }
     if (w === "slotSlider" && entries.length > 0) {
-        return `Live tab: Slot slider (${entries.length} slots, ${orient})`;
+        return i18n.t("dmx:liveControl.previewLine.slotSlider", {count: entries.length, orientation: orient});
     }
     if (w === "buttonSlider" && entries.length > 0) {
         const kinds = parseEntryLiveSlotKinds(ch.properties as JSONMap | undefined, entries);
         const buttons = kinds.filter((k) => k === "button").length;
         const sliders = kinds.filter((k) => k === "slider").length;
-        return `Live tab: Switch + slider (${buttons} switch${buttons === 1 ? "" : "es"}, ${sliders} slider${sliders === 1 ? "" : "s"}${sliders > 0 ? `, ${orient}` : ""})`;
+        return i18n.t("dmx:liveControl.previewLine.buttonSliderOne", {
+            buttons,
+            buttonPlural: buttons === 1 ? "" : "es",
+            sliders,
+            sliderPlural: sliders === 1 ? "" : "s",
+            orientationSuffix: sliders > 0 ? `, ${orient}` : "",
+        });
     }
     if (w === "slider") {
         const props = ch.properties as JSONMap | undefined;
-        const label = orient === "vertical" ? "vertical fader" : "horizontal";
+        const label = orientKey === "vertical"
+            ? i18n.t("dmx:liveControl.previewLine.vertical_fader")
+            : i18n.t("dmx:liveControl.previewLine.horizontal");
         if (isDegreeSliderChannel(ch)) {
-            return `Live tab: Slider (${label})`;
+            return i18n.t("dmx:liveControl.previewLine.sliderDeg", {orientation: label});
         }
         const mode = readLiveSliderLabelMode(props, ch);
-        return `Live tab: Slider (${label}, value label: ${liveSliderLabelModeHint(mode)})`;
+        return i18n.t("dmx:liveControl.previewLine.sliderLabeled", {
+            orientation: label,
+            labelHint: liveSliderLabelModeHint(mode),
+        });
     }
     if (w === "colorWheel" && entries.length > 0) {
         const scrollCount = entries.filter((e) => isColorWheelScrollSlot(e)).length;
         if (scrollCount > 0) {
-            return `Live tab: Color wheel (${entries.length} slots, ${scrollCount} with speed slider)`;
+            return i18n.t("dmx:liveControl.previewLine.colorWheelWithScroll", {
+                count: entries.length,
+                scrollCount,
+            });
         }
     }
-    return `Live tab: ${w === "shutterModes" ? "Shutter modes" : w.charAt(0).toUpperCase() + w.slice(1)}`;
+    const widgetLabel =
+        w === "shutterModes"
+            ? i18n.t("dmx:liveControl.widget.shutterModes")
+            : w.charAt(0).toUpperCase() + w.slice(1);
+    return i18n.t("dmx:liveControl.previewLine.generic", {label: widgetLabel});
 }

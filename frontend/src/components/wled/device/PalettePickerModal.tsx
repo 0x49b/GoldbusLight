@@ -1,4 +1,5 @@
 import {useEffect, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {readNumber} from "../../../lib/json.ts";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -23,6 +24,7 @@ export function PalettePickerModal({
                                        onPick,
                                        disabled,
                                    }: PalettePickerModalProps) {
+    const {t} = useTranslation("wled");
     const [manualIdx, setManualIdx] = useState(String(selectedIndex));
 
     useEffect(() => {
@@ -37,14 +39,14 @@ export function PalettePickerModal({
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
             <DialogContent className="sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle className="text-sm">Palette</DialogTitle>
+                    <DialogTitle className="text-sm">{t("palettePicker.title")}</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
                     <div
                         className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
-                            aria-label="Palettes"
+                            aria-label={t("palettePicker.listAriaLabel")}
                             className="inline-block max-h-[min(70dvh,calc(100dvh-14rem))] columns-[10rem] [column-fill:auto] [column-gap:0.625rem] align-top"
                         >
                             {paletteNames!.map((name, idx) => (
@@ -77,7 +79,7 @@ export function PalettePickerModal({
                 ) : (
                     <div className="flex flex-wrap items-end gap-2">
                         <div className="grid gap-1">
-                            <Label className="text-xs">Palette index</Label>
+                            <Label className="text-xs">{t("palettePicker.indexLabel")}</Label>
                             <Input
                                 type="number"
                                 min={0}
@@ -96,13 +98,13 @@ export function PalettePickerModal({
                                 onClose();
                             }}
                         >
-                            Use index
+                            {t("palettePicker.useIndex")}
                         </Button>
                     </div>
                 )}
                 <div className="flex justify-end">
                     <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                        Close
+                        {t("palettePicker.close")}
                     </Button>
                 </div>
             </DialogContent>

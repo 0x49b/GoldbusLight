@@ -1,0 +1,92 @@
+{
+  "manage": "Manage",
+  "noDmxInterface": {
+    "title": "No DMX interface configured",
+    "description": "Scenes that include DMX fixtures need a working output. Open Settings → DMX, enable USB DMX and/or Art-Net, then select a USB device or Art-Net target (or turn on a simulator for testing).",
+    "openSettings": "Open DMX settings"
+  },
+  "empty": {
+    "message": "No scenes yet. Create one to get started.",
+    "create": "Create scene"
+  },
+  "badge": {
+    "active": "Active",
+    "party": "Party",
+    "default": "Default"
+  },
+  "targetsSummary": "{{wled}} WLED · {{dmx}} DMX",
+  "partyTargetsSummary": "{{wled}} WLED · {{dmx}} DMX party targets",
+  "statusApplying": " · Applying…",
+  "statusStarting": " · Starting…",
+  "confirmActivate": {
+    "fallbackSceneName": "this scene",
+    "startPartyTitle": "Start party mode?",
+    "switchSceneTitle": "Switch scene?",
+    "startPartyBody": "Start party mode using “{{name}}”? This will stop any currently applied scene.",
+    "switchSceneBody": "Switch to “{{name}}”?",
+    "switchSceneBodyPartyStopped": "Switch to “{{name}}”? Party mode will be stopped.",
+    "cancel": "Cancel",
+    "startParty": "Start party",
+    "switchScene": "Switch scene"
+  },
+  "editor": {
+    "back": "Back to scenes",
+    "createScene": "Create scene",
+    "import": "Import",
+    "export": "Export",
+    "delete": "Delete",
+    "listTitle": "Scenes",
+    "listEmpty": "No scenes yet",
+    "editTitle": "Edit scene",
+    "newTitle": "New scene",
+    "saveScene": "Save scene",
+    "name": "Name",
+    "namePlaceholder": "Lobby warm",
+    "defaultOnStart": "Apply this scene when the app starts",
+    "partyMode": "Party mode scene",
+    "partyTargets": "Party targets",
+    "partyTargetsHint": "Choose which WLED devices and DMX fixtures participate when you start party mode from this scene. Only one scene can be the party scene at a time.",
+    "wledDevices": "WLED devices",
+    "dmxFixtures": "DMX fixtures",
+    "noPresets": "No presets on device",
+    "selectPreset": "Select preset",
+    "sceneCuesHint": "Scenes use each fixture's Scene cues (not Party cues). Add them on the fixture page under Scene cues.",
+    "noSceneCues": "No scene cues",
+    "selectSceneCue": "Select scene cue",
+    "wledOnline": "Online",
+    "wledOffline": "Offline",
+    "cueCount_one": "{{count}} scene cue",
+    "cueCount_other": "{{count}} scene cues",
+    "cueCountNone": "No scene cues"
+  },
+  "replaceDefault": {
+    "title": "Replace default scene?",
+    "bodyWithCurrent": "Only one scene can be the startup default. “{{name}}” is currently the default. Make this scene the new default instead?",
+    "bodyGeneric": "Only one scene can be the startup default. Another scene is already marked as default. Continue?",
+    "cancel": "Cancel",
+    "confirm": "Replace default"
+  },
+  "replaceParty": {
+    "title": "Replace party scene?",
+    "bodyWithCurrent": "Only one scene can be the party scene. “{{name}}” is currently the party scene. Make this scene the new party scene instead?",
+    "bodyGeneric": "Only one scene can be the party scene. Another scene is already marked as the party scene. Continue?",
+    "cancel": "Cancel",
+    "confirm": "Replace party scene"
+  },
+  "transfer": {
+    "available": "Available",
+    "included": "Included",
+    "countLabel": "{{label}} ({{count}})",
+    "selectAll": "Select all",
+    "clear": "Clear",
+    "none": "None",
+    "addAll": "Add all",
+    "addSelected": "Add selected",
+    "removeSelected": "Remove selected",
+    "removeAll": "Remove all",
+    "addAllAria": "Add all to included",
+    "addSelectedAria": "Add selected to included",
+    "removeSelectedAria": "Remove selected from included",
+    "removeAllAria": "Remove all from included"
+  }
+}

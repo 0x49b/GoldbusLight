@@ -1,5 +1,6 @@
 import {isColorWheelScrollSlot} from "@/lib/colorWheelSlot";
 import {useId} from "react";
+import {useTranslation} from "react-i18next";
 import {cn} from "@/lib/utils";
 
 export type ColorWheelSegmentEntry = {
@@ -79,6 +80,7 @@ export function ColorWheelSegmentControl({
                                              onChange,
                                              disabled,
                                          }: ColorWheelSegmentControlProps) {
+    const {t} = useTranslation("dmx");
     const count = entries.length;
     const gradIdRaw = useId();
     const rainbowGradientId = `wheelRainbowGradient-${gradIdRaw.replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -105,7 +107,7 @@ export function ColorWheelSegmentControl({
                 viewBox="0 0 100 100"
                 className={cn("size-44 rounded-full border border-border bg-muted shadow-sm", !disabled && "cursor-pointer")}
                 role="img"
-                aria-label="Color wheel segment picker"
+                aria-label={t("liveChannel.colorWheelAria")}
             >
                 <defs>
                     <linearGradient id={rainbowGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -181,7 +183,7 @@ export function ColorWheelSegmentControl({
                     aria-hidden
                 />
             </svg>
-            <span className="sr-only">Color wheel segment picker</span>
+            <span className="sr-only">{t("liveChannel.colorWheelAria")}</span>
         </div>
     );
 }

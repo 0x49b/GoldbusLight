@@ -4,6 +4,7 @@ import {Field, FieldLabel} from "@/components/ui/field.tsx";
 import {Input} from "@/components/ui/input.tsx";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select.tsx";
 import {Switch} from "@/components/ui/switch.tsx";
+import {Trans, useTranslation} from "react-i18next";
 import {readNumber} from "../../../lib/json.ts";
 import type {
     ArtNetSettings,
@@ -50,6 +51,7 @@ export function DmxSettingsTab({
                                    startDMXLiveOutput,
                                    setError,
                                }: Readonly<DmxSettingsTabProps>) {
+    const {t} = useTranslation("settings");
     const dmxControlsDisabled = busy || !settings.dmx.enabled;
     const usbTransportEnabled = settings.dmx.usb.enabled ?? true;
     const universeId = "universe-1";
@@ -62,7 +64,7 @@ export function DmxSettingsTab({
         <div className="space-y-5">
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle>DMX component</CardTitle>
+                    <CardTitle>{t("dmxTab.componentTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -74,12 +76,11 @@ export function DmxSettingsTab({
                             }, "immediate")}
                             disabled={busy}
                         />
-                        <span>Enable DMX component</span>
+                        <span>{t("dmxTab.enableComponent")}</span>
                     </label>
 
                     <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-                        <p className="text-xs font-medium text-muted-foreground">DMX simulator
-                            interfaces</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("dmxTab.simulatorInterfaces")}</p>
                         <label className="flex items-center gap-3">
                             <Switch
                                 checked={settings.dmx.testing.simulateUsbDmx}
@@ -92,7 +93,7 @@ export function DmxSettingsTab({
                                 }, "immediate")}
                                 disabled={dmxControlsDisabled}
                             />
-                            <span>Simulate USB-DMX512 interface</span>
+                            <span>{t("dmxTab.simulateUsb")}</span>
                         </label>
                         <label className="flex items-center gap-3">
                             <Switch
@@ -106,7 +107,7 @@ export function DmxSettingsTab({
                                 }, "immediate")}
                                 disabled={dmxControlsDisabled}
                             />
-                            <span>Simulate Art-Net interface</span>
+                            <span>{t("dmxTab.simulateArtNet")}</span>
                         </label>
                     </div>
                 </CardContent>
@@ -114,7 +115,7 @@ export function DmxSettingsTab({
 
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">USB DMX Interface</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("dmxTab.usbInterfaceTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <label className="flex items-center gap-3">
@@ -129,7 +130,7 @@ export function DmxSettingsTab({
                             }, "immediate")}
                             disabled={dmxControlsDisabled}
                         />
-                        <span>Enable USB transport</span>
+                        <span>{t("dmxTab.enableUsbTransport")}</span>
                     </label>
                     <div className="flex flex-wrap items-center gap-2">
                         <NativeSelect
@@ -138,7 +139,7 @@ export function DmxSettingsTab({
                             onChange={(event) => onSelectUSBSerialDevice(event.target.value, universeId)}
                             disabled={usbFieldsDisabled}
                         >
-                            <NativeSelectOption value="">No device selected</NativeSelectOption>
+                            <NativeSelectOption value="">{t("dmxTab.noDeviceSelected")}</NativeSelectOption>
                             {usbSerialDevices.map((device) => (
                                 <NativeSelectOption key={device.id} value={device.id}>
                                     {device.name} ({device.path})
@@ -152,13 +153,18 @@ export function DmxSettingsTab({
                             onClick={onRefreshUSBSerialDevices}
                             disabled={dmxControlsDisabled}
                         >
-                            Refresh USB devices
+                            {t("dmxTab.refreshUsbDevices")}
                         </Button>
                     </div>
                     <div className="space-y-2">
                         {usbDeviceId && !usbSerialDevices.some((device) => device.id === usbDeviceId) && (
                             <p className="text-xs text-destructive">
-                                Selected device is currently unavailable: <code>{usbDeviceId}</code>
+                                <Trans
+                                    i18nKey="dmxTab.usbDeviceUnavailable"
+                                    t={t}
+                                    values={{id: usbDeviceId}}
+                                    components={[<code key="id"/>]}
+                                />
                             </p>
                         )}
                     </div>
@@ -167,7 +173,7 @@ export function DmxSettingsTab({
 
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">ArtNet DMX interface</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("dmxTab.artNetTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -176,11 +182,11 @@ export function DmxSettingsTab({
                             onCheckedChange={(checked) => updateUniverseArtNet(universeId, {enabled: checked}, "immediate")}
                             disabled={dmxControlsDisabled}
                         />
-                        <span>Enable Art-Net</span>
+                        <span>{t("dmxTab.enableArtNet")}</span>
                     </label>
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                         <Field>
-                            <FieldLabel>Target host / broadcast</FieldLabel>
+                            <FieldLabel>{t("dmxTab.targetHost")}</FieldLabel>
                             <Input
                                 value={iface.artNet.targetHost}
                                 onChange={(e) => updateUniverseArtNet(universeId, {targetHost: e.target.value})}
@@ -189,7 +195,7 @@ export function DmxSettingsTab({
                             />
                         </Field>
                         <Field>
-                            <FieldLabel>UDP port</FieldLabel>
+                            <FieldLabel>{t("dmxTab.udpPort")}</FieldLabel>
                             <Input
                                 type="number"
                                 min={1}
@@ -201,7 +207,7 @@ export function DmxSettingsTab({
                             />
                         </Field>
                         <Field>
-                            <FieldLabel>Net (0-127)</FieldLabel>
+                            <FieldLabel>{t("dmxTab.net")}</FieldLabel>
                             <Input
                                 type="number"
                                 min={0}
@@ -213,7 +219,7 @@ export function DmxSettingsTab({
                             />
                         </Field>
                         <Field>
-                            <FieldLabel>Subnet (0-15)</FieldLabel>
+                            <FieldLabel>{t("dmxTab.subnet")}</FieldLabel>
                             <Input
                                 type="number"
                                 min={0}
@@ -225,7 +231,7 @@ export function DmxSettingsTab({
                             />
                         </Field>
                         <Field>
-                            <FieldLabel>Art-Net universe (0-15)</FieldLabel>
+                            <FieldLabel>{t("dmxTab.artNetUniverse")}</FieldLabel>
                             <Input
                                 type="number"
                                 min={0}
@@ -237,7 +243,7 @@ export function DmxSettingsTab({
                             />
                         </Field>
                         <Field>
-                            <FieldLabel>Refresh Hz</FieldLabel>
+                            <FieldLabel>{t("dmxTab.refreshHz")}</FieldLabel>
                             <Input
                                 type="number"
                                 min={1}

@@ -1,4 +1,5 @@
 import {useCallback, useRef, useState} from "react";
+import i18n from "../i18n";
 import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {DMXLiveStatus, DMXOutputUpdate} from "../../bindings/goldbus/internal/dmx/models";
 import type {
@@ -50,7 +51,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
 
     const ensureDMXEnabled = useCallback((): boolean => {
         if ((settings?.dmx.enabled ?? true) === false) {
-            setError("DMX component is disabled in Settings.");
+            setError(i18n.t("status:dmxDisabled"));
             return false;
         }
         return true;
@@ -64,7 +65,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             try {
                 const created = (await GoldbusLightService.CreateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
-                setStatus("DMX fixture created");
+                setStatus(i18n.t("status:dmxFixtureCreated"));
                 return created;
             } catch (err) {
                 setError(String(err));
@@ -82,7 +83,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             try {
                 const updated = (await GoldbusLightService.UpdateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
-                setStatus("DMX fixture updated");
+                setStatus(i18n.t("status:dmxFixtureUpdated"));
                 return updated;
             } catch (err) {
                 setError(String(err));
@@ -100,7 +101,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             try {
                 await GoldbusLightService.DeleteDMXFixture(fixtureID);
                 await pullDMXState();
-                setStatus("DMX fixture deleted");
+                setStatus(i18n.t("status:dmxFixtureDeleted"));
                 return true;
             } catch (err) {
                 setError(String(err));
@@ -116,7 +117,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
         }
         try {
             await pullUSBSerialDevices();
-            setStatus("USB serial devices refreshed");
+            setStatus(i18n.t("status:usbSerialRefreshed"));
         } catch (err) {
             setError(String(err));
         }
@@ -129,7 +130,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
         try {
             const next = (await GoldbusLightService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
             setDMXState(next);
-            setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
+            setStatus(deviceID ? i18n.t("status:usbDmxSelected") : i18n.t("status:usbDmxCleared"));
         } catch (err) {
             setError(String(err));
         }
@@ -196,7 +197,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             try {
                 await GoldbusLightService.StartDMXLive(fixtureID);
                 setBusy(false);
-                setStatus("DMX live output started");
+                setStatus(i18n.t("status:dmxLiveStarted"));
                 await pullDMXLiveStatus();
             } catch (err) {
                 setBusy(false);

@@ -1,4 +1,5 @@
 import { PiPlus, PiTrash } from "react-icons/pi";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,11 +20,12 @@ export function DefaultChannelEditor({
     showSlotKindEditor,
     busy,
 }: ChannelEditorProps) {
+    const { t } = useTranslation("dmx");
     return (
         <div className="mt-3 space-y-2">
             {showSlotKindEditor && (
                 <p className="text-xs text-muted-foreground">
-                    Switch + slider: set each slot to Switch or Slider for live control.
+                    {t("channelEditor.switchSliderHint")}
                 </p>
             )}
             {slots.map((slot, si) => (
@@ -37,7 +39,7 @@ export function DefaultChannelEditor({
                     )}
                 >
                     <div className="grid gap-1">
-                        <Label className="text-xs">From</Label>
+                        <Label className="text-xs">{t("channelEditor.from")}</Label>
                         <Input
                             type="number"
                             min={0}
@@ -60,7 +62,7 @@ export function DefaultChannelEditor({
                         />
                     </div>
                     <div className="grid gap-1">
-                        <Label className="text-xs">To</Label>
+                        <Label className="text-xs">{t("channelEditor.to")}</Label>
                         <Input
                             type="number"
                             min={0}
@@ -83,7 +85,7 @@ export function DefaultChannelEditor({
                         />
                     </div>
                     <div className="grid gap-1">
-                        <Label className="text-xs">Label</Label>
+                        <Label className="text-xs">{t("channelEditor.label")}</Label>
                         <Input
                             value={slot.label}
                             onChange={(e) => {
@@ -103,7 +105,7 @@ export function DefaultChannelEditor({
                     </div>
                     {showSlotKindEditor ? (
                         <div className="grid gap-1">
-                            <Label className="text-xs">Live slot</Label>
+                            <Label className="text-xs">{t("channelEditor.columnLiveSlot")}</Label>
                             <EntryLiveSlotKindSelect
                                 value={effectiveEntryLiveSlotKind(slot, slot.liveSlotKind, si)}
                                 disabled={busy}
@@ -128,7 +130,7 @@ export function DefaultChannelEditor({
                             type="button"
                             size="icon"
                             variant="ghost"
-                            title="Remove slot"
+                            title={t("channelEditor.removeSlot")}
                             onClick={() => {
                                 const next = slots.filter((_, j) => j !== si);
                                 if (next.length === 0) {
@@ -166,7 +168,7 @@ export function DefaultChannelEditor({
                         {
                             from: start,
                             to: Math.min(255, start + 15),
-                            label: `Slot ${slots.length + 1}`,
+                            label: t("channelEditor.slotDefault", {index: slots.length + 1}),
                         },
                     ];
                     updateChannelAt(originalIdx, {
@@ -178,7 +180,7 @@ export function DefaultChannelEditor({
                 }}
             >
                 <PiPlus className="mr-1 inline size-4" aria-hidden />
-                Add slot
+                {t("channelEditor.addSlot")}
             </Button>
         </div>
     );

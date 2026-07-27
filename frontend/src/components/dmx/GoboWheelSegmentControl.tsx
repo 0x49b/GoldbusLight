@@ -1,4 +1,5 @@
 import {cn} from "@/lib/utils";
+import {useTranslation} from "react-i18next";
 
 export type GoboWheelSegmentEntry = {
     label?: string;
@@ -46,6 +47,7 @@ export function GoboWheelSegmentControl({
                                             onChange,
                                             disabled,
                                         }: GoboWheelSegmentControlProps) {
+    const {t} = useTranslation("dmx");
     const count = entries.length;
     if (count <= 0) {
         return null;
@@ -69,7 +71,7 @@ export function GoboWheelSegmentControl({
                 viewBox="0 0 100 100"
                 className={cn("size-44 rounded-full border border-border bg-white shadow-sm", !disabled && "cursor-pointer")}
                 role="img"
-                aria-label="Gobo wheel segment picker"
+                aria-label={t("liveChannel.goboWheelAria")}
             >
                 {entries.map((entry, idx) => {
                     const centerDeg = -90 + idx * seg;
@@ -141,7 +143,7 @@ export function GoboWheelSegmentControl({
                     aria-hidden
                 />
             </svg>
-            <span className="sr-only">Gobo wheel segment picker</span>
+            <span className="sr-only">{t("liveChannel.goboWheelAria")}</span>
         </div>
     );
 }

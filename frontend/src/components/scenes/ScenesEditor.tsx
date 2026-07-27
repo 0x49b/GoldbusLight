@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiArrowLeft, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
 import {Button} from "@/components/ui/button";
@@ -138,6 +139,7 @@ export function ScenesEditor({
     onOpenSettings,
     onBack,
 }: Readonly<ScenesEditorProps>) {
+    const {t} = useTranslation("scenes");
     const [draft, setDraft] = useState<SceneDraft>(emptyDraft);
     const [saving, setSaving] = useState(false);
     const [defaultReplaceOpen, setDefaultReplaceOpen] = useState(false);
@@ -171,9 +173,9 @@ export function ScenesEditor({
                 .map((d) => ({
                     id: d.id,
                     label: d.name || d.host || d.id,
-                    hint: d.online ? "Online" : "Offline",
+                    hint: d.online ? t("editor.wledOnline") : t("editor.wledOffline"),
                 })),
-        [devices],
+        [devices, t],
     );
 
     const dmxItems = useMemo(
@@ -183,10 +185,10 @@ export function ScenesEditor({
                 return {
                     id: fx.id,
                     label: [fx.brand, fx.name].filter(Boolean).join(" ") || fx.id,
-                    hint: cueCount > 0 ? `${cueCount} scene cue${cueCount === 1 ? "" : "s"}` : "No scene cues",
+                    hint: cueCount > 0 ? t("editor.cueCount", {count: cueCount}) : t("editor.cueCountNone"),
                 };
             }),
-        [fixtures],
+        [fixtures, t],
     );
 
     const requestSetDefault = (nextId: string) => {
@@ -298,13 +300,13 @@ export function ScenesEditor({
                         onClick={onBack}
                     >
                         <PiArrowLeft className="size-4" aria-hidden />
-                        Back to scenes
+                        {t("editor.back")}
                     </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" size="sm" onClick={() => setDraft(emptyDraft())} disabled={busy || saving}>
                         <PiPlus className="size-4" aria-hidden />
-                        Create scene
+                        {t("editor.createScene")}
                     </Button>
                     <Button
                         type="button"
@@ -319,7 +321,7 @@ export function ScenesEditor({
                             });
                         }}
                     >
-                        Import
+                        {t("editor.import")}
                     </Button>
                     <Button
                         type="button"
@@ -332,7 +334,7 @@ export function ScenesEditor({
                             }
                         }}
                     >
-                        Export
+                        {t("editor.export")}
                     </Button>
                     <Button
                         type="button"
@@ -344,7 +346,7 @@ export function ScenesEditor({
                         }}
                     >
                         <PiTrash className="size-4" aria-hidden />
-                        Delete
+                        {t("editor.delete")}
                     </Button>
                 </div>
             </div>
@@ -352,16 +354,12 @@ export function ScenesEditor({
             {dmxEnabled && !dmxInterfaceConfigured ? (
                 <Alert>
                     <PiWarning className="size-4" aria-hidden />
-                    <AlertTitle>No DMX interface configured</AlertTitle>
+                    <AlertTitle>{t("noDmxInterface.title")}</AlertTitle>
                     <AlertDescription className="space-y-2">
-                        <p>
-                            Scenes that include DMX fixtures need a working output. Open Settings → DMX, enable USB
-                            DMX and/or Art-Net, then select a USB device or Art-Net target (or turn on a simulator for
-                            testing).
-                        </p>
+                        <p>{t("noDmxInterface.description")}</p>
                         {onOpenSettings ? (
                             <Button type="button" size="sm" variant="secondary" onClick={onOpenSettings}>
-                                Open DMX settings
+                                {t("noDmxInterface.openSettings")}
                             </Button>
                         ) : null}
                     </AlertDescription>
@@ -371,11 +369,11 @@ export function ScenesEditor({
             <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle>Scenes</CardTitle>
+                        <CardTitle>{t("editor.listTitle")}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 p-2">
                         {sortedScenes.length === 0 ? (
-                            <p className="px-2 py-3 text-xs text-muted-foreground">No scenes yet</p>
+                            <p className="px-2 py-3 text-xs text-muted-foreground">{t("editor.listEmpty")}</p>
                         ) : (
                             sortedScenes.map((scene) => (
                                 <button
@@ -396,7 +394,7 @@ export function ScenesEditor({
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                        <CardTitle className="text-base">{draft.id ? "Edit scene" : "New scene"}</CardTitle>
+                        <CardTitle className="text-base">{draft.id ? t("editor.editTitle") : t("editor.newTitle")}</CardTitle>
                         <Button
                             type="button"
                             size="sm"
@@ -405,18 +403,18 @@ export function ScenesEditor({
                                 void saveDraft();
                             }}
                         >
-                            {draft.id ? "Save scene" : "Create scene"}
+                            {draft.id ? t("editor.saveScene") : t("editor.createScene")}
                         </Button>
                     </CardHeader>
                     <CardContent className="space-y-5">
                         <div className="space-y-2">
-                            <Label htmlFor="scene-name">Name</Label>
+                            <Label htmlFor="scene-name">{t("editor.name")}</Label>
                             <Input
                                 id="scene-name"
                                 value={draft.name}
                                 disabled={busy || saving}
                                 onChange={(e) => setDraft((prev) => ({...prev, name: e.target.value}))}
-                                placeholder="Lobby warm"
+                                placeholder={t("editor.namePlaceholder")}
                             />
                         </div>
 
@@ -429,7 +427,7 @@ export function ScenesEditor({
                                         requestSetDefault(checked === true ? draft.id : "");
                                     }}
                                 />
-                                <span>Apply this scene when the app starts</span>
+                                <span>{t("editor.defaultOnStart")}</span>
                             </label>
                         ) : null}
 
@@ -441,16 +439,15 @@ export function ScenesEditor({
                                     requestPartyMode(checked === true);
                                 }}
                             />
-                            <span>Party mode scene</span>
+                            <span>{t("editor.partyMode")}</span>
                         </label>
 
                         {draft.partyMode ? (
                             <div className="space-y-3">
                                 <div className="space-y-1">
-                                    <Label>Party targets</Label>
+                                    <Label>{t("editor.partyTargets")}</Label>
                                     <p className="text-xs text-muted-foreground">
-                                        Choose which WLED devices and DMX fixtures participate when you start party
-                                        mode from this scene. Only one scene can be the party scene at a time.
+                                        {t("editor.partyTargetsHint")}
                                     </p>
                                 </div>
                                 <PartyTargetsPicker
@@ -471,7 +468,7 @@ export function ScenesEditor({
 
                         {!draft.partyMode && wledEnabled ? (
                             <div className="space-y-3">
-                                <Label>WLED devices</Label>
+                                <Label>{t("editor.wledDevices")}</Label>
                                 <TransferList
                                     items={wledItems}
                                     includedIds={draft.wledDeviceIds}
@@ -524,8 +521,8 @@ export function ScenesEditor({
                                                     <SelectValue
                                                         placeholder={
                                                             presets.length === 0
-                                                                ? "No presets on device"
-                                                                : "Select preset"
+                                                                ? t("editor.noPresets")
+                                                                : t("editor.selectPreset")
                                                         }
                                                     />
                                                 </SelectTrigger>
@@ -545,7 +542,7 @@ export function ScenesEditor({
 
                         {!draft.partyMode && dmxEnabled ? (
                             <div className="space-y-3">
-                                <Label>DMX fixtures</Label>
+                                <Label>{t("editor.dmxFixtures")}</Label>
                                 <TransferList
                                     items={dmxItems}
                                     includedIds={draft.dmxFixtureIds}
@@ -573,8 +570,7 @@ export function ScenesEditor({
                                     }}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Scenes use each fixture&apos;s Scene cues (not Party cues). Add them on the
-                                    fixture page under Scene cues.
+                                    {t("editor.sceneCuesHint")}
                                 </p>
                                 {draft.dmxFixtureIds.map((fixtureId) => {
                                     const fixture = fixtures.find((fx) => fx.id === fixtureId);
@@ -605,8 +601,8 @@ export function ScenesEditor({
                                                     <SelectValue
                                                         placeholder={
                                                             cues.length === 0
-                                                                ? "No scene cues"
-                                                                : "Select scene cue"
+                                                                ? t("editor.noSceneCues")
+                                                                : t("editor.selectSceneCue")
                                                         }
                                                     />
                                                 </SelectTrigger>
@@ -638,12 +634,11 @@ export function ScenesEditor({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Replace default scene?</DialogTitle>
+                        <DialogTitle>{t("replaceDefault.title")}</DialogTitle>
                         <DialogDescription>
-                            Only one scene can be the startup default.
                             {currentDefaultScene
-                                ? ` “${currentDefaultScene.name}” is currently the default. Make this scene the new default instead?`
-                                : " Another scene is already marked as default. Continue?"}
+                                ? t("replaceDefault.bodyWithCurrent", {name: currentDefaultScene.name})
+                                : t("replaceDefault.bodyGeneric")}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -655,10 +650,10 @@ export function ScenesEditor({
                                 setDefaultReplaceOpen(false);
                             }}
                         >
-                            Cancel
+                            {t("replaceDefault.cancel")}
                         </Button>
                         <Button type="button" onClick={confirmReplaceDefault}>
-                            Replace default
+                            {t("replaceDefault.confirm")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -672,12 +667,11 @@ export function ScenesEditor({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Replace party scene?</DialogTitle>
+                        <DialogTitle>{t("replaceParty.title")}</DialogTitle>
                         <DialogDescription>
-                            Only one scene can be the party scene.
                             {currentPartyScene
-                                ? ` “${currentPartyScene.name}” is currently the party scene. Make this scene the new party scene instead?`
-                                : " Another scene is already marked as the party scene. Continue?"}
+                                ? t("replaceParty.bodyWithCurrent", {name: currentPartyScene.name})
+                                : t("replaceParty.bodyGeneric")}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -688,10 +682,10 @@ export function ScenesEditor({
                                 setPartyReplaceOpen(false);
                             }}
                         >
-                            Cancel
+                            {t("replaceParty.cancel")}
                         </Button>
                         <Button type="button" onClick={confirmReplaceParty}>
-                            Replace party scene
+                            {t("replaceParty.confirm")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

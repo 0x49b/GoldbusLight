@@ -1,6 +1,7 @@
 import {EyeOff} from "lucide-react";
 import {PiTrash} from "react-icons/pi";
-import type {DMXChannel, DMXChannelTyp, DMXChannelType, JSONMap} from "@/types/controller.ts";
+import {useTranslation} from "react-i18next";
+import type {DMXChannel, DMXChannelType, JSONMap} from "@/types/controller.ts";
 import {Badge} from "@/components/ui/badge";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
@@ -18,6 +19,7 @@ import {
     resolveLiveWidget,
 } from "@/lib/dmxLiveWidget";
 import {cn} from "@/lib/utils";
+import i18n from "@/i18n";
 import {LiveControlEditorField} from "../LiveControlEditorField";
 
 import {defaultPropsForType, MOTION_TABLE_TYPES, parseEntries, usesSlots,} from "./ChannelBase";
@@ -33,6 +35,15 @@ import {DefaultChannelEditor} from "./DefaultChannelEditor";
 function camelToTitleCase(str: string): string {
     const result = str.replace(/([A-Z])/g, " $1");
     return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
+function channelTypeLabel(t: DMXChannelType): string {
+    const key = `dmx:channelTypes.${t}`;
+    const translated = i18n.t(key);
+    if (translated === key) {
+        return camelToTitleCase(t);
+    }
+    return translated;
 }
 
 const RAW_CHANNEL_TYPES: DMXChannelType[] = [
@@ -81,10 +92,20 @@ const RAW_CHANNEL_TYPES: DMXChannelType[] = [
     "zoomFine",
 ];
 
-export const DMX_CHANNEL_TYPES: DMXChannelTyp[] = RAW_CHANNEL_TYPES.map((t) => ({
+export type DmxChannelTypeOption = {type: DMXChannelType; label: string};
+
+export const DMX_CHANNEL_TYPES: DmxChannelTypeOption[] = RAW_CHANNEL_TYPES.map((t) => ({
     type: t,
     label: camelToTitleCase(t),
 }));
+
+/** Get DMX channel types with translated labels. */
+export function getDmxChannelTypes(): DmxChannelTypeOption[] {
+    return RAW_CHANNEL_TYPES.map((t) => ({
+        type: t,
+        label: channelTypeLabel(t),
+    }));
+}
 
 interface BaseChannelEditorProps {
     ch: DMXChannel;
@@ -111,6 +132,7 @@ export function BaseChannelEditor({
                                       removeChannelAt,
                                       setGoboPickerTarget,
                                   }: BaseChannelEditorProps) {
+    const {t} = useTranslation("dmx");
     const propsMap = (ch.properties ?? {}) as JSONMap;
     const slots = parseEntries(propsMap);
     const slotMode = usesSlots(propsMap);
@@ -119,6 +141,7 @@ export function BaseChannelEditor({
     const showSlotKindEditor = resolvedLiveWidget === "buttonSlider" && slotMode && slots.length > 0;
     const minV = typeof propsMap.min === "number" ? propsMap.min : Number(propsMap.min) || 0;
     const maxV = typeof propsMap.max === "number" ? propsMap.max : Number(propsMap.max) || 255;
+    const channelTypes = getDmxChannelTypes();
 
     const childProps = {
         ch,
@@ -145,21 +168,21 @@ export function BaseChannelEditor({
                 {isDuplicateOffset ? (
                     <Badge variant="outline"
                            className="mb-5 border-destructive/50 text-[10px] text-destructive">
-                        Duplicate offset
+                        {t("channelEditor.duplicateOffset")}
                     </Badge>
                 ) : null}
                 {liveHiddenSource ? (
                     <Badge
                         variant="outline"
                         className="mb-5 gap-1 border-amber-600/45 bg-amber-500/10 text-[10px] text-amber-900 dark:text-amber-200"
-                        title="This channel has no tile on the live tab"
+                        title={t("channelEditor.noLiveTileTitle")}
                     >
                         <EyeOff className="size-3 shrink-0" aria-hidden/>
                         {liveWidgetHiddenBadgeLabel(liveHiddenSource)}
                     </Badge>
                 ) : null}
                 <div className="grid w-[88px] shrink-0 gap-1">
-                    <Label className="text-xs">Offset</Label>
+                    <Label className="text-xs">{t("channelEditor.offset")}</Label>
                     <Input
                         type="number"
                         min={1}
@@ -175,7 +198,7 @@ export function BaseChannelEditor({
                     />
                 </div>
                 <div className="grid w-[108px] shrink-0 gap-1">
-                    <Label className="text-xs">Default</Label>
+                    <Label className="text-xs">{t("channelEditor.default")}</Label>
                     <Input
                         type="number"
                         min={0}
@@ -196,7 +219,7 @@ export function BaseChannelEditor({
                     />
                 </div>
                 <div className="min-w-0 flex-1 basis-[200px] grid gap-1">
-                    <Label className="text-xs">Function</Label>
+                    <Label className="text-xs">{t("channelEditor.function")}</Label>
                     <NativeSelect
                         value={ch.type}
                         onChange={(e) => {
@@ -213,9 +236,9 @@ export function BaseChannelEditor({
                             });
                         }}
                     >
-                        {DMX_CHANNEL_TYPES.map((t) => (
-                            <NativeSelectOption key={t.type} value={t.type}>
-                                {t.label}
+                        {channelTypes.map((ct) => (
+                            <NativeSelectOption key={ct.type} value={ct.type}>
+                                {ct.label}
                             </NativeSelectOption>
                         ))}
                     </NativeSelect>
@@ -232,7 +255,7 @@ export function BaseChannelEditor({
                             });
                         }}
                     >
-                        Linear range
+                        {t("channelEditor.linearRange")}
                     </Button>
                     <Button
                         type="button"
@@ -246,7 +269,7 @@ export function BaseChannelEditor({
                                         {
                                             from: 0,
                                             to: 255,
-                                            label: "Slot 1",
+                                            label: t("channelEditor.slotDefaults.slot1"),
                                         },
                                     ];
                             replaceChannelAt(originalIdx, {
@@ -257,7 +280,7 @@ export function BaseChannelEditor({
                             });
                         }}
                     >
-                        Discrete slots
+                        {t("channelEditor.discreteSlots")}
                     </Button>
                 </ButtonGroup>
                 <Button
@@ -265,7 +288,7 @@ export function BaseChannelEditor({
                     size="icon"
                     variant="ghost"
                     className="shrink-0 text-destructive hover:text-destructive"
-                    title="Remove channel"
+                    title={t("channelEditor.removeChannel")}
                     onClick={() => removeChannelAt(originalIdx)}
                     disabled={busy || channelsLength <= 1}
                 >
@@ -286,7 +309,7 @@ export function BaseChannelEditor({
                     }}
                     disabled={busy}
                 />
-                <span>Include in party mode</span>
+                <span>{t("channelEditor.partyInclude")}</span>
             </label>
 
             {isInvertiblePanTiltChannel(ch) && !slotMode ? (
@@ -304,7 +327,7 @@ export function BaseChannelEditor({
                         }}
                         disabled={busy}
                     />
-                    <span>Invert axis</span>
+                    <span>{t("channelEditor.invertAxis")}</span>
                     <span className="text-[10px] text-muted-foreground">
                         (reverses DMX direction for this channel)
                     </span>
@@ -340,7 +363,7 @@ export function BaseChannelEditor({
                     <div className="mt-3 max-w-md">
                         <div className="grid grid-cols-2 gap-2">
                             <div className="grid gap-1">
-                                <Label className="text-xs">Min DMX</Label>
+                                <Label className="text-xs">{t("channelEditor.minDmx")}</Label>
                                 <Input
                                     type="number"
                                     min={0}
@@ -359,7 +382,7 @@ export function BaseChannelEditor({
                                 />
                             </div>
                             <div className="grid gap-1">
-                                <Label className="text-xs">Max DMX</Label>
+                                <Label className="text-xs">{t("channelEditor.maxDmx")}</Label>
                                 <Input
                                     type="number"
                                     min={0}

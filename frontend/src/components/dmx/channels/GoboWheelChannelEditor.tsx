@@ -14,6 +14,7 @@ import {
     type ChannelEditorProps,
     clamp255,
 } from "./ChannelBase";
+import { useTranslation } from "react-i18next";
 
 export function GoboWheelChannelEditor({
     ch,
@@ -25,14 +26,15 @@ export function GoboWheelChannelEditor({
     setGoboPickerTarget,
     busy,
 }: ChannelEditorProps) {
+    const { t } = useTranslation("dmx");
     return (
         <div className="mt-3 space-y-3">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[140px] text-muted-foreground">Range</TableHead>
-                        <TableHead className="text-muted-foreground">Gobo</TableHead>
-                        <TableHead className="w-[200px] text-right text-muted-foreground">Speed</TableHead>
+                        <TableHead className="w-[140px] text-muted-foreground">{t("channelEditor.columnRange")}</TableHead>
+                        <TableHead className="text-muted-foreground">{t("channelEditor.columnGobo")}</TableHead>
+                        <TableHead className="w-[200px] text-right text-muted-foreground">{t("channelEditor.columnSpeed")}</TableHead>
                         <TableHead className="w-12" />
                     </TableRow>
                 </TableHeader>
@@ -91,7 +93,7 @@ export function GoboWheelChannelEditor({
                                     <button
                                         type="button"
                                         className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
-                                        title="Choose gobo"
+                                        title={t("channelEditor.chooseGobo")}
                                         onClick={() => {
                                             if (setGoboPickerTarget) {
                                                 setGoboPickerTarget({
@@ -207,7 +209,7 @@ export function GoboWheelChannelEditor({
                                     type="button"
                                     size="icon"
                                     variant="ghost"
-                                    title="Remove slot"
+                                    title={t("channelEditor.removeSlot")}
                                     onClick={() => {
                                         const next = slots.filter((_, j) => j !== si);
                                         if (next.length === 0) {

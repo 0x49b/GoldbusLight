@@ -1,0 +1,92 @@
+{
+  "manage": "Verwalten",
+  "noDmxInterface": {
+    "title": "Keine DMX-Schnittstelle konfiguriert",
+    "description": "Szenen mit DMX-Fixtures benötigen eine aktive Ausgabe. Öffnen Sie Einstellungen → DMX, aktivieren Sie USB-DMX und/oder Art-Net und wählen Sie ein USB-Gerät oder ein Art-Net-Ziel aus (oder aktivieren Sie zum Testen einen Simulator).",
+    "openSettings": "DMX-Einstellungen öffnen"
+  },
+  "empty": {
+    "message": "Noch keine Szenen vorhanden. Legen Sie eine an, um zu starten.",
+    "create": "Szene erstellen"
+  },
+  "badge": {
+    "active": "Aktiv",
+    "party": "Party",
+    "default": "Standard"
+  },
+  "targetsSummary": "{{wled}} WLED · {{dmx}} DMX",
+  "partyTargetsSummary": "{{wled}} WLED · {{dmx}} Party-Ziele",
+  "statusApplying": " · Wird angewendet…",
+  "statusStarting": " · Wird gestartet…",
+  "confirmActivate": {
+    "fallbackSceneName": "diese Szene",
+    "startPartyTitle": "Party-Modus starten?",
+    "switchSceneTitle": "Szene wechseln?",
+    "startPartyBody": "Party-Modus mit „{{name}}“ starten? Eine aktuell aktive Szene wird beendet.",
+    "switchSceneBody": "Zu „{{name}}“ wechseln?",
+    "switchSceneBodyPartyStopped": "Zu „{{name}}“ wechseln? Der Party-Modus wird beendet.",
+    "cancel": "Abbrechen",
+    "startParty": "Party starten",
+    "switchScene": "Szene wechseln"
+  },
+  "editor": {
+    "back": "Zurück zu Szenen",
+    "createScene": "Szene erstellen",
+    "import": "Importieren",
+    "export": "Exportieren",
+    "delete": "Löschen",
+    "listTitle": "Szenen",
+    "listEmpty": "Noch keine Szenen",
+    "editTitle": "Szene bearbeiten",
+    "newTitle": "Neue Szene",
+    "saveScene": "Szene speichern",
+    "name": "Name",
+    "namePlaceholder": "Lobby warm",
+    "defaultOnStart": "Diese Szene beim Start der App anwenden",
+    "partyMode": "Party-Modus-Szene",
+    "partyTargets": "Party-Ziele",
+    "partyTargetsHint": "Wählen Sie aus, welche WLED-Geräte und DMX-Fixtures beim Start des Party-Modus aus dieser Szene teilnehmen. Es kann immer nur eine Party-Szene geben.",
+    "wledDevices": "WLED-Geräte",
+    "dmxFixtures": "DMX-Fixtures",
+    "noPresets": "Keine Presets auf dem Gerät",
+    "selectPreset": "Preset auswählen",
+    "sceneCuesHint": "Szenen verwenden die Scene-Cues jedes Fixtures (nicht die Party-Cues). Fügen Sie sie auf der Fixture-Seite unter Scene-Cues hinzu.",
+    "noSceneCues": "Keine Scene-Cues",
+    "selectSceneCue": "Scene-Cue auswählen",
+    "wledOnline": "Online",
+    "wledOffline": "Offline",
+    "cueCount_one": "{{count}} Scene-Cue",
+    "cueCount_other": "{{count}} Scene-Cues",
+    "cueCountNone": "Keine Scene-Cues"
+  },
+  "replaceDefault": {
+    "title": "Standardszene ersetzen?",
+    "bodyWithCurrent": "Es kann nur eine Startszene festgelegt sein. „{{name}}“ ist aktuell die Standardszene. Soll diese Szene stattdessen zur Standardszene werden?",
+    "bodyGeneric": "Es kann nur eine Startszene festgelegt sein. Eine andere Szene ist bereits als Standard markiert. Fortfahren?",
+    "cancel": "Abbrechen",
+    "confirm": "Standard ersetzen"
+  },
+  "replaceParty": {
+    "title": "Party-Szene ersetzen?",
+    "bodyWithCurrent": "Es kann nur eine Party-Szene geben. „{{name}}“ ist aktuell die Party-Szene. Soll diese Szene stattdessen zur Party-Szene werden?",
+    "bodyGeneric": "Es kann nur eine Party-Szene geben. Eine andere Szene ist bereits als Party-Szene markiert. Fortfahren?",
+    "cancel": "Abbrechen",
+    "confirm": "Party-Szene ersetzen"
+  },
+  "transfer": {
+    "available": "Verfügbar",
+    "included": "Ausgewählt",
+    "countLabel": "{{label}} ({{count}})",
+    "selectAll": "Alle auswählen",
+    "clear": "Leeren",
+    "none": "Keine",
+    "addAll": "Alle hinzufügen",
+    "addSelected": "Auswahl hinzufügen",
+    "removeSelected": "Auswahl entfernen",
+    "removeAll": "Alle entfernen",
+    "addAllAria": "Alle zur Auswahl hinzufügen",
+    "addSelectedAria": "Ausgewählte Einträge zur Auswahl hinzufügen",
+    "removeSelectedAria": "Ausgewählte Einträge aus der Auswahl entfernen",
+    "removeAllAria": "Alle aus der Auswahl entfernen"
+  }
+}

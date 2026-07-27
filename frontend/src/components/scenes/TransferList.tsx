@@ -1,4 +1,5 @@
 import {useMemo, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiCaretDoubleLeft, PiCaretDoubleRight, PiCaretLeft, PiCaretRight} from "react-icons/pi";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
@@ -19,13 +20,16 @@ type TransferListProps = {
 };
 
 export function TransferList({
-    availableLabel = "Available",
-    includedLabel = "Included",
+    availableLabel,
+    includedLabel,
     items,
     includedIds,
     onChange,
     disabled,
 }: TransferListProps) {
+    const {t} = useTranslation("scenes");
+    const resolvedAvailableLabel = availableLabel ?? t("transfer.available");
+    const resolvedIncludedLabel = includedLabel ?? t("transfer.included");
     const [availableSelected, setAvailableSelected] = useState<string[]>([]);
     const [includedSelected, setIncludedSelected] = useState<string[]>([]);
 
@@ -67,7 +71,7 @@ export function TransferList({
     return (
         <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
             <TransferColumn
-                label={availableLabel}
+                label={resolvedAvailableLabel}
                 items={available}
                 selectedIds={availableSelected}
                 onSelect={setAvailableSelected}
@@ -80,8 +84,8 @@ export function TransferList({
                     size="sm"
                     disabled={disabled || available.length === 0}
                     onClick={() => moveToIncluded(available.map((item) => item.id))}
-                    aria-label="Add all to included"
-                    title="Add all"
+                    aria-label={t("transfer.addAllAria")}
+                    title={t("transfer.addAll")}
                 >
                     <PiCaretDoubleRight className="size-4" aria-hidden />
                 </Button>
@@ -91,8 +95,8 @@ export function TransferList({
                     size="sm"
                     disabled={disabled || availableSelected.length === 0}
                     onClick={() => moveToIncluded(availableSelected)}
-                    aria-label="Add selected to included"
-                    title="Add selected"
+                    aria-label={t("transfer.addSelectedAria")}
+                    title={t("transfer.addSelected")}
                 >
                     <PiCaretRight className="size-4" aria-hidden />
                 </Button>
@@ -102,8 +106,8 @@ export function TransferList({
                     size="sm"
                     disabled={disabled || includedSelected.length === 0}
                     onClick={() => moveToAvailable(includedSelected)}
-                    aria-label="Remove selected from included"
-                    title="Remove selected"
+                    aria-label={t("transfer.removeSelectedAria")}
+                    title={t("transfer.removeSelected")}
                 >
                     <PiCaretLeft className="size-4" aria-hidden />
                 </Button>
@@ -113,14 +117,14 @@ export function TransferList({
                     size="sm"
                     disabled={disabled || included.length === 0}
                     onClick={() => moveToAvailable(included.map((item) => item.id))}
-                    aria-label="Remove all from included"
-                    title="Remove all"
+                    aria-label={t("transfer.removeAllAria")}
+                    title={t("transfer.removeAll")}
                 >
                     <PiCaretDoubleLeft className="size-4" aria-hidden />
                 </Button>
             </div>
             <TransferColumn
-                label={includedLabel}
+                label={resolvedIncludedLabel}
                 items={included}
                 selectedIds={includedSelected}
                 onSelect={setIncludedSelected}
@@ -143,6 +147,7 @@ function TransferColumn({
     onSelect: (ids: string[]) => void;
     disabled?: boolean;
 }) {
+    const {t} = useTranslation("scenes");
     const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
     const allSelected = items.length > 0 && items.every((item) => selectedSet.has(item.id));
 
@@ -150,7 +155,7 @@ function TransferColumn({
         <div className="flex min-h-40 flex-col rounded-md border bg-card">
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
                 <span className="text-xs font-medium text-muted-foreground">
-                    {label} ({items.length})
+                    {t("transfer.countLabel", {label, count: items.length})}
                 </span>
                 <button
                     type="button"
@@ -164,12 +169,12 @@ function TransferColumn({
                         }
                     }}
                 >
-                    {allSelected ? "Clear" : "Select all"}
+                    {allSelected ? t("transfer.clear") : t("transfer.selectAll")}
                 </button>
             </div>
             <ul className="max-h-56 flex-1 overflow-auto p-1" role="listbox" aria-label={label} aria-multiselectable>
                 {items.length === 0 ? (
-                    <li className="px-2 py-3 text-xs text-muted-foreground">None</li>
+                    <li className="px-2 py-3 text-xs text-muted-foreground">{t("transfer.none")}</li>
                 ) : (
                     items.map((item) => {
                         const selected = selectedSet.has(item.id);

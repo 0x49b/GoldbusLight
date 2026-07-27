@@ -1,0 +1,97 @@
+{
+  "title": "Party Mode",
+  "description": "Configure WLED and DMX party behaviour separately.",
+  "online": "Online",
+  "offline": "Offline",
+  "running": "Running",
+  "stopped": "Stopped",
+  "startParty": "Start Party",
+  "stopParty": "Stop Party",
+  "lastFrame": " Last frame: {{time}}",
+  "lastAudio": " Last audio: {{time}}",
+  "mode": {
+    "label": "Mode",
+    "auto": "Auto show",
+    "audio": "Audio reactive"
+  },
+  "audioSensitivity": "Audio sensitivity",
+  "audio": {
+    "sourcePreset": "Source preset",
+    "presetMic": "Built-in microphone",
+    "presetUsbMic": "USB microphone",
+    "presetLoopback": "Loopback / line-in",
+    "presetCustom": "Custom device",
+    "usbMic": "USB microphone",
+    "usbMicPlaceholder": "USB mic {{id}}",
+    "inputDevice": "Input device",
+    "audioInputPlaceholder": "Audio input {{id}}",
+    "systemDefaultSuffix": " (system default)",
+    "defaultInput": "Default input",
+    "noUsbMic": "No USB microphone found",
+    "refreshDevices": "Refresh devices",
+    "captureActive": "Capture: active (native)",
+    "captureStarting": "Capture: starting…",
+    "captureStartsWithParty": "Capture: starts with Party",
+    "noSignal": "No signal detected",
+    "noLoopback": "No loopback device found."
+  },
+  "tabs": {
+    "wled": "WLED",
+    "dmx": "DMX",
+    "smoke": "Smoke"
+  },
+  "wled": {
+    "description": "LED strips only — color, brightness, and speed. No pan, tilt, or movement settings.",
+    "targets": "WLED targets"
+  },
+  "dmx": {
+    "targets": "DMX targets",
+    "animated": {
+      "title": "Animated channels",
+      "description": "Choose which channel groups party mode drives on moving heads and similar fixtures. Uncheck groups to calm nervous motion (e.g. disable gobo or beam)."
+    }
+  },
+  "smoke": {
+    "description": "Burst timing for smoke and hazer fixtures. Configure which machines take part below.",
+    "sectionTitle": "Smoke / fog bursts",
+    "sectionDescription": "Short bursts with pauses between them. When burst volume is above 0, all smoke and hazer fixtures run automatically",
+    "autoIncluded": ": {{names}}.",
+    "autoIncludedNone": ".",
+    "burstDuration": "Burst duration: {{value}} s",
+    "burstPause": "Pause between bursts: {{value}} s",
+    "burstVolume": "Burst volume",
+    "targets": "Smoke targets"
+  },
+  "sliders": {
+    "intensity": "Intensity",
+    "speed": "Speed",
+    "colorVariation": "Color variation",
+    "movementRange": "Movement range",
+    "movementAngleLimit": "Max angle from centre",
+    "smokeVolume": "Burst volume"
+  },
+  "angle": {
+    "off": "off (use range %)",
+    "value": "{{value}}°"
+  },
+  "targets": {
+    "available": "Available",
+    "included": "Included",
+    "wledTargets": "WLED targets",
+    "dmxTargets": "DMX targets",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "noWledOnline": "No online WLED devices available.",
+    "noDmxFixtures": "No DMX fixtures available."
+  },
+  "audioLevel": "Audio level equalizer",
+  "bands": {
+    "level": "Level",
+    "bass": "Bass",
+    "mid": "Mid",
+    "treble": "Treble",
+    "beat": "Beat",
+    "bpm": "BPM",
+    "bpmHint": "from beat hits"
+  }
+}

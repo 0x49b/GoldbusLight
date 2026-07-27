@@ -9,8 +9,8 @@
     <script>
       (function () {
         try {
-          var key = "goldbus-theme";
-          var theme = localStorage.getItem(key);
+          var themeKey = "goldbus-theme";
+          var theme = localStorage.getItem(themeKey);
           if (theme === "system" || !theme) {
             theme = window.matchMedia("(prefers-color-scheme: dark)").matches
               ? "dark"
@@ -21,6 +21,25 @@
           } else {
             document.documentElement.classList.remove("dark");
           }
+
+          var localeKey = "goldbus-locale";
+          var pref = localStorage.getItem(localeKey);
+          var lang = "en";
+          if (pref === "en" || pref === "de") {
+            lang = pref;
+          } else {
+            var languages = navigator.languages && navigator.languages.length
+              ? navigator.languages
+              : [navigator.language];
+            for (var i = 0; i < languages.length; i++) {
+              var normalized = String(languages[i] || "").trim().toLowerCase();
+              if (normalized === "de" || normalized.indexOf("de-") === 0) {
+                lang = "de";
+                break;
+              }
+            }
+          }
+          document.documentElement.lang = lang;
         } catch (_) {}
       })();
     </script>

@@ -6,6 +6,7 @@ import {Label} from "@/components/ui/label.tsx";
 import {Switch} from "@/components/ui/switch.tsx";
 import {Textarea} from "@/components/ui/textarea.tsx";
 import {PiArrowsClockwise, PiWifiHigh} from "react-icons/pi";
+import {Trans, useTranslation} from "react-i18next";
 import {readNumber} from "../../../lib/json.ts";
 import type {ControllerSettings, WLEDDevice} from "@/types/controller.ts";
 import type {SettingsUpdater} from "../settingsTypes.ts";
@@ -41,13 +42,14 @@ export function WledSettingsTab({
     ignoredDevices,
     onUnignoreDevice,
 }: WledSettingsTabProps) {
+    const {t} = useTranslation("settings");
     const wledControlsDisabled = busy || !settings.wled.enabled;
 
     return (
         <div className="space-y-5">
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle>WLED component</CardTitle>
+                    <CardTitle>{t("wledTab.componentTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -63,11 +65,11 @@ export function WledSettingsTab({
                             }, "immediate")}
                             disabled={busy}
                         />
-                        <span>Enable WLED component</span>
+                        <span>{t("wledTab.enableComponent")}</span>
                     </label>
                     {!settings.wled.enabled && (
                         <p className="text-xs text-muted-foreground">
-                            WLED routes, menu entries, and device actions are disabled while this is off.
+                            {t("wledTab.disabledHint")}
                         </p>
                     )}
 
@@ -80,26 +82,25 @@ export function WledSettingsTab({
                             disabled={busy}
                         >
                             <PiArrowsClockwise/>
-                            Refresh
+                            {t("wledTab.refresh")}
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the
-                        sidebar.
+                        {t("wledTab.refreshHint")}
                     </p>
                 </CardContent>
             </Card>
 
             <Card className="w-full max-w-none">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
-                    <CardTitle>Access point</CardTitle>
+                    <CardTitle>{t("wledTab.accessPointTitle")}</CardTitle>
                     <Button
                         size="sm"
                         variant="outline"
                         onClick={onApplyNetwork}
                         disabled={wledControlsDisabled}
                     >
-                        <PiWifiHigh/> Apply network settings
+                        <PiWifiHigh/> {t("wledTab.applyNetworkSettings")}
                     </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -113,7 +114,7 @@ export function WledSettingsTab({
                             }, "immediate")}
                             disabled={wledControlsDisabled}
                         />
-                        <Label htmlFor="enable-ap">Enable local access point</Label>
+                        <Label htmlFor="enable-ap">{t("wledTab.enableAccessPoint")}</Label>
                     </label>
                     <div className="flex flex-wrap gap-2">
                         <Button
@@ -123,18 +124,18 @@ export function WledSettingsTab({
                             onClick={() => void disableAccessPointNow()}
                             disabled={wledControlsDisabled || !settings.accessPoint.enabled}
                         >
-                            Disable AP now (save + apply)
+                            {t("wledTab.disableApNow")}
                         </Button>
                     </div>
                     {!settings.wled.enabled && (
                         <p className="text-xs text-muted-foreground">
-                            Access point is forced off while WLED component is disabled.
+                            {t("wledTab.apDisabledWhileOff")}
                         </p>
                     )}
 
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                         <Field>
-                            <FieldLabel htmlFor="ap-connection-name">AP connection name</FieldLabel>
+                            <FieldLabel htmlFor="ap-connection-name">{t("wledTab.apConnectionName")}</FieldLabel>
                             <Input
                                 id="ap-connection-name"
                                 type="text"
@@ -149,7 +150,7 @@ export function WledSettingsTab({
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="ap-interface">AP interface</FieldLabel>
+                            <FieldLabel htmlFor="ap-interface">{t("wledTab.apInterface")}</FieldLabel>
                             <Input
                                 id="ap-interface"
                                 type="text"
@@ -164,7 +165,7 @@ export function WledSettingsTab({
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="ap-ssid">AP SSID</FieldLabel>
+                            <FieldLabel htmlFor="ap-ssid">{t("wledTab.apSsid")}</FieldLabel>
                             <Input
                                 id="ap-ssid"
                                 type="text"
@@ -179,7 +180,7 @@ export function WledSettingsTab({
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="ap-password">AP password</FieldLabel>
+                            <FieldLabel htmlFor="ap-password">{t("wledTab.apPassword")}</FieldLabel>
                             <Input
                                 id="ap-password"
                                 type="text"
@@ -194,7 +195,7 @@ export function WledSettingsTab({
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="ap-channel">Channel</FieldLabel>
+                            <FieldLabel htmlFor="ap-channel">{t("wledTab.apChannel")}</FieldLabel>
                             <Input
                                 id="ap-channel"
                                 type="number"
@@ -216,7 +217,7 @@ export function WledSettingsTab({
 
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Provisioning</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("wledTab.provisioningTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <label className="flex cursor-pointer justify-start gap-3 items-center">
@@ -231,11 +232,14 @@ export function WledSettingsTab({
                             }, "immediate")}
                             disabled={wledControlsDisabled}
                         />
-                        <span>Simulate WLED device (testing)</span>
+                        <span>{t("wledTab.simulateWled")}</span>
                     </label>
                     <p className="text-xs opacity-60">
-                        Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>)
-                        with no network traffic.
+                        <Trans
+                            i18nKey="wledTab.simulateWledHint"
+                            t={t}
+                            components={[<code className="font-mono text-[10px]" key="sim"/>]}
+                        />
                     </p>
 
                     <label className="flex cursor-pointer justify-start gap-3 items-center">
@@ -250,11 +254,11 @@ export function WledSettingsTab({
                             }, "immediate")}
                             disabled={wledControlsDisabled}
                         />
-                        <span>Auto-provision newly added devices</span>
+                        <span>{t("wledTab.autoProvision")}</span>
                     </label>
 
                     <div>
-                        <Label className="py-0 text-xs">Default /json/state payload</Label>
+                        <Label className="py-0 text-xs">{t("wledTab.defaultStatePayload")}</Label>
                         <Textarea
                             className="h-24 w-full font-mono text-xs"
                             value={statePayloadText}
@@ -265,7 +269,7 @@ export function WledSettingsTab({
                     </div>
 
                     <div>
-                        <Label className="py-0 text-xs">Default /json/cfg patch</Label>
+                        <Label className="py-0 text-xs">{t("wledTab.defaultConfigPatch")}</Label>
                         <Textarea
                             className="h-24 w-full font-mono text-xs"
                             value={configPatchText}
@@ -279,15 +283,18 @@ export function WledSettingsTab({
 
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Ignored devices</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("wledTab.ignoredDevicesTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <p className="text-sm opacity-70">
-                        Ignored devices stay out of the sidebar and presets but remain in
-                        <code className="text-xs"> state.json</code>.
+                        <Trans
+                            i18nKey="wledTab.ignoredDevicesDescription"
+                            t={t}
+                            components={[<code className="text-xs" key="state"/>]}
+                        />
                     </p>
                     {ignoredDevices.length === 0 ? (
-                        <p className="text-sm opacity-60">No ignored devices.</p>
+                        <p className="text-sm opacity-60">{t("wledTab.noIgnoredDevices")}</p>
                     ) : (
                         <ul className="space-y-2">
                             {ignoredDevices.map((dev) => (
@@ -309,7 +316,7 @@ export function WledSettingsTab({
                                         onClick={() => onUnignoreDevice(dev.id)}
                                         disabled={busy || !settings.wled.enabled}
                                     >
-                                        Un-ignore
+                                        {t("wledTab.unignore")}
                                     </Button>
                                 </li>
                             ))}
@@ -319,7 +326,7 @@ export function WledSettingsTab({
             </Card>
             <Card className="w-full max-w-none">
                 <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Debug Information</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{t("wledTab.debugInformationTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <label className="flex items-center gap-3">
@@ -336,7 +343,7 @@ export function WledSettingsTab({
                             }, "immediate")}
                             disabled={wledControlsDisabled}
                         />
-                        <span>Show WLED debug information</span>
+                        <span>{t("wledTab.showDebugInformation")}</span>
                     </label>
                 </CardContent>
             </Card>

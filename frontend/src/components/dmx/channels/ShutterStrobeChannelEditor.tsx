@@ -12,16 +12,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { effectiveEntryLiveSlotKind } from "@/lib/dmxLiveWidget";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import {
     type ChannelEditorProps,
     clamp255,
-    SHUTTER_MODE_OPTIONS,
+    getShutterModeOptions,
     EntryLiveSlotKindSelect,
 } from "./ChannelBase";
 
 function shutterSelectValue(mode: string | undefined): string {
     const m = mode ?? "";
-    return SHUTTER_MODE_OPTIONS.some((o) => o.value === m) ? m : "open";
+    return getShutterModeOptions().some((o) => o.value === m) ? m : "open";
 }
 
 function ShutterStateGlyph({ mode }: { mode?: string }) {
@@ -67,16 +69,18 @@ export function ShutterStrobeChannelEditor({
     showSlotKindEditor,
     busy,
 }: ChannelEditorProps) {
+    const { t } = useTranslation("dmx");
+    const shutterModeOptions = getShutterModeOptions();
     return (
         <div className="mt-3 space-y-2">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[140px] text-muted-foreground">Range</TableHead>
-                        <TableHead className="text-muted-foreground">State</TableHead>
-                        <TableHead className="w-[200px] text-right text-muted-foreground">Speed</TableHead>
+                        <TableHead className="w-[140px] text-muted-foreground">{t("channelEditor.range")}</TableHead>
+                        <TableHead className="text-muted-foreground">{t("channelEditor.state")}</TableHead>
+                        <TableHead className="w-[200px] text-right text-muted-foreground">{t("channelEditor.speed")}</TableHead>
                         {showSlotKindEditor ? (
-                            <TableHead className="w-[108px] text-muted-foreground">Live slot</TableHead>
+                            <TableHead className="w-[108px] text-muted-foreground">{t("channelEditor.liveSlot")}</TableHead>
                         ) : null}
                         <TableHead className="w-12" />
                     </TableRow>
@@ -88,7 +92,7 @@ export function ShutterStrobeChannelEditor({
                             sm === "strobe" || sm === "randomstrobe" ? (
                                 <span
                                     className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
-                                    title="Speed ramp"
+                                    title={t("channelEditor.speedRamp")}
                                     aria-hidden
                                 >
                                     <ArrowUpRight className="size-4" strokeWidth={2.5} />
@@ -96,7 +100,7 @@ export function ShutterStrobeChannelEditor({
                             ) : sm === "pulse" ? (
                                 <span
                                     className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
-                                    title="Pulse width"
+                                    title={t("channelEditor.pulseWidth")}
                                     aria-hidden
                                 >
                                     <Minus className="size-4" strokeWidth={2.5} />
@@ -159,7 +163,7 @@ export function ShutterStrobeChannelEditor({
                                             value={shutterSelectValue(slot.mode)}
                                             onChange={(e) => {
                                                 const v = e.target.value;
-                                                const cue = SHUTTER_MODE_OPTIONS.find((o) => o.value === v);
+                                                const cue = shutterModeOptions.find((o) => o.value === v);
                                                 const next = [...slots];
                                                 next[si] = {
                                                     ...slot,
@@ -174,7 +178,7 @@ export function ShutterStrobeChannelEditor({
                                                 });
                                             }}
                                         >
-                                            {SHUTTER_MODE_OPTIONS.map((o) => (
+                                            {shutterModeOptions.map((o) => (
                                                 <NativeSelectOption key={o.value} value={o.value}>
                                                     {o.label}
                                                 </NativeSelectOption>
@@ -257,7 +261,7 @@ export function ShutterStrobeChannelEditor({
                                         type="button"
                                         size="icon"
                                         variant="ghost"
-                                        title="Remove slot"
+                                        title={t("channelEditor.removeSlot")}
                                         onClick={() => {
                                             const next = slots.filter((_, j) => j !== si);
                                             if (next.length === 0) {
@@ -298,7 +302,7 @@ export function ShutterStrobeChannelEditor({
                         {
                             from: start,
                             to: Math.min(255, start + 15),
-                            label: "Shutter Open",
+                            label: i18n.t("dmx:channelBase.shutterMode.open"),
                             mode: "open",
                         },
                     ];
@@ -311,7 +315,7 @@ export function ShutterStrobeChannelEditor({
                 }}
             >
                 <PiPlus className="mr-1 inline size-4" aria-hidden />
-                Add property
+                {t("channelEditor.addProperty")}
             </Button>
         </div>
     );

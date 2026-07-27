@@ -1,6 +1,7 @@
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
 import {OctagonAlert} from "lucide-react";
+import {useTranslation} from "react-i18next";
 
 type DMXEmergencyButtonProps = {
     busy?: boolean;
@@ -9,6 +10,7 @@ type DMXEmergencyButtonProps = {
 };
 
 export function DMXEmergencyButton({busy, className, onEmergency}: DMXEmergencyButtonProps) {
+    const {t} = useTranslation("dmx");
     return (
         <Button
             type="button"
@@ -16,11 +18,11 @@ export function DMXEmergencyButton({busy, className, onEmergency}: DMXEmergencyB
             size="sm"
             className={cn("shrink-0", className)}
             disabled={busy}
-            title="Stop party mode and blackout all DMX channels to 0% (output keeps streaming)"
+            title={t("emergency.tooltip")}
             onClick={() => void onEmergency()}
         >
             <OctagonAlert className="size-4" aria-hidden/>
-            Blackout
+            {t("emergency.blackout")}
         </Button>
     );
 }

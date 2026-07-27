@@ -1,0 +1,24 @@
+{
+  "appTitle": "Goldbus Light Controller",
+  "nav": {
+    "scenes": "Szenen",
+    "general": "Allgemein",
+    "devices": "Geräte",
+    "universe": "Universum",
+    "dmxDevices": "DMX-Geräte",
+    "settings": "Einstellungen"
+  },
+  "actions": {
+    "addWledDevice": "WLED-Gerät hinzufügen",
+    "createDmxDevice": "Neues DMX-Gerät erstellen"
+  },
+  "device": {
+    "online": "{{name}} (online)",
+    "offline": "{{name}} (offline)",
+    "offlineHint": "Offline — Details öffnen; Doppelklick zum Aktualisieren"
+  },
+  "error": {
+    "title": "Fehler",
+    "dismiss": "Fehler schließen"
+  }
+}

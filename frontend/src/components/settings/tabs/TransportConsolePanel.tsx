@@ -1,12 +1,13 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
+import {useTranslation} from "react-i18next";
 import {Button} from "@/components/ui/button.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import type {ConsoleEntry} from "@/types/controller.ts";
 
-const TRANSPORT_LABEL: Record<string, string> = {
-    wled: "WLED",
-    "usb-dmx": "USB DMX",
-    artnet: "Art-Net",
+const TRANSPORT_LABEL_KEY: Record<string, string> = {
+    wled: "console.transports.wled",
+    "usb-dmx": "console.transports.usbDmx",
+    artnet: "console.transports.artnet",
 };
 
 const DIRECTION_BADGE_CLASS: Record<string, string> = {
@@ -37,6 +38,7 @@ export function TransportConsolePanel({
     onToggleDetach,
     detached = false,
 }: TransportConsolePanelProps) {
+    const {t} = useTranslation("settings");
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const autoScrollRef = useRef<boolean>(true);
 
@@ -67,7 +69,7 @@ export function TransportConsolePanel({
     return (
         <Card className="w-full max-w-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
-                <CardTitle className="text-sm font-semibold">Live transport console</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("console.title")}</CardTitle>
                 <div className="flex items-center gap-2">
                     {onToggleDetach && (
                         <Button
@@ -76,7 +78,7 @@ export function TransportConsolePanel({
                             variant="outline"
                             onClick={onToggleDetach}
                         >
-                            {detached ? "Attach back" : "Detach"}
+                            {detached ? t("console.attachBack") : t("console.detach")}
                         </Button>
                     )}
                     <Button
@@ -86,13 +88,13 @@ export function TransportConsolePanel({
                         onClick={onClear}
                         disabled={orderedEntries.length === 0}
                     >
-                        Clear
+                        {t("console.clear")}
                     </Button>
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                    Live commands sent to USB-DMX, Art-Net and WLED transports appear here as they are dispatched.
+                    {t("console.description")}
                 </p>
                 <div
                     ref={scrollRef}
@@ -100,12 +102,13 @@ export function TransportConsolePanel({
                     className="max-h-[28rem] overflow-auto rounded border bg-card font-mono text-xs"
                 >
                     {orderedEntries.length === 0 ? (
-                        <div className="p-3 text-muted-foreground">No transport activity yet.</div>
+                        <div className="p-3 text-muted-foreground">{t("console.noActivity")}</div>
                     ) : (
                         <ul className="divide-y">
                             {orderedEntries.map((entry) => {
                                 const badgeClass = DIRECTION_BADGE_CLASS[entry.direction] ?? DIRECTION_BADGE_CLASS.info;
-                                const transportLabel = TRANSPORT_LABEL[entry.transport] ?? entry.transport;
+                                const transportKey = TRANSPORT_LABEL_KEY[entry.transport];
+                                const transportLabel = transportKey ? t(transportKey) : entry.transport;
                                 return (
                                     <li key={entry.id} className="px-3 py-1.5 leading-relaxed">
                                         <div className="flex flex-wrap items-center gap-2">

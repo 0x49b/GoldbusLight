@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import {useTranslation} from "react-i18next";
 import type { DMXChannel, JSONMap } from "@/types/controller.ts";
 import {
     Dialog,
@@ -47,6 +48,7 @@ export function GoboPickerDialog({
     setGoboPickerTarget,
     setChannels,
 }: GoboPickerDialogProps) {
+    const {t} = useTranslation("dmx");
     const [goboCatalog, setGoboCatalog] = useState<GoboCatalogEntry[] | null>(null);
     const [goboCatalogError, setGoboCatalogError] = useState<string | null>(null);
     const [goboCatalogFilter, setGoboCatalogFilter] = useState("");
@@ -67,7 +69,7 @@ export function GoboPickerDialog({
                 setGoboCatalog(parseGoboCatalog(data));
             } catch (e) {
                 if (!cancelled) {
-                    setGoboCatalogError(e instanceof Error ? e.message : "Failed to load gobo catalog");
+                    setGoboCatalogError(e instanceof Error ? e.message : t("goboPicker.loadError"));
                     setGoboCatalog([]);
                 }
             }
@@ -75,7 +77,7 @@ export function GoboPickerDialog({
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         if (!goboPickerTarget) {
@@ -112,23 +114,23 @@ export function GoboPickerDialog({
                 className="flex max-h-[88vh] w-full max-w-[min(42rem,calc(100%-2rem))] flex-col gap-3 sm:max-w-2xl"
             >
                 <DialogHeader>
-                    <DialogTitle>Choose gobo</DialogTitle>
+                    <DialogTitle>{t("goboPicker.title")}</DialogTitle>
                     <DialogDescription>
-                        Filter by Rosco code or name. Images load from the local catalog.
+                        {t("goboPicker.description")}
                     </DialogDescription>
                 </DialogHeader>
                 <Input
-                    placeholder="Filter…"
+                    placeholder={t("goboPicker.filter")}
                     value={goboCatalogFilter}
                     onChange={(e) => setGoboCatalogFilter(e.target.value)}
                     autoComplete="off"
                 />
                 {goboCatalog === null ? (
-                    <p className="text-sm text-muted-foreground">Loading catalog…</p>
+                    <p className="text-sm text-muted-foreground">{t("goboPicker.loadingCatalog")}</p>
                 ) : goboCatalogError ? (
                     <p className="text-sm text-destructive">{goboCatalogError}</p>
                 ) : goboCatalog.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No catalog entries found.</p>
+                    <p className="text-sm text-muted-foreground">{t("goboPicker.noEntries")}</p>
                 ) : (
                     <>
                         <div className="max-h-[min(60vh,520px)] overflow-y-auto rounded-md border p-2">
@@ -188,7 +190,7 @@ export function GoboPickerDialog({
                         </div>
                         {goboCatalogFilter === "" && goboCatalog.length > 400 ? (
                             <p className="text-xs text-muted-foreground">
-                                Showing the first 400 gobos — type in the filter to narrow the list.
+                                {t("goboPicker.showingFirst")}
                             </p>
                         ) : null}
                     </>

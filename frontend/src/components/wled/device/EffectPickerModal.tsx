@@ -1,4 +1,5 @@
 import {useEffect, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {readNumber} from "../../../lib/json.ts";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -23,6 +24,7 @@ export function EffectPickerModal({
                                       onPick,
                                       disabled,
                                   }: EffectPickerModalProps) {
+    const {t} = useTranslation("wled");
     const [manualIdx, setManualIdx] = useState(String(selectedIndex));
 
     useEffect(() => {
@@ -37,14 +39,14 @@ export function EffectPickerModal({
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
             <DialogContent className="sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle className="text-sm">Effect</DialogTitle>
+                    <DialogTitle className="text-sm">{t("effectPicker.title")}</DialogTitle>
                 </DialogHeader>
                 {hasList ? (
                     <div
                         className="touch-pan-scroll max-w-full overflow-x-auto overflow-y-hidden rounded-lg border p-2">
                         <div
                             role="listbox"
-                            aria-label="Effects"
+                            aria-label={t("effectPicker.listAriaLabel")}
                             className="inline-block max-h-[min(70dvh,calc(100dvh-14rem))] columns-[10rem] [column-fill:auto] [column-gap:0.625rem] align-top"
                         >
                             {effectNames!.map((name, idx) => (
@@ -79,7 +81,7 @@ export function EffectPickerModal({
                 ) : (
                     <div className="flex flex-wrap items-end gap-2">
                         <div className="grid gap-1">
-                            <Label className="text-xs">Effect index</Label>
+                            <Label className="text-xs">{t("effectPicker.indexLabel")}</Label>
                             <Input
                                 type="number"
                                 min={0}
@@ -98,13 +100,13 @@ export function EffectPickerModal({
                                 onClose();
                             }}
                         >
-                            Use index
+                            {t("effectPicker.useIndex")}
                         </Button>
                     </div>
                 )}
                 <div className="flex justify-end">
                     <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                        Close
+                        {t("effectPicker.close")}
                     </Button>
                 </div>
             </DialogContent>

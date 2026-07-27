@@ -1,4 +1,5 @@
 import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
 import * as GoldbusLightService from "../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import {readNumber} from "@/lib/json.ts";
@@ -66,6 +67,7 @@ export function GeneralPanel({
                                  generalIx,
                                  setGeneralIx,
                              }: PresetsPanelProps) {
+    const {t} = useTranslation("wled");
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [effectNames, setEffectNames] = useState<string[]>([]);
@@ -111,7 +113,7 @@ export function GeneralPanel({
             <Card>
 
                 <CardHeader>
-                    <CardTitle>Color & Brightness</CardTitle>
+                    <CardTitle>{t("general.colorBrightness")}</CardTitle>
                 </CardHeader>
 
                 <CardContent className="gap-4">
@@ -123,16 +125,16 @@ export function GeneralPanel({
                             className="min-w-0 flex-1 gap-1 px-2 sm:px-4"
                             onClick={() =>
                                 allOff
-                                    ? onSetGlobalState({on: true, seg: [{fx: 0, pal: 0}]}, "All on")
+                                    ? onSetGlobalState({on: true, seg: [{fx: 0, pal: 0}]}, t("general.allOnLabel"))
                                     : onSetGlobalState({
                                         on: false,
                                         seg: [{fx: 0, pal: 0}]
-                                    }, "All off")
+                                    }, t("general.allOffLabel"))
                             }
                             disabled={controlsDisabled}
                         >
                             {allOff ? <PiMoon/> : <PiSun/>}
-                            {allOff ? "All off" : "All on"}
+                            {allOff ? t("general.allOff") : t("general.allOn")}
                         </Button>
                         <Button
                             type="button"
@@ -143,7 +145,7 @@ export function GeneralPanel({
                             onClick={applyWarmWhitePreset}
                         >
                             <PiFire/>
-                            Warm white
+                            {t("general.warmWhite")}
                         </Button>
                         <Button
                             type="button"
@@ -154,7 +156,7 @@ export function GeneralPanel({
                             onClick={applyColdWhitePreset}
                         >
                             <PiIceCream/>
-                            Cold white
+                            {t("general.coldWhite")}
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -165,7 +167,7 @@ export function GeneralPanel({
                                     aria-pressed={namedColorActive}
                                 >
                                     <PiPalette/>
-                                    Color
+                                    {t("general.color")}
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-max">
@@ -199,7 +201,7 @@ export function GeneralPanel({
 
                     <div className="flex flex-wrap items-center gap-4 mt-4">
                         <label className="flex w-full min-w-50 flex-col gap-1">
-                            <span className="text-xs opacity-70">Color</span>
+                            <span className="text-xs opacity-70">{t("general.color")}</span>
                             <HueSlider
                                 value={hueValue}
                                 onChange={(nextHue) => setPresetRgb(hueToRgb(nextHue))}
@@ -209,7 +211,7 @@ export function GeneralPanel({
 
                         <label className="flex w-full min-w-50 flex-col gap-1">
                             <span
-                                className="text-xs opacity-70">Brightness ({brightnessPercent}%)</span>
+                                className="text-xs opacity-70">{t("general.brightness", {percent: brightnessPercent})}</span>
                             <Slider
                                 min={1}
                                 max={255}
@@ -223,12 +225,12 @@ export function GeneralPanel({
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle>Effect & palette</CardTitle>
+                    <CardTitle>{t("general.effectPalette")}</CardTitle>
                 </CardHeader>
                 <CardContent className="gap-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label className="text-xs">Effect</Label>
+                            <Label className="text-xs">{t("general.effect")}</Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -244,7 +246,7 @@ export function GeneralPanel({
                             </Button>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs">Palette</Label>
+                            <Label className="text-xs">{t("general.palette")}</Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -284,7 +286,7 @@ export function GeneralPanel({
                     />
                     <div className="grid gap-3 md:grid-cols-2 mt-4">
                         <div className="space-y-2">
-                            <Label className="text-xs">Speed (sx) - {generalSx}</Label>
+                            <Label className="text-xs">{t("general.speed", {value: generalSx})}</Label>
                             <Slider
                                 min={0}
                                 max={255}
@@ -294,7 +296,7 @@ export function GeneralPanel({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs">Intensity (ix) - {generalIx}</Label>
+                            <Label className="text-xs">{t("general.intensity", {value: generalIx})}</Label>
                             <Slider
                                 min={0}
                                 max={255}

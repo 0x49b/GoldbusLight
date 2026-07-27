@@ -1,4 +1,5 @@
 import {useMemo} from "react";
+import {useTranslation} from "react-i18next";
 import {Button} from "@/components/ui/button";
 import type {DMXFixture, WLEDDevice} from "@/types/controller";
 import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave";
@@ -22,6 +23,7 @@ export function PartyTargetsPicker({
     onChangeWledIds,
     onChangeFixtureIds,
 }: PartyTargetsPickerProps) {
+    const {t} = useTranslation("party");
     const partyFixtures = useMemo(() => partySelectableFixtures(fixtures), [fixtures]);
     const selectedWledSet = useMemo(() => new Set(selectedWledIds), [selectedWledIds]);
     const selectedFixtureSet = useMemo(() => new Set(selectedFixtureIds), [selectedFixtureIds]);
@@ -55,7 +57,7 @@ export function PartyTargetsPicker({
         <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-md border bg-muted/20 p-2">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">WLED targets</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("targets.wledTargets")}</span>
                     <Button
                         type="button"
                         size="sm"
@@ -65,7 +67,7 @@ export function PartyTargetsPicker({
                             onChangeWledIds(allWledSelected ? [] : wledDevices.map((device) => device.id))
                         }
                     >
-                        {allWledSelected ? "Clear selection" : "Select all"}
+                        {allWledSelected ? t("targets.clearSelection") : t("targets.selectAll")}
                     </Button>
                 </div>
                 <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
@@ -84,14 +86,14 @@ export function PartyTargetsPicker({
                         </label>
                     ))}
                     {wledDevices.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No online WLED devices available.</p>
+                        <p className="text-xs text-muted-foreground">{t("targets.noWledOnline")}</p>
                     ) : null}
                 </div>
             </div>
 
             <div className="rounded-md border bg-muted/20 p-2">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">DMX targets</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("targets.dmxTargets")}</span>
                     <Button
                         type="button"
                         size="sm"
@@ -101,7 +103,7 @@ export function PartyTargetsPicker({
                             onChangeFixtureIds(allFixturesSelected ? [] : partyFixtures.map((fixture) => fixture.id))
                         }
                     >
-                        {allFixturesSelected ? "Clear selection" : "Select all"}
+                        {allFixturesSelected ? t("targets.clearSelection") : t("targets.selectAll")}
                     </Button>
                 </div>
                 <div className="grid max-h-36 grid-cols-1 gap-1 overflow-auto pr-1">
@@ -122,7 +124,7 @@ export function PartyTargetsPicker({
                         </label>
                     ))}
                     {partyFixtures.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No DMX fixtures available.</p>
+                        <p className="text-xs text-muted-foreground">{t("targets.noDmxFixtures")}</p>
                     ) : null}
                 </div>
             </div>

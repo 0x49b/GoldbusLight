@@ -1,0 +1,161 @@
+{
+  "loading": "Loading settings…",
+  "tabs": {
+    "general": "General",
+    "wled": "WLED",
+    "dmx": "DMX",
+    "party": "Party",
+    "console": "Console"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Choose light or dark mode, or follow the system preference.",
+    "colorMode": "Color mode",
+    "placeholder": "System",
+    "modes": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the interface language, or follow the system setting.",
+    "label": "Language",
+    "placeholder": "System",
+    "options": {
+      "system": "System",
+      "en": "English",
+      "de": "Deutsch"
+    }
+  },
+  "version": {
+    "title": "Application version",
+    "installedLabel": "Installed version",
+    "loading": "Loading…",
+    "checkForUpdates": "Check for updates",
+    "checkHint": "Opens the built-in updater to download and install a newer release when one is available.",
+    "raspberryPiHint": "On this Raspberry Pi install, update from the shell with <0>sudo ./scripts/goldbuslight-pi.sh update --latest</0>. Do not use the in-app updater here — it can remove the binary and leave only a <1>GoldbusLight.bak</1> file behind."
+  },
+  "window": {
+    "title": "Window display",
+    "description": "Expand the application window for stage use or kiosk-style displays.",
+    "enterFullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "maximize": "Maximize window",
+    "restore": "Restore window"
+  },
+  "backup": {
+    "title": "Configuration backup",
+    "description": "Export or import all persisted data: controller settings, WLED devices, DMX fixtures and party config, general tab state, and per-fixture live layouts. Use this to copy a complete setup from one host to another.",
+    "export": "Export backup",
+    "import": "Import backup"
+  },
+  "networkApply": {
+    "title": "Network apply result",
+    "noAction": "No apply action yet.",
+    "dryRun": "Dry-run (network CLI unavailable or unsupported)",
+    "applied": "Applied"
+  },
+  "persistence": {
+    "line": "Persistence: <0>{{path}}</0> • backend: {{backendLabel}} ({{backendId}}) • host CLI: <1>{{cliName}}</1>",
+    "cliUnknown": "—"
+  },
+  "wledTab": {
+    "componentTitle": "WLED component",
+    "enableComponent": "Enable WLED component",
+    "disabledHint": "WLED routes, menu entries, and device actions are disabled while this is off.",
+    "refresh": "Refresh",
+    "refreshHint": "Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the sidebar.",
+    "accessPointTitle": "Access point",
+    "applyNetworkSettings": "Apply network settings",
+    "enableAccessPoint": "Enable local access point",
+    "disableApNow": "Disable AP now (save + apply)",
+    "apDisabledWhileOff": "Access point is forced off while WLED component is disabled.",
+    "apConnectionName": "AP connection name",
+    "apInterface": "AP interface",
+    "apSsid": "AP SSID",
+    "apPassword": "AP password",
+    "apChannel": "Channel",
+    "provisioningTitle": "Provisioning",
+    "simulateWled": "Simulate WLED device (testing)",
+    "simulateWledHint": "Adds an in-app fake device (<0>sim:wled</0>) with no network traffic.",
+    "autoProvision": "Auto-provision newly added devices",
+    "defaultStatePayload": "Default /json/state payload",
+    "defaultConfigPatch": "Default /json/cfg patch",
+    "ignoredDevicesTitle": "Ignored devices",
+    "ignoredDevicesDescription": "Ignored devices stay out of the sidebar and presets but remain in<0> state.json</0>.",
+    "noIgnoredDevices": "No ignored devices.",
+    "unignore": "Un-ignore",
+    "debugInformationTitle": "Debug Information",
+    "showDebugInformation": "Show WLED debug information"
+  },
+  "dmxTab": {
+    "componentTitle": "DMX component",
+    "enableComponent": "Enable DMX component",
+    "simulatorInterfaces": "DMX simulator interfaces",
+    "simulateUsb": "Simulate USB-DMX512 interface",
+    "simulateArtNet": "Simulate Art-Net interface",
+    "usbInterfaceTitle": "USB DMX Interface",
+    "enableUsbTransport": "Enable USB transport",
+    "noDeviceSelected": "No device selected",
+    "refreshUsbDevices": "Refresh USB devices",
+    "usbDeviceUnavailable": "Selected device is currently unavailable: <0>{{id}}</0>",
+    "artNetTitle": "Art-Net DMX interface",
+    "enableArtNet": "Enable Art-Net",
+    "targetHost": "Target host / broadcast",
+    "udpPort": "UDP port",
+    "net": "Net (0-127)",
+    "subnet": "Subnet (0-15)",
+    "artNetUniverse": "Art-Net universe (0-15)",
+    "refreshHz": "Refresh Hz"
+  },
+  "sweep": {
+    "title": "DMX fixture channel sweep",
+    "description": "Sweeps each configured channel of one fixture from 0→255 while all other channels on that fixture stay at zero. The universe is blacked out first so you can see which physical function responds. Output uses the same USB / Art-Net configuration as the DMX settings above.",
+    "partyRunningAlert": "Party mode is on — stop it before starting a sweep.",
+    "fixtureLabel": "Fixture",
+    "selectFixturePlaceholder": "Select fixture…",
+    "fixtureOption": "{{name}} ({{type}}) @ ch {{address}}",
+    "sweepSpeed": "Sweep speed",
+    "sweepSpeedPercent": "{{value}}%",
+    "sweepSpeedHint": "Higher is faster (shorter delay between DMX steps).",
+    "startSweep": "Start sweep",
+    "stop": "Stop",
+    "currentStep": "Current step",
+    "currentStepDetail": "Fixture channel offset: <0>{{offset}}</0> ({{type}}) · DMX address: <1>{{address}}</1> · Value: <2>{{value}}</2>",
+    "paused": "Paused — press Space to resume",
+    "running": "Running — Space to pause and log this position",
+    "idle": "Idle",
+    "channelPlaceholder": "—",
+    "pauseLogTitle": "Pause log (Space)",
+    "pauseLogEntry": "{{ts}}  Pause  DMX {{address}}  fixture ch {{channel}}  value {{value}}",
+    "noPauses": "No pauses yet.",
+    "errors": {
+      "selectFixture": "Select a fixture with at least one DMX channel.",
+      "partyRunning": "Stop party mode before running the channel sweep test."
+    },
+    "transport": {
+      "usbSelected": "USB: {{name}} ({{path}})",
+      "usbUnavailable": "USB: selected device unavailable ({{id}})",
+      "usbNoDevice": "USB: no device selected",
+      "usbTransportOff": "USB transport off",
+      "artNetTarget": "Art-Net → {{host}}:{{port}} (N{{net}} S{{subnet}} U{{universe}})",
+      "artNetOff": "Art-Net off",
+      "empty": "—"
+    }
+  },
+  "console": {
+    "title": "Live transport console",
+    "detach": "Detach",
+    "attachBack": "Attach back",
+    "clear": "Clear",
+    "description": "Live commands sent to USB-DMX, Art-Net and WLED transports appear here as they are dispatched.",
+    "noActivity": "No transport activity yet.",
+    "transports": {
+      "wled": "WLED",
+      "usbDmx": "USB DMX",
+      "artnet": "Art-Net"
+    }
+  }
+}

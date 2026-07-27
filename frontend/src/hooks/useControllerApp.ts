@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import i18n from "../i18n";
 import {useShallow} from "zustand/shallow";
 import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {DMXLiveStatus, DMXOutputUpdate} from "../../bindings/goldbus/internal/dmx/models";
@@ -380,7 +381,7 @@ export function useControllerApp() {
     const pullDMXState = useCallback(async () => {
         const next = (await GoldbusLightService.GetDMXState()) as DMXState;
         if (!next.universes?.length) {
-            next.universes = [{id: "universe-1", name: "Universe 1"}];
+            next.universes = [{id: "universe-1", name: i18n.t("status:universe1")}];
         }
         setDMXState((prev) => {
             const nextParty = next.party;
@@ -427,7 +428,7 @@ export function useControllerApp() {
             setStatePayloadText(prettyJSON(next.settings.wled.provisioning.defaultStatePayload ?? {}));
             setConfigPatchText(prettyJSON(next.settings.wled.provisioning.defaultConfigPatch ?? {}));
         }
-        setStatus(`Updated ${new Date(next.updatedAt).toLocaleTimeString()}`);
+        setStatus(i18n.t("status:updatedAt", {time: new Date(next.updatedAt).toLocaleTimeString()}));
         setError("");
         const gst = (next as ControllerSnapshot & {
             generalTabState?: {
@@ -588,7 +589,7 @@ export function useControllerApp() {
         const dev = snapshot.devices.find((d) => d.id === route.id);
         if (!dev) {
             setRoute({kind: "presets"});
-            setStatus("That device is no longer in the controller.");
+            setStatus(i18n.t("status:deviceGone"));
         }
     }, [route, snapshot, setRoute, setStatus]);
 
@@ -858,7 +859,7 @@ export function useControllerApp() {
 
     const ensureWLEDEnabled = useCallback((): boolean => {
         if ((settings?.wled.enabled ?? true) === false) {
-            setError("WLED component is disabled in Settings.");
+            setError(i18n.t("status:wledDisabled"));
             return false;
         }
         return true;
@@ -866,7 +867,7 @@ export function useControllerApp() {
 
     const ensureDMXEnabled = useCallback((): boolean => {
         if ((settings?.dmx.enabled ?? true) === false) {
-            setError("DMX component is disabled in Settings.");
+            setError(i18n.t("status:dmxDisabled"));
             return false;
         }
         return true;
@@ -876,7 +877,7 @@ export function useControllerApp() {
         const dmxOn = settings?.dmx.enabled ?? true;
         const wledOn = settings?.wled.enabled ?? true;
         if (!dmxOn && !wledOn) {
-            setError("Party mode requires DMX or WLED enabled in Settings.");
+            setError(i18n.t("status:partyRequiresComponent"));
             return false;
         }
         return true;
@@ -913,7 +914,7 @@ export function useControllerApp() {
             } catch {
                 setDmxLiveStatus(null);
             }
-            setStatus("Settings saved");
+            setStatus(i18n.t("status:settingsSaved"));
             setError("");
             return true;
         } catch (err) {
@@ -926,20 +927,20 @@ export function useControllerApp() {
         runAsync(async () => {
             const result = (await GoldbusLightService.ApplyNetworkSettings()) as NetworkApplyResult;
             setApplyResult(result);
-            setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
+            setStatus(result.dryRun ? i18n.t("status:networkApplyDryRun") : i18n.t("status:networkApplyApplied"));
         });
     }, [runAsync]);
 
     const onExportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
             const path = await GoldbusLightService.ExportConfigurationBackup();
-            const msg = `Configuration exported to ${path}`;
+            const msg = i18n.t("status:configExported", {path});
             setStatus(msg);
             setError("");
             return msg;
         } catch (err) {
             if (String(err).includes("configuration backup cancelled")) {
-                return "Export cancelled.";
+                return i18n.t("status:exportCancelled");
             }
             throw err;
         }
@@ -949,7 +950,7 @@ export function useControllerApp() {
         async (deviceID: string, name: string): Promise<WLEDDevicePreset> => {
             const preset = (await GoldbusLightService.CreateWLEDDevicePreset(deviceID, name)) as unknown as WLEDDevicePreset;
             await pullSnapshot();
-            setStatus(`Saved preset “${name}”`);
+            setStatus(i18n.t("status:presetSaved", {name}));
             return preset;
         },
         [pullSnapshot, setStatus],
@@ -959,7 +960,7 @@ export function useControllerApp() {
         async (deviceID: string, presetID: string) => {
             const updated = (await GoldbusLightService.DeleteWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
-            setStatus("Preset deleted");
+            setStatus(i18n.t("status:presetDeleted"));
         },
         [setSnapshot, setStatus],
     );
@@ -968,7 +969,7 @@ export function useControllerApp() {
         async (deviceID: string, presetID: string) => {
             const updated = (await GoldbusLightService.ApplyWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
-            setStatus("Preset applied");
+            setStatus(i18n.t("status:presetApplied"));
         },
         [setSnapshot, setStatus],
     );
@@ -977,7 +978,7 @@ export function useControllerApp() {
         async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
             const scene = (await GoldbusLightService.CreateLightingScene(input as never)) as unknown as LightingScene;
             await pullSnapshot();
-            setStatus(`Scene “${scene.name}” created`);
+            setStatus(i18n.t("status:sceneCreated", {name: scene.name}));
             return scene;
         },
         [pullSnapshot, setStatus],
@@ -987,7 +988,7 @@ export function useControllerApp() {
         async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
             const scene = (await GoldbusLightService.UpdateLightingScene(input as never)) as unknown as LightingScene;
             await pullSnapshot();
-            setStatus(`Scene “${scene.name}” saved`);
+            setStatus(i18n.t("status:sceneSaved", {name: scene.name}));
             return scene;
         },
         [pullSnapshot, setStatus],
@@ -997,7 +998,7 @@ export function useControllerApp() {
         async (id: string) => {
             const updated = (await GoldbusLightService.DeleteLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
-            setStatus("Scene deleted");
+            setStatus(i18n.t("status:sceneDeleted"));
         },
         [setSnapshot, setStatus],
     );
@@ -1011,7 +1012,7 @@ export function useControllerApp() {
             } catch {
                 /* party may already be stopped */
             }
-            setStatus("Scene applied");
+            setStatus(i18n.t("status:sceneApplied"));
         },
         [pullDMXPartyState, setSnapshot, setStatus],
     );
@@ -1020,7 +1021,7 @@ export function useControllerApp() {
         async (id: string) => {
             const updated = (await GoldbusLightService.SetDefaultLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
-            setStatus(id ? "Default startup scene set" : "Default startup scene cleared");
+            setStatus(id ? i18n.t("status:startupSceneSet") : i18n.t("status:startupSceneCleared"));
         },
         [setSnapshot, setStatus],
     );
@@ -1029,7 +1030,7 @@ export function useControllerApp() {
         async (id: string) => {
             const updated = (await GoldbusLightService.SetPartyLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
-            setStatus(id ? "Party scene set" : "Party scene cleared");
+            setStatus(id ? i18n.t("status:partySceneSet") : i18n.t("status:partySceneCleared"));
         },
         [setSnapshot, setStatus],
     );
@@ -1039,7 +1040,7 @@ export function useControllerApp() {
             const updated = (await GoldbusLightService.StartLightingSceneParty()) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             await pullDMXPartyState();
-            setStatus("Party mode started from scene");
+            setStatus(i18n.t("status:partyStartedFromScene"));
         },
         [pullDMXPartyState, setSnapshot, setStatus],
     );
@@ -1048,13 +1049,13 @@ export function useControllerApp() {
         async (id: string): Promise<string> => {
             try {
                 const path = await GoldbusLightService.ExportLightingScene(id);
-                const msg = `Scene exported to ${path}`;
+                const msg = i18n.t("status:sceneExported", {path});
                 setStatus(msg);
                 setError("");
                 return msg;
             } catch (err) {
                 if (String(err).includes("configuration backup cancelled")) {
-                    return "Export cancelled.";
+                    return i18n.t("status:exportCancelled");
                 }
                 throw err;
             }
@@ -1071,7 +1072,7 @@ export function useControllerApp() {
             } catch {
                 /* fixtures may have gained cues */
             }
-            setStatus(`Scene “${scene.name}” imported`);
+            setStatus(i18n.t("status:sceneImported", {name: scene.name}));
             return scene;
         } catch (err) {
             if (String(err).includes("configuration backup cancelled")) {
@@ -1085,13 +1086,13 @@ export function useControllerApp() {
         async (suggestedFilename: string, contents: string): Promise<string> => {
             try {
                 const path = await GoldbusLightService.ExportDMXFixtureConfig(suggestedFilename, contents);
-                const msg = `Fixture exported to ${path}`;
+                const msg = i18n.t("status:fixtureExported", {path});
                 setStatus(msg);
                 setError("");
                 return msg;
             } catch (err) {
                 if (String(err).includes("configuration backup cancelled")) {
-                    return "Export cancelled.";
+                    return i18n.t("status:exportCancelled");
                 }
                 throw err;
             }
@@ -1105,13 +1106,13 @@ export function useControllerApp() {
             await pullSnapshot();
             await pullDMXState();
             await pullDMXPartyState();
-            const msg = "Configuration imported. Review settings and reconnect USB or network devices on this host if needed.";
+            const msg = i18n.t("status:configImported");
             setStatus(msg);
             setError("");
             return msg;
         } catch (err) {
             if (String(err).includes("configuration backup cancelled")) {
-                return "Import cancelled.";
+                return i18n.t("status:importCancelled");
             }
             throw err;
         }
@@ -1129,7 +1130,7 @@ export function useControllerApp() {
             try {
                 const created = (await GoldbusLightService.CreateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
-                setStatus(`Fixture "${created.name}" created`);
+                setStatus(i18n.t("status:fixtureCreated", {name: created.name}));
                 setError("");
                 return created;
             } catch (err) {
@@ -1157,7 +1158,7 @@ export function useControllerApp() {
                     }
                 }
                 await pullDMXState();
-                setStatus(`Fixture "${updated.name}" updated`);
+                setStatus(i18n.t("status:fixtureUpdated", {name: updated.name}));
                 setError("");
                 return updated;
             } catch (err) {
@@ -1212,7 +1213,7 @@ export function useControllerApp() {
                         }
                     }
                     await pullDMXState();
-                    setStatus(successLabel ?? `Readdressed ${changed} fixture${changed === 1 ? "" : "s"}`);
+                    setStatus(successLabel ?? i18n.t("status:readdressedFixtures", {count: changed}));
                     setError("");
                 } else if (successLabel) {
                     setStatus(successLabel);
@@ -1236,7 +1237,7 @@ export function useControllerApp() {
                 await GoldbusLightService.DeleteDMXFixture(fixtureID);
                 await pullDMXState();
                 setRoute((r) => (r.kind === "dmxFixture" && r.id === fixtureID ? {kind: "dmxAddFixture"} : r));
-                setStatus("Fixture deleted");
+                setStatus(i18n.t("status:fixtureDeleted"));
                 setError("");
                 return true;
             } catch (err) {
@@ -1253,7 +1254,7 @@ export function useControllerApp() {
         }
         try {
             await pullUSBSerialDevices();
-            setStatus("USB serial devices refreshed");
+            setStatus(i18n.t("status:usbSerialRefreshed"));
             setError("");
         } catch (err) {
             setError(String(err));
@@ -1291,7 +1292,7 @@ export function useControllerApp() {
             } catch {
                 setDmxLiveStatus(null);
             }
-            setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
+            setStatus(deviceID ? i18n.t("status:usbDmxSelected") : i18n.t("status:usbDmxCleared"));
             setError("");
         } catch (err) {
             setError(String(err));
@@ -1372,7 +1373,7 @@ export function useControllerApp() {
             await GoldbusLightService.StartDMXParty();
             const state = await GoldbusLightService.GetDMXPartyState();
             setDMXState((prev) => ({...prev, party: state as unknown as DMXPartyState}));
-            setStatus("DMX party mode started");
+            setStatus(i18n.t("status:partyStarted"));
             setError("");
             return true;
         } catch (err) {
@@ -1403,7 +1404,7 @@ export function useControllerApp() {
             await GoldbusLightService.StopDMXParty();
             const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
             setDMXState((prev) => ({...prev, party: state}));
-            setStatus("Party mode stopped");
+            setStatus(i18n.t("status:partyStopped"));
             setError("");
         } catch (err) {
             setError(String(err));
@@ -1482,7 +1483,7 @@ export function useControllerApp() {
             const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
             setDMXState((prev) => ({...prev, party: state}));
             await pullDMXLiveStatus();
-            setStatus("Emergency stop: party off, DMX blackout");
+            setStatus(i18n.t("status:emergencyStop"));
             setError("");
         } catch (err) {
             setError(String(err));
@@ -1553,7 +1554,7 @@ export function useControllerApp() {
             try {
                 await GoldbusLightService.StartDMXLive(fixtureID);
                 setError("");
-                setStatus("DMX live output started");
+                setStatus(i18n.t("status:dmxLiveStarted"));
                 await pullDMXLiveStatus();
                 return true;
             } catch (err) {
@@ -1591,7 +1592,7 @@ export function useControllerApp() {
             try {
                 const created = (await GoldbusLightService.AddWLEDDevice({address, port})) as { id: string };
                 await pullSnapshot();
-                setStatus("WLED device added");
+                setStatus(i18n.t("status:wledDeviceAdded"));
                 return created.id;
             } catch (err) {
                 setError(String(err));
@@ -1607,7 +1608,7 @@ export function useControllerApp() {
                 const result = await GoldbusLightService.SetGlobalState(patch);
                 if (!skipSnapshotReload) {
                     await pullSnapshot();
-                    setStatus(`${label}: ${Object.keys(result).length} targets`);
+                    setStatus(i18n.t("status:globalTargets", {label, count: Object.keys(result).length}));
                 }
             } catch (err: unknown) {
                 setError(String(err));
@@ -1699,12 +1700,12 @@ export function useControllerApp() {
                         }
                     }
                     if (!refreshed) {
-                        throw lastErr ?? new Error("Device refresh failed");
+                        throw lastErr ?? new Error(i18n.t("status:deviceRefreshFailed"));
                     }
                     setDeviceDetailFetchAttempt(0);
                     setSnapshot(refreshed);
                     setSettings(refreshed.settings);
-                    setStatus(`Device refreshed`);
+                    setStatus(i18n.t("status:deviceRefreshed"));
                     if (route.kind === "device" && route.id === deviceID) {
                         await loadDeviceDetail(deviceID, {
                             maxAttempts: DEVICE_DETAIL_MAX_TRIES,
@@ -1742,7 +1743,7 @@ export function useControllerApp() {
                 const updated = (await GoldbusLightService.ProvisionDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
-                setStatus(`Device provisioned`);
+                setStatus(i18n.t("status:deviceProvisioned"));
                 if (route.kind === "device" && route.id === deviceID) {
                     await loadDeviceDetail(deviceID);
                 }
@@ -1760,7 +1761,7 @@ export function useControllerApp() {
                 const updated = (await GoldbusLightService.RemoveDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
-                setStatus(`Device removed`);
+                setStatus(i18n.t("status:deviceRemoved"));
                 setRoute({kind: "presets"});
             });
         },
@@ -1782,7 +1783,7 @@ export function useControllerApp() {
                 } catch {
                     /* ignore */
                 }
-                setStatus("Device ignored");
+                setStatus(i18n.t("status:deviceIgnored"));
                 setRoute((r) => (r.kind === "device" && r.id === deviceID ? {kind: "presets"} : r));
             });
         },
@@ -1804,7 +1805,7 @@ export function useControllerApp() {
                 } catch {
                     /* ignore */
                 }
-                setStatus("Device restored from ignored list");
+                setStatus(i18n.t("status:deviceRestored"));
             });
         },
         [ensureWLEDEnabled, runAsync],
@@ -1839,7 +1840,7 @@ export function useControllerApp() {
                     if (route.kind === "device" && route.id === deviceID) {
                         await loadDeviceDetail(deviceID);
                     }
-                    setStatus(`Device updated`);
+                    setStatus(i18n.t("status:deviceUpdated"));
                 }
             })().catch((err: unknown) => {
                 setError(String(err));
@@ -1939,7 +1940,7 @@ export function useControllerApp() {
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setEditingDeviceName(false);
-                setStatus("Device name updated");
+                setStatus(i18n.t("status:deviceNameUpdated"));
                 setError("");
                 if (route.kind === "device" && route.id === deviceID) {
                     await loadDeviceDetail(deviceID);
@@ -1959,20 +1960,20 @@ export function useControllerApp() {
     const applyWarmWhitePreset = useCallback(() => {
         presetColorAutoApplySkipRef.current = true;
         setPresetRgb([...WARM_WHITE_RGB]);
-        onSetGlobalState(warmWhiteState(presetBri), "Warm white (all)");
+        onSetGlobalState(warmWhiteState(presetBri), i18n.t("status:warmWhiteAll"));
     }, [onSetGlobalState, presetBri]);
 
     const applyColdWhitePreset = useCallback(() => {
         presetColorAutoApplySkipRef.current = true;
         setPresetRgb([...COLD_WHITE_RGB]);
-        onSetGlobalState(coldWhiteState(presetBri), "Cold white (all)");
+        onSetGlobalState(coldWhiteState(presetBri), i18n.t("status:coldWhiteAll"));
     }, [onSetGlobalState, presetBri]);
 
     const applyNamedColorPreset = useCallback(
         (label: string, rgb: [number, number, number]) => {
             presetColorAutoApplySkipRef.current = true;
             setPresetRgb([...rgb]);
-            onSetGlobalState(rgbState(rgb[0], rgb[1], rgb[2], presetBri, true), `${label} (all)`);
+            onSetGlobalState(rgbState(rgb[0], rgb[1], rgb[2], presetBri, true), i18n.t("status:labelAll", {label}));
         },
         [onSetGlobalState, presetBri],
     );
@@ -1988,7 +1989,7 @@ export function useControllerApp() {
         }
         const t = window.setTimeout(() => {
             const [r, g, b] = presetRgb;
-            onSetGlobalState(rgbState(r, g, b, presetBri, true), "All devices color", {skipSnapshotReload: true});
+            onSetGlobalState(rgbState(r, g, b, presetBri, true), i18n.t("status:allDevicesColor"), {skipSnapshotReload: true});
         }, 200);
         return () => window.clearTimeout(t);
     }, [onSetGlobalState, presetBri, presetRgb]);
@@ -2001,7 +2002,7 @@ export function useControllerApp() {
         const patch: JSONMap = {
             seg: [{id: 0, fx: generalFx, pal: generalPal, sx: generalSx, ix: generalIx}],
         };
-        onSetGlobalState(patch, "Effect/palette (all)", {skipSnapshotReload: true});
+        onSetGlobalState(patch, i18n.t("status:effectPaletteAll"), {skipSnapshotReload: true});
     }, [generalFx, generalPal, generalSx, generalIx, onSetGlobalState]);
 
     return {

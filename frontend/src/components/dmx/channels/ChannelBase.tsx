@@ -2,6 +2,8 @@ import type { DMXChannel, DMXChannelType, JSONMap } from "@/types/controller.ts"
 import { type ColorWheelScrollRamp } from "@/lib/colorWheelSlot";
 import { type LiveSlotKind } from "@/lib/dmxLiveWidget.ts";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import i18n from "@/i18n";
+import { useTranslation } from "react-i18next";
 
 export type SlotEntry = {
     from: number;
@@ -62,6 +64,7 @@ export function EntryLiveSlotKindSelect({
     onChange: (kind: LiveSlotKind) => void;
     disabled?: boolean;
 }>) {
+    const { t } = useTranslation("dmx");
     return (
         <NativeSelect
             value={value ?? "button"}
@@ -69,8 +72,8 @@ export function EntryLiveSlotKindSelect({
             disabled={disabled}
             className="h-8"
         >
-            <NativeSelectOption value="button">Switch</NativeSelectOption>
-            <NativeSelectOption value="slider">Slider</NativeSelectOption>
+            <NativeSelectOption value="button">{t("channelEditor.switch")}</NativeSelectOption>
+            <NativeSelectOption value="slider">{t("channelEditor.slider")}</NativeSelectOption>
         </NativeSelect>
     );
 }
@@ -104,13 +107,27 @@ export function isRainbowModeExplicit(slot: Pick<SlotEntry, "mode">): boolean {
     return m === "rainbow" || m === "scroll";
 }
 
-export const SHUTTER_MODE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-    {value: "closed", label: "Shutter Closed"},
-    {value: "open", label: "Shutter Open"},
-    {value: "strobe", label: "Strobe"},
-    {value: "pulse", label: "Pulse Alternating"},
-    {value: "randomStrobe", label: "Random Strobe"},
+const SHUTTER_MODE_VALUES: readonly string[] = [
+    "closed",
+    "open",
+    "strobe",
+    "pulse",
+    "randomStrobe",
 ];
+
+/** Shutter/strobe mode options with translated labels. */
+export function getShutterModeOptions(): { value: string; label: string }[] {
+    return SHUTTER_MODE_VALUES.map((value) => ({
+        value,
+        label: i18n.t(`dmx:channelEditor.shutterModes.${value}`),
+    }));
+}
+
+/** @deprecated kept for compatibility. Prefer `getShutterModeOptions()`. */
+export const SHUTTER_MODE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = SHUTTER_MODE_VALUES.map((value) => ({
+    value,
+    label: value,
+}));
 
 export type MotionStateOption = {
     id: string;
@@ -119,25 +136,31 @@ export type MotionStateOption = {
     direction?: string;
 };
 
-export const MOTION_STATE_OPTIONS: MotionStateOption[] = [
-    {id: "tracking", label: "Tracking", mode: "tracking"},
-    {id: "vector", label: "Vector", mode: "vector"},
-    {
-        id: "blackout_pt",
-        label: "Blackout During Pan/Tilt Movement",
-        mode: "blackout_pt",
-    },
-    {
-        id: "blackout_wheel",
-        label: "Blackout During Wheel Movement",
-        mode: "blackout_wheel",
-    },
-    {id: "slow_cw", label: "Slow CW", mode: "slow", direction: "cw"},
-    {id: "fast_cw", label: "Fast CW", mode: "fast", direction: "cw"},
-    {id: "stop", label: "Stop", mode: "stop", direction: "stop"},
-    {id: "slow_ccw", label: "Slow CCW", mode: "slow", direction: "ccw"},
-    {id: "fast_ccw", label: "Fast CCW", mode: "fast", direction: "ccw"},
+const MOTION_STATE_BASE: Omit<MotionStateOption, "label">[] = [
+    {id: "tracking", mode: "tracking"},
+    {id: "vector", mode: "vector"},
+    {id: "blackout_pt", mode: "blackout_pt"},
+    {id: "blackout_wheel", mode: "blackout_wheel"},
+    {id: "slow_cw", mode: "slow", direction: "cw"},
+    {id: "fast_cw", mode: "fast", direction: "cw"},
+    {id: "stop", mode: "stop", direction: "stop"},
+    {id: "slow_ccw", mode: "slow", direction: "ccw"},
+    {id: "fast_ccw", mode: "fast", direction: "ccw"},
 ];
+
+/** Motion state options with translated labels. */
+export function getMotionStateOptions(): MotionStateOption[] {
+    return MOTION_STATE_BASE.map((opt) => ({
+        ...opt,
+        label: i18n.t(`dmx:channelEditor.motionStates.${opt.id}`),
+    }));
+}
+
+/** @deprecated kept for compatibility. Prefer `getMotionStateOptions()`. */
+export const MOTION_STATE_OPTIONS: MotionStateOption[] = MOTION_STATE_BASE.map((opt) => ({
+    ...opt,
+    label: opt.id,
+}));
 
 export function motionStateCueId(slot: Pick<SlotEntry, "mode" | "direction">): string {
     const m = (slot.mode ?? "").toLowerCase();
@@ -213,15 +236,16 @@ export function usesSlots(properties: JSONMap | undefined): boolean {
 }
 
 export function defaultPropsForType(type: DMXChannelType): JSONMap {
+    const tr = (key: string) => i18n.t(`dmx:${key}`);
     if (ENTRY_FIRST_TYPES.has(type)) {
         switch (type) {
             case "colorWheel":
                 return {
                     entries: [
-                        { from: 0, to: 14, label: "Open / white", color: "#ffffff" },
-                        { from: 15, to: 29, label: "Red", color: "#ff0000" },
-                        { from: 30, to: 44, label: "Green", color: "#00ff00" },
-                        { from: 45, to: 59, label: "Blue", color: "#0000ff" },
+                        { from: 0, to: 14, label: tr("channelBase.colorWheel.openWhite"), color: "#ffffff" },
+                        { from: 15, to: 29, label: tr("channelBase.colorWheel.red"), color: "#ff0000" },
+                        { from: 30, to: 44, label: tr("channelBase.colorWheel.green"), color: "#00ff00" },
+                        { from: 45, to: 59, label: tr("channelBase.colorWheel.blue"), color: "#0000ff" },
                     ],
                 };
             case "goboWheel":
@@ -230,9 +254,9 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 0,
                             to: 31,
-                            label: "Open",
+                            label: tr("channelBase.goboOpen"),
                             goboIdentifier: "",
-                            goboName: "Open",
+                            goboName: tr("channelBase.goboOpen"),
                             goboImage: "",
                         },
                     ],
@@ -240,17 +264,17 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
             case "shutterStrobe":
                 return {
                     entries: [
-                        { from: 0, to: 31, label: "Shutter Closed", mode: "closed" },
-                        { from: 32, to: 63, label: "Shutter Open", mode: "open" },
-                        { from: 64, to: 95, label: "Strobe", mode: "strobe" },
-                        { from: 96, to: 127, label: "Pulse Alternating", mode: "pulse" },
+                        { from: 0, to: 31, label: tr("channelBase.shutterMode.closed"), mode: "closed" },
+                        { from: 32, to: 63, label: tr("channelBase.shutterMode.open"), mode: "open" },
+                        { from: 64, to: 95, label: tr("channelBase.shutterMode.strobe"), mode: "strobe" },
+                        { from: 96, to: 127, label: tr("channelBase.shutterMode.pulse"), mode: "pulse" },
                     ],
                 };
             case "fog":
                 return {
                     entries: [
-                        { from: 0, to: 0, label: "Off", liveSlotKind: "button" },
-                        { from: 1, to: 255, label: "Volume", liveSlotKind: "slider" },
+                        { from: 0, to: 0, label: tr("channelBase.fogOff"), liveSlotKind: "button" },
+                        { from: 1, to: 255, label: tr("channelBase.fogVolume"), liveSlotKind: "slider" },
                     ],
                 };
             case "infinitePan":
@@ -264,7 +288,7 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 0,
                             to: 42,
-                            label: "Slow CW",
+                            label: tr("channelBase.motionState.slow_cw"),
                             direction: "cw",
                             mode: "slow",
                             numeric: 0
@@ -272,7 +296,7 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 43,
                             to: 85,
-                            label: "Fast CW",
+                            label: tr("channelBase.motionState.fast_cw"),
                             direction: "cw",
                             mode: "fast",
                             numeric: 128
@@ -280,7 +304,7 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 86,
                             to: 127,
-                            label: "Stop",
+                            label: tr("channelBase.motionState.stop"),
                             direction: "stop",
                             mode: "stop",
                             numeric: 0
@@ -288,7 +312,7 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 128,
                             to: 170,
-                            label: "Slow CCW",
+                            label: tr("channelBase.motionState.slow_ccw"),
                             direction: "ccw",
                             mode: "slow",
                             numeric: 0
@@ -296,7 +320,7 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                         {
                             from: 171,
                             to: 213,
-                            label: "Fast CCW",
+                            label: tr("channelBase.motionState.fast_ccw"),
                             direction: "ccw",
                             mode: "fast",
                             numeric: 128
@@ -304,14 +328,14 @@ export function defaultPropsForType(type: DMXChannelType): JSONMap {
                     ],
                 };
             default:
-                return { entries: [{ from: 0, to: 255, label: "Slot A" }] };
+                return { entries: [{ from: 0, to: 255, label: tr("channelBase.slotDefault") }] };
         }
     }
     if (type === "custom") {
         return {
             label: "",
             partyInclude: true,
-            entries: [{ from: 0, to: 255, label: "Slot 1" }],
+            entries: [{ from: 0, to: 255, label: i18n.t("dmx:channelBase.slotN", { n: 1 }) }],
         };
     }
     return { min: 1, max: 255 };

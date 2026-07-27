@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {Button} from "@/components/ui/button";
 import {Slider} from "@/components/ui/slider";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
@@ -127,6 +128,7 @@ export function PartyModeView({
                                   onStart,
                                   onStop,
                               }: PartyModeViewProps) {
+    const {t} = useTranslation("party");
     const config = party.config;
     const running = party.status.running;
     const mode = config.mode || "auto";
@@ -158,9 +160,9 @@ export function PartyModeView({
             wledDevices.map((device) => ({
                 id: device.id,
                 label: device.name || device.host || device.id,
-                hint: device.online ? "Online" : "Offline",
+                hint: device.online ? t("online") : t("offline"),
             })),
-        [wledDevices],
+        [wledDevices, t],
     );
 
     const dmxItems = useMemo(
@@ -334,22 +336,22 @@ export function PartyModeView({
         <section className="space-y-3 rounded-lg border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 className="text-base font-semibold">Party Mode</h2>
+                    <h2 className="text-base font-semibold">{t("title")}</h2>
                     <p className="text-xs text-muted-foreground">
-                        Configure WLED and DMX party behaviour separately.
+                        {t("description")}
                         {running && (
                             <>
-                                <span>&nbsp;Last frame: {formatPartyTimestamp(party.status.lastFrameAt)}</span>
-                                <>{mode === "audio" && (
-                                    <span>&nbsp;Last audio: {formatPartyTimestamp(party.status.lastAudioAt)}</span>
-                                )}</>
+                                <span>{t("lastFrame", {time: formatPartyTimestamp(party.status.lastFrameAt)})}</span>
+                                {mode === "audio" && (
+                                    <span>{t("lastAudio", {time: formatPartyTimestamp(party.status.lastAudioAt)})}</span>
+                                )}
                             </>
                         )}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                        {running ? "Running" : "Stopped"}
+                        {running ? t("running") : t("stopped")}
                     </span>
                     <Button
                         type="button"
@@ -364,14 +366,14 @@ export function PartyModeView({
                             }
                         }}
                     >
-                        {running ? "Stop Party" : "Start Party"}
+                        {running ? t("stopParty") : t("startParty")}
                     </Button>
                 </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
                 <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
-                    <span className="font-medium">Mode</span>
+                    <span className="font-medium">{t("mode.label")}</span>
                     <select
                         className="rounded-md border bg-background px-2 py-1 text-sm"
                         value={mode}
@@ -381,11 +383,11 @@ export function PartyModeView({
                             void onUpdateConfig({mode: nextMode});
                         }}
                     >
-                        <option value="auto">Auto show</option>
-                        <option value="audio">Audio reactive</option>
+                        <option value="auto">{t("mode.auto")}</option>
+                        <option value="audio">{t("mode.audio")}</option>
                     </select>
                 </label>
-                {mode === "audio" && renderSlider("audioSensitivity", "Audio sensitivity", sliderDraft.audioSensitivity)}
+                {mode === "audio" && renderSlider("audioSensitivity", t("audioSensitivity"), sliderDraft.audioSensitivity)}
             </div>
 
             {mode === "audio" && (
@@ -393,7 +395,7 @@ export function PartyModeView({
                     <div className="flex flex-wrap items-end gap-2">
                         <label
                             className="flex min-w-[12rem] flex-col gap-1 text-xs text-muted-foreground">
-                            <span className="font-medium">Source preset</span>
+                            <span className="font-medium">{t("audio.sourcePreset")}</span>
                             <select
                                 className="rounded-md border bg-background px-2 py-1 text-sm"
                                 value={audioSourcePreset}
@@ -403,17 +405,17 @@ export function PartyModeView({
                                     void applyAudioPreset(preset);
                                 }}
                             >
-                                <option value="mic">Built-in microphone</option>
-                                <option value="usbMic">USB microphone</option>
-                                <option value="loopback">Loopback / line-in</option>
-                                <option value="custom">Custom device</option>
+                                <option value="mic">{t("audio.presetMic")}</option>
+                                <option value="usbMic">{t("audio.presetUsbMic")}</option>
+                                <option value="loopback">{t("audio.presetLoopback")}</option>
+                                <option value="custom">{t("audio.presetCustom")}</option>
                             </select>
                         </label>
 
                         {audioSourcePreset === "usbMic" && (
                             <label
                                 className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                                <span className="font-medium">USB microphone</span>
+                                <span className="font-medium">{t("audio.usbMic")}</span>
                                 <select
                                     className="rounded-md border bg-background px-2 py-1 text-sm"
                                     value={config.audioInputDeviceId || ""}
@@ -423,12 +425,12 @@ export function PartyModeView({
                                     }}
                                 >
                                     {usbMicDevices.length === 0 ? (
-                                        <option value="">No USB microphone found</option>
+                                        <option value="">{t("audio.noUsbMic")}</option>
                                     ) : (
                                         usbMicDevices.map((device) => (
                                             <option key={device.id} value={device.id}>
-                                                {device.name || `USB mic ${device.id.slice(0, 6)}`}
-                                                {device.isDefault ? " (system default)" : ""}
+                                                {device.name || t("audio.usbMicPlaceholder", {id: device.id.slice(0, 6)})}
+                                                {device.isDefault ? t("audio.systemDefaultSuffix") : ""}
                                             </option>
                                         ))
                                     )}
@@ -439,7 +441,7 @@ export function PartyModeView({
                         {audioSourcePreset === "custom" && (
                             <label
                                 className="flex min-w-[15rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                                <span className="font-medium">Input device</span>
+                                <span className="font-medium">{t("audio.inputDevice")}</span>
                                 <select
                                     className="rounded-md border bg-background px-2 py-1 text-sm"
                                     value={config.audioInputDeviceId || ""}
@@ -448,10 +450,10 @@ export function PartyModeView({
                                         void onUpdateConfig({audioInputDeviceId: event.target.value});
                                     }}
                                 >
-                                    <option value="">Default input</option>
+                                    <option value="">{t("audio.defaultInput")}</option>
                                     {audioInputDevices.map((device) => (
                                         <option key={device.id} value={device.id}>
-                                            {device.name || `Audio input ${device.id.slice(0, 6)}`}
+                                            {device.name || t("audio.audioInputPlaceholder", {id: device.id.slice(0, 6)})}
                                         </option>
                                     ))}
                                 </select>
@@ -465,7 +467,7 @@ export function PartyModeView({
                             disabled={busy}
                             onClick={() => void onRefreshAudioDevices()}
                         >
-                            Refresh devices
+                            {t("audio.refreshDevices")}
                         </Button>
                     </div>
 
@@ -473,14 +475,18 @@ export function PartyModeView({
 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>
-                            Capture: {party.status.audioCapturing ? "active (native)" : running ? "starting…" : "starts with Party"}
+                            {party.status.audioCapturing
+                                ? t("audio.captureActive")
+                                : running
+                                    ? t("audio.captureStarting")
+                                    : t("audio.captureStartsWithParty")}
                         </span>
                         {party.status.audioNoSignal &&
-                            <span className="text-amber-600">No signal detected</span>}
+                            <span className="text-amber-600">{t("audio.noSignal")}</span>}
                     </div>
 
                     {audioSourcePreset === "loopback" && loopbackDevices.length === 0 && (
-                        <p className="text-xs text-amber-600">No loopback device found.</p>
+                        <p className="text-xs text-amber-600">{t("audio.noLoopback")}</p>
                     )}
                     {party.status.audioCaptureError ? (
                         <p className="text-xs text-destructive">{party.status.audioCaptureError}</p>
@@ -494,27 +500,27 @@ export function PartyModeView({
                 className="gap-3"
             >
                 <TabsList>
-                    <TabsTrigger value="wled">WLED</TabsTrigger>
-                    <TabsTrigger value="dmx">DMX</TabsTrigger>
-                    <TabsTrigger value="smoke">Smoke</TabsTrigger>
+                    <TabsTrigger value="wled">{t("tabs.wled")}</TabsTrigger>
+                    <TabsTrigger value="dmx">{t("tabs.dmx")}</TabsTrigger>
+                    <TabsTrigger value="smoke">{t("tabs.smoke")}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="wled" className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                        LED strips only — color, brightness, and speed. No pan, tilt, or movement settings.
+                        {t("wled.description")}
                     </p>
 
                     <div className="flex flex-wrap gap-3">
-                        {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
-                        {renderSlider("speed", "Speed", sliderDraft.speed)}
-                        {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
+                        {renderSlider("intensity", t("sliders.intensity"), sliderDraft.intensity)}
+                        {renderSlider("speed", t("sliders.speed"), sliderDraft.speed)}
+                        {renderSlider("colorVariation", t("sliders.colorVariation"), sliderDraft.colorVariation)}
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">WLED targets</div>
+                        <div className="text-xs font-medium text-muted-foreground">{t("wled.targets")}</div>
                         <TransferList
-                            availableLabel="Available"
-                            includedLabel="Included"
+                            availableLabel={t("targets.available")}
+                            includedLabel={t("targets.included")}
                             items={wledItems}
                             includedIds={wledDeviceIds}
                             disabled={busy}
@@ -527,29 +533,28 @@ export function PartyModeView({
 
                 <TabsContent value="dmx" className="space-y-3">
                     <div className="flex flex-wrap gap-3">
-                        {renderSlider("intensity", "Intensity", sliderDraft.intensity)}
-                        {renderSlider("speed", "Speed", sliderDraft.speed)}
-                        {renderSlider("colorVariation", "Color variation", sliderDraft.colorVariation)}
-                        {renderSlider("movementRange", "Movement range", sliderDraft.movementRange)}
+                        {renderSlider("intensity", t("sliders.intensity"), sliderDraft.intensity)}
+                        {renderSlider("speed", t("sliders.speed"), sliderDraft.speed)}
+                        {renderSlider("colorVariation", t("sliders.colorVariation"), sliderDraft.colorVariation)}
+                        {renderSlider("movementRange", t("sliders.movementRange"), sliderDraft.movementRange)}
                         {renderSlider(
                             "movementAngleLimitDeg",
-                            "Max angle from centre",
+                            t("sliders.movementAngleLimit"),
                             sliderDraft.movementAngleLimitDeg,
                             {
                                 min: 0,
                                 max: 180,
                                 step: 1,
-                                format: (v) => (v <= 0 ? "off (use range %)" : `${v}°`),
+                                format: (v) => (v <= 0 ? t("angle.off") : t("angle.value", {value: v})),
                             },
                         )}
                     </div>
 
                     <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                         <div>
-                            <h3 className="text-sm font-medium">Animated channels</h3>
+                            <h3 className="text-sm font-medium">{t("dmx.animated.title")}</h3>
                             <p className="text-xs text-muted-foreground">
-                                Choose which channel groups party mode drives on moving heads and similar fixtures.
-                                Uncheck groups to calm nervous motion (e.g. disable gobo or beam).
+                                {t("dmx.animated.description")}
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -580,10 +585,10 @@ export function PartyModeView({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">DMX targets</div>
+                        <div className="text-xs font-medium text-muted-foreground">{t("dmx.targets")}</div>
                         <TransferList
-                            availableLabel="Available"
-                            includedLabel="Included"
+                            availableLabel={t("targets.available")}
+                            includedLabel={t("targets.included")}
                             items={dmxItems}
                             includedIds={dmxIncludedIds}
                             disabled={busy}
@@ -594,25 +599,24 @@ export function PartyModeView({
 
                 <TabsContent value="smoke" className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                        Burst timing for smoke and hazer fixtures. Configure which machines take part below.
+                        {t("smoke.description")}
                     </p>
 
                     <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                         <div>
-                            <h3 className="text-sm font-medium">Smoke / fog bursts</h3>
+                            <h3 className="text-sm font-medium">{t("smoke.sectionTitle")}</h3>
                             <p className="text-xs text-muted-foreground">
-                                Short bursts with pauses between them. When burst volume is above 0, all
-                                smoke and hazer fixtures run automatically
+                                {t("smoke.sectionDescription")}
                                 {smokeAutoIncluded.length > 0
-                                    ? `: ${smokeAutoIncluded.map((f) => f.name).join(", ")}.`
-                                    : "."}
+                                    ? t("smoke.autoIncluded", {names: smokeAutoIncluded.map((f) => f.name).join(", ")})
+                                    : t("smoke.autoIncludedNone")}
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-3">
                             <label
                                 className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                                 <span className="font-medium">
-                                    Burst duration: {smokeDraft.burstOnSec.toFixed(1)} s
+                                    {t("smoke.burstDuration", {value: smokeDraft.burstOnSec.toFixed(1)})}
                                 </span>
                                 <Slider
                                     min={0.2}
@@ -632,7 +636,7 @@ export function PartyModeView({
                             <label
                                 className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                                 <span className="font-medium">
-                                    Pause between bursts: {Math.round(smokeDraft.burstOffSec)} s
+                                    {t("smoke.burstPause", {value: Math.round(smokeDraft.burstOffSec)})}
                                 </span>
                                 <Slider
                                     min={5}
@@ -649,15 +653,15 @@ export function PartyModeView({
                                     onValueCommit={([next]) => setSmokeBurstOffSec(next ?? smokeDraft.burstOffSec)}
                                 />
                             </label>
-                            {renderSlider("smokeVolume", "Burst volume", sliderDraft.smokeVolume)}
+                            {renderSlider("smokeVolume", t("sliders.smokeVolume"), sliderDraft.smokeVolume)}
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">Smoke targets</div>
+                        <div className="text-xs font-medium text-muted-foreground">{t("smoke.targets")}</div>
                         <TransferList
-                            availableLabel="Available"
-                            includedLabel="Included"
+                            availableLabel={t("targets.available")}
+                            includedLabel={t("targets.included")}
                             items={smokeItems}
                             includedIds={smokeIncludedIds}
                             disabled={busy}

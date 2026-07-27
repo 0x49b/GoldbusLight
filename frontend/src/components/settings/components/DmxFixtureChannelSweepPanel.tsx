@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -6,6 +7,7 @@ import { Field, FieldLabel } from "@/components/ui/field.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
+import i18n from "@/i18n";
 import * as GoldbusLightService from "../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import { DMXOutputUpdate } from "../../../../bindings/goldbus/internal/dmx";
 import type { ControllerSettings, DMXChannel, DMXFixture, USBSerialDevice } from "@/types/controller.ts";
@@ -81,6 +83,7 @@ export function DmxFixtureChannelSweepPanel({
     startDMXLiveOutput,
     setError,
 }: Readonly<DmxFixtureChannelSweepPanelProps>) {
+    const { t } = useTranslation("settings");
     const [fixtureId, setFixtureId] = useState<string>("");
     const [speed, setSpeed] = useState<number>(25);
     const [running, setRunning] = useState(false);
@@ -108,7 +111,7 @@ export function DmxFixtureChannelSweepPanel({
 
     const transportSummary = useMemo(() => {
         if (!settings?.dmx) {
-            return "—";
+            return t("sweep.transport.empty");
         }
         const d = settings.dmx;
         const parts: string[] = [];
@@ -116,22 +119,28 @@ export function DmxFixtureChannelSweepPanel({
             const id = selectedUSBDeviceId ?? "";
             const dev = usbSerialDevices.find((u) => u.id === id);
             if (id && dev) {
-                parts.push(`USB: ${dev.name} (${dev.path})`);
+                parts.push(t("sweep.transport.usbSelected", { name: dev.name, path: dev.path }));
             } else if (id) {
-                parts.push(`USB: selected device unavailable (${id})`);
+                parts.push(t("sweep.transport.usbUnavailable", { id }));
             } else {
-                parts.push("USB: no device selected");
+                parts.push(t("sweep.transport.usbNoDevice"));
             }
         } else {
-            parts.push("USB transport off");
+            parts.push(t("sweep.transport.usbTransportOff"));
         }
         if (d.artNet.enabled) {
-            parts.push(`Art-Net → ${d.artNet.targetHost}:${d.artNet.port} (N${d.artNet.net} S${d.artNet.subnet} U${d.artNet.universe})`);
+            parts.push(t("sweep.transport.artNetTarget", {
+                host: d.artNet.targetHost,
+                port: d.artNet.port,
+                net: d.artNet.net,
+                subnet: d.artNet.subnet,
+                universe: d.artNet.universe,
+            }));
         } else {
-            parts.push("Art-Net off");
+            parts.push(t("sweep.transport.artNetOff"));
         }
         return parts.join(" · ");
-    }, [settings, selectedUSBDeviceId, usbSerialDevices]);
+    }, [settings, selectedUSBDeviceId, usbSerialDevices, t]);
 
     useEffect(() => {
         pausedRef.current = paused;
@@ -152,12 +161,17 @@ export function DmxFixtureChannelSweepPanel({
             if (next) {
                 const ts = new Date().toISOString();
                 appendPauseLog(
-                    `${ts}  Pause  DMX ${dmxAddress}  fixture ch ${fixtureChannelOffset}  value ${value}`,
+                    t("sweep.pauseLogEntry", {
+                        ts,
+                        address: dmxAddress,
+                        channel: fixtureChannelOffset,
+                        value,
+                    }),
                 );
             }
             return next;
         });
-    }, [appendPauseLog, dmxAddress, fixtureChannelOffset, value]);
+    }, [appendPauseLog, dmxAddress, fixtureChannelOffset, t, value]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -199,11 +213,11 @@ export function DmxFixtureChannelSweepPanel({
 
     const runSweep = useCallback(async () => {
         if (!selectedFixture || sortedChannels.length === 0) {
-            setError("Select a fixture with at least one DMX channel.");
+            setError(i18n.t("status:selectFixtureWithChannels"));
             return;
         }
         if (partyRunning) {
-            setError("Stop party mode before running the channel sweep test.");
+            setError(i18n.t("status:stopPartyBeforeSweep"));
             return;
         }
         setError("");
@@ -328,34 +342,30 @@ export function DmxFixtureChannelSweepPanel({
     return (
         <Card className="w-full max-w-none">
             <CardHeader>
-                <CardTitle className="text-sm font-semibold">DMX fixture channel sweep</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("sweep.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                    Sweeps each configured channel of one fixture from 0→255 while all other channels on that fixture stay at
-                    zero. The universe is blacked out first so you can see which physical function responds. Output uses the
-                    same USB / Art-Net configuration as the DMX settings above.
-                </p>
+                <p className="text-sm text-muted-foreground">{t("sweep.description")}</p>
                 <p className="text-xs text-muted-foreground font-mono break-all">{transportSummary}</p>
 
                 {partyRunning && (
                     <Alert>
-                        <AlertDescription>Party mode is on — stop it before starting a sweep.</AlertDescription>
+                        <AlertDescription>{t("sweep.partyRunningAlert")}</AlertDescription>
                     </Alert>
                 )}
 
                 <Field>
-                    <FieldLabel>Fixture</FieldLabel>
+                    <FieldLabel>{t("sweep.fixtureLabel")}</FieldLabel>
                     <NativeSelect
                         className="w-full md:w-[28rem]"
                         value={fixtureId}
                         onChange={(e) => setFixtureId(e.target.value)}
                         disabled={running || busy || !dmxEnabled}
                     >
-                        <NativeSelectOption value="">Select fixture…</NativeSelectOption>
+                        <NativeSelectOption value="">{t("sweep.selectFixturePlaceholder")}</NativeSelectOption>
                         {fixtures.map((f) => (
                             <NativeSelectOption key={f.id} value={f.id}>
-                                {f.name} ({f.type}) @ ch {f.dmxAddress}
+                                {t("sweep.fixtureOption", {name: f.name, type: f.type, address: f.dmxAddress})}
                             </NativeSelectOption>
                         ))}
                     </NativeSelect>
@@ -363,8 +373,8 @@ export function DmxFixtureChannelSweepPanel({
 
                 <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                        <Label>Sweep speed</Label>
-                        <span className="text-xs text-muted-foreground tabular-nums">{speed}%</span>
+                        <Label>{t("sweep.sweepSpeed")}</Label>
+                        <span className="text-xs text-muted-foreground tabular-nums">{t("sweep.sweepSpeedPercent", {value: speed})}</span>
                     </div>
                     <Slider
                         min={1}
@@ -373,39 +383,48 @@ export function DmxFixtureChannelSweepPanel({
                         onValueChange={(v) => setSpeed(v[0] ?? 25)}
                         disabled={running || busy || !dmxEnabled}
                     />
-                    <p className="text-xs text-muted-foreground">Higher is faster (shorter delay between DMX steps).</p>
+                    <p className="text-xs text-muted-foreground">{t("sweep.sweepSpeedHint")}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                     <Button type="button" size="sm" onClick={() => void runSweep()} disabled={startDisabled}>
-                        Start sweep
+                        {t("sweep.startSweep")}
                     </Button>
                     <Button type="button" size="sm" variant="outline" onClick={() => void stopSweep()} disabled={!running}>
-                        Stop
+                        {t("sweep.stop")}
                     </Button>
                 </div>
 
                 <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Current step</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t("sweep.currentStep")}</p>
                     {running || paused ? (
                         <div className="text-sm font-mono space-y-1">
                             <div>
-                                Fixture channel offset: <strong>{fixtureChannelOffset}</strong> ({sortedChannels[fixtureChannelIndex]?.type ?? "—"}) ·
-                                DMX address: <strong>{dmxAddress}</strong> · Value: <strong>{value}</strong>
+                                <Trans
+                                    i18nKey="sweep.currentStepDetail"
+                                    t={t}
+                                    values={{
+                                        offset: fixtureChannelOffset,
+                                        type: sortedChannels[fixtureChannelIndex]?.type ?? t("sweep.channelPlaceholder"),
+                                        address: dmxAddress,
+                                        value,
+                                    }}
+                                    components={[<strong key="offset"/>, <strong key="address"/>, <strong key="value"/>]}
+                                />
                             </div>
                             <div className="text-xs opacity-80">
-                                {paused ? "Paused — press Space to resume" : "Running — Space to pause and log this position"}
+                                {paused ? t("sweep.paused") : t("sweep.running")}
                             </div>
                         </div>
                     ) : (
-                        <p className="text-sm opacity-70">Idle</p>
+                        <p className="text-sm opacity-70">{t("sweep.idle")}</p>
                     )}
                 </div>
 
                 <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Pause log (Space)</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t("sweep.pauseLogTitle")}</p>
                     <div className="max-h-48 overflow-auto rounded border bg-card p-2 text-xs font-mono whitespace-pre-wrap">
-                        {pauseLog.length === 0 ? <span className="opacity-60">No pauses yet.</span> : pauseLog.join("\n")}
+                        {pauseLog.length === 0 ? <span className="opacity-60">{t("sweep.noPauses")}</span> : pauseLog.join("\n")}
                     </div>
                 </div>
             </CardContent>

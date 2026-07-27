@@ -1,4 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useTranslation} from "react-i18next";
+import type {TFunction} from "i18next";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import {GetDMXState} from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 import type {
@@ -93,8 +95,10 @@ function renderLiveTile(
         canUpdateActiveCue: boolean;
         savingActiveCue: boolean;
         onUpdateActiveCue: () => void;
+        t: TFunction<"dmx">;
     },
 ) {
+    const {t} = opts;
     if (id === "preview") {
         const previewVariant = fixturePreview3DVariant(fixture);
         if (!previewVariant) {
@@ -104,7 +108,7 @@ function renderLiveTile(
             <div className="flex h-full min-h-0 flex-col gap-1.5">
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <span
-                        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D preview</span>
+                        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("liveControls.preview3D")}</span>
                     {opts.activeCueLabel ? (
                         <>
                             <span
@@ -113,7 +117,7 @@ function renderLiveTile(
                                         ? "inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
                                         : "inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
                                 }
-                                title={opts.activeCueDirty ? "Live values differ from this cue" : "Currently applied cue"}
+                                title={opts.activeCueDirty ? t("liveControls.activeCueTitleDirty") : t("liveControls.activeCueTitleClean")}
                             >
                                 {opts.activeCueIndex != null && (
                                     <span
@@ -132,17 +136,17 @@ function renderLiveTile(
                                 onClick={opts.onUpdateActiveCue}
                                 title={
                                     !opts.canUpdateActiveCue
-                                        ? "Connect live output (and stop party) to update"
+                                        ? t("liveControls.cannotUpdateNoConnect")
                                         : !opts.activeCueDirty
-                                            ? "Live values already match this cue"
-                                            : "Overwrite this cue with the current live values"
+                                            ? t("liveControls.cannotUpdateClean")
+                                            : t("liveControls.canUpdate")
                                 }
                             >
-                                {opts.savingActiveCue ? "Updating…" : "Update cue"}
+                                {opts.savingActiveCue ? t("liveControls.updating") : t("liveControls.updateCue")}
                             </Button>
                         </>
                     ) : (
-                        <span className="text-[11px] text-muted-foreground/70">no cue applied</span>
+                        <span className="text-[11px] text-muted-foreground/70">{t("liveControls.noCueApplied")}</span>
                     )}
                 </div>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -231,8 +235,9 @@ export function DMXFixtureLiveControls({
                                            onSaveSceneCues,
                                            onSaveColorSweep,
                                            displayMode = "live",
-                                           editLayout: editLayoutProp,
-                                       }: DMXFixtureLiveControlsProps) {
+                                       editLayout: editLayoutProp,
+                                   }: DMXFixtureLiveControlsProps) {
+    const {t} = useTranslation("dmx");
     const connected = liveStatus?.connected ?? false;
     const [liveState, setLiveState] = useState<DMXLiveControlState>(() => defaultDmxLiveControlState(fixture));
     // Live DMX buffer sourced directly from the poll (see effect below) so the party
@@ -533,8 +538,8 @@ export function DMXFixtureLiveControls({
     const activeCueLabel = useMemo(() => {
         if (activeCueIndex == null) return null;
         const p = cues[activeCueIndex];
-        return p.label?.trim() ? p.label : `Pose ${activeCueIndex + 1}`;
-    }, [activeCueIndex, cues]);
+        return p.label?.trim() ? p.label : t("cues.poseFallback", {index: activeCueIndex + 1});
+    }, [activeCueIndex, cues, t]);
 
     const renderSlot = useCallback(
         (id: string) =>
@@ -559,6 +564,7 @@ export function DMXFixtureLiveControls({
                 canUpdateActiveCue: canApplyCue && !!onSaveCueSequence,
                 savingActiveCue,
                 onUpdateActiveCue: () => void updateActiveCueFromLive(),
+                t,
             }),
         [
             fixture,
@@ -579,6 +585,7 @@ export function DMXFixtureLiveControls({
             onSaveCueSequence,
             savingActiveCue,
             updateActiveCueFromLive,
+            t,
         ],
     );
 
@@ -594,11 +601,11 @@ export function DMXFixtureLiveControls({
                 <div
                     className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border border-orange-400 bg-orange-500/10 px-3 py-2 text-sm text-muted-foreground">
                     <span>
-                        This fixture is a slave and get commands from{" "}
+                        {t("liveControls.slaveNoticeBefore")}{" "}
                         <span className="font-medium text-foreground">
-                            {masterFixture?.name ?? "its master"}
+                            {masterFixture?.name ?? t("liveControls.slaveMasterFallback")}
                         </span>
-                        . Use the master fixture to change live values.
+                        {t("liveControls.slaveNoticeAfter")}
                     </span>
                     {masterFixture ? (
                         <Button
@@ -608,7 +615,7 @@ export function DMXFixtureLiveControls({
                             className="bg-orange-200 text-orange-950 hover:bg-orange-300 dark:bg-orange-500/20 dark:text-orange-200 dark:hover:bg-orange-500/30"
                             onClick={() => onOpenFixture(masterFixture.id)}
                         >
-                            Open master
+                            {t("liveControls.openMaster")}
                         </Button>
                     ) : null}
                 </div>
@@ -616,17 +623,17 @@ export function DMXFixtureLiveControls({
             {partyRunning && !slaveFixture && (
                 <div
                     className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-                    Party mode controls this fixture. Stop Party to use manual live controls.
+                    {t("liveControls.partyRunning")}
                 </div>
             )}
             {colorSweepEnabled && !partyRunning && !slaveFixture && (
                 <div
                     className="rounded-md border border-indigo-500 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-950 dark:text-indigo-950">
-                    Color Sweep is running
+                    {t("liveControls.colorSweepRunning")}
                     {fixtureHasSlaves(allFixtures, fixture.id)
-                        ? " across this master and its slaves"
+                        ? t("liveControls.acrossSlaves")
                         : ""}
-                    . Disable Sweep to use manual color controls.
+                    {t("liveControls.disableSweep")}
                 </div>
             )}
 
@@ -645,8 +652,7 @@ export function DMXFixtureLiveControls({
                 {noneConfigured ? (
                     <Card>
                         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                            No mappable channels found for live control (configure channels in the
-                            fixture editor).
+                            {t("liveControls.noMappableChannels")}
                         </CardContent>
                     </Card>
                 ) : (

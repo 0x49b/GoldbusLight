@@ -1,4 +1,5 @@
 import {useEffect, useRef} from "react";
+import {useTranslation} from "react-i18next";
 import {PiWarning, PiX} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
 import {Button} from "@/components/ui/button";
@@ -11,6 +12,7 @@ type AppErrorBannerProps = {
 };
 
 export function AppErrorBanner({error, onDismiss}: AppErrorBannerProps) {
+    const {t} = useTranslation("shell");
     const hoveredRef = useRef(false);
     const pendingDismissRef = useRef(false);
     const timerRef = useRef<number | null>(null);
@@ -58,7 +60,7 @@ export function AppErrorBanner({error, onDismiss}: AppErrorBannerProps) {
             }}
         >
             <PiWarning className="size-4" aria-hidden/>
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t("error.title")}</AlertTitle>
             <AlertDescription className="pr-10 break-words">
                 {error.replace(/^Error:\s*/i, "")}
             </AlertDescription>
@@ -67,7 +69,7 @@ export function AppErrorBanner({error, onDismiss}: AppErrorBannerProps) {
                 size="icon-xs"
                 variant="ghost"
                 className="absolute top-2 right-2 shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                aria-label="Dismiss error"
+                aria-label={t("error.dismiss")}
                 onClick={onDismiss}
             >
                 <PiX className="size-4" aria-hidden/>

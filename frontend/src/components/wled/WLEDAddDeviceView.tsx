@@ -1,5 +1,7 @@
 import {useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiPlus} from "react-icons/pi";
+import i18n from "@/i18n";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Field, FieldLabel} from "@/components/ui/field";
@@ -13,6 +15,7 @@ type WLEDAddDeviceViewProps = {
 };
 
 export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceViewProps) {
+    const {t} = useTranslation("wled");
     const [address, setAddress] = useState("");
     const [port, setPort] = useState("80");
     const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
             const parsedPort = Number.parseInt(port, 10);
             const deviceID = await onAddDevice(address, Number.isFinite(parsedPort) ? parsedPort : 80);
             if (!deviceID) {
-                setError("Could not add device. Check the IP address and that WLED is reachable on the network.");
+                setError(i18n.t("status:addDeviceFailed"));
                 return;
             }
             setRoute({kind: "device", id: deviceID});
@@ -39,15 +42,15 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
         <div className="mx-auto w-full max-w-xl space-y-4 p-4">
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base font-semibold">Add WLED device</CardTitle>
+                    <CardTitle className="text-base font-semibold">{t("add.title")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                        Enter the device IPv4 address. Goldbus Light will health-check it via HTTP before saving it.
+                        {t("add.description")}
                     </p>
 
                     <Field>
-                        <FieldLabel htmlFor="wled-ip">IPv4 address</FieldLabel>
+                        <FieldLabel htmlFor="wled-ip">{t("add.ipLabel")}</FieldLabel>
                         <Input
                             id="wled-ip"
                             value={address}
@@ -59,7 +62,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                     </Field>
 
                     <Field>
-                        <FieldLabel htmlFor="wled-port">Port</FieldLabel>
+                        <FieldLabel htmlFor="wled-port">{t("add.portLabel")}</FieldLabel>
                         <Input
                             id="wled-port"
                             type="number"
@@ -80,7 +83,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                     <div className="flex flex-wrap gap-2">
                         <Button type="button" onClick={() => void submit()} disabled={formBusy || !address.trim()}>
                             <PiPlus className="mr-1 size-4"/>
-                            Add device
+                            {t("add.submit")}
                         </Button>
                         <Button
                             type="button"
@@ -88,7 +91,7 @@ export function WLEDAddDeviceView({busy, setRoute, onAddDevice}: WLEDAddDeviceVi
                             onClick={() => setRoute({kind: "presets"})}
                             disabled={formBusy}
                         >
-                            Cancel
+                            {t("add.cancel")}
                         </Button>
                     </div>
                 </CardContent>

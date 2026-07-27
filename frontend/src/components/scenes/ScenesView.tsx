@@ -1,4 +1,5 @@
 import {useMemo, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiGearSix, PiPlus, PiWarning} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
 import {Button} from "@/components/ui/button";
@@ -75,6 +76,7 @@ export function ScenesView({
     onOpenSettings,
     onEmergency,
 }: ScenesViewProps) {
+    const {t} = useTranslation("scenes");
     const [managing, setManaging] = useState(false);
     const [applyingId, setApplyingId] = useState<string | null>(null);
     const [startingParty, setStartingParty] = useState(false);
@@ -153,7 +155,7 @@ export function ScenesView({
                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => setManaging(true)}>
                         <PiGearSix className="size-4" aria-hidden />
-                        Manage
+                        {t("manage")}
                     </Button>
                     {dmxEnabled ? <DMXEmergencyButton busy={busy} onEmergency={onEmergency}/> : null}
                     {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
@@ -163,16 +165,12 @@ export function ScenesView({
             {dmxEnabled && !dmxInterfaceConfigured ? (
                 <Alert>
                     <PiWarning className="size-4" aria-hidden />
-                    <AlertTitle>No DMX interface configured</AlertTitle>
+                    <AlertTitle>{t("noDmxInterface.title")}</AlertTitle>
                     <AlertDescription className="space-y-2">
-                        <p>
-                            Scenes that include DMX fixtures need a working output. Open Settings → DMX, enable USB
-                            DMX and/or Art-Net, then select a USB device or Art-Net target (or turn on a simulator for
-                            testing).
-                        </p>
+                        <p>{t("noDmxInterface.description")}</p>
                         {onOpenSettings ? (
                             <Button type="button" size="sm" variant="secondary" onClick={onOpenSettings}>
-                                Open DMX settings
+                                {t("noDmxInterface.openSettings")}
                             </Button>
                         ) : null}
                     </AlertDescription>
@@ -182,10 +180,10 @@ export function ScenesView({
             {sortedScenes.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-start gap-3 py-8">
-                        <p className="text-sm text-muted-foreground">No scenes yet. Create one to get started.</p>
+                        <p className="text-sm text-muted-foreground">{t("empty.message")}</p>
                         <Button type="button" size="sm" onClick={() => setManaging(true)}>
                             <PiPlus className="size-4" aria-hidden />
-                            Create scene
+                            {t("empty.create")}
                         </Button>
                     </CardContent>
                 </Card>
@@ -226,33 +224,33 @@ export function ScenesView({
                                         {isCurrent ? (
                                             <span
                                                 className={cn(
-                                                    "rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide",
+                                                    "rounded-full px-2 py-1  text-[10px] font-semibold uppercase tracking-wide",
                                                     isPartyScene
                                                         ? "bg-violet-600 text-white"
                                                         : "bg-primary text-primary-foreground",
                                                 )}
                                             >
-                                                Active
+                                                {t("badge.active")}
                                             </span>
                                         ) : null}
                                         {isPartyScene ? (
-                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-                                                Party
+                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                                {t("badge.party")}
                                             </span>
                                         ) : null}
                                         {isDefault ? (
-                                            <span className="rounded-full border border-border px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                                Default
+                                            <span className="rounded-full border border-border px-2 py-1  text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                {t("badge.default")}
                                             </span>
                                         ) : null}
                                     </div>
                                 </div>
                                 <div className="mt-2 text-xs text-muted-foreground">
                                     {isPartyScene
-                                        ? `${partyWledCount} WLED · ${partyDmxCount} DMX party targets`
-                                        : `${wledCount} WLED · ${dmxCount} DMX`}
-                                    {isApplying ? " · Applying…" : ""}
-                                    {isPartyScene && startingParty ? " · Starting…" : ""}
+                                        ? t("partyTargetsSummary", {wled: partyWledCount, dmx: partyDmxCount})
+                                        : t("targetsSummary", {wled: wledCount, dmx: dmxCount})}
+                                    {isApplying ? t("statusApplying") : ""}
+                                    {isPartyScene && startingParty ? t("statusStarting") : ""}
                                 </div>
                             </button>
                         );
@@ -271,22 +269,31 @@ export function ScenesView({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {pendingActivateIsParty ? "Start party mode?" : "Switch scene?"}
+                            {pendingActivateIsParty
+                                ? t("confirmActivate.startPartyTitle")
+                                : t("confirmActivate.switchSceneTitle")}
                         </DialogTitle>
                         <DialogDescription>
-                            {pendingActivateIsParty
-                                ? `Start party mode using “${pendingActivateScene?.name ?? "this scene"}”? This will stop any currently applied scene.`
-                                : `Switch to “${pendingActivateScene?.name ?? "this scene"}”?${
-                                      partyRunning ? " Party mode will be stopped." : ""
-                                  }`}
+                            {(() => {
+                                const name =
+                                    pendingActivateScene?.name ?? t("confirmActivate.fallbackSceneName");
+                                if (pendingActivateIsParty) {
+                                    return t("confirmActivate.startPartyBody", {name});
+                                }
+                                return partyRunning
+                                    ? t("confirmActivate.switchSceneBodyPartyStopped", {name})
+                                    : t("confirmActivate.switchSceneBody", {name});
+                            })()}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setPendingActivateId(null)}>
-                            Cancel
+                            {t("confirmActivate.cancel")}
                         </Button>
                         <Button type="button" onClick={confirmActivateScene}>
-                            {pendingActivateIsParty ? "Start party" : "Switch scene"}
+                            {pendingActivateIsParty
+                                ? t("confirmActivate.startParty")
+                                : t("confirmActivate.switchScene")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

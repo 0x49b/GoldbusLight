@@ -1,3 +1,4 @@
+import {useTranslation} from "react-i18next";
 import type {DMXPartyAudioFeatures} from "@/types/controller.ts";
 import {cn} from "@/lib/utils";
 
@@ -6,12 +7,12 @@ type PartyAudioEqualizerProps = {
     className?: string;
 };
 
-const BANDS: {key: keyof DMXPartyAudioFeatures; label: string; color: string}[] = [
-    {key: "level", label: "Level", color: "bg-violet-500"},
-    {key: "bass", label: "Bass", color: "bg-rose-500"},
-    {key: "mid", label: "Mid", color: "bg-amber-500"},
-    {key: "treble", label: "Treble", color: "bg-sky-500"},
-    {key: "beat", label: "Beat", color: "bg-emerald-500"},
+const BANDS: {key: keyof DMXPartyAudioFeatures; labelKey: string; color: string}[] = [
+    {key: "level", labelKey: "bands.level", color: "bg-violet-500"},
+    {key: "bass", labelKey: "bands.bass", color: "bg-rose-500"},
+    {key: "mid", labelKey: "bands.mid", color: "bg-amber-500"},
+    {key: "treble", labelKey: "bands.treble", color: "bg-sky-500"},
+    {key: "beat", labelKey: "bands.beat", color: "bg-emerald-500"},
 ];
 
 function bandValue(audio: DMXPartyAudioFeatures, key: keyof DMXPartyAudioFeatures): number {
@@ -23,15 +24,16 @@ function bandValue(audio: DMXPartyAudioFeatures, key: keyof DMXPartyAudioFeature
 }
 
 export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps) {
+    const {t} = useTranslation("party");
     const bpmRaw = audio.bpm;
     const bpm =
         typeof bpmRaw === "number" && Number.isFinite(bpmRaw) && bpmRaw > 0 ? Math.round(bpmRaw) : null;
     return (
         <div
             className={cn("flex items-end justify-center gap-3 rounded-md border bg-muted/30 px-4 py-3", className)}
-            aria-label="Audio level equalizer"
+            aria-label={t("audioLevel")}
         >
-            {BANDS.map(({key, label, color}) => {
+            {BANDS.map(({key, labelKey, color}) => {
                 const value = bandValue(audio, key);
                 const heightPct = Math.max(4, Math.round(value * 100));
                 return (
@@ -42,7 +44,7 @@ export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps
                                 style={{height: `${heightPct}%`}}
                             />
                         </div>
-                        <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+                        <span className="text-[10px] font-medium text-muted-foreground">{t(labelKey)}</span>
                         <span className="text-[10px] tabular-nums text-muted-foreground">
                             {Math.round(value * 100)}%
                         </span>
@@ -55,10 +57,10 @@ export function PartyAudioEqualizer({audio, className}: PartyAudioEqualizerProps
                         {bpm != null ? bpm : "—"}
                     </span>
                     <span className="mt-1 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
-                        BPM
+                        {t("bands.bpm")}
                     </span>
                 </div>
-                <span className="text-[10px] text-center text-muted-foreground">from beat hits</span>
+                <span className="text-[10px] text-center text-muted-foreground">{t("bands.bpmHint")}</span>
             </div>
         </div>
     );

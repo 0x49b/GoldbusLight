@@ -4,9 +4,9 @@ import {Checkbox} from "@/components/ui/checkbox";
 import {Label} from "@/components/ui/label";
 import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
 import {
-    DMX_LIVE_WIDGET_OPTIONS,
+    getDmxLiveWidgetOptions,
+    getLiveSliderLabelOptions,
     isDegreeSliderChannel,
-    LIVE_SLIDER_LABEL_OPTIONS,
     liveWidgetHasOrientableSlider,
     liveWidgetHiddenBadgeLabel,
     liveWidgetHiddenSource,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/dmxLiveWidget";
 import {cn} from "@/lib/utils";
 import type {DMXChannel, JSONMap} from "@/types/controller";
+import {useTranslation} from "react-i18next";
 import {liveWidgetPreviewLine} from "./LiveChannelControl";
 
 export type LiveControlEditorFieldProps = {
@@ -35,6 +36,7 @@ export function LiveControlEditorField({
     busy,
     onPropertiesChange,
 }: LiveControlEditorFieldProps) {
+    const {t} = useTranslation("dmx");
     const hiddenSource = liveWidgetHiddenSource(channel);
     const resolved = resolveLiveWidget(channel);
     const override = readLiveWidgetOverride(properties);
@@ -42,6 +44,8 @@ export function LiveControlEditorField({
     const showOrientation = liveWidgetHasOrientableSlider(channel);
     const sliderLabelMode = readLiveSliderLabelMode(properties, channel);
     const sliderHorizontal = readLiveSliderOrientation(properties) === "horizontal";
+    const widgetOptions = getDmxLiveWidgetOptions();
+    const sliderLabelOptions = getLiveSliderLabelOptions();
 
     return (
         <div
@@ -53,7 +57,7 @@ export function LiveControlEditorField({
             )}
         >
             <div className="flex flex-wrap items-center gap-2">
-                <Label className="text-xs">Live control</Label>
+                <Label className="text-xs">{t("liveControl.sectionLabel")}</Label>
                 {hiddenSource ? (
                     <Badge
                         variant="outline"
@@ -65,7 +69,7 @@ export function LiveControlEditorField({
                 ) : null}
                 {override === undefined && resolved !== "hidden" ? (
                     <span className="text-[10px] text-muted-foreground">
-                        Auto → {liveWidgetLabel(resolved)}
+                        {t("liveControl.autoArrow", {label: liveWidgetLabel(resolved)})}
                     </span>
                 ) : null}
             </div>
@@ -84,7 +88,7 @@ export function LiveControlEditorField({
                 disabled={busy}
                 className={cn(hiddenSource && "border-amber-500/30")}
             >
-                {DMX_LIVE_WIDGET_OPTIONS.map((opt) => (
+                {widgetOptions.map((opt) => (
                     <NativeSelectOption key={opt.value} value={opt.value}>
                         {opt.label}
                     </NativeSelectOption>
@@ -92,7 +96,7 @@ export function LiveControlEditorField({
             </NativeSelect>
             {showSliderLabelMode ? (
                 <div className="space-y-1">
-                    <Label className="text-xs">Live value label</Label>
+                    <Label className="text-xs">{t("liveControl.liveValueLabel")}</Label>
                     <NativeSelect
                         value={sliderLabelMode}
                         onChange={(e) => {
@@ -102,7 +106,7 @@ export function LiveControlEditorField({
                         }}
                         disabled={busy}
                     >
-                        {LIVE_SLIDER_LABEL_OPTIONS.map((opt) => (
+                        {sliderLabelOptions.map((opt) => (
                             <NativeSelectOption key={opt.value} value={opt.value}>
                                 {opt.label}
                             </NativeSelectOption>
@@ -125,8 +129,8 @@ export function LiveControlEditorField({
                             onPropertiesChange(nextProps);
                         }}
                     />
-                    <span>Horizontal slider</span>
-                    <span className="text-[10px] text-muted-foreground">(unchecked = vertical fader)</span>
+                    <span>{t("liveControl.horizontalSlider")}</span>
+                    <span className="text-[10px] text-muted-foreground">{t("liveControl.verticalHint")}</span>
                 </label>
             ) : null}
             <p

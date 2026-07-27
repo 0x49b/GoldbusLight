@@ -1,4 +1,5 @@
 import {type Dispatch, type SetStateAction, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {PiArrowClockwise, PiFire, PiIceCream, PiPalette, PiPencil, PiPower} from "react-icons/pi";
 import {prettyJSON, readNumber} from "@/lib/json.ts";
 import {
@@ -117,6 +118,7 @@ export function DeviceDetailView({
                                      onApplyPreset,
                                      onDeletePreset,
                                  }: Readonly<DeviceDetailViewProps>) {
+    const {t} = useTranslation("wled");
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
@@ -124,7 +126,7 @@ export function DeviceDetailView({
     const [presetDialogOpen, setPresetDialogOpen] = useState(false);
 
     if (!d) {
-        return <p className="opacity-70">Device not found.</p>;
+        return <p className="opacity-70">{t("device.notFound")}</p>;
     }
 
     const liveOnline = detail?.online ?? d.online;
@@ -170,8 +172,8 @@ export function DeviceDetailView({
     const fetchStatusLabel = deviceDetailFetchAttempt > 0
         ? `${deviceDetailFetchAttempt}/${deviceDetailFetchMax}`
         : deviceDetailReloading
-            ? "Refreshing…"
-            : "Loading…";
+            ? t("device.fetchRefreshing")
+            : t("device.fetchLoading");
 
     return (
         <div className="w-full max-w-none pb-8">
@@ -206,7 +208,7 @@ export function DeviceDetailView({
                                 disabled={busy || !deviceNameDraft.trim() || deviceNameDraft.trim() === d.name}
                                 onClick={() => onRenameDevice(d.id, deviceNameDraft.trim())}
                             >
-                                Save
+                                {t("device.save")}
                             </Button>
                             <Button
                                 type="button"
@@ -219,7 +221,7 @@ export function DeviceDetailView({
                                     setDeviceNameDraft(d.name);
                                 }}
                             >
-                                Cancel
+                                {t("device.cancel")}
                             </Button>
                         </div>
                     ) : (
@@ -245,7 +247,7 @@ export function DeviceDetailView({
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 items-center">
                         <Badge variant={liveOnline ? "default" : "secondary"}>
-                            {liveOnline ? "Connected" : "Unreachable"}
+                            {liveOnline ? t("device.connected") : t("device.unreachable")}
                         </Badge>
                         {detail?.error && liveOnline === false && (
                             <span className="text-xs opacity-70 max-w-xl">{detail.error}</span>
@@ -262,7 +264,7 @@ export function DeviceDetailView({
                             className="inline-flex max-w-full items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm text-muted-foreground"
                         >
                             <Spinner className="size-4 shrink-0 text-primary" aria-hidden/>
-                            <span className="truncate tabular-nums">{fetchStatusLabel} tries</span>
+                            <span className="truncate tabular-nums">{t("device.triesLabel", {status: fetchStatusLabel})}</span>
                         </div>
                     ) : null}
                 </div>
@@ -276,22 +278,22 @@ export function DeviceDetailView({
                         disabled={powerDisabled}
                     >
                         <PiPower className="text-lg shrink-0"
-                                 aria-hidden/> Power {powerOn === true ? "on" : powerOn === false ? "off" : "unknown"}
+                                 aria-hidden/> {powerOn === true ? t("device.powerOn") : powerOn === false ? t("device.powerOff") : t("device.powerUnknown")}
                     </Button>
                     <Button size="sm" variant="outline"
                             onClick={() => onRefreshDevice(d.id)}
                             disabled={busy}><PiArrowClockwise/>
-                        Reload
+                        {t("device.reload")}
                     </Button>
                     <Button size="sm" variant="ghost"
                             onClick={() => setConfirmAction("ignore")}
                             disabled={busy}>
-                        Ignore
+                        {t("device.ignore")}
                     </Button>
                     <Button size="sm" variant="destructive"
                             onClick={() => setConfirmAction("remove")}
                             disabled={busy}>
-                        Delete
+                        {t("device.delete")}
                     </Button>
 
                 </div>
@@ -301,18 +303,18 @@ export function DeviceDetailView({
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>
-                                {confirmAction === "ignore" ? "Ignore device?" : "Forget device?"}
+                                {confirmAction === "ignore" ? t("device.ignoreTitle") : t("device.forgetTitle")}
                             </DialogTitle>
                             <DialogDescription>
                                 {confirmAction === "ignore"
-                                    ? `Are you sure you want to ignore "${d.name}"?`
-                                    : `Are you sure you want to forget "${d.name}"?`}
+                                    ? t("device.ignoreConfirm", {name: d.name})
+                                    : t("device.forgetConfirm", {name: d.name})}
                             </DialogDescription>
                         </DialogHeader>
                         <p className="text-xs opacity-70">
                             {confirmAction === "ignore"
-                                ? "This device will be ignored and hidden from active management."
-                                : "This device will be removed from the controller list."}
+                                ? t("device.ignoreHint")
+                                : t("device.forgetHint")}
                         </p>
                         <DialogFooter className="border-0 bg-transparent p-0 m-0 mt-4">
                             <Button
@@ -322,7 +324,7 @@ export function DeviceDetailView({
                                 onClick={() => setConfirmAction(null)}
                                 disabled={busy}
                             >
-                                Cancel
+                                {t("device.cancel")}
                             </Button>
                             <Button
                                 type="button"
@@ -338,7 +340,7 @@ export function DeviceDetailView({
                                 }}
                                 disabled={busy}
                             >
-                                {confirmAction === "ignore" ? "Ignore device" : "Forget device"}
+                                {confirmAction === "ignore" ? t("device.ignoreAction") : t("device.forgetAction")}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -349,7 +351,7 @@ export function DeviceDetailView({
                 <Card className="bg-muted/50">
                     <CardContent className="gap-2 py-4">
                         <div className="w-full max-w-md space-y-2">
-                            <Label className="text-xs">Segment</Label>
+                            <Label className="text-xs">{t("device.segment")}</Label>
                             <Select value={String(selectedSegIdx)}
                                     onValueChange={(value) => setSelectedSegIdx(readNumber(value, 0))}
                                     disabled={!liveOnline}>
@@ -358,10 +360,12 @@ export function DeviceDetailView({
                                     {segList.map((raw, i) => {
                                         const s = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JSONMap) : {};
                                         const sid = readNumber(s.id, i);
-                                        const nm = typeof s.name === "string" && s.name.trim() ? s.name : `Segment ${sid}`;
+                                        const nm = typeof s.name === "string" && s.name.trim()
+                                            ? s.name
+                                            : t("device.segmentDefaultName", {id: sid});
                                         return (
                                             <SelectItem key={i} value={String(i)}>
-                                                {nm} (id {sid})
+                                                {t("device.segmentOption", {name: nm, id: sid})}
                                             </SelectItem>
                                         );
                                     })}
@@ -377,7 +381,7 @@ export function DeviceDetailView({
             <Card>
 
                 <CardHeader>
-                    <CardTitle>Color & Brightness</CardTitle>
+                    <CardTitle>{t("device.colorBrightness")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="w-full grid grid-cols-3 gap-2">
@@ -391,7 +395,7 @@ export function DeviceDetailView({
                             disabled={lightControlsLocked}
                         >
                             <PiFire/>
-                            Warm white
+                            {t("device.warmWhite")}
                         </Button>
                         <Button
                             type="button"
@@ -403,7 +407,7 @@ export function DeviceDetailView({
                             disabled={lightControlsLocked}
                         >
                             <PiIceCream/>
-                            Cold white
+                            {t("device.coldWhite")}
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -415,7 +419,7 @@ export function DeviceDetailView({
                                     disabled={lightControlsLocked}
                                 >
                                     <PiPalette/>
-                                    Color
+                                    {t("device.color")}
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-max">
@@ -448,13 +452,13 @@ export function DeviceDetailView({
                         <label className="flex w-full min-w-50 flex-col gap-1">
 
 
-                            <Label className="text-xs">Color</Label>
+                            <Label className="text-xs">{t("device.color")}</Label>
                             <HueSlider value={hueValue} disabled={lightControlsLocked}
                                        onChange={(nextHue) => setDeviceFormRgb(hueToRgb(nextHue))}/>
 
                         </label>
                         <label className="flex w-full min-w-50 flex-col gap-1">
-                            <Label className="text-xs">Brightness ({brightnessPercent}%)</Label>
+                            <Label className="text-xs">{t("device.brightness", {percent: brightnessPercent})}</Label>
                             <Slider
                                 min={0}
                                 max={100}
@@ -479,14 +483,14 @@ export function DeviceDetailView({
             <Card>
                 <CardHeader>
                     <CardTitle>
-                        Effect & palette
+                        {t("device.effectPalette")}
                     </CardTitle>
                 </CardHeader>
 
                 <CardContent className="gap-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label className="text-xs">Effect</Label>
+                            <Label className="text-xs">{t("device.effect")}</Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -504,7 +508,7 @@ export function DeviceDetailView({
                             </Button>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs">Palette</Label>
+                            <Label className="text-xs">{t("device.palette")}</Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -568,7 +572,7 @@ export function DeviceDetailView({
                     />
                     <div className="grid gap-3 md:grid-cols-2 mt-4">
                         <div className="space-y-2">
-                            <Label className="text-xs">Speed (sx) - {deviceFormSx}</Label>
+                            <Label className="text-xs">{t("device.speed", {value: deviceFormSx})}</Label>
                             <Slider
                                 min={0}
                                 max={255}
@@ -578,7 +582,7 @@ export function DeviceDetailView({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs">Intensity (ix) - {deviceFormIx}</Label>
+                            <Label className="text-xs">{t("device.intensity", {value: deviceFormIx})}</Label>
                             <Slider
                                 min={0}
                                 max={255}
@@ -594,12 +598,12 @@ export function DeviceDetailView({
             <Card>
                 <CardHeader>
                     <CardTitle>
-                        Transition
+                        {t("device.transition")}
                     </CardTitle>
                 </CardHeader>
 
                 <CardContent className="gap-4">
-                    <Label className="text-xs">x100 ms</Label>
+                    <Label className="text-xs">{t("device.transitionUnit")}</Label>
                     <Input
                         type="number"
                         min={0}
@@ -614,7 +618,7 @@ export function DeviceDetailView({
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                    <CardTitle>Presets</CardTitle>
+                    <CardTitle>{t("device.presets")}</CardTitle>
                     <Button
                         type="button"
                         size="sm"
@@ -624,13 +628,13 @@ export function DeviceDetailView({
                             setPresetDialogOpen(true);
                         }}
                     >
-                        Save current
+                        {t("device.saveCurrent")}
                     </Button>
                 </CardHeader>
                 <CardContent className="space-y-2">
                     {(d?.presets?.length ?? 0) === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                            Save the current look as a named preset for use in Scenes.
+                            {t("device.presetsEmpty")}
                         </p>
                     ) : (
                         (d?.presets ?? []).map((preset) => (
@@ -651,7 +655,7 @@ export function DeviceDetailView({
                                             }
                                         }}
                                     >
-                                        Apply
+                                        {t("device.apply")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -664,7 +668,7 @@ export function DeviceDetailView({
                                             }
                                         }}
                                     >
-                                        Delete
+                                        {t("device.delete")}
                                     </Button>
                                 </div>
                             </div>
@@ -676,24 +680,24 @@ export function DeviceDetailView({
             <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Save preset</DialogTitle>
+                        <DialogTitle>{t("device.savePresetTitle")}</DialogTitle>
                         <DialogDescription>
-                            Capture this device&apos;s current look as a named preset.
+                            {t("device.savePresetDescription")}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
-                        <Label htmlFor="wled-preset-name">Name</Label>
+                        <Label htmlFor="wled-preset-name">{t("device.name")}</Label>
                         <Input
                             id="wled-preset-name"
                             value={presetNameDraft}
                             onChange={(e) => setPresetNameDraft(e.target.value)}
-                            placeholder="Warm lobby"
+                            placeholder={t("device.presetNamePlaceholder")}
                             autoFocus
                         />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="secondary" onClick={() => setPresetDialogOpen(false)}>
-                            Cancel
+                            {t("device.cancel")}
                         </Button>
                         <Button
                             type="button"
@@ -708,7 +712,7 @@ export function DeviceDetailView({
                                 });
                             }}
                         >
-                            Save
+                            {t("device.save")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -717,16 +721,15 @@ export function DeviceDetailView({
 
             {showDebug && (
                 <Collapsible className="rounded-lg border">
-                    <CollapsibleTrigger className="w-full px-4 py-3 text-left font-semibold">State &
-                        Config</CollapsibleTrigger>
+                    <CollapsibleTrigger
+                        className="w-full px-4 py-3 text-left font-semibold">{t("device.debugSection")}</CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4 text-sm grid gap-5">
 
 
                         <div className="grid gap-4 lg:grid-cols-2">
                             <Card className="bg-muted/50">
                                 <CardContent className="pt-4">
-                                    <h3 className="text-sm font-semibold mb-2">Device info (GET
-                                        /json)</h3>
+                                    <h3 className="text-sm font-semibold mb-2">{t("device.deviceInfoTitle")}</h3>
                                     <pre
                                         className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.info ? prettyJSON(detail.info) : "—"}
@@ -735,8 +738,7 @@ export function DeviceDetailView({
                             </Card>
                             <Card className="bg-muted/50">
                                 <CardContent className="pt-4">
-                                    <h3 className="text-sm font-semibold mb-2">Config (GET
-                                        /json/cfg)</h3>
+                                    <h3 className="text-sm font-semibold mb-2">{t("device.configTitle")}</h3>
                                     <pre
                                         className="text-xs overflow-auto max-h-64 rounded bg-card p-2 border whitespace-pre-wrap">
               {detail?.config ? prettyJSON(detail.config) : "—"}
@@ -747,8 +749,7 @@ export function DeviceDetailView({
 
                         <Card className="bg-muted/50">
                             <CardContent className="pt-4">
-                                <h3 className="text-sm font-semibold mb-2">Current state (GET /json →
-                                    state)</h3>
+                                <h3 className="text-sm font-semibold mb-2">{t("device.currentStateTitle")}</h3>
                                 <pre
                                     className="text-xs overflow-auto max-h-72 rounded bg-card p-2 border whitespace-pre-wrap">
             {detail?.state ? prettyJSON(detail.state) : "—"}
@@ -758,9 +759,8 @@ export function DeviceDetailView({
 
                         {d.lastState && Object.keys(d.lastState).length > 0 && (
                             <div className="text-xs opacity-60">
-                            <span
-                                className="font-medium opacity-80">Persisted last state</span> (restored
-                                on reconnect):{" "}
+                                <span
+                                    className="font-medium opacity-80">{t("device.persistedLastStateLabel")}</span> {t("device.persistedLastStateSuffix")}{" "}
                                 <code
                                     className="break-all">{prettyJSON(d.lastState).slice(0, 200)}…</code>
                             </div>

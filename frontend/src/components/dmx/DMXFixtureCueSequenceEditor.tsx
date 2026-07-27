@@ -1,4 +1,5 @@
 import {useCallback, useMemo} from "react";
+import {useTranslation} from "react-i18next";
 import {PiArrowDown, PiArrowUp, PiPlus, PiTrash} from "react-icons/pi";
 
 import {Button} from "@/components/ui/button";
@@ -48,7 +49,6 @@ function roleForChannel(seq: DMXFixtureCueSequence, key: string): ChannelRole {
     const b = seq.channelBehaviors?.[key];
     if (b === "random") return "random";
     if (b === "exclude") return "exclude";
-    // Default: the channel replays the value stored in each pose.
     return "pose";
 }
 
@@ -58,6 +58,7 @@ function newCueId(): string {
 
 export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorProps) {
     const {channels, value, onChange, busy} = props;
+    const {t} = useTranslation("dmx");
 
     const cues = value.cues ?? [];
     const stepMs = typeof value.stepMs === "number" && value.stepMs > 0 ? value.stepMs : 2000;
@@ -82,7 +83,6 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
             let nextCues = value.cues ?? [];
             if (role === "pose") {
                 delete behaviors[key];
-                // Make sure every pose has a value for a channel that now replays it.
                 nextCues = nextCues.map((p) => {
                     const values = {...(p.values ?? {})};
                     if (!(key in values)) values[key] = defaultValueFor(ch);
@@ -106,11 +106,11 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
         }
         const next: DMXFixtureCue = {
             id: newCueId(),
-            label: `Pose ${cues.length + 1}`,
+            label: t("cueSequence.poseFallback", {index: cues.length + 1}),
             values,
         };
         patch({cues: [...cues, next]});
-    }, [patch, poseChannels, cues]);
+    }, [patch, poseChannels, cues, t]);
 
     const removeCue = useCallback(
         (idx: number) => {
@@ -158,19 +158,17 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                     disabled={busy}
                     onCheckedChange={(v) => patch({enabled: v === true})}
                 />
-                <span>Step this fixture through saved poses (cue chase)</span>
+                <span>{t("cueSequence.enable")}</span>
             </label>
             <p className="text-xs text-muted-foreground">
-                When enabled and the fixture is included in party mode, it cycles through the poses below instead of the
-                generative algorithm. Pick which channels make up a pose; other channels can be randomized or left
-                untouched.
+                {t("cueSequence.description")}
             </p>
 
             {enabled ? (
                 <>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
-                            <Label htmlFor="cue-step-ms">Time per pose (ms)</Label>
+                            <Label htmlFor="cue-step-ms">{t("cueSequence.timePerPose")}</Label>
                             <Input
                                 id="cue-step-ms"
                                 type="number"
@@ -185,7 +183,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="cue-fade-ms">Crossfade (ms)</Label>
+                            <Label htmlFor="cue-fade-ms">{t("cueSequence.crossfade")}</Label>
                             <Input
                                 id="cue-fade-ms"
                                 type="number"
@@ -207,17 +205,20 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                             disabled={busy}
                             onCheckedChange={(v) => patch({loop: v === true})}
                         />
-                        <span>Loop — restart after the last pose (otherwise hold the final pose)</span>
+                        <span>{t("cueSequence.loop")}</span>
                     </label>
 
                     <Separator/>
 
                     <div className="space-y-2">
-                        <p className="text-xs font-medium text-foreground">Channel roles</p>
+                        <p className="text-xs font-medium text-foreground">{t("cueSequence.channelRolesTitle")}</p>
                         <p className="text-xs text-muted-foreground">
-                            <span className="font-medium">Pose</span> channels get a value in every pose;{" "}
-                            <span className="font-medium">Random</span> channels get a fresh value each step;{" "}
-                            <span className="font-medium">Exclude</span> leaves the channel untouched.
+                            <span className="font-medium">{t("cueSequence.channelRolesDescPose")}</span>
+                            {t("cueSequence.channelRolesDescPoseAfter")}
+                            <span className="font-medium">{t("cueSequence.channelRolesDescRandom")}</span>
+                            {t("cueSequence.channelRolesDescRandomAfter")}
+                            <span className="font-medium">{t("cueSequence.channelRolesDescExclude")}</span>
+                            {t("cueSequence.channelRolesDescExcludeAfter")}
                         </p>
                         <div className="grid gap-2">
                             {channels.map((ch) => {
@@ -226,7 +227,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                 return (
                                     <div key={`${key}-${ch.type}`} className="flex items-center justify-between gap-2 text-xs">
                                         <span className="text-muted-foreground">
-                                            Offset {ch.channel} ({ch.type})
+                                            {t("cueSequence.offsetChannelLabel", {offset: ch.channel, type: ch.type})}
                                         </span>
                                         <NativeSelect
                                             size="sm"
@@ -234,9 +235,9 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                             disabled={busy}
                                             onChange={(e) => setRole(ch, e.target.value as ChannelRole)}
                                         >
-                                            <NativeSelectOption value="pose">Pose</NativeSelectOption>
-                                            <NativeSelectOption value="random">Random</NativeSelectOption>
-                                            <NativeSelectOption value="exclude">Exclude</NativeSelectOption>
+                                            <NativeSelectOption value="pose">{t("cueSequence.roleOptions.pose")}</NativeSelectOption>
+                                            <NativeSelectOption value="random">{t("cueSequence.roleOptions.random")}</NativeSelectOption>
+                                            <NativeSelectOption value="exclude">{t("cueSequence.roleOptions.exclude")}</NativeSelectOption>
                                         </NativeSelect>
                                     </div>
                                 );
@@ -248,15 +249,15 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <p className="text-xs font-medium text-foreground">Poses ({cues.length})</p>
+                            <p className="text-xs font-medium text-foreground">{t("cueSequence.posesLabel", {count: cues.length})}</p>
                             <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={addCue}>
-                                <PiPlus className="size-4"/> Add pose
+                                <PiPlus className="size-4"/> {t("cueSequence.addPose")}
                             </Button>
                         </div>
 
                         {cues.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
-                                No poses yet. Add a pose, then set its values for the channels marked “Pose”.
+                                {t("cueSequence.noPosesYet")}
                             </p>
                         ) : null}
 
@@ -264,9 +265,9 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                             <div key={cue.id} className="space-y-2 rounded-md border bg-background/50 p-2">
                                 <div className="flex items-center gap-2">
                                     <Input
-                                        aria-label={`Pose ${idx + 1} label`}
+                                        aria-label={t("cueSequence.poseLabelAria", {index: idx + 1})}
                                         value={cue.label ?? ""}
-                                        placeholder={`Pose ${idx + 1}`}
+                                        placeholder={t("cueSequence.poseFallback", {index: idx + 1})}
                                         disabled={busy}
                                         onChange={(e) => setCueLabel(idx, e.target.value)}
                                         className="h-8"
@@ -277,7 +278,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                         variant="ghost"
                                         disabled={busy || idx === 0}
                                         onClick={() => moveCue(idx, -1)}
-                                        aria-label="Move pose up"
+                                        aria-label={t("cueSequence.movePoseUp")}
                                     >
                                         <PiArrowUp className="size-4"/>
                                     </Button>
@@ -287,7 +288,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                         variant="ghost"
                                         disabled={busy || idx === cues.length - 1}
                                         onClick={() => moveCue(idx, 1)}
-                                        aria-label="Move pose down"
+                                        aria-label={t("cueSequence.movePoseDown")}
                                     >
                                         <PiArrowDown className="size-4"/>
                                     </Button>
@@ -297,7 +298,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                         variant="ghost"
                                         disabled={busy}
                                         onClick={() => removeCue(idx)}
-                                        aria-label="Remove pose"
+                                        aria-label={t("cueSequence.removePose")}
                                     >
                                         <PiTrash className="size-4"/>
                                     </Button>
@@ -305,7 +306,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
 
                                 {poseChannels.length === 0 ? (
                                     <p className="text-xs text-muted-foreground">
-                                        Mark at least one channel as “Pose” to set values here.
+                                        {t("cueSequence.markPoseChannel")}
                                     </p>
                                 ) : (
                                     <div className="grid gap-2">
@@ -318,7 +319,7 @@ export function DMXFixtureCueSequenceEditor(props: DMXFixtureCueSequenceEditorPr
                                                     className="flex flex-col gap-1 text-xs text-muted-foreground"
                                                 >
                                                     <span className="font-medium text-foreground">
-                                                        Offset {ch.channel} ({ch.type}) — {v}
+                                                        {t("cueSequence.offsetChannelValueLabel", {offset: ch.channel, type: ch.type, value: v})}
                                                     </span>
                                                     <div className="flex items-center gap-2">
                                                         <Slider

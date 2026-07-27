@@ -1,4 +1,5 @@
 import type {DMXChannel, DMXChannelType, JSONMap} from "../types/controller";
+import i18n from "../i18n";
 import {parseFixtureEntries} from "./dmxLiveMap";
 
 export type DMXLiveWidget =
@@ -14,17 +15,34 @@ export type DMXLiveWidget =
 
 export type LiveSlotKind = "button" | "slider";
 
-export const DMX_LIVE_WIDGET_OPTIONS: { value: DMXLiveWidget; label: string }[] = [
-    {value: "auto", label: "Auto"},
-    {value: "hidden", label: "Hidden"},
-    {value: "slider", label: "Slider"},
-    {value: "slotSlider", label: "Slot slider"},
-    {value: "buttons", label: "Buttons"},
-    {value: "buttonSlider", label: "Switch + slider"},
-    {value: "colorWheel", label: "Color wheel"},
-    {value: "goboWheel", label: "Gobo wheel"},
-    {value: "shutterModes", label: "Shutter modes"},
+const LIVE_WIDGET_VALUES: DMXLiveWidget[] = [
+    "auto",
+    "hidden",
+    "slider",
+    "slotSlider",
+    "buttons",
+    "buttonSlider",
+    "colorWheel",
+    "goboWheel",
+    "shutterModes",
 ];
+
+/**
+ * Live widget options with translated labels. Getter (not `const`) so that
+ * changing the UI language rebuilds the labels on next read.
+ */
+export function getDmxLiveWidgetOptions(): { value: DMXLiveWidget; label: string }[] {
+    return LIVE_WIDGET_VALUES.map((value) => ({
+        value,
+        label: i18n.t(`dmx:liveWidget.${value}`),
+    }));
+}
+
+/** @deprecated kept for compatibility. Prefer `getDmxLiveWidgetOptions()`. */
+export const DMX_LIVE_WIDGET_OPTIONS: { value: DMXLiveWidget; label: string }[] = LIVE_WIDGET_VALUES.map((value) => ({
+    value,
+    label: value,
+}));
 
 const FINE_TYPES = new Set<DMXChannelType>([
     "panFine",
@@ -92,7 +110,7 @@ export function readLiveWidgetOverride(props: JSONMap | undefined): DMXLiveWidge
         return undefined;
     }
     const v = raw.trim() as DMXLiveWidget;
-    return DMX_LIVE_WIDGET_OPTIONS.some((o) => o.value === v) ? v : undefined;
+    return LIVE_WIDGET_VALUES.includes(v) ? v : undefined;
 }
 
 function entrySpan(e: { from: number; to: number }): number {
@@ -224,20 +242,33 @@ export function liveWidgetHiddenSource(ch: DMXChannel): LiveWidgetHiddenSource |
 }
 
 export function liveWidgetHiddenBadgeLabel(source: LiveWidgetHiddenSource): string {
-    return source === "override" ? "Hidden · set in editor" : "Hidden · auto";
+    return source === "override"
+        ? i18n.t("dmx:liveWidget.hiddenEditor")
+        : i18n.t("dmx:liveWidget.hiddenAuto");
 }
 
 export function liveWidgetLabel(widget: DMXLiveWidget): string {
-    return DMX_LIVE_WIDGET_OPTIONS.find((o) => o.value === widget)?.label ?? widget;
+    return i18n.t(`dmx:liveWidget.${widget}`);
 }
 
 /** How the live tab shows the current value for a linear `slider` widget. */
 export type LiveSliderLabelMode = "percent" | "dmx";
 
-export const LIVE_SLIDER_LABEL_OPTIONS: { value: LiveSliderLabelMode; label: string }[] = [
-    {value: "percent", label: "Percent (%)"},
-    {value: "dmx", label: "DMX (0–255)"},
-];
+const LIVE_SLIDER_LABEL_VALUES: LiveSliderLabelMode[] = ["percent", "dmx"];
+
+/** Slider-label options with translated labels. */
+export function getLiveSliderLabelOptions(): { value: LiveSliderLabelMode; label: string }[] {
+    return LIVE_SLIDER_LABEL_VALUES.map((value) => ({
+        value,
+        label: i18n.t(`dmx:liveSliderLabel.${value}`),
+    }));
+}
+
+/** @deprecated kept for compatibility. Prefer `getLiveSliderLabelOptions()`. */
+export const LIVE_SLIDER_LABEL_OPTIONS: { value: LiveSliderLabelMode; label: string }[] = LIVE_SLIDER_LABEL_VALUES.map((value) => ({
+    value,
+    label: value,
+}));
 
 export function isDegreeSliderChannel(ch: DMXChannel): boolean {
     return isInvertiblePanTiltChannel(ch);
@@ -264,7 +295,9 @@ export function readLiveSliderLabelMode(props: JSONMap | undefined, ch: DMXChann
 }
 
 export function liveSliderLabelModeHint(mode: LiveSliderLabelMode): string {
-    return mode === "percent" ? "%" : "0–255";
+    return mode === "percent"
+        ? i18n.t("dmx:liveSliderLabel.percentHint")
+        : i18n.t("dmx:liveSliderLabel.dmxHint");
 }
 
 /** Orientation of a linear `slider` widget on the live tab. Vertical (fader-style) is the default. */

@@ -1,3 +1,4 @@
+import {useTranslation} from "react-i18next";
 import {Switch} from "@/components/ui/switch";
 import {Label} from "@/components/ui/label";
 import {Slider} from "@/components/ui/slider";
@@ -29,13 +30,14 @@ export function ColorSweepPanel({
     busy = false,
     variant = "live",
 }: ColorSweepPanelProps) {
+    const {t} = useTranslation("dmx");
     const sweep = normalizeLocal(value);
 
     const body = (
         <div className="space-y-3">
             {slaveCount < 1 ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Link other Color Changers as slaves of this fixture to create a spatial left↔right sweep.
+                    {t("colorSweep.needSlaves")}
                 </p>
             ) : null}
             <label className="flex items-center justify-left gap-3 text-sm">
@@ -45,11 +47,11 @@ export function ColorSweepPanel({
                     disabled={busy}
                     onCheckedChange={(checked) => onChange({...sweep, enabled: checked})}
                 />
-                <span className="font-medium">Enable Sweep</span>
+                <span className="font-medium">{t("colorSweep.enable")}</span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                    <Label htmlFor="color-sweep-direction">Direction</Label>
+                    <Label htmlFor="color-sweep-direction">{t("colorSweep.direction")}</Label>
                     <NativeSelect
                         id="color-sweep-direction"
                         className="w-full"
@@ -62,12 +64,12 @@ export function ColorSweepPanel({
                             })
                         }
                     >
-                        <NativeSelectOption value="ltr">Left → right</NativeSelectOption>
-                        <NativeSelectOption value="rtl">Right → left</NativeSelectOption>
+                        <NativeSelectOption value="ltr">{t("colorSweep.ltr")}</NativeSelectOption>
+                        <NativeSelectOption value="rtl">{t("colorSweep.rtl")}</NativeSelectOption>
                     </NativeSelect>
                 </div>
                 <div className="space-y-1.5">
-                    <Label htmlFor="color-sweep-speed">Speed — {sweep.speed}%</Label>
+                    <Label htmlFor="color-sweep-speed">{t("colorSweep.speedLabel", {value: sweep.speed})}</Label>
                     <Slider
                         id="color-sweep-speed"
                         min={1}
@@ -91,7 +93,7 @@ export function ColorSweepPanel({
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Color Sweep</CardTitle>
+                    <CardTitle className="text-base">{t("colorSweep.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>{body}</CardContent>
             </Card>
@@ -101,7 +103,7 @@ export function ColorSweepPanel({
     return (
         <div className="rounded-md border bg-muted/20 px-3 py-3">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Color Sweep
+                {t("colorSweep.title")}
             </div>
             {body}
         </div>

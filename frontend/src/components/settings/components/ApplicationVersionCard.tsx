@@ -2,6 +2,7 @@ import {Badge} from "@/components/ui/badge.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {PiArrowsClockwise} from "react-icons/pi";
+import {Trans, useTranslation} from "react-i18next";
 
 type ApplicationVersionCardProps = {
     currentVersion: string;
@@ -14,14 +15,6 @@ type ApplicationVersionCardProps = {
     onUpdateCheckEnd: () => void;
 };
 
-function installedVersionLabel(currentVersion: string): string {
-    const trimmed = currentVersion.trim();
-    if (!trimmed || trimmed === "unknown") {
-        return "Loading…";
-    }
-    return trimmed;
-}
-
 export function ApplicationVersionCard({
     currentVersion,
     updatesSupported,
@@ -32,17 +25,19 @@ export function ApplicationVersionCard({
     onUpdateCheckStart,
     onUpdateCheckEnd,
 }: ApplicationVersionCardProps) {
-    const versionKnown = currentVersion.trim() !== "" && currentVersion !== "unknown";
-    const versionLabel = installedVersionLabel(currentVersion);
+    const {t} = useTranslation("settings");
+    const trimmed = currentVersion.trim();
+    const versionKnown = trimmed !== "" && trimmed !== "unknown";
+    const versionLabel = versionKnown ? trimmed : t("version.loading");
 
     return (
         <Card className="w-full max-w-none">
             <CardHeader>
-                <CardTitle className="text-sm font-semibold">Application version</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("version.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm opacity-70">Installed version</span>
+                    <span className="text-sm opacity-70">{t("version.installedLabel")}</span>
                     <Badge variant={versionKnown ? "secondary" : "outline"}>
                         {versionLabel}
                     </Badge>
@@ -62,19 +57,23 @@ export function ApplicationVersionCard({
                                 }}
                             >
                                 <PiArrowsClockwise/>
-                                Check for updates
+                                {t("version.checkForUpdates")}
                             </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Opens the built-in updater to download and install a newer release when one is available.
+                            {t("version.checkHint")}
                         </p>
                     </>
                 ) : (
                     <p className="text-xs text-muted-foreground">
-                        On this Raspberry Pi install, update from the shell with{" "}
-                        <code className="rounded bg-muted px-1 py-0.5">sudo ./scripts/goldbuslight-pi.sh update --latest</code>.
-                        Do not use the in-app updater here — it can remove the binary and leave only a{" "}
-                        <code className="rounded bg-muted px-1 py-0.5">GoldbusLight.bak</code> file behind.
+                        <Trans
+                            i18nKey="version.raspberryPiHint"
+                            t={t}
+                            components={[
+                                <code className="rounded bg-muted px-1 py-0.5" key="cmd"/>,
+                                <code className="rounded bg-muted px-1 py-0.5" key="bak"/>,
+                            ]}
+                        />
                     </p>
                 )}
             </CardContent>

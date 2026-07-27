@@ -2,12 +2,14 @@ import {Button} from "@/components/ui/button.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {useWindowDisplayState} from "@/hooks/useWindowDisplayState.ts";
 import {PiArrowsOutSimple, PiCornersOut} from "react-icons/pi";
+import {useTranslation} from "react-i18next";
 
 type WindowDisplayCardProps = {
     disabled?: boolean;
 };
 
 export function WindowDisplayCard({disabled = false}: WindowDisplayCardProps) {
+    const {t} = useTranslation("settings");
     const {
         available,
         fullscreen,
@@ -26,12 +28,10 @@ export function WindowDisplayCard({disabled = false}: WindowDisplayCardProps) {
     return (
         <Card className="w-full max-w-none">
             <CardHeader>
-                <CardTitle className="text-sm font-semibold">Window display</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("window.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-                <p className="text-sm opacity-70">
-                    Expand the application window for stage use or kiosk-style displays.
-                </p>
+                <p className="text-sm opacity-70">{t("window.description")}</p>
                 <div className="flex flex-wrap gap-2">
                     <Button
                         size="sm"
@@ -40,7 +40,7 @@ export function WindowDisplayCard({disabled = false}: WindowDisplayCardProps) {
                         onClick={() => void toggleFullscreen()}
                     >
                         <PiArrowsOutSimple/>
-                        {fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                        {fullscreen ? t("window.exitFullscreen") : t("window.enterFullscreen")}
                     </Button>
                     <Button
                         size="sm"
@@ -49,7 +49,7 @@ export function WindowDisplayCard({disabled = false}: WindowDisplayCardProps) {
                         onClick={() => void toggleMaximised()}
                     >
                         <PiCornersOut/>
-                        {maximised ? "Restore window" : "Maximize window"}
+                        {maximised ? t("window.restore") : t("window.maximize")}
                     </Button>
                 </div>
             </CardContent>

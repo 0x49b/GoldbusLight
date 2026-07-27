@@ -43,6 +43,7 @@ import {
     useRef,
     useState
 } from "react";
+import {useTranslation} from "react-i18next";
 import {PiPlus} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import type {
@@ -70,21 +71,21 @@ import {ColorSweepPanel} from "./ColorSweepPanel";
 
 type FixturePageMode = "editor" | "live" | "cues" | "sceneCues";
 
-const FIXTURE_TYPE_OPTIONS: ReadonlyArray<{ value: DMXFixtureType; label: string }> = [
-    {value: "colorChanger", label: "Color Changer"},
-    {value: "dimmer", label: "Dimmer"},
-    {value: "effect", label: "Effect"},
-    {value: "fan", label: "Fan"},
-    {value: "flower", label: "Flower"},
-    {value: "hazer", label: "Hazer"},
-    {value: "laser", label: "Laser"},
-    {value: "ledBarBeams", label: "LED Bar (Beams)"},
-    {value: "ledBarPixels", label: "LED Bar (Pixels)"},
-    {value: "movingHead", label: "Moving Head"},
-    {value: "other", label: "Other"},
-    {value: "scanner", label: "Scanner"},
-    {value: "smoke", label: "Smoke"},
-    {value: "strobe", label: "Strobe"},
+const FIXTURE_TYPE_VALUES: ReadonlyArray<DMXFixtureType> = [
+    "colorChanger",
+    "dimmer",
+    "effect",
+    "fan",
+    "flower",
+    "hazer",
+    "laser",
+    "ledBarBeams",
+    "ledBarPixels",
+    "movingHead",
+    "other",
+    "scanner",
+    "smoke",
+    "strobe",
 ];
 
 const PAN_TILT_FIXTURE_TYPES = new Set<DMXFixtureType>(["movingHead", "scanner", "laser"]);
@@ -264,6 +265,7 @@ function findNextAvailableAddress(
 }
 
 export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
+    const {t} = useTranslation("dmx");
     const [fixtureType, setFixtureType] = useState<DMXFixtureType>("movingHead");
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
@@ -424,7 +426,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             nextOff += 1;
         }
         if (nextOff > slotBudget) {
-            setSaveHint(`No free channel offsets left for address ${address} (max offset ${slotBudget}).`);
+            setSaveHint(t("fixture.hints.noFreeChannelOffsets", {address, max: slotBudget}));
             return;
         }
         setChannels((prev) => [
@@ -437,7 +439,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             },
         ]);
         setSaveHint(null);
-    }, [address, channels, slotBudget]);
+    }, [address, channels, slotBudget, t]);
 
     const removeChannelAt = useCallback((originalIdx: number) => {
         setChannels((prev) => {
@@ -547,7 +549,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         const trimmedBrand = brand.trim();
         const trimmedName = name.trim();
         if (!trimmedBrand || !trimmedName) {
-            setSaveHint("Brand and name are required.");
+            setSaveHint(t("fixture.hints.brandAndNameRequired"));
             return;
         }
         const seen = new Set<number>();
@@ -555,18 +557,18 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             const off = Math.round(ch.channel);
             if (off < 1 || off > slotBudget) {
                 setSaveHint(
-                    `Channel offset ${off} is invalid for start address ${address}. Use 1–${slotBudget} (DMX slots remaining in universe).`,
+                    t("fixture.hints.invalidOffset", {offset: off, address, max: slotBudget}),
                 );
                 return;
             }
             if (seen.has(off)) {
-                setSaveHint(`Channel offset ${off} is used more than once.`);
+                setSaveHint(t("fixture.hints.duplicateOffset", {offset: off}));
                 return;
             }
             if (ch.defaultValue !== undefined) {
                 const defaultValue = Math.round(Number(ch.defaultValue));
                 if (!Number.isFinite(defaultValue) || defaultValue < 0 || defaultValue > 255) {
-                    setSaveHint(`Channel offset ${off} has an invalid default value (use 0-255).`);
+                    setSaveHint(t("fixture.hints.invalidDefault", {offset: off}));
                     return;
                 }
             }
@@ -599,7 +601,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         const trimmedBrand = brand.trim();
         const trimmedName = name.trim();
         if (!trimmedBrand || !trimmedName) {
-            setSaveHint("Brand and name are required.");
+            setSaveHint(t("fixture.hints.brandAndNameRequired"));
             return;
         }
 
@@ -614,14 +616,14 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         );
 
         if (cloneAddress == null) {
-            setSaveHint("No free DMX address range available to clone this fixture.");
+            setSaveHint(t("fixture.hints.noFreeAddress"));
             return;
         }
 
         const input: UpsertDMXFixtureInput = {
             type: fixtureType,
             brand: trimmedBrand,
-            name: `${trimmedName} Copy`,
+            name: `${trimmedName}${t("fixture.cloneSuffix")}`,
             dmxAddress: cloneAddress,
             maxPan: Math.max(0, Math.round(maxPan) || 0),
             maxTilt: Math.max(0, Math.round(maxTilt) || 0),
@@ -659,7 +661,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 const msg = await props.onExportFixtureConfig(filename, contents);
                 setSaveHint(msg);
             } catch (err) {
-                setSaveHint(`Export failed: ${String(err)}`);
+                setSaveHint(t("fixture.hints.exportFailed", {error: String(err)}));
             }
             return;
         }
@@ -674,7 +676,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        setSaveHint("Fixture config exported.");
+        setSaveHint(t("fixture.hints.exported"));
     };
 
     const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -710,11 +712,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyCueSequence(impParty?.cueSequence ? {...impParty.cueSequence} : {});
             setColorSweep(parsed.input.colorSweep ? {...parsed.input.colorSweep} : {});
             setPageMode("editor");
-            setSaveHint("Fixture config imported. Review it, then save to create the fixture.");
+            setSaveHint(t("fixture.hints.importedOk"));
         } catch (e) {
             setSaveHint(e instanceof SyntaxError
-                ? "Fixture file is not valid JSON."
-                : "Could not import fixture file.");
+                ? t("fixture.hints.importInvalidJson")
+                : t("fixture.hints.importFailed"));
         }
     };
     return (
@@ -732,7 +734,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     aria-pressed={pageMode === "live"}
                                     onClick={() => setPageMode("live")}
                                 >
-                                    Live
+                                    {t("fixture.tabs.live")}
                                 </Button>
                                 {showPartyCuesTab ? (
                                     <Button
@@ -742,7 +744,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         aria-pressed={pageMode === "cues"}
                                         onClick={() => setPageMode("cues")}
                                     >
-                                        Party cues
+                                        {t("fixture.tabs.partyCues")}
                                     </Button>
                                 ) : null}
                                 {showSceneCuesTab ? (
@@ -753,7 +755,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         aria-pressed={pageMode === "sceneCues"}
                                         onClick={() => setPageMode("sceneCues")}
                                     >
-                                        Scene cues
+                                        {t("fixture.tabs.sceneCues")}
                                     </Button>
                                 ) : null}
                                 <Button
@@ -763,7 +765,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     aria-pressed={pageMode === "editor"}
                                     onClick={() => setPageMode("editor")}
                                 >
-                                    Editor
+                                    {t("fixture.tabs.editor")}
                                 </Button>
                             </ButtonGroup>
                         </>
@@ -784,7 +786,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             onClick={() => props.setRoute({kind: "settings", tab: "party"})}
                             disabled={props.busy}
                         >
-                            Party active
+                            {t("fixture.partyActive")}
                         </Button>
                     ) : null}
                     {props.fixture && pageMode === "live" && liveLayoutConfigurable && (
@@ -795,7 +797,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             disabled={props.busy}
                             onClick={() => setEditLayout((v) => !v)}
                         >
-                            {editLayout ? "Done" : "Edit layout"}
+                            {editLayout ? t("fixture.done") : t("fixture.editLayout")}
                         </Button>
                     )}
                     {!props.fixture && (
@@ -816,12 +818,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 size="sm"
                                 variant="outline"
                             >
-                                Import fixture
+                                {t("fixture.importFixture")}
                             </Button>
                         )}
                         <Button onClick={handleSave} disabled={actionGroupDisabled} size="sm"
                                 variant="outline">
-                            Save
+                            {t("fixture.save")}
                         </Button>
                         {props.fixture && (
                             <DropdownMenu>
@@ -830,7 +832,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         type="button"
                                         variant="outline"
                                         size="icon-sm"
-                                        aria-label="More actions"
+                                        aria-label={t("fixture.moreActions")}
                                         disabled={actionGroupDisabled}
                                     >
                                         <MoreHorizontal className="size-4"/>
@@ -841,20 +843,20 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         disabled={actionGroupDisabled}
                                         onClick={() => void handleExport()}
                                     >
-                                        Export
+                                        {t("fixture.export")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         disabled={actionGroupDisabled}
                                         onClick={() => void handleClone()}
                                     >
-                                        Clone
+                                        {t("fixture.clone")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         variant="destructive"
                                         disabled={actionGroupDisabled}
                                         onClick={() => setDeleteConfirmOpen(true)}
                                     >
-                                        Delete
+                                        {t("fixture.delete")}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -865,10 +867,11 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Delete fixture?</DialogTitle>
+                        <DialogTitle>{t("fixture.deleteConfirm.title")}</DialogTitle>
                         <DialogDescription>
-                            This action permanently
-                            deletes {props.fixture ? `"${props.fixture.name}"` : "this fixture"}.
+                            {t("fixture.deleteConfirm.body", {
+                                name: props.fixture?.name ?? t("fixture.deleteConfirm.fallbackName"),
+                            })}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-end gap-2">
@@ -878,7 +881,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             onClick={() => setDeleteConfirmOpen(false)}
                             disabled={props.busy}
                         >
-                            Cancel
+                            {t("fixture.deleteConfirm.cancel")}
                         </Button>
                         <Button
                             type="button"
@@ -886,7 +889,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             onClick={handleDelete}
                             disabled={props.busy}
                         >
-                            Delete
+                            {t("fixture.deleteConfirm.confirm")}
                         </Button>
                     </div>
                 </DialogContent>
@@ -913,12 +916,12 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                 <>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Fixture</CardTitle>
+                            <CardTitle className="text-base">{t("fixture.card.title")}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="dmx-fixture-name">Name</Label>
+                                    <Label htmlFor="dmx-fixture-name">{t("fixture.card.name")}</Label>
                                     <Input
                                         id="dmx-fixture-name"
                                         value={name}
@@ -927,7 +930,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="dmx-fixture-brand">Brand</Label>
+                                    <Label htmlFor="dmx-fixture-brand">{t("fixture.card.brand")}</Label>
                                     <Input
                                         id="dmx-fixture-brand"
                                         value={brand}
@@ -938,23 +941,22 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
                                 <div className="space-y-2 grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="dmx-fixture-type">Fixture type</Label>
+                                        <Label htmlFor="dmx-fixture-type">{t("fixture.card.fixtureType")}</Label>
                                         <NativeSelect
                                             id="dmx-fixture-type"
                                             value={fixtureType}
                                             onChange={(e) => setFixtureType(e.target.value as DMXFixtureType)}
                                             disabled={props.busy}
                                         >
-                                            {FIXTURE_TYPE_OPTIONS.map((opt) => (
-                                                <NativeSelectOption key={opt.value}
-                                                                    value={opt.value}>
-                                                    {opt.label}
+                                            {FIXTURE_TYPE_VALUES.map((value) => (
+                                                <NativeSelectOption key={value} value={value}>
+                                                    {t(`types.${value}`)}
                                                 </NativeSelectOption>
                                             ))}
                                         </NativeSelect>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="dmx-fixture-master">Master fixture</Label>
+                                        <Label htmlFor="dmx-fixture-master">{t("fixture.card.masterFixture")}</Label>
                                         <NativeSelect
                                             id="dmx-fixture-master"
                                             value={masterFixtureId}
@@ -962,7 +964,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             disabled={masterSelectDisabled}
                                         >
                                             <NativeSelectOption
-                                                value="">Standalone</NativeSelectOption>
+                                                value="">{t("fixture.card.standalone")}</NativeSelectOption>
                                             {masterOptions.map((fx) => (
                                                 <NativeSelectOption key={fx.id} value={fx.id}>
                                                     {fx.name}
@@ -978,7 +980,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                 className={cn("grid gap-4", showPanTiltInputs ? "md:grid-cols-3" : "md:grid-cols-2")}>
 
                                 <div className="space-y-2 w-40">
-                                    <Label htmlFor="dmx-fixture-address">DMX start address</Label>
+                                    <Label htmlFor="dmx-fixture-address">{t("fixture.card.startAddress")}</Label>
                                     <Input
                                         id="dmx-fixture-address"
                                         type="number"
@@ -994,7 +996,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                         <div></div>
                                         <div className="grid gap-4 sm:grid-cols-2">
                                         <div className="space-y-2 w-40">
-                                            <Label htmlFor="dmx-max-pan">Max pan (°)</Label>
+                                            <Label htmlFor="dmx-max-pan">{t("fixture.card.maxPan")}</Label>
                                             <Input
                                                 id="dmx-max-pan"
                                                 type="number"
@@ -1005,7 +1007,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                                             />
                                         </div>
                                         <div className="space-y-2 w-40">
-                                            <Label htmlFor="dmx-max-tilt">Max tilt (°)</Label>
+                                            <Label htmlFor="dmx-max-tilt">{t("fixture.card.maxTilt")}</Label>
                                             <Input
                                                 id="dmx-max-tilt"
                                                 type="number"
@@ -1026,22 +1028,19 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                     <Card>
                         <CardHeader
                             className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-                            <CardTitle className="text-base">DMX channels</CardTitle>
+                            <CardTitle className="text-base">{t("fixture.channelsCard.title")}</CardTitle>
                             <Button type="button" size="sm" variant="outline" onClick={addChannel}
                                     disabled={props.busy}>
                                 <PiPlus className="mr-1 inline size-4" aria-hidden/>
-                                Add channel
+                                {t("fixture.channelsCard.addChannel")}
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {duplicateChannelOffsets.size > 0 ? (
                                 <div
                                     className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                                    Duplicate channel offsets:{" "}
-                                    {[...duplicateChannelOffsets].sort((a, b) => a - b).join(", ")}.
-                                    Only one function per offset is saved — use separate offsets for
-                                    gobo wheel,
-                                    gobo rotation, gobo shake, etc. (e.g. 9 and 10).
+                                    {t("fixture.channelsCard.duplicateOffsetsPrefix")}{" "}
+                                    {[...duplicateChannelOffsets].sort((a, b) => a - b).join(", ")}{t("fixture.channelsCard.duplicateOffsetsSuffix")}
                                 </div>
                             ) : null}
 
@@ -1073,7 +1072,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
                             <Button type="button" size="sm" variant="outline" onClick={addChannel}
                                     disabled={props.busy}>
                                 <PiPlus className="mr-1 inline size-4" aria-hidden/>
-                                Add channel
+                                {t("fixture.channelsCard.addChannel")}
                             </Button>
                         </CardFooter>
                     </Card>
@@ -1107,7 +1106,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Cue chase (pose sequence)</CardTitle>
+                            <CardTitle className="text-base">{t("fixture.cueChaseCard.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <DMXFixtureCueSequenceEditor

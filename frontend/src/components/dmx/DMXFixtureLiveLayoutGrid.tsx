@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {useTranslation} from "react-i18next";
 import {Card} from "@/components/ui/card";
 import {cn} from "@/lib/utils";
 import {
@@ -55,6 +56,7 @@ export function DMXFixtureLiveLayoutGrid({
     onTilesChange,
     renderSlot,
 }: DMXFixtureLiveLayoutGridProps) {
+    const {t} = useTranslation("dmx");
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [preview, setPreview] = useState<LiveLayoutTile[] | null>(null);
     const [columns, setColumns] = useState(LIVE_LAYOUT_COLUMNS);
@@ -97,7 +99,7 @@ export function DMXFixtureLiveLayoutGrid({
 
     const updateTile = useCallback(
         (pending: LiveLayoutTile[], id: string, patch: Partial<LiveLayoutTile>) => {
-            const next = pending.map((t) => (t.id === id ? {...t, ...patch} : t));
+            const next = pending.map((tile) => (tile.id === id ? {...tile, ...patch} : tile));
             return packMasonryTiles(next, columns).map(({id: tid, col, w, y, heightPx}) => ({
                 id: tid,
                 col,
@@ -173,8 +175,8 @@ export function DMXFixtureLiveLayoutGrid({
         if (!editMode) {
             return;
         }
-        const t = tiles.find((x) => x.id === id);
-        if (!t) {
+        const tile = tiles.find((x) => x.id === id);
+        if (!tile) {
             return;
         }
         e.preventDefault();
@@ -191,7 +193,7 @@ export function DMXFixtureLiveLayoutGrid({
             id,
             startX: e.clientX,
             startY: e.clientY,
-            start: {...t},
+            start: {...tile},
             pending,
         };
         setPreview(pending);
@@ -207,8 +209,7 @@ export function DMXFixtureLiveLayoutGrid({
         >
             {editMode && (
                 <p className="mb-2 text-xs text-muted-foreground">
-                    Masonry layout ({columns} fine columns): drag cards to move; drag bottom-right for width
-                    (narrow it to fit several faders side by side), bottom edge for height (pixels).
+                    {t("liveControls.layoutHint", {columns})}
                 </p>
             )}
             <div
@@ -230,43 +231,43 @@ export function DMXFixtureLiveLayoutGrid({
                                 aria-hidden
                             />
                         ))}
-                {placed.map((t) => (
+                {placed.map((tile) => (
                     <Card
-                        key={t.id}
+                        key={tile.id}
                         className={cn(
                             "absolute flex min-w-0 flex-col overflow-hidden shadow-sm transition-shadow",
                             editMode && "ring-1 ring-border",
                             editMode && "cursor-grab active:cursor-grabbing",
                         )}
                         style={{
-                            left: leftPercent(t.col, columns),
-                            width: colWidthPercent(t.w, columns),
-                            top: t.y,
-                            height: t.heightPx,
+                            left: leftPercent(tile.col, columns),
+                            width: colWidthPercent(tile.w, columns),
+                            top: tile.y,
+                            height: tile.heightPx,
                             minHeight: LIVE_LAYOUT_MIN_HEIGHT_PX,
                         }}
-                        onPointerDown={(e) => startDrag(t.id, "move", e)}
+                        onPointerDown={(e) => startDrag(tile.id, "move", e)}
                     >
                         <div
                             className={cn(
                                 "flex min-h-0 flex-1 flex-col overflow-y-auto p-2",
                             )}
                         >
-                            {renderSlot(t.id)}
+                            {renderSlot(tile.id)}
                         </div>
                         {editMode && (
                             <>
                                 <button
                                     type="button"
                                     className="absolute bottom-0 left-0 right-0 flex h-2 cursor-ns-resize touch-none items-center justify-center bg-primary/10 hover:bg-primary/25"
-                                    aria-label={`Resize height ${t.id}`}
-                                    onPointerDown={(e) => startDrag(t.id, "resizeH", e)}
+                                    aria-label={t("liveControls.resizeHeight", {id: tile.id})}
+                                    onPointerDown={(e) => startDrag(tile.id, "resizeH", e)}
                                 />
                                 <button
                                     type="button"
                                     className="absolute top-0 bottom-2 right-0 flex w-2 cursor-ew-resize touch-none items-center justify-center bg-primary/10 hover:bg-primary/25"
-                                    aria-label={`Resize width ${t.id}`}
-                                    onPointerDown={(e) => startDrag(t.id, "resizeW", e)}
+                                    aria-label={t("liveControls.resizeWidth", {id: tile.id})}
+                                    onPointerDown={(e) => startDrag(tile.id, "resizeW", e)}
                                 />
                             </>
                         )}

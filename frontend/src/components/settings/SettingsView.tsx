@@ -1,5 +1,6 @@
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {type Dispatch, type SetStateAction, useCallback, useEffect, useRef} from "react";
+import {Trans, useTranslation} from "react-i18next";
 import type {
     ArtNetSettings,
     ConsoleEntry,
@@ -109,6 +110,7 @@ export function SettingsView({
     onImportConfigurationBackup,
     onCheckForUpdates,
 }: Readonly<ControllerSettingsViewProps>) {
+    const {t} = useTranslation("settings");
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
 
@@ -208,7 +210,7 @@ export function SettingsView({
     }, []);
 
     if (!settings) {
-        return <p className="opacity-70">Loading settings…</p>;
+        return <p className="opacity-70">{t("loading")}</p>;
     }
 
     return (
@@ -220,11 +222,11 @@ export function SettingsView({
             >
                 <div className="shrink-0 space-y-3">
                     <TabsList>
-                        <TabsTrigger value="general">General</TabsTrigger>
-                        <TabsTrigger value="wled">WLED</TabsTrigger>
-                        <TabsTrigger value="dmx">DMX</TabsTrigger>
-                        {(wledEnabled || dmxEnabled) && <TabsTrigger value="party">Party</TabsTrigger>}
-                        {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
+                        <TabsTrigger value="general">{t("tabs.general")}</TabsTrigger>
+                        <TabsTrigger value="wled">{t("tabs.wled")}</TabsTrigger>
+                        <TabsTrigger value="dmx">{t("tabs.dmx")}</TabsTrigger>
+                        {(wledEnabled || dmxEnabled) && <TabsTrigger value="party">{t("tabs.party")}</TabsTrigger>}
+                        {!consoleDetached && <TabsTrigger value="console">{t("tabs.console")}</TabsTrigger>}
                     </TabsList>
                 </div>
 
@@ -306,10 +308,17 @@ export function SettingsView({
 
                     {snapshot && (
                         <p className="text-xs opacity-60">
-                            Persistence: <code>{snapshot.persistencePath}</code> •
-                            backend: {snapshot.capabilities.networkBackendLabel}
-                            {" "}({snapshot.capabilities.networkBackendId}) • host
-                            CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
+                            <Trans
+                                i18nKey="persistence.line"
+                                t={t}
+                                values={{
+                                    path: snapshot.persistencePath,
+                                    backendLabel: snapshot.capabilities.networkBackendLabel,
+                                    backendId: snapshot.capabilities.networkBackendId,
+                                    cliName: snapshot.capabilities.networkCliName || t("persistence.cliUnknown"),
+                                }}
+                                components={[<code key="path"/>, <code key="cli"/>]}
+                            />
                             {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
                                 className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
                         </p>

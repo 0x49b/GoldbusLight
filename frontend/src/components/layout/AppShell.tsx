@@ -1,4 +1,5 @@
 import {useCallback, useRef, type Dispatch, type ReactNode, type SetStateAction} from "react";
+import {useTranslation} from "react-i18next";
 import {
     PiGearSix,
     PiLightbulb,
@@ -61,6 +62,7 @@ export function AppShell({
                              onRefreshWLEDDevice,
                              children,
                          }: AppShellProps) {
+    const {t} = useTranslation("shell");
     const dmxLiveConnected = dmxLiveStatus?.connected === true;
     const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
     const partyRunning = dmxPartyState?.status?.running === true;
@@ -88,7 +90,7 @@ export function AppShell({
             )}
             <Sidebar collapsible="offcanvas">
                 <SidebarHeader>
-                    Goldbus Light Controller
+                    {t("appTitle")}
                     <p className="text-xs opacity-70 truncate" title={status}>
                         {status}
                     </p>
@@ -108,7 +110,7 @@ export function AppShell({
                                         onClick={() => setRoute({kind: "scenes"})}
                                     >
                                         <PiMonitorPlay className="size-4 shrink-0" aria-hidden/>
-                                        <span className="min-w-0 flex-1 truncate">Scenes</span>
+                                        <span className="min-w-0 flex-1 truncate">{t("nav.scenes")}</span>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             </SidebarMenu>
@@ -135,18 +137,18 @@ export function AppShell({
                                             onClick={() => setRoute({kind: "presets"})}
                                         >
                                             <PiSquaresFour className="size-4 shrink-0" aria-hidden/>
-                                            <span className="min-w-0 flex-1 truncate">General</span>
+                                            <span className="min-w-0 flex-1 truncate">{t("nav.general")}</span>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 </SidebarMenu>
                             </SidebarGroup>
 
                             <SidebarGroup>
-                                <SidebarGroupLabel>Devices</SidebarGroupLabel>
+                                <SidebarGroupLabel>{t("nav.devices")}</SidebarGroupLabel>
                                 <SidebarGroupAction
                                     type="button"
-                                    aria-label="Add WLED device"
-                                    title="Add WLED device"
+                                    aria-label={t("actions.addWledDevice")}
+                                    title={t("actions.addWledDevice")}
                                     onClick={() => setRoute({kind: "wledAddDevice"})}
                                     className={cn(
                                         route.kind === "wledAddDevice" &&
@@ -163,7 +165,7 @@ export function AppShell({
                                                 title={
                                                     dev.online
                                                         ? undefined
-                                                        : "Offline — open details; double-click to refresh"
+                                                        : t("device.offlineHint")
                                                 }
                                                 isActive={route.kind === "device" && route.id === dev.id}
                                                 className={cn(
@@ -173,8 +175,8 @@ export function AppShell({
                                                 )}
                                                 aria-label={
                                                     dev.online
-                                                        ? `${dev.name} (online)`
-                                                        : `${dev.name} (offline)`
+                                                        ? t("device.online", {name: dev.name})
+                                                        : t("device.offline", {name: dev.name})
                                                 }
                                                 onClick={() => {
                                                     setRoute({kind: "device", id: dev.id});
@@ -214,7 +216,6 @@ export function AppShell({
                             </div>
 
                             <SidebarGroup className="py-1">
-                                <SidebarGroupLabel>Universe</SidebarGroupLabel>
                                 <SidebarMenu>
                                     <SidebarMenuItem className="mb-2">
                                         <SidebarMenuButton
@@ -227,18 +228,18 @@ export function AppShell({
                                             onClick={() => setRoute({kind: "dmxUniverse"})}
                                         >
                                             <PiPlanet className="size-4 shrink-0" aria-hidden/>
-                                            <span className="min-w-0 flex-1 truncate">Universe</span>
+                                            <span className="min-w-0 flex-1 truncate">{t("nav.universe")}</span>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 </SidebarMenu>
                             </SidebarGroup>
 
                             <SidebarGroup>
-                                <SidebarGroupLabel>DMX Devices</SidebarGroupLabel>
+                                <SidebarGroupLabel>{t("nav.dmxDevices")}</SidebarGroupLabel>
                                 <SidebarGroupAction
                                     type="button"
-                                    aria-label="Create new DMX device"
-                                    title="Create new DMX device"
+                                    aria-label={t("actions.createDmxDevice")}
+                                    title={t("actions.createDmxDevice")}
                                     onClick={() => setRoute({kind: "dmxAddFixture"})}
                                     className={cn(
                                         route.kind === "dmxAddFixture" &&
@@ -316,7 +317,7 @@ export function AppShell({
                                 onClick={() => setRoute({kind: "settings"})}
                             >
                                 <PiGearSix className="size-4 shrink-0" aria-hidden/>
-                                <span className="min-w-0 flex-1 truncate">Settings</span>
+                                <span className="min-w-0 flex-1 truncate">{t("nav.settings")}</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>

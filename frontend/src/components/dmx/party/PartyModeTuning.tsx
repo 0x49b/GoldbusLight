@@ -1,4 +1,5 @@
 import React from "react";
+import {useTranslation} from "react-i18next";
 import type { DMXChannel } from "@/types/controller.ts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -33,15 +34,15 @@ export function PartyModeTuning({
     setPartyStrobeOffMs,
     busy,
 }: PartyModeTuningProps) {
+    const {t} = useTranslation("dmx");
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-base">Party mode tuning</CardTitle>
+                <CardTitle className="text-base">{t("partyTuning.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                    Per-channel reaction scales how strongly auto and audio party algorithms move each
-                    function toward its default (0% = frozen at default, 100% = full motion).
+                    {t("partyTuning.perChannelDescription")}
                 </p>
                 <div className="grid gap-3">
                     {channels.filter((ch) => channelPartyIncludeEnabled(ch)).map((ch) => {
@@ -53,7 +54,7 @@ export function PartyModeTuning({
                                 className="flex flex-col gap-1 text-xs text-muted-foreground"
                             >
                                 <span className="font-medium text-foreground">
-                                    Offset {ch.channel} ({ch.type}) — {w}%
+                                    {t("partyTuning.channelWeightLabel", {offset: ch.channel, type: ch.type, value: w})}
                                 </span>
                                 <Slider
                                     min={0}
@@ -75,7 +76,7 @@ export function PartyModeTuning({
                 <Separator />
                 <div className="space-y-3 rounded-md border bg-muted/20 p-3">
                     <p className="text-xs text-muted-foreground">
-                        Timed strobe applies to shutter/strobe channels and LED strobe or sound macros.
+                        {t("partyTuning.strobeDescription")}
                     </p>
                     <label className="flex items-center gap-2 text-sm">
                         <Checkbox
@@ -83,12 +84,12 @@ export function PartyModeTuning({
                             disabled={busy}
                             onCheckedChange={(v) => setPartyStrobeEnabled(v === true)}
                         />
-                        <span>Use timed strobe bursts in party</span>
+                        <span>{t("partyTuning.useTimedStrobe")}</span>
                     </label>
                     {partyStrobeEnabled ? (
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1">
-                                <Label htmlFor="party-strobe-on">Burst on (ms)</Label>
+                                <Label htmlFor="party-strobe-on">{t("partyTuning.burstOnMs")}</Label>
                                 <Input
                                     id="party-strobe-on"
                                     type="number"
@@ -102,7 +103,7 @@ export function PartyModeTuning({
                                 />
                             </div>
                             <div className="space-y-1">
-                                <Label htmlFor="party-strobe-off">Pause between (ms)</Label>
+                                <Label htmlFor="party-strobe-off">{t("partyTuning.burstOffMs")}</Label>
                                 <Input
                                     id="party-strobe-off"
                                     type="number"

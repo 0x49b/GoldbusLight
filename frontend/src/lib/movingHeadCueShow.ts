@@ -1,4 +1,5 @@
 import type {DMXChannel, DMXFixture, DMXFixtureCue} from "@/types/controller.ts";
+import i18n from "../i18n";
 import {
     buildDmxLivePatch,
     defaultDmxLiveControlState,
@@ -15,7 +16,8 @@ import {
  * type, so the same show works for any moving head regardless of its channel order.
  */
 type ShowPose = {
-    label: string;
+    /** Locale key under `dmx:cueShow.poses` used to resolve the display label. */
+    labelKey: string;
     pan01: number;
     tilt01: number;
     /** Palette colour as a hex string; mapped onto colour-wheel slots or RGB components. */
@@ -30,16 +32,16 @@ type ShowPose = {
  * crossing beams, a sky search, a floor spot, and wide diagonals.
  */
 const SHOW_POSES: ShowPose[] = [
-    {label: "Home Center", pan01: 0.5, tilt01: 0.55, color: "#ffffff", beam: false},
-    {label: "Audience Wash", pan01: 0.5, tilt01: 0.35, color: "#ff7a00", beam: false},
-    {label: "Sweep Left", pan01: 0.18, tilt01: 0.55, color: "#0030ff", beam: true},
-    {label: "Sweep Right", pan01: 0.82, tilt01: 0.55, color: "#00d0ff", beam: true},
-    {label: "Cross Beam Left", pan01: 0.4, tilt01: 0.72, color: "#ff00c0", beam: true},
-    {label: "Cross Beam Right", pan01: 0.6, tilt01: 0.72, color: "#ff0000", beam: true},
-    {label: "Sky Search", pan01: 0.5, tilt01: 0.92, color: "#ffffff", beam: false},
-    {label: "Floor Spot", pan01: 0.5, tilt01: 0.15, color: "#00ff3c", beam: true},
-    {label: "Wide Diagonal Left", pan01: 0.22, tilt01: 0.8, color: "#7a00ff", beam: true},
-    {label: "Wide Diagonal Right", pan01: 0.78, tilt01: 0.8, color: "#ff5a00", beam: true},
+    {labelKey: "homeCenter", pan01: 0.5, tilt01: 0.55, color: "#ffffff", beam: false},
+    {labelKey: "audienceWash", pan01: 0.5, tilt01: 0.35, color: "#ff7a00", beam: false},
+    {labelKey: "sweepLeft", pan01: 0.18, tilt01: 0.55, color: "#0030ff", beam: true},
+    {labelKey: "sweepRight", pan01: 0.82, tilt01: 0.55, color: "#00d0ff", beam: true},
+    {labelKey: "crossBeamLeft", pan01: 0.4, tilt01: 0.72, color: "#ff00c0", beam: true},
+    {labelKey: "crossBeamRight", pan01: 0.6, tilt01: 0.72, color: "#ff0000", beam: true},
+    {labelKey: "skySearch", pan01: 0.5, tilt01: 0.92, color: "#ffffff", beam: false},
+    {labelKey: "floorSpot", pan01: 0.5, tilt01: 0.15, color: "#00ff3c", beam: true},
+    {labelKey: "wideDiagonalLeft", pan01: 0.22, tilt01: 0.8, color: "#7a00ff", beam: true},
+    {labelKey: "wideDiagonalRight", pan01: 0.78, tilt01: 0.8, color: "#ff5a00", beam: true},
 ];
 
 const PAN_TYPES = new Set<string>(["pan", "infinitePan"]);
@@ -257,7 +259,7 @@ export function generateMovingHeadShow(fixture: DMXFixture): DMXFixtureCue[] {
 
         return {
             id: `cue-show-${stamp}-${idx}`,
-            label: pose.label,
+            label: i18n.t(`dmx:cueShow.poses.${pose.labelKey}`),
             values,
             // Washes breathe; beam looks snap. (Per-pose overrides; the sequence keeps a default too.)
             holdMs: pose.beam ? 2400 : 5000,

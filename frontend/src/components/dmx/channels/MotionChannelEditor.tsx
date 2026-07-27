@@ -13,10 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { effectiveEntryLiveSlotKind } from "@/lib/dmxLiveWidget";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import {
     type ChannelEditorProps,
     clamp255,
-    MOTION_STATE_OPTIONS,
+    getMotionStateOptions,
     motionStateCueId,
     EntryLiveSlotKindSelect,
 } from "./ChannelBase";
@@ -31,16 +33,18 @@ export function MotionChannelEditor({
     showSlotKindEditor,
     busy,
 }: ChannelEditorProps) {
+    const { t } = useTranslation("dmx");
+    const motionStateOptions = getMotionStateOptions();
     return (
         <div className="mt-3 space-y-2">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[140px] text-muted-foreground">Range</TableHead>
-                        <TableHead className="text-muted-foreground">State</TableHead>
-                        <TableHead className="w-[200px] text-right text-muted-foreground">Speed</TableHead>
+                        <TableHead className="w-[140px] text-muted-foreground">{t("channelEditor.range")}</TableHead>
+                        <TableHead className="text-muted-foreground">{t("channelEditor.state")}</TableHead>
+                        <TableHead className="w-[200px] text-right text-muted-foreground">{t("channelEditor.speed")}</TableHead>
                         {showSlotKindEditor ? (
-                            <TableHead className="w-[108px] text-muted-foreground">Live slot</TableHead>
+                            <TableHead className="w-[108px] text-muted-foreground">{t("channelEditor.liveSlot")}</TableHead>
                         ) : null}
                         <TableHead className="w-12" />
                     </TableRow>
@@ -54,7 +58,7 @@ export function MotionChannelEditor({
                             speedChip = (
                                 <span
                                     className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
-                                    title="Vector"
+                                    title={t("channelEditor.vector")}
                                     aria-hidden
                                 >
                                     <ArrowDownRight className="size-4" strokeWidth={2.5} />
@@ -64,7 +68,7 @@ export function MotionChannelEditor({
                             speedChip = (
                                 <span
                                     className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
-                                    title="Clockwise"
+                                    title={t("channelEditor.clockwise")}
                                     aria-hidden
                                 >
                                     <RotateCw className="size-4" strokeWidth={2.5} />
@@ -74,7 +78,7 @@ export function MotionChannelEditor({
                             speedChip = (
                                 <span
                                     className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-primary/15 text-primary"
-                                    title="Counter-clockwise"
+                                    title={t("channelEditor.counterClockwise")}
                                     aria-hidden
                                 >
                                     <RotateCcw className="size-4" strokeWidth={2.5} />
@@ -136,7 +140,7 @@ export function MotionChannelEditor({
                                         value={motionStateCueId(slot)}
                                         onChange={(e) => {
                                             const id = e.target.value;
-                                            const opt = MOTION_STATE_OPTIONS.find((o) => o.id === id);
+                                            const opt = motionStateOptions.find((o) => o.id === id);
                                             if (!opt) {
                                                 return;
                                             }
@@ -155,7 +159,7 @@ export function MotionChannelEditor({
                                             });
                                         }}
                                     >
-                                        {MOTION_STATE_OPTIONS.map((o) => (
+                                        {motionStateOptions.map((o) => (
                                             <NativeSelectOption key={o.id} value={o.id}>
                                                 {o.label}
                                             </NativeSelectOption>
@@ -237,7 +241,7 @@ export function MotionChannelEditor({
                                         type="button"
                                         size="icon"
                                         variant="ghost"
-                                        title="Remove slot"
+                                        title={t("channelEditor.removeSlot")}
                                         onClick={() => {
                                             const next = slots.filter((_, j) => j !== si);
                                             if (next.length === 0) {
@@ -278,7 +282,7 @@ export function MotionChannelEditor({
                         {
                             from: start,
                             to: Math.min(255, start + 15),
-                            label: "Slow CW",
+                            label: i18n.t("dmx:channelBase.motionState.slow_cw"),
                             mode: "slow",
                             direction: "cw",
                             numeric: 0,
@@ -293,7 +297,7 @@ export function MotionChannelEditor({
                 }}
             >
                 <PiPlus className="mr-1 inline size-4" aria-hidden />
-                Add property
+                {t("channelEditor.addProperty")}
             </Button>
         </div>
     );

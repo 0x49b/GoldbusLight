@@ -1,0 +1,161 @@
+{
+  "loading": "Einstellungen werden geladen…",
+  "tabs": {
+    "general": "Allgemein",
+    "wled": "WLED",
+    "dmx": "DMX",
+    "party": "Party",
+    "console": "Konsole"
+  },
+  "appearance": {
+    "title": "Erscheinungsbild",
+    "description": "Wählen Sie hellen oder dunklen Modus, oder folgen Sie der Systemeinstellung.",
+    "colorMode": "Farbmodus",
+    "placeholder": "System",
+    "modes": {
+      "system": "System",
+      "light": "Hell",
+      "dark": "Dunkel"
+    }
+  },
+  "language": {
+    "title": "Sprache",
+    "description": "Wählen Sie die Sprache der Oberfläche, oder folgen Sie der Systemeinstellung.",
+    "label": "Sprache",
+    "placeholder": "System",
+    "options": {
+      "system": "System",
+      "en": "English",
+      "de": "Deutsch"
+    }
+  },
+  "version": {
+    "title": "Anwendungsversion",
+    "installedLabel": "Installierte Version",
+    "loading": "Wird geladen…",
+    "checkForUpdates": "Nach Updates suchen",
+    "checkHint": "Öffnet den integrierten Updater, um eine neuere Version herunterzuladen und zu installieren, sofern verfügbar.",
+    "raspberryPiHint": "Auf dieser Raspberry-Pi-Installation aktualisieren Sie über die Shell mit <0>sudo ./scripts/goldbuslight-pi.sh update --latest</0>. Verwenden Sie hier nicht den In-App-Updater — er kann die Binärdatei entfernen und nur eine <1>GoldbusLight.bak</1>-Datei zurücklassen."
+  },
+  "window": {
+    "title": "Fensteranzeige",
+    "description": "Erweitern Sie das Anwendungsfenster für den Bühneneinsatz oder Kiosk-Anzeigen.",
+    "enterFullscreen": "Vollbild aktivieren",
+    "exitFullscreen": "Vollbild beenden",
+    "maximize": "Fenster maximieren",
+    "restore": "Fenster wiederherstellen"
+  },
+  "backup": {
+    "title": "Konfigurations-Backup",
+    "description": "Exportieren oder importieren Sie alle persistierten Daten: Controller-Einstellungen, WLED-Geräte, DMX-Fixtures und Party-Konfiguration, Zustand des Allgemein-Tabs sowie Live-Layouts pro Fixture. Damit können Sie ein vollständiges Setup von einem Host auf einen anderen übertragen.",
+    "export": "Backup exportieren",
+    "import": "Backup importieren"
+  },
+  "networkApply": {
+    "title": "Ergebnis der Netzwerkanwendung",
+    "noAction": "Noch keine Anwendung ausgeführt.",
+    "dryRun": "Testlauf (Netzwerk-CLI nicht verfügbar oder nicht unterstützt)",
+    "applied": "Angewendet"
+  },
+  "persistence": {
+    "line": "Persistenz: <0>{{path}}</0> • Backend: {{backendLabel}} ({{backendId}}) • Host-CLI: <1>{{cliName}}</1>",
+    "cliUnknown": "—"
+  },
+  "wledTab": {
+    "componentTitle": "WLED-Komponente",
+    "enableComponent": "WLED-Komponente aktivieren",
+    "disabledHint": "WLED-Routen, Menüeinträge und Geräteaktionen sind deaktiviert, solange diese Option aus ist.",
+    "refresh": "Aktualisieren",
+    "refreshHint": "„Aktualisieren“ lädt den neuesten Controller-Snapshot vom Backend. WLED-Geräte fügen Sie über die Seitenleiste hinzu.",
+    "accessPointTitle": "Access Point",
+    "applyNetworkSettings": "Netzwerkeinstellungen anwenden",
+    "enableAccessPoint": "Lokalen Access Point aktivieren",
+    "disableApNow": "AP jetzt deaktivieren (speichern + anwenden)",
+    "apDisabledWhileOff": "Der Access Point ist erzwungen deaktiviert, solange die WLED-Komponente aus ist.",
+    "apConnectionName": "AP-Verbindungsname",
+    "apInterface": "AP-Schnittstelle",
+    "apSsid": "AP-SSID",
+    "apPassword": "AP-Passwort",
+    "apChannel": "Kanal",
+    "provisioningTitle": "Provisionierung",
+    "simulateWled": "WLED-Gerät simulieren (Test)",
+    "simulateWledHint": "Fügt ein in-App simuliertes Gerät (<0>sim:wled</0>) ohne Netzwerkverkehr hinzu.",
+    "autoProvision": "Neu hinzugefügte Geräte automatisch provisionieren",
+    "defaultStatePayload": "Standard-/json/state-Payload",
+    "defaultConfigPatch": "Standard-/json/cfg-Patch",
+    "ignoredDevicesTitle": "Ignorierte Geräte",
+    "ignoredDevicesDescription": "Ignorierte Geräte erscheinen weder in der Seitenleiste noch in Presets, bleiben aber in<0> state.json</0> erhalten.",
+    "noIgnoredDevices": "Keine ignorierten Geräte.",
+    "unignore": "Nicht mehr ignorieren",
+    "debugInformationTitle": "Debug-Informationen",
+    "showDebugInformation": "WLED-Debug-Informationen anzeigen"
+  },
+  "dmxTab": {
+    "componentTitle": "DMX-Komponente",
+    "enableComponent": "DMX-Komponente aktivieren",
+    "simulatorInterfaces": "DMX-Simulator-Schnittstellen",
+    "simulateUsb": "USB-DMX512-Schnittstelle simulieren",
+    "simulateArtNet": "Art-Net-Schnittstelle simulieren",
+    "usbInterfaceTitle": "USB-DMX-Schnittstelle",
+    "enableUsbTransport": "USB-Transport aktivieren",
+    "noDeviceSelected": "Kein Gerät ausgewählt",
+    "refreshUsbDevices": "USB-Geräte aktualisieren",
+    "usbDeviceUnavailable": "Ausgewähltes Gerät ist derzeit nicht verfügbar: <0>{{id}}</0>",
+    "artNetTitle": "Art-Net-DMX-Schnittstelle",
+    "enableArtNet": "Art-Net aktivieren",
+    "targetHost": "Ziel-Host / Broadcast",
+    "udpPort": "UDP-Port",
+    "net": "Net (0-127)",
+    "subnet": "Subnet (0-15)",
+    "artNetUniverse": "Art-Net-Universum (0-15)",
+    "refreshHz": "Aktualisierungsrate (Hz)"
+  },
+  "sweep": {
+    "title": "DMX-Fixture-Kanal-Sweep",
+    "description": "Fährt jeden konfigurierten Kanal einer Fixture von 0→255 durch, während alle anderen Kanäle dieser Fixture bei null bleiben. Das Universum wird zuvor abgedunkelt, damit Sie erkennen können, welche physische Funktion reagiert. Die Ausgabe verwendet dieselbe USB-/Art-Net-Konfiguration wie die DMX-Einstellungen oben.",
+    "partyRunningAlert": "Party-Modus ist aktiv — bitte stoppen Sie ihn, bevor Sie einen Sweep starten.",
+    "fixtureLabel": "Fixture",
+    "selectFixturePlaceholder": "Fixture auswählen…",
+    "fixtureOption": "{{name}} ({{type}}) @ Kanal {{address}}",
+    "sweepSpeed": "Sweep-Geschwindigkeit",
+    "sweepSpeedPercent": "{{value}} %",
+    "sweepSpeedHint": "Höher ist schneller (kürzere Verzögerung zwischen DMX-Schritten).",
+    "startSweep": "Sweep starten",
+    "stop": "Stopp",
+    "currentStep": "Aktueller Schritt",
+    "currentStepDetail": "Fixture-Kanal-Offset: <0>{{offset}}</0> ({{type}}) · DMX-Adresse: <1>{{address}}</1> · Wert: <2>{{value}}</2>",
+    "paused": "Pausiert — Leertaste zum Fortsetzen drücken",
+    "running": "Läuft — Leertaste zum Pausieren und Loggen dieser Position",
+    "idle": "Leerlauf",
+    "channelPlaceholder": "—",
+    "pauseLogTitle": "Pausenprotokoll (Leertaste)",
+    "pauseLogEntry": "{{ts}}  Pause  DMX {{address}}  Fixture-Kanal {{channel}}  Wert {{value}}",
+    "noPauses": "Noch keine Pausen.",
+    "errors": {
+      "selectFixture": "Bitte wählen Sie eine Fixture mit mindestens einem DMX-Kanal aus.",
+      "partyRunning": "Bitte stoppen Sie den Party-Modus, bevor Sie den Kanal-Sweep-Test starten."
+    },
+    "transport": {
+      "usbSelected": "USB: {{name}} ({{path}})",
+      "usbUnavailable": "USB: ausgewähltes Gerät nicht verfügbar ({{id}})",
+      "usbNoDevice": "USB: kein Gerät ausgewählt",
+      "usbTransportOff": "USB-Transport aus",
+      "artNetTarget": "Art-Net → {{host}}:{{port}} (N{{net}} S{{subnet}} U{{universe}})",
+      "artNetOff": "Art-Net aus",
+      "empty": "—"
+    }
+  },
+  "console": {
+    "title": "Live-Transport-Konsole",
+    "detach": "Abkoppeln",
+    "attachBack": "Wieder ankoppeln",
+    "clear": "Leeren",
+    "description": "Live-Befehle an USB-DMX-, Art-Net- und WLED-Transporte erscheinen hier, sobald sie gesendet werden.",
+    "noActivity": "Noch keine Transport-Aktivität.",
+    "transports": {
+      "wled": "WLED",
+      "usbDmx": "USB DMX",
+      "artnet": "Art-Net"
+    }
+  }
+}
