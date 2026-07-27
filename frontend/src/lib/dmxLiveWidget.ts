@@ -34,7 +34,7 @@ const LIVE_WIDGET_VALUES: DMXLiveWidget[] = [
 export function getDmxLiveWidgetOptions(): { value: DMXLiveWidget; label: string }[] {
     return LIVE_WIDGET_VALUES.map((value) => ({
         value,
-        label: i18n.t(`dmx:liveWidget.${value}`),
+        label: i18n.t(`dmx:liveControl.widget.${value}`),
     }));
 }
 
@@ -243,12 +243,12 @@ export function liveWidgetHiddenSource(ch: DMXChannel): LiveWidgetHiddenSource |
 
 export function liveWidgetHiddenBadgeLabel(source: LiveWidgetHiddenSource): string {
     return source === "override"
-        ? i18n.t("dmx:liveWidget.hiddenEditor")
-        : i18n.t("dmx:liveWidget.hiddenAuto");
+        ? i18n.t("dmx:liveControl.hiddenOverrideBadge")
+        : i18n.t("dmx:liveControl.hiddenAutoBadge");
 }
 
 export function liveWidgetLabel(widget: DMXLiveWidget): string {
-    return i18n.t(`dmx:liveWidget.${widget}`);
+    return i18n.t(`dmx:liveControl.widget.${widget}`);
 }
 
 /** How the live tab shows the current value for a linear `slider` widget. */
@@ -260,7 +260,7 @@ const LIVE_SLIDER_LABEL_VALUES: LiveSliderLabelMode[] = ["percent", "dmx"];
 export function getLiveSliderLabelOptions(): { value: LiveSliderLabelMode; label: string }[] {
     return LIVE_SLIDER_LABEL_VALUES.map((value) => ({
         value,
-        label: i18n.t(`dmx:liveSliderLabel.${value}`),
+        label: i18n.t(`dmx:liveControl.labelMode.${value}`),
     }));
 }
 
@@ -296,8 +296,8 @@ export function readLiveSliderLabelMode(props: JSONMap | undefined, ch: DMXChann
 
 export function liveSliderLabelModeHint(mode: LiveSliderLabelMode): string {
     return mode === "percent"
-        ? i18n.t("dmx:liveSliderLabel.percentHint")
-        : i18n.t("dmx:liveSliderLabel.dmxHint");
+        ? i18n.t("dmx:liveControl.labelMode.percentShort")
+        : i18n.t("dmx:liveControl.labelMode.dmxShort");
 }
 
 /** Orientation of a linear `slider` widget on the live tab. Vertical (fader-style) is the default. */
