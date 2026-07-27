@@ -108,9 +108,6 @@ export function GeneralPanel({
 
     return (
         <div className="space-y-6 w-full max-w-none">
-            <div>
-                <h2 className="text-lg font-semibold">General</h2>
-            </div>
             <Card>
 
                 <CardHeader>

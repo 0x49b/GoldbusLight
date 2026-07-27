@@ -362,15 +362,7 @@ export function DMXUniverseView({
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
             
             <div className="flex flex-wrap w-full items-start gap-2">
-                <div className="flex min-w-0 flex-col gap-0.5 px-1">
-                    <span className="text-sm font-semibold leading-none">Universe</span>
-                    <span
-                        className="max-w-[18rem] truncate text-xs leading-tight text-muted-foreground"
-                        title={interfaceLabel}
-                    >
-                        {interfaceLabel}
-                    </span>
-                </div>
+
                 <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Button
                         type="button"

@@ -12,6 +12,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {ScenesEditor} from "@/components/scenes/ScenesEditor";
+import {DMXEmergencyButton} from "@/components/dmx/DMXEmergencyButton";
 import {DMXOutputIndicator} from "@/components/dmx/DMXOutputIndicator";
 import type {
     DMXFixture,
@@ -46,6 +47,7 @@ type ScenesViewProps = {
     onSetDefault: (id: string) => Promise<void>;
     onSetPartyScene: (id: string) => Promise<void>;
     onOpenSettings?: () => void;
+    onEmergency: () => void | Promise<void>;
 };
 
 export function ScenesView({
@@ -71,6 +73,7 @@ export function ScenesView({
     onSetDefault,
     onSetPartyScene,
     onOpenSettings,
+    onEmergency,
 }: ScenesViewProps) {
     const [managing, setManaging] = useState(false);
     const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -155,6 +158,7 @@ export function ScenesView({
                         <PiGearSix className="size-4" aria-hidden />
                         Manage
                     </Button>
+                    {dmxEnabled ? <DMXEmergencyButton busy={busy} onEmergency={onEmergency}/> : null}
                     {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
                 </div>
             </div>

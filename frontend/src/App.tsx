@@ -78,6 +78,7 @@ function App() {
                 onOpenSettings={() => {
                     app.setRoute({kind: "settings"});
                 }}
+                onEmergency={app.triggerDMXEmergency}
             />
         );
     } else if (app.route.kind === "presets" && app.wledEnabled) {
