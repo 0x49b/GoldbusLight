@@ -66,7 +66,6 @@ export function AppShell({
     const dmxLiveFixtureId = dmxLiveStatus?.fixtureId ?? "";
     const partyRunning = dmxPartyState?.status?.running === true;
     const partyConfig = dmxPartyState?.config;
-    const offlineTapRef = useRef<{ deviceId: string; atMs: number } | null>(null);
     const lastOfflineRefreshAtRef = useRef<Map<string, number>>(new Map());
 
     const tryRefreshOfflineDevice = useCallback((deviceId: string) => {
@@ -78,17 +77,6 @@ export function AppShell({
         lastOfflineRefreshAtRef.current.set(deviceId, now);
         onRefreshWLEDDevice(deviceId);
     }, [onRefreshWLEDDevice]);
-
-    const handleOfflineDeviceClick = useCallback((deviceId: string) => {
-        const now = Date.now();
-        const prev = offlineTapRef.current;
-        if (prev?.deviceId === deviceId && now - prev.atMs <= 350) {
-            offlineTapRef.current = null;
-            tryRefreshOfflineDevice(deviceId);
-            return;
-        }
-        offlineTapRef.current = {deviceId, atMs: now};
-    }, [tryRefreshOfflineDevice]);
     return (
 
         <SidebarProvider>
@@ -176,7 +164,7 @@ export function AppShell({
                                                 title={
                                                     dev.online
                                                         ? undefined
-                                                        : "Offline — double-click or double-tap to refresh"
+                                                        : "Offline — open details; double-click to refresh"
                                                 }
                                                 isActive={route.kind === "device" && route.id === dev.id}
                                                 className={cn(
@@ -188,14 +176,10 @@ export function AppShell({
                                                 aria-label={
                                                     dev.online
                                                         ? `${dev.name} (online)`
-                                                        : `${dev.name} (offline, double-click or double-tap to refresh)`
+                                                        : `${dev.name} (offline)`
                                                 }
                                                 onClick={() => {
-                                                    if (dev.online) {
-                                                        setRoute({kind: "device", id: dev.id});
-                                                        return;
-                                                    }
-                                                    handleOfflineDeviceClick(dev.id);
+                                                    setRoute({kind: "device", id: dev.id});
                                                 }}
                                                 onDoubleClick={() => {
                                                     if (!dev.online) {

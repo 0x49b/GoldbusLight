@@ -163,10 +163,23 @@ export function DeviceDetailView({
     const coldWhiteActive = isColdWhiteRgb(deviceFormRgb);
     const namedColorActive = isNamedDropdownColorRgb(deviceFormRgb);
 
+    const fetchingDetail =
+        deviceDetailInitializing ||
+        deviceDetailReloading ||
+        deviceDetailFetchAttempt > 0;
+    const fetchStatusLabel = deviceDetailFetchAttempt > 0
+        ? `${deviceDetailFetchAttempt}/${deviceDetailFetchMax}`
+        : deviceDetailReloading
+            ? "Refreshing…"
+            : "Loading…";
+
     return (
-        <div className="space-y-6 w-full max-w-none pb-8">
+        <div className="w-full max-w-none pb-8">
+            <div
+                className="sticky left-0 right-0 top-[-1rem] z-40 isolate -mx-4 -mt-4 mb-6 space-y-4 bg-background px-4 pb-4 pt-4 shadow-sm md:-mx-6 md:-mt-6 md:top-[-1.5rem] md:px-6"
+            >
             <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-3 min-w-0 flex-1">
+                <div className="space-y-3 min-w-0 flex-1 basis-[14rem]">
                     {editingDeviceName ? (
                         <div className="flex flex-wrap items-end gap-2">
                             <label className="flex-1 min-w-[14rem] max-w-md">
@@ -239,7 +252,21 @@ export function DeviceDetailView({
                         )}
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div
+                    className="flex min-h-8 min-w-0 flex-1 basis-[12rem] items-center justify-center self-center px-2"
+                    aria-live="polite"
+                >
+                    {fetchingDetail ? (
+                        <div
+                            role="status"
+                            className="inline-flex max-w-full items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm text-muted-foreground"
+                        >
+                            <Spinner className="size-4 shrink-0 text-primary" aria-hidden/>
+                            <span className="truncate tabular-nums">{fetchStatusLabel}</span>
+                        </div>
+                    ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
                     <Button
                         type="button"
                         variant={powerButtonVariant as "default" | "destructive" | "secondary"}
@@ -318,33 +345,6 @@ export function DeviceDetailView({
                 </Dialog>
             )}
 
-            {(deviceDetailInitializing || deviceDetailReloading || (!detail?.state && liveOnline)) && (
-                <Dialog open>
-                    <DialogContent showCloseButton={false} className="max-w-sm">
-                        <DialogHeader className="sr-only">
-                            <DialogTitle>Device state loading</DialogTitle>
-                            <DialogDescription>
-                                Loading status and retry information for the selected device.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <p id="device-state-loading-title"
-                           className="font-medium flex items-center gap-3">
-                            <Spinner className="text-primary" aria-hidden/>
-                            {deviceDetailReloading
-                                ? "Refreshing device …"
-                                : deviceDetailInitializing
-                                    ? "Loading device state …"
-                                    : "Refreshing device state …"}
-                        </p>
-                        {deviceDetailFetchAttempt > 0 && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                                Attempt {deviceDetailFetchAttempt} of {deviceDetailFetchMax}
-                            </p>
-                        )}
-                    </DialogContent>
-                </Dialog>
-            )}
-
             {segCount > 1 && (
                 <Card className="bg-muted/50">
                     <CardContent className="gap-2 py-4">
@@ -371,7 +371,9 @@ export function DeviceDetailView({
                     </CardContent>
                 </Card>
             )}
+            </div>
 
+            <div className="space-y-6">
             <Card>
 
                 <CardHeader>
@@ -767,9 +769,9 @@ export function DeviceDetailView({
                     </CollapsibleContent>
                 </Collapsible>
             )}
+            </div>
         </div>
-    )
-        ;
+    );
 }
 
 function hueToRgb(hue: number): [number, number, number] {

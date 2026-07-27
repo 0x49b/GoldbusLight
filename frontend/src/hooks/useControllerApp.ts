@@ -589,11 +589,6 @@ export function useControllerApp() {
         if (!dev) {
             setRoute({kind: "presets"});
             setStatus("That device is no longer in the controller.");
-            return;
-        }
-        if (dev.online === false) {
-            setRoute({kind: "presets"});
-            setStatus("Device offline — open it from the sidebar after it is reachable again.");
         }
     }, [route, snapshot, setRoute, setStatus]);
 
@@ -827,6 +822,11 @@ export function useControllerApp() {
         }
         currentDetailTargetIdRef.current = route.id;
         detailInitDoneRef.current = false;
+        // Clear prior device detail so we never flash another device's live state.
+        // Cached lastState on the device list still powers the UI while we fetch.
+        if (detailDeviceIdRef.current !== route.id) {
+            setDeviceDetail(null);
+        }
         setDeviceDetailInitializing(true);
         void loadDeviceDetail(route.id, {maxAttempts: DEVICE_DETAIL_MAX_TRIES, showAttempts: true});
         const t = window.setInterval(() => {
