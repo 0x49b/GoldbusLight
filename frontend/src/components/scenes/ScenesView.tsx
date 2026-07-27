@@ -367,7 +367,6 @@ export function ScenesView({
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
                         <Button type="button" size="sm" onClick={() => setDraft(emptyDraft())} disabled={busy || saving}>
                             <PiPlus className="size-4" aria-hidden />
                             Create scene
@@ -774,11 +773,11 @@ export function ScenesView({
                     <p className="text-sm text-muted-foreground">Tap a scene to switch to it.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
                     <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => openManage()}>
                         <PiGearSix className="size-4" aria-hidden />
                         Manage
                     </Button>
+                    {dmxEnabled ? <DMXOutputIndicator connected={dmxLiveConnected}/> : null}
                 </div>
             </div>
 
