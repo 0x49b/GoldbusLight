@@ -214,24 +214,14 @@ export function ScenesView({
                                 className={cn(
                                     "flex flex-col overflow-hidden rounded-xl bg-card p-4 text-left text-sm text-card-foreground ring-1 ring-foreground/10 transition",
                                     "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                    "disabled:opacity-60",
-                                    isActive && !isPartyScene && "border-primary bg-primary/10 ring-2 ring-primary/40",
-                                    isPartyActive && "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/40",
+                                    "border-1",
+                                    isActive && !isPartyScene && "border-primary ring-primary/40",
+                                    isPartyActive && "border-violet-500 ring-2 ring-violet-500/40",
                                 )}
                             >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="text-lg font-semibold">{scene.name}</div>
                                     <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                                        {isPartyScene ? (
-                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-                                                Party
-                                            </span>
-                                        ) : null}
-                                        {isDefault ? (
-                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                                Default
-                                            </span>
-                                        ) : null}
                                         {isCurrent ? (
                                             <span
                                                 className={cn(
@@ -242,6 +232,16 @@ export function ScenesView({
                                                 )}
                                             >
                                                 Active
+                                            </span>
+                                        ) : null}
+                                        {isPartyScene ? (
+                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                                Party
+                                            </span>
+                                        ) : null}
+                                        {isDefault ? (
+                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                Default
                                             </span>
                                         ) : null}
                                     </div>
