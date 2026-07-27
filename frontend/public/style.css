@@ -1,26 +1,23 @@
 @font-face {
-    font-family : 'Inter';
+    font-family : 'JetBrains Mono';
     font-style  : normal;
-    font-weight : 400;
+    font-weight : 100 800;
     src         : local(''),
-    url('./Inter-Medium.ttf') format('truetype');
+    url('./fonts/JetBrainsMono[wght].ttf') format('truetype');
 }
 
 @font-face {
-    font-family  : 'Oxanium';
-    font-style   : normal;
-    font-weight  : 125 950;
-    font-stretch : 75% 125%;
-    src          : local(''),
-    url('./Oxanium-VariableFont_wght.ttf') format('truetype');
+    font-family : 'JetBrains Mono';
+    font-style  : italic;
+    font-weight : 100 800;
+    src         : local(''),
+    url('./fonts/JetBrainsMono-Italic[wght].ttf') format('truetype');
 }
 
 :root {
-    font-family              : 'Oxanium', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-    font-size                : 16px;
-    line-height              : 24px;
+    font-family              : 'JetBrains Mono', ui-monospace, monospace;
+    font-size                : 14px;
+    line-height              : 22px;
     font-weight              : 400;
     color-scheme             : light dark;
     color                    : rgba(255, 255, 255, 0.87);
@@ -35,4 +32,3 @@
     -moz-user-select         : none;
     -ms-user-select          : none;
 }
-
