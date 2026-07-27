@@ -1,5 +1,5 @@
-import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
+import {Badge} from "@/components/ui/badge"
 
 type DMXOutputIndicatorProps = {
     connected: boolean;
@@ -8,21 +8,23 @@ type DMXOutputIndicatorProps = {
 
 /** Read-only indicator: whether the app is currently sending DMX to an attached interface. */
 export function DMXOutputIndicator({connected, className}: DMXOutputIndicatorProps) {
+
+    let classNames = connected ?
+        cn("pointer-events-none bg-green-500/10 border-green-700 text-green-950", className) :
+        cn("pointer-events-none bg-rose-500/10 border-rose-700 text-rose-950", className)
+
+    /*
+    * variant={connected ? "destructive" : "secondary"}
+    * {cn("pointer-events-none shrink-0 opacity-100", className)}
+    * */
+
     return (
-        <Button
-            type="button"
-            variant={connected ? "destructive" : "secondary"}
-            size="sm"
-            className={cn("pointer-events-none shrink-0 opacity-100", className)}
-            disabled
+        <Badge
+            variant="outline"
+            className={classNames}
             aria-disabled="true"
-            title={
-                connected
-                    ? "DMX packets are being sent to the attached interface"
-                    : "DMX is not sending — enable DMX and select a USB or Art-Net interface in Settings"
-            }
         >
-            DMX Output - {connected ? "ON" : "OFF"}
-        </Button>
+            DMX
+        </Badge>
     );
 }
