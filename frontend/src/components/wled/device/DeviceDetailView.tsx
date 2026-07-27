@@ -1,5 +1,5 @@
 import {type Dispatch, type SetStateAction, useState} from "react";
-import {PiArrowClockwise, PiFire, PiIceCream, PiPalette, PiPencil, PiPower, PiTrash, PiX} from "react-icons/pi";
+import {PiArrowClockwise, PiFire, PiIceCream, PiPalette, PiPencil, PiPower} from "react-icons/pi";
 import {prettyJSON, readNumber} from "@/lib/json.ts";
 import {
     COLD_WHITE_RGB,
@@ -116,7 +116,7 @@ export function DeviceDetailView({
                                      onCreatePreset,
                                      onApplyPreset,
                                      onDeletePreset,
-                                 }: DeviceDetailViewProps) {
+                                 }: Readonly<DeviceDetailViewProps>) {
     const [effectModalOpen, setEffectModalOpen] = useState(false);
     const [paletteModalOpen, setPaletteModalOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<"ignore" | "remove" | null>(null);
@@ -283,14 +283,14 @@ export function DeviceDetailView({
                             disabled={busy}><PiArrowClockwise/>
                         Reload
                     </Button>
-                    <Button size="sm" variant="destructive"
+                    <Button size="sm" variant="ghost"
                             onClick={() => setConfirmAction("ignore")}
-                            disabled={busy}><PiX/>
+                            disabled={busy}>
                         Ignore
                     </Button>
                     <Button size="sm" variant="destructive"
                             onClick={() => setConfirmAction("remove")}
-                            disabled={busy}><PiTrash/>
+                            disabled={busy}>
                         Delete
                     </Button>
 
