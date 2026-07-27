@@ -1,16 +1,5 @@
-import {Alert, AlertDescription} from "@/components/ui/alert";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Field, FieldLabel} from "@/components/ui/field";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
-import {Switch} from "@/components/ui/switch";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import {Textarea} from "@/components/ui/textarea";
-import {type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState} from "react";
-import {PiArrowsClockwise, PiDownloadSimple, PiUploadSimple, PiWifiHigh} from "react-icons/pi";
-import {prettyJSON, readNumber} from "../../lib/json";
+import {type Dispatch, type SetStateAction, useCallback, useEffect, useRef} from "react";
 import type {
     ArtNetSettings,
     ConsoleEntry,
@@ -25,12 +14,13 @@ import type {
     USBSerialDevice,
     WLEDDevice,
 } from "@/types/controller.ts";
-import {PartyModeView} from "@/components/party/PartyModeView";
-import {ApplicationVersionCard} from "./ApplicationVersionCard";
-import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
-import {TransportConsolePanel} from "./TransportConsolePanel";
-import {WindowDisplayCard} from "./WindowDisplayCard";
 import {universeInterfaceSettings} from "@/lib/dmxUniverses";
+import {ConsoleSettingsTab} from "./ConsoleSettingsTab";
+import {DmxSettingsTab} from "./DmxSettingsTab";
+import {GeneralSettingsTab} from "./GeneralSettingsTab";
+import {PartySettingsTab} from "./PartySettingsTab";
+import type {SettingsUpdateMode, SettingsUpdater} from "./settingsTypes";
+import {WledSettingsTab} from "./WledSettingsTab";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;
@@ -77,58 +67,48 @@ export type ControllerSettingsViewProps = {
 };
 
 export function ControllerSettingsView({
-                                           settings,
-                                           setSettings,
-                                           snapshot,
-                                           applyResult,
-                                           statePayloadText,
-                                           setStatePayloadText,
-                                           configPatchText,
-                                           setConfigPatchText,
-                                           ignoredDevices,
-                                           busy,
-                                           onSaveSettings,
-                                           onSettingsInteraction,
-                                           onApplyNetwork,
-                                           onUnignoreDevice,
-                                           currentVersion,
-                                           updatesSupported,
-                                           dmxState,
-                                           dmxEnabled,
-                                           wledEnabled,
-                                           dmxPartyRunning,
-                                           party,
-                                           partyWledDevices,
-                                           partyAudioInputDevices,
-                                           onRefreshPartyAudioDevices,
-                                           onUpdatePartyConfig,
-                                           onStartParty,
-                                           onStopParty,
-                                           initialTab = "general",
-                                           startDMXLiveOutput,
-                                           setError,
-                                           usbSerialDevices,
-                                           onRefreshUSBSerialDevices,
-                                           onSelectUSBSerialDevice,
-                                           onRefreshSnapshot,
-                                           consoleEntries,
-                                           onClearConsole,
-                                           consoleDetached,
-                                           onToggleConsoleDetach,
-                                           onExportConfigurationBackup,
-                                           onImportConfigurationBackup,
-                                           onCheckForUpdates,
-                                       }: ControllerSettingsViewProps) {
-    const [backupBusy, setBackupBusy] = useState(false);
-    const [backupMessage, setBackupMessage] = useState<string | null>(null);
-    const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
-    if (!settings) {
-        return <p className="opacity-70">Loading settings…</p>;
-    }
-
-    const wledControlsDisabled = busy || !settings.wled.enabled;
-    const dmxControlsDisabled = busy || !settings.dmx.enabled;
-    const usbTransportEnabled = settings.dmx.usb.enabled ?? true;
+    settings,
+    setSettings,
+    snapshot,
+    applyResult,
+    statePayloadText,
+    setStatePayloadText,
+    configPatchText,
+    setConfigPatchText,
+    ignoredDevices,
+    busy,
+    onSaveSettings,
+    onSettingsInteraction,
+    onApplyNetwork,
+    onUnignoreDevice,
+    currentVersion,
+    updatesSupported,
+    dmxState,
+    dmxEnabled,
+    wledEnabled,
+    dmxPartyRunning,
+    party,
+    partyWledDevices,
+    partyAudioInputDevices,
+    onRefreshPartyAudioDevices,
+    onUpdatePartyConfig,
+    onStartParty,
+    onStopParty,
+    initialTab = "general",
+    startDMXLiveOutput,
+    setError,
+    usbSerialDevices,
+    onRefreshUSBSerialDevices,
+    onSelectUSBSerialDevice,
+    onRefreshSnapshot,
+    consoleEntries,
+    onClearConsole,
+    consoleDetached,
+    onToggleConsoleDetach,
+    onExportConfigurationBackup,
+    onImportConfigurationBackup,
+    onCheckForUpdates,
+}: ControllerSettingsViewProps) {
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
 
@@ -152,11 +132,8 @@ export function ControllerSettingsView({
         }, AUTOSAVE_IDLE_MS);
     }, [onSaveSettings, onSettingsInteraction]);
 
-    const updateSettings = useCallback(
-        (
-            updater: ControllerSettings | ((previous: ControllerSettings | null) => ControllerSettings | null),
-            mode: "debounced" | "immediate" = "debounced",
-        ) => {
+    const updateSettings: SettingsUpdater = useCallback(
+        (updater, mode: SettingsUpdateMode = "debounced") => {
             setSettings(updater);
             if (mode === "immediate") {
                 flushAutosaveNow();
@@ -180,7 +157,7 @@ export function ControllerSettingsView({
     const updateUniverseArtNet = useCallback((
         _universeId: string,
         patch: Partial<ArtNetSettings>,
-        mode: "debounced" | "immediate" = "debounced",
+        mode: SettingsUpdateMode = "debounced",
     ) => {
         updateSettings((prev) => {
             if (!prev) {
@@ -230,6 +207,10 @@ export function ControllerSettingsView({
         };
     }, []);
 
+    if (!settings) {
+        return <p className="opacity-70">Loading settings…</p>;
+    }
+
     return (
         <div className="space-y-5 w-full max-w-none pb-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -248,627 +229,58 @@ export function ControllerSettingsView({
                     {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
                 </TabsList>
 
-                <TabsContent value="general" className="space-y-5">
-                    <ApplicationVersionCard
+                <TabsContent value="general">
+                    <GeneralSettingsTab
+                        applyResult={applyResult}
+                        busy={busy}
                         currentVersion={currentVersion}
                         updatesSupported={updatesSupported}
-                        busy={busy}
-                        updateCheckBusy={updateCheckBusy}
+                        onExportConfigurationBackup={onExportConfigurationBackup}
+                        onImportConfigurationBackup={onImportConfigurationBackup}
                         onCheckForUpdates={onCheckForUpdates}
-                        onUpdateCheckError={setError}
-                        onUpdateCheckStart={() => setUpdateCheckBusy(true)}
-                        onUpdateCheckEnd={() => setUpdateCheckBusy(false)}
+                        setError={setError}
                     />
-
-                    <WindowDisplayCard disabled={busy}/>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Configuration backup</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-sm opacity-70">
-                                Export or import all persisted data: controller settings, WLED devices,
-                                DMX fixtures and party config, general tab state, and per-fixture live layouts.
-                                Use this to copy a complete setup from one host to another.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={busy || backupBusy}
-                                    onClick={() => {
-                                        setBackupMessage(null);
-                                        setBackupBusy(true);
-                                        void onExportConfigurationBackup()
-                                            .then((msg) => setBackupMessage(msg))
-                                            .catch((err: unknown) => setError(String(err)))
-                                            .finally(() => setBackupBusy(false));
-                                    }}
-                                >
-                                    <PiDownloadSimple/>
-                                    Export backup
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={busy || backupBusy}
-                                    onClick={() => {
-                                        setBackupMessage(null);
-                                        setBackupBusy(true);
-                                        void onImportConfigurationBackup()
-                                            .then((msg) => setBackupMessage(msg))
-                                            .catch((err: unknown) => setError(String(err)))
-                                            .finally(() => setBackupBusy(false));
-                                    }}
-                                >
-                                    <PiUploadSimple/>
-                                    Import backup
-                                </Button>
-                            </div>
-                            {backupMessage && (
-                                <p className="text-xs text-muted-foreground">{backupMessage}</p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Network apply result</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {!applyResult && <p className="text-sm opacity-70">No apply action yet.</p>}
-                            {applyResult && (
-                                <div className="space-y-2">
-                                    <p className="text-sm">
-                                        {applyResult.dryRun ? "Dry-run (network CLI unavailable or unsupported)" : "Applied"}
-                                    </p>
-                                    {(applyResult.warnings ?? []).map((warning) => (
-                                        <Alert key={warning} className="py-1 text-xs">
-                                            <AlertDescription>{warning}</AlertDescription>
-                                        </Alert>
-                                    ))}
-                                    <div className="max-h-48 overflow-auto rounded border p-2 bg-card">
-                                        <pre
-                                            className="text-xs whitespace-pre-wrap">{prettyJSON(applyResult.steps)}</pre>
-                                    </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
                 </TabsContent>
 
-                <TabsContent value="wled" className="space-y-5">
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle>WLED component</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    checked={settings.wled.enabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        wled: {...settings.wled, enabled: checked},
-                                        accessPoint: {
-                                            ...settings.accessPoint,
-                                            enabled: checked ? settings.accessPoint.enabled : false
-                                        }
-                                    }, "immediate")}
-                                    disabled={busy}
-                                />
-                                <span>Enable WLED component</span>
-                            </label>
-                            {!settings.wled.enabled && (
-                                <p className="text-xs text-muted-foreground">
-                                    WLED routes, menu entries, and device actions are disabled while this is off.
-                                </p>
-                            )}
-
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="basis-32"
-                                    onClick={() => void onRefreshSnapshot()}
-                                    disabled={busy}
-                                >
-                                    <PiArrowsClockwise/>
-                                    Refresh
-                                </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the
-                                sidebar.
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
-                            <CardTitle>Access point</CardTitle>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={onApplyNetwork}
-                                disabled={wledControlsDisabled}
-                            >
-                                <PiWifiHigh/> Apply network settings
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    id="enable-ap"
-                                    checked={settings.accessPoint.enabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        accessPoint: {...settings.accessPoint, enabled: checked}
-                                    }, "immediate")}
-                                    disabled={wledControlsDisabled}
-                                />
-                                <Label htmlFor="enable-ap">Enable local access point</Label>
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => void disableAccessPointNow()}
-                                    disabled={wledControlsDisabled || !settings.accessPoint.enabled}
-                                >
-                                    Disable AP now (save + apply)
-                                </Button>
-                            </div>
-                            {!settings.wled.enabled && (
-                                <p className="text-xs text-muted-foreground">
-                                    Access point is forced off while WLED component is disabled.
-                                </p>
-                            )}
-
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                <Field>
-                                    <FieldLabel htmlFor="ap-connection-name">AP connection name</FieldLabel>
-                                    <Input
-                                        id="ap-connection-name"
-                                        type="text"
-                                        value={settings.accessPoint.connection}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, connection: e.target.value}
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={wledControlsDisabled}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-interface">AP interface</FieldLabel>
-                                    <Input
-                                        id="ap-interface"
-                                        type="text"
-                                        value={settings.accessPoint.interfaceName}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, interfaceName: e.target.value}
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={wledControlsDisabled}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-ssid">AP SSID</FieldLabel>
-                                    <Input
-                                        id="ap-ssid"
-                                        type="text"
-                                        value={settings.accessPoint.ssid}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, ssid: e.target.value}
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={wledControlsDisabled}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-password">AP password</FieldLabel>
-                                    <Input
-                                        id="ap-password"
-                                        type="text"
-                                        value={settings.accessPoint.password}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            accessPoint: {...settings.accessPoint, password: e.target.value}
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={wledControlsDisabled}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <FieldLabel htmlFor="ap-channel">Channel</FieldLabel>
-                                    <Input
-                                        id="ap-channel"
-                                        type="number"
-                                        value={settings.accessPoint.channel}
-                                        onChange={(e) => updateSettings({
-                                            ...settings,
-                                            accessPoint: {
-                                                ...settings.accessPoint,
-                                                channel: readNumber(e.target.value, 6)
-                                            }
-                                        })}
-                                        onBlur={flushAutosaveNow}
-                                        disabled={wledControlsDisabled}
-                                    />
-                                </Field>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Provisioning</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <label className="flex cursor-pointer justify-start gap-3 items-center">
-                                <Switch
-                                    checked={settings.wled.testing.simulateWled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            testing: {...settings.wled.testing, simulateWled: checked}
-                                        }
-                                    }, "immediate")}
-                                    disabled={wledControlsDisabled}
-                                />
-                                <span>Simulate WLED device (testing)</span>
-                            </label>
-                            <p className="text-xs opacity-60">
-                                Adds an in-app fake device (<code className="font-mono text-[10px]">sim:wled</code>)
-                                with no network traffic.
-                            </p>
-
-                            <label className="flex cursor-pointer justify-start gap-3 items-center">
-                                <Switch
-                                    checked={settings.wled.provisioning.autoProvision}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            provisioning: {...settings.wled.provisioning, autoProvision: checked}
-                                        }
-                                    }, "immediate")}
-                                    disabled={wledControlsDisabled}
-                                />
-                                <span>Auto-provision newly added devices</span>
-                            </label>
-
-                            <div>
-                                <Label className="py-0 text-xs">Default /json/state payload</Label>
-                                <Textarea
-                                    className="h-24 w-full font-mono text-xs"
-                                    value={statePayloadText}
-                                    onChange={(e) => updateStatePayloadText(e.target.value)}
-                                    onBlur={flushAutosaveNow}
-                                    disabled={wledControlsDisabled}
-                                />
-                            </div>
-
-                            <div>
-                                <Label className="py-0 text-xs">Default /json/cfg patch</Label>
-                                <Textarea
-                                    className="h-24 w-full font-mono text-xs"
-                                    value={configPatchText}
-                                    onChange={(e) => updateConfigPatchText(e.target.value)}
-                                    onBlur={flushAutosaveNow}
-                                    disabled={wledControlsDisabled}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Ignored devices</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-sm opacity-70">
-                                Ignored devices stay out of the sidebar and presets but remain in
-                                <code className="text-xs"> state.json</code>.
-                            </p>
-                            {ignoredDevices.length === 0 ? (
-                                <p className="text-sm opacity-60">No ignored devices.</p>
-                            ) : (
-                                <ul className="space-y-2">
-                                    {ignoredDevices.map((dev) => (
-                                        <li
-                                            key={dev.id}
-                                            className="flex flex-wrap items-center justify-between gap-2 rounded border bg-card px-3 py-2"
-                                        >
-                                            <div className="min-w-0">
-                                                <div className="font-medium truncate">{dev.name}</div>
-                                                <div className="text-xs opacity-60 font-mono truncate">
-                                                    {dev.address}:{dev.port} • {dev.id}
-                                                </div>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="shrink-0"
-                                                onClick={() => onUnignoreDevice(dev.id)}
-                                                disabled={busy || !settings.wled.enabled}
-                                            >
-                                                Un-ignore
-                                            </Button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Debug Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    checked={settings.wled.debug?.showInfo ?? false}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        wled: {
-                                            ...settings.wled,
-                                            debug: {
-                                                showInfo: checked,
-                                            },
-                                        },
-                                    }, "immediate")}
-                                    disabled={wledControlsDisabled}
-                                />
-                                <span>Show WLED debug information</span>
-                            </label>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="dmx" className="space-y-5">
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle>DMX component</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    checked={settings.dmx.enabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        dmx: {...settings.dmx, enabled: checked}
-                                    }, "immediate")}
-                                    disabled={busy}
-                                />
-                                <span>Enable DMX component</span>
-                            </label>
-                            {!settings.dmx.enabled && (
-                                <p className="text-xs text-muted-foreground">
-                                    DMX pages and menu entries are hidden, and live USB/Art-Net output is disconnected.
-                                </p>
-                            )}
-
-                            <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-                                <p className="text-xs font-medium text-muted-foreground">DMX simulator interfaces</p>
-                                <label className="flex items-center gap-3">
-                                    <Switch
-                                        checked={settings.dmx.testing.simulateUsbDmx}
-                                        onCheckedChange={(checked) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                testing: {...settings.dmx.testing, simulateUsbDmx: checked}
-                                            }
-                                        }, "immediate")}
-                                        disabled={dmxControlsDisabled}
-                                    />
-                                    <span>Simulate USB-DMX512 interface</span>
-                                </label>
-                                <label className="flex items-center gap-3">
-                                    <Switch
-                                        checked={settings.dmx.testing.simulateArtNet}
-                                        onCheckedChange={(checked) => updateSettings({
-                                            ...settings,
-                                            dmx: {
-                                                ...settings.dmx,
-                                                testing: {...settings.dmx.testing, simulateArtNet: checked}
-                                            }
-                                        }, "immediate")}
-                                        disabled={dmxControlsDisabled}
-                                    />
-                                    <span>Simulate Art-Net interface</span>
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                    Simulated interfaces run in-process workers so DMX live output can be tested without
-                                    hardware.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="w-full max-w-none">
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold">Global USB transport</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <label className="flex items-center gap-3">
-                                <Switch
-                                    checked={usbTransportEnabled}
-                                    onCheckedChange={(checked) => updateSettings({
-                                        ...settings,
-                                        dmx: {
-                                            ...settings.dmx,
-                                            usb: {...settings.dmx.usb, enabled: checked},
-                                        }
-                                    }, "immediate")}
-                                    disabled={dmxControlsDisabled}
-                                />
-                                <span>Enable USB transport</span>
-                            </label>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={onRefreshUSBSerialDevices}
-                                    disabled={dmxControlsDisabled}
-                                >
-                                    Refresh USB devices
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {(() => {
-                        const universeId = "universe-1";
-                        const iface = universeInterfaceSettings(settings, universeId, dmxState);
-                        const usbFieldsDisabled = dmxControlsDisabled || !usbTransportEnabled;
-                        const artNetFieldsDisabled = dmxControlsDisabled || !iface.artNet.enabled;
-                        const usbDeviceId = iface.selectedUSBDeviceId;
-                        return (
-                            <Card className="w-full max-w-none">
-                                <CardHeader>
-                                    <CardTitle className="text-sm font-semibold">DMX interface</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-muted-foreground">USB device</Label>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <NativeSelect
-                                                className="w-full md:w-[28rem]"
-                                                value={usbDeviceId ?? ""}
-                                                onChange={(event) => onSelectUSBSerialDevice(event.target.value, universeId)}
-                                                disabled={usbFieldsDisabled}
-                                            >
-                                                <NativeSelectOption value="">No device selected</NativeSelectOption>
-                                                {usbSerialDevices.map((device) => (
-                                                    <NativeSelectOption key={device.id} value={device.id}>
-                                                        {device.name} ({device.path})
-                                                    </NativeSelectOption>
-                                                ))}
-                                            </NativeSelect>
-                                        </div>
-                                        {usbDeviceId && !usbSerialDevices.some((device) => device.id === usbDeviceId) && (
-                                            <p className="text-xs text-destructive">
-                                                Selected device is currently unavailable: <code>{usbDeviceId}</code>
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
-                                        <label className="flex items-center gap-3">
-                                            <Switch
-                                                checked={iface.artNet.enabled}
-                                                onCheckedChange={(checked) => updateUniverseArtNet(universeId, {enabled: checked}, "immediate")}
-                                                disabled={dmxControlsDisabled}
-                                            />
-                                            <span>Enable Art-Net</span>
-                                        </label>
-                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                            <Field>
-                                                <FieldLabel>Target host / broadcast</FieldLabel>
-                                                <Input
-                                                    value={iface.artNet.targetHost}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {targetHost: e.target.value})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel>UDP port</FieldLabel>
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    max={65535}
-                                                    value={iface.artNet.port}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {port: readNumber(e.target.value, 6454)})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel>Net (0-127)</FieldLabel>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    max={127}
-                                                    value={iface.artNet.net}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {net: readNumber(e.target.value, 0)})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel>Subnet (0-15)</FieldLabel>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    max={15}
-                                                    value={iface.artNet.subnet}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {subnet: readNumber(e.target.value, 0)})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel>Art-Net universe (0-15)</FieldLabel>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    max={15}
-                                                    value={iface.artNet.universe}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {universe: readNumber(e.target.value, 0)})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel>Refresh Hz</FieldLabel>
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    max={50}
-                                                    value={iface.artNet.refreshHz}
-                                                    onChange={(e) => updateUniverseArtNet(universeId, {refreshHz: readNumber(e.target.value, 44)})}
-                                                    onBlur={flushAutosaveNow}
-                                                    disabled={artNetFieldsDisabled}
-                                                />
-                                            </Field>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })()}
-
-                    <DmxFixtureChannelSweepPanel
-                        fixtures={dmxState.fixtures}
-                        dmxEnabled={dmxEnabled}
+                <TabsContent value="wled">
+                    <WledSettingsTab
                         settings={settings}
-                        selectedUSBDeviceId={dmxState.selectedUSBDeviceId ?? null}
-                        usbSerialDevices={usbSerialDevices}
-                        partyRunning={dmxPartyRunning}
+                        updateSettings={updateSettings}
+                        flushAutosaveNow={flushAutosaveNow}
+                        updateStatePayloadText={updateStatePayloadText}
+                        updateConfigPatchText={updateConfigPatchText}
+                        disableAccessPointNow={disableAccessPointNow}
                         busy={busy}
+                        onApplyNetwork={onApplyNetwork}
+                        onRefreshSnapshot={onRefreshSnapshot}
+                        statePayloadText={statePayloadText}
+                        configPatchText={configPatchText}
+                        ignoredDevices={ignoredDevices}
+                        onUnignoreDevice={onUnignoreDevice}
+                    />
+                </TabsContent>
+
+                <TabsContent value="dmx">
+                    <DmxSettingsTab
+                        settings={settings}
+                        updateSettings={updateSettings}
+                        updateUniverseArtNet={updateUniverseArtNet}
+                        flushAutosaveNow={flushAutosaveNow}
+                        busy={busy}
+                        dmxState={dmxState}
+                        dmxEnabled={dmxEnabled}
+                        dmxPartyRunning={dmxPartyRunning}
+                        usbSerialDevices={usbSerialDevices}
+                        onRefreshUSBSerialDevices={onRefreshUSBSerialDevices}
+                        onSelectUSBSerialDevice={onSelectUSBSerialDevice}
                         startDMXLiveOutput={startDMXLiveOutput}
                         setError={setError}
                     />
                 </TabsContent>
 
                 {(wledEnabled || dmxEnabled) && (
-                    <TabsContent value="party" className="space-y-5">
-                        <PartyModeView
+                    <TabsContent value="party">
+                        <PartySettingsTab
                             fixtures={dmxState.fixtures}
                             wledDevices={partyWledDevices}
                             party={party}
@@ -883,12 +295,11 @@ export function ControllerSettingsView({
                 )}
 
                 {!consoleDetached && (
-                    <TabsContent value="console" className="space-y-5">
-                        <TransportConsolePanel
+                    <TabsContent value="console">
+                        <ConsoleSettingsTab
                             entries={consoleEntries}
                             onClear={onClearConsole}
                             onToggleDetach={onToggleConsoleDetach}
-                            detached={false}
                         />
                     </TabsContent>
                 )}
@@ -907,4 +318,3 @@ export function ControllerSettingsView({
         </div>
     );
 }
-
