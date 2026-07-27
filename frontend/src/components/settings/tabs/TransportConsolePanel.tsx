@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import type {ConsoleEntry} from "@/types/controller.ts";
 
 const TRANSPORT_LABEL: Record<string, string> = {

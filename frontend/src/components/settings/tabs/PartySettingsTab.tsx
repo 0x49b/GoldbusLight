@@ -1,4 +1,4 @@
-import {PartyModeView} from "@/components/party/PartyModeView";
+import {PartyModeView} from "@/components/party/PartyModeView.tsx";
 import type {
     DMXFixture,
     DMXPartyAudioInputDevice,

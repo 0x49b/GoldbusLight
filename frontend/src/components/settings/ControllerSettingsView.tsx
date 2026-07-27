@@ -15,12 +15,12 @@ import type {
     WLEDDevice,
 } from "@/types/controller.ts";
 import {universeInterfaceSettings} from "@/lib/dmxUniverses";
-import {ConsoleSettingsTab} from "./ConsoleSettingsTab";
-import {DmxSettingsTab} from "./DmxSettingsTab";
-import {GeneralSettingsTab} from "./GeneralSettingsTab";
-import {PartySettingsTab} from "./PartySettingsTab";
+import {ConsoleSettingsTab} from "./tabs/ConsoleSettingsTab.tsx";
+import {DmxSettingsTab} from "./tabs/DmxSettingsTab.tsx";
+import {GeneralSettingsTab} from "./tabs/GeneralSettingsTab.tsx";
+import {PartySettingsTab} from "./tabs/PartySettingsTab.tsx";
 import type {SettingsUpdateMode, SettingsUpdater} from "./settingsTypes";
-import {WledSettingsTab} from "./WledSettingsTab";
+import {WledSettingsTab} from "./tabs/WledSettingsTab.tsx";
 
 export type ControllerSettingsViewProps = {
     settings: ControllerSettings | null;

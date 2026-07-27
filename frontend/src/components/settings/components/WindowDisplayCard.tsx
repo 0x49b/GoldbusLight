@@ -1,6 +1,6 @@
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {useWindowDisplayState} from "@/hooks/useWindowDisplayState";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import {useWindowDisplayState} from "@/hooks/useWindowDisplayState.ts";
 import {PiArrowsOutSimple, PiCornersOut} from "react-icons/pi";
 
 type WindowDisplayCardProps = {

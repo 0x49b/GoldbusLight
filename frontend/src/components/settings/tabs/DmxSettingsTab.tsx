@@ -1,20 +1,20 @@
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Field, FieldLabel} from "@/components/ui/field";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select";
-import {Switch} from "@/components/ui/switch";
-import {readNumber} from "../../lib/json";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import {Field, FieldLabel} from "@/components/ui/field.tsx";
+import {Input} from "@/components/ui/input.tsx";
+import {Label} from "@/components/ui/label.tsx";
+import {NativeSelect, NativeSelectOption} from "@/components/ui/native-select.tsx";
+import {Switch} from "@/components/ui/switch.tsx";
+import {readNumber} from "../../../lib/json.ts";
 import type {
     ArtNetSettings,
     ControllerSettings,
     DMXState,
     USBSerialDevice,
 } from "@/types/controller.ts";
-import {DmxFixtureChannelSweepPanel} from "./DmxFixtureChannelSweepPanel";
-import {universeInterfaceSettings} from "@/lib/dmxUniverses";
-import type {SettingsUpdater} from "./settingsTypes";
+import {DmxFixtureChannelSweepPanel} from "../components/DmxFixtureChannelSweepPanel.tsx";
+import {universeInterfaceSettings} from "@/lib/dmxUniverses.ts";
+import type {SettingsUpdater} from "../settingsTypes.ts";
 
 export type DmxSettingsTabProps = {
     settings: ControllerSettings;

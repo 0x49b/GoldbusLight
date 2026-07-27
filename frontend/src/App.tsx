@@ -7,7 +7,7 @@ import {AppShell} from "./components/layout/AppShell";
 import {ScenesView} from "./components/scenes/ScenesView";
 import {GeneralPanel} from "./components/wled/GeneralPanel.tsx";
 import {ControllerSettingsView} from "./components/settings/ControllerSettingsView";
-import {TransportConsolePanel} from "./components/settings/TransportConsolePanel";
+import {TransportConsolePanel} from "./components/settings/tabs/TransportConsolePanel.tsx";
 import {useControllerApp} from "./hooks/useControllerApp";
 import {universeInterfaceSettings} from "./lib/dmxUniverses";
 import type {ControllerSettings, DMXState} from "./types/controller";

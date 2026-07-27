@@ -1,5 +1,5 @@
 import type {ConsoleEntry} from "@/types/controller.ts";
-import {TransportConsolePanel} from "./TransportConsolePanel";
+import {TransportConsolePanel} from "./TransportConsolePanel.tsx";
 
 export type ConsoleSettingsTabProps = {
     entries: ConsoleEntry[];

@@ -1,14 +1,14 @@
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {Field, FieldLabel} from "@/components/ui/field";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {Switch} from "@/components/ui/switch";
-import {Textarea} from "@/components/ui/textarea";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import {Field, FieldLabel} from "@/components/ui/field.tsx";
+import {Input} from "@/components/ui/input.tsx";
+import {Label} from "@/components/ui/label.tsx";
+import {Switch} from "@/components/ui/switch.tsx";
+import {Textarea} from "@/components/ui/textarea.tsx";
 import {PiArrowsClockwise, PiWifiHigh} from "react-icons/pi";
-import {readNumber} from "../../lib/json";
+import {readNumber} from "../../../lib/json.ts";
 import type {ControllerSettings, WLEDDevice} from "@/types/controller.ts";
-import type {SettingsUpdater} from "./settingsTypes";
+import type {SettingsUpdater} from "../settingsTypes.ts";
 
 export type WledSettingsTabProps = {
     settings: ControllerSettings;

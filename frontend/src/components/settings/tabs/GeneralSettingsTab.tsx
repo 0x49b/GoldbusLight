@@ -1,12 +1,12 @@
-import {Alert, AlertDescription} from "@/components/ui/alert";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Alert, AlertDescription} from "@/components/ui/alert.tsx";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {useState} from "react";
 import {PiDownloadSimple, PiUploadSimple} from "react-icons/pi";
-import {prettyJSON} from "../../lib/json";
+import {prettyJSON} from "../../../lib/json.ts";
 import type {NetworkApplyResult} from "@/types/controller.ts";
-import {ApplicationVersionCard} from "./ApplicationVersionCard";
-import {WindowDisplayCard} from "./WindowDisplayCard";
+import {ApplicationVersionCard} from "../components/ApplicationVersionCard.tsx";
+import {WindowDisplayCard} from "../components/WindowDisplayCard.tsx";
 
 export type GeneralSettingsTabProps = {
     applyResult: NetworkApplyResult | null;

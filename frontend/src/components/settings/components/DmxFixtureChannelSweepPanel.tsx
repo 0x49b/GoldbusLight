@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Slider } from "@/components/ui/slider";
-import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
-import { DMXOutputUpdate } from "../../../bindings/goldbus/internal/dmx/models";
-import type { ControllerSettings, DMXChannel, DMXFixture, USBSerialDevice } from "@/types/controller";
+import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
+import { Field, FieldLabel } from "@/components/ui/field.tsx";
+import { Label } from "@/components/ui/label.tsx";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select.tsx";
+import { Slider } from "@/components/ui/slider.tsx";
+import * as GoldbusLightService from "../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
+import { DMXOutputUpdate } from "../../../../bindings/goldbus/internal/dmx";
+import type { ControllerSettings, DMXChannel, DMXFixture, USBSerialDevice } from "@/types/controller.ts";
 
 function clampDmxByte(v: number): number {
     return Math.max(0, Math.min(255, Math.round(v)));
@@ -80,7 +80,7 @@ export function DmxFixtureChannelSweepPanel({
     busy,
     startDMXLiveOutput,
     setError,
-}: DmxFixtureChannelSweepPanelProps) {
+}: Readonly<DmxFixtureChannelSweepPanelProps>) {
     const [fixtureId, setFixtureId] = useState<string>("");
     const [speed, setSpeed] = useState<number>(25);
     const [running, setRunning] = useState(false);
@@ -183,7 +183,7 @@ export function DmxFixtureChannelSweepPanel({
         pausedRef.current = false;
         setPaused(false);
         try {
-            await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+            await GoldbusLightService.ApplyDMXLivePatch(buildFullBlackoutPatch());
         } catch {
             /* ignore */
         }
@@ -222,7 +222,7 @@ export function DmxFixtureChannelSweepPanel({
             if (!ok || abortRef.current) {
                 return;
             }
-            await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+            await GoldbusLightService.ApplyDMXLivePatch(buildFullBlackoutPatch());
 
             const base = selectedFixture.dmxAddress;
             const baselineByOffset = new Map<number, number>();
@@ -267,7 +267,7 @@ export function DmxFixtureChannelSweepPanel({
                     }
 
                     try {
-                        await GreetService.ApplyDMXLivePatch(updates);
+                        await GoldbusLightService.ApplyDMXLivePatch(updates);
                     } catch (err) {
                         setError(String(err));
                         break outer;
@@ -281,14 +281,14 @@ export function DmxFixtureChannelSweepPanel({
 
             if (!abortRef.current) {
                 try {
-                    await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+                    await GoldbusLightService.ApplyDMXLivePatch(buildFullBlackoutPatch());
                 } catch {
                     /* ignore */
                 }
             }
         } finally {
             try {
-                await GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch());
+                await GoldbusLightService.ApplyDMXLivePatch(buildFullBlackoutPatch());
             } catch {
                 /* ignore */
             }
@@ -308,10 +308,10 @@ export function DmxFixtureChannelSweepPanel({
                 return;
             }
             abortRef.current = true;
-            void GreetService.ApplyDMXLivePatch(buildFullBlackoutPatch()).catch(() => {
+            void GoldbusLightService.ApplyDMXLivePatch(buildFullBlackoutPatch()).catch(() => {
                 /* ignore */
             });
-            void GreetService.StartDMXLive("").catch(() => {
+            void GoldbusLightService.StartDMXLive("").catch(() => {
                 /* ignore */
             });
         };
@@ -328,7 +328,7 @@ export function DmxFixtureChannelSweepPanel({
     return (
         <Card className="w-full max-w-none">
             <CardHeader>
-                <CardTitle className="text-sm font-semibold">DMX fixture channel sweep (test mode)</CardTitle>
+                <CardTitle className="text-sm font-semibold">DMX fixture channel sweep</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
