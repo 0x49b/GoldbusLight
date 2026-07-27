@@ -182,10 +182,6 @@ export function GetIgnoredDevices(): $CancellablePromise<controller$0.WLEDDevice
     });
 }
 
-export function Greet(name: string): $CancellablePromise<string> {
-    return $Call.ByID(1436929455, name);
-}
-
 /**
  * ImportConfigurationBackup prompts for a backup file and restores all persisted configuration.
  */

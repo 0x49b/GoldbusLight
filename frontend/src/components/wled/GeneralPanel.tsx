@@ -1,6 +1,6 @@
 import {type Dispatch, type SetStateAction, useEffect, useMemo, useState} from "react";
 import {PiFire, PiIceCream, PiMoon, PiPalette, PiSun} from "react-icons/pi";
-import * as GreetService from "../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
+import * as GoldbusLightService from "../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import {readNumber} from "@/lib/json.ts";
 import {
     isColdWhiteRgb,
@@ -89,7 +89,7 @@ export function GeneralPanel({
         }
         void (async () => {
             try {
-                const detail = (await GreetService.GetDeviceDetail(firstOnlineDevice.id)) as WLEDDeviceDetail;
+                const detail = (await GoldbusLightService.GetDeviceDetail(firstOnlineDevice.id)) as WLEDDeviceDetail;
                 setEffectNames(Array.isArray(detail.effects) ? detail.effects : []);
                 setPaletteNames(Array.isArray(detail.palettes) ? detail.palettes : []);
             } catch {

@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef} from "react";
-import * as GreetService from "../../bindings/goldbus/internal/service/goldbuslightservice";
+import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import type {ControllerSnapshot, WLEDDeviceDetail} from "../types/controller";
 
 const DEVICE_DETAIL_MAX_TRIES = 5;
@@ -115,7 +115,7 @@ export function useDeviceDetail(options: UseDeviceDetailOptions) {
                 }
 
                 try {
-                    const call = GreetService.GetDeviceDetail(deviceID);
+                    const call = GoldbusLightService.GetDeviceDetail(deviceID);
                     const detail = (await awaitCancellableWithTimeout(
                         call as CancellableThenable<WLEDDeviceDetail>,
                         DEVICE_DETAIL_TRY_MS,

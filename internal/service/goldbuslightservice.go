@@ -53,7 +53,7 @@ type UpdateCallbacks struct {
 	CheckAndInstall func(context.Context) error
 }
 
-func NewGreetService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks, updates UpdateCallbacks) *GoldbusLightService {
+func NewGoldbusLightService(controller *ctrlpkg.WLEDController, callbacks ConsoleWindowCallbacks, backup ConfigurationBackupCallbacks, updates UpdateCallbacks) *GoldbusLightService {
 	return &GoldbusLightService{
 		controller:                 controller,
 		openDetachedConsoleWindow:  callbacks.Open,
@@ -91,10 +91,6 @@ func withControllerValue[T any](g *GoldbusLightService, fn func(*ctrlpkg.WLEDCon
 		return zero, err
 	}
 	return fn(controller), nil
-}
-
-func (g *GoldbusLightService) Greet(name string) string {
-	return "Hello " + name + "!"
 }
 
 func (g *GoldbusLightService) AppVersion() string {

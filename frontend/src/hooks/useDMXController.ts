@@ -1,5 +1,5 @@
 import {useCallback, useRef, useState} from "react";
-import * as GreetService from "../../bindings/goldbus/internal/service/goldbuslightservice";
+import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {DMXLiveStatus, DMXOutputUpdate} from "../../bindings/goldbus/internal/dmx/models";
 import type {
     ControllerSettings,
@@ -39,12 +39,12 @@ export function useDMXController(options: UseDMXControllerOptions) {
     const dmxEnabled = settings?.dmx.enabled ?? true;
 
     const pullDMXState = useCallback(async () => {
-        const next = (await GreetService.GetDMXState()) as DMXState;
+        const next = (await GoldbusLightService.GetDMXState()) as DMXState;
         setDMXState(next);
     }, [setDMXState]);
 
     const pullUSBSerialDevices = useCallback(async () => {
-        const devices = (await GreetService.ListUSBSerialDevices()) as USBSerialDevice[];
+        const devices = (await GoldbusLightService.ListUSBSerialDevices()) as USBSerialDevice[];
         setUSBSerialDevices(devices);
     }, [setUSBSerialDevices]);
 
@@ -62,7 +62,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
                 return null;
             }
             try {
-                const created = (await GreetService.CreateDMXFixture(input as never)) as DMXFixture;
+                const created = (await GoldbusLightService.CreateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
                 setStatus("DMX fixture created");
                 return created;
@@ -80,7 +80,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
                 return null;
             }
             try {
-                const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
+                const updated = (await GoldbusLightService.UpdateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
                 setStatus("DMX fixture updated");
                 return updated;
@@ -98,7 +98,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
                 return false;
             }
             try {
-                await GreetService.DeleteDMXFixture(fixtureID);
+                await GoldbusLightService.DeleteDMXFixture(fixtureID);
                 await pullDMXState();
                 setStatus("DMX fixture deleted");
                 return true;
@@ -127,7 +127,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             return;
         }
         try {
-            const next = (await GreetService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
+            const next = (await GoldbusLightService.SetSelectedUSBSerialDevice(deviceID)) as DMXState;
             setDMXState(next);
             setStatus(deviceID ? "USB-DMX device selected" : "USB-DMX device selection cleared");
         } catch (err) {
@@ -141,7 +141,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
 
     const pullDMXLiveStatus = useCallback(async () => {
         try {
-            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+            const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
             setDmxLiveStatus(st);
         } catch {
             setDmxLiveStatus(null);
@@ -158,7 +158,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             ([address, value]) => new DMXOutputUpdate({address, value}),
         );
         try {
-            await GreetService.ApplyDMXLivePatch(updates);
+            await GoldbusLightService.ApplyDMXLivePatch(updates);
             await pullDMXLiveStatus();
         } catch (err) {
             const errMsg = String(err);
@@ -194,7 +194,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
             }
             setBusy(true);
             try {
-                await GreetService.StartDMXLive(fixtureID);
+                await GoldbusLightService.StartDMXLive(fixtureID);
                 setBusy(false);
                 setStatus("DMX live output started");
                 await pullDMXLiveStatus();
@@ -214,7 +214,7 @@ export function useDMXController(options: UseDMXControllerOptions) {
         }
         dmxLivePendingRef.current.clear();
         try {
-            await GreetService.StopDMXLive();
+            await GoldbusLightService.StopDMXLive();
         } catch (err) {
             setError(String(err));
         }

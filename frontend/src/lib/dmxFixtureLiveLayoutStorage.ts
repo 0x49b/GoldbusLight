@@ -1,4 +1,4 @@
-import * as GreetService from "../../bindings/goldbus/internal/service/goldbuslightservice";
+import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {
     type LiveLayoutDocument,
     parseLiveLayoutDocument,
@@ -34,7 +34,7 @@ function writeLocalStore(store: LocalStore) {
 }
 
 function goService(): Record<string, (...args: never[]) => Promise<unknown>> {
-    return GreetService as unknown as Record<string, (...args: never[]) => Promise<unknown>>;
+    return GoldbusLightService as unknown as Record<string, (...args: never[]) => Promise<unknown>>;
 }
 
 async function tryGoGet(fixtureId: string): Promise<string | null> {

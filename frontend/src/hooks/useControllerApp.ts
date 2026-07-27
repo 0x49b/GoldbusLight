@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useShallow} from "zustand/shallow";
-import * as GreetService from "../../bindings/goldbus/internal/service/goldbuslightservice";
+import * as GoldbusLightService from "../../bindings/goldbus/internal/service/goldbuslightservice";
 import {DMXLiveStatus, DMXOutputUpdate} from "../../bindings/goldbus/internal/dmx/models";
 import {
     DMXPartyConfig as DMXPartyConfigModel,
@@ -378,7 +378,7 @@ export function useControllerApp() {
     }, [selectedDevice?.name, editingDeviceName, selectedDevice]);
 
     const pullDMXState = useCallback(async () => {
-        const next = (await GreetService.GetDMXState()) as DMXState;
+        const next = (await GoldbusLightService.GetDMXState()) as DMXState;
         if (!next.universes?.length) {
             next.universes = [{id: "universe-1", name: "Universe 1"}];
         }
@@ -396,20 +396,20 @@ export function useControllerApp() {
     }, []);
 
     const pullDMXPartyState = useCallback(async () => {
-        const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+        const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
         setDMXState((prev) => ({...prev, party: state}));
         return state;
     }, [setDMXState]);
 
     const pullUSBSerialDevices = useCallback(async () => {
-        const devices = (await GreetService.ListUSBSerialDevices()) as USBSerialDevice[];
+        const devices = (await GoldbusLightService.ListUSBSerialDevices()) as USBSerialDevice[];
         setUSBSerialDevices(devices);
         return devices;
     }, []);
 
     const pullPartyAudioInputDevices = useCallback(async () => {
         try {
-            const devices = (await GreetService.ListDMXPartyAudioInputDevices()) as DMXPartyAudioInputDevice[];
+            const devices = (await GoldbusLightService.ListDMXPartyAudioInputDevices()) as DMXPartyAudioInputDevice[];
             setPartyAudioInputDevices(devices);
             return devices;
         } catch {
@@ -419,7 +419,7 @@ export function useControllerApp() {
     }, []);
 
     const pullSnapshot = useCallback(async () => {
-        const next = (await GreetService.GetControllerSnapshot()) as unknown as ControllerSnapshot;
+        const next = (await GoldbusLightService.GetControllerSnapshot()) as unknown as ControllerSnapshot;
         setSnapshot(next);
         const settingsEditingActive = Date.now() < settingsEditLockUntilRef.current;
         if (!settingsEditingActive) {
@@ -463,7 +463,7 @@ export function useControllerApp() {
             setGeneralIx(readNumber(gst.ix, 128));
         }
         try {
-            const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+            const ign = (await GoldbusLightService.GetIgnoredDevices()) as WLEDDevice[];
             setIgnoredDevices(ign);
         } catch {
             setIgnoredDevices([]);
@@ -479,7 +479,7 @@ export function useControllerApp() {
             setUSBSerialDevices([]);
         }
         try {
-            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+            const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
             setDmxLiveStatus(st);
         } catch {
             setDmxLiveStatus(null);
@@ -513,7 +513,7 @@ export function useControllerApp() {
         const latest = useControllerStore.getState();
         const afterID = latest.consoleLastId;
         try {
-            const next = (await GreetService.ListConsoleEntries(afterID, 200)) as ConsoleEntry[];
+            const next = (await GoldbusLightService.ListConsoleEntries(afterID, 200)) as ConsoleEntry[];
             if (!Array.isArray(next) || next.length === 0) {
                 return;
             }
@@ -538,7 +538,7 @@ export function useControllerApp() {
 
     const pullConsoleDetachedStatus = useCallback(async () => {
         try {
-            const detached = await GreetService.IsConsoleWindowDetached();
+            const detached = await GoldbusLightService.IsConsoleWindowDetached();
             setConsoleDetached(Boolean(detached));
         } catch {
             /* ignore transient errors */
@@ -557,13 +557,13 @@ export function useControllerApp() {
 
     const onClearConsole = useCallback(() => {
         setConsoleEntries([]);
-        void GreetService.ClearConsoleEntries().catch(() => {
+        void GoldbusLightService.ClearConsoleEntries().catch(() => {
             /* ignore */
         });
     }, [setConsoleEntries]);
 
     const openDetachedConsoleWindow = useCallback(() => {
-        void GreetService.OpenDetachedConsoleWindow()
+        void GoldbusLightService.OpenDetachedConsoleWindow()
             .then(() => setConsoleDetached(true))
             .catch(() => {
                 /* ignore */
@@ -571,7 +571,7 @@ export function useControllerApp() {
     }, [setConsoleDetached]);
 
     const closeDetachedConsoleWindow = useCallback(() => {
-        void GreetService.CloseDetachedConsoleWindow()
+        void GoldbusLightService.CloseDetachedConsoleWindow()
             .then(() => setConsoleDetached(false))
             .catch(() => {
                 /* ignore */
@@ -598,7 +598,7 @@ export function useControllerApp() {
     }, [route, snapshot, setRoute, setStatus]);
 
     useEffect(() => {
-        void Promise.all([GreetService.AppVersion(), GreetService.UpdatesSupported()])
+        void Promise.all([GoldbusLightService.AppVersion(), GoldbusLightService.UpdatesSupported()])
             .then(([version, supported]) => {
                 if (version && version.trim() !== "") {
                     setCurrentVersion(version);
@@ -645,7 +645,7 @@ export function useControllerApp() {
                 if (resendAllowed) {
                     lastAuthoritativeResendAtMsRef.current = now;
                     pendingUiPatchRef.current = {patch: authoritativePatch, atMs: now};
-                    void GreetService.SetDeviceState(deviceId, authoritativePatch).catch((err: unknown) => {
+                    void GoldbusLightService.SetDeviceState(deviceId, authoritativePatch).catch((err: unknown) => {
                         setError(String(err));
                     });
                 }
@@ -681,7 +681,7 @@ export function useControllerApp() {
             if (showAttempts) {
                 setDeviceDetailFetchAttempt(attempt);
             }
-            const rawP = GreetService.GetDeviceDetail(deviceId);
+            const rawP = GoldbusLightService.GetDeviceDetail(deviceId);
             inflightGetDetailRef.current = rawP;
             try {
                 const d = (await awaitCancellableWithTimeout(rawP, DEVICE_DETAIL_TRY_MS)) as WLEDDeviceDetail;
@@ -904,11 +904,11 @@ export function useControllerApp() {
                 },
             };
 
-            const saved = (await GreetService.SaveControllerSettings(merged as never)) as unknown as ControllerSnapshot;
+            const saved = (await GoldbusLightService.SaveControllerSettings(merged as never)) as unknown as ControllerSnapshot;
             setSnapshot(saved);
             setSettings(saved.settings);
             try {
-                const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
                 setDmxLiveStatus(st);
             } catch {
                 setDmxLiveStatus(null);
@@ -924,7 +924,7 @@ export function useControllerApp() {
 
     const onApplyNetwork = useCallback(() => {
         runAsync(async () => {
-            const result = (await GreetService.ApplyNetworkSettings()) as NetworkApplyResult;
+            const result = (await GoldbusLightService.ApplyNetworkSettings()) as NetworkApplyResult;
             setApplyResult(result);
             setStatus(result.dryRun ? "Network apply simulated (dry run)" : "Network settings applied");
         });
@@ -932,7 +932,7 @@ export function useControllerApp() {
 
     const onExportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
-            const path = await GreetService.ExportConfigurationBackup();
+            const path = await GoldbusLightService.ExportConfigurationBackup();
             const msg = `Configuration exported to ${path}`;
             setStatus(msg);
             setError("");
@@ -947,7 +947,7 @@ export function useControllerApp() {
 
     const onCreateWLEDDevicePreset = useCallback(
         async (deviceID: string, name: string): Promise<WLEDDevicePreset> => {
-            const preset = (await GreetService.CreateWLEDDevicePreset(deviceID, name)) as unknown as WLEDDevicePreset;
+            const preset = (await GoldbusLightService.CreateWLEDDevicePreset(deviceID, name)) as unknown as WLEDDevicePreset;
             await pullSnapshot();
             setStatus(`Saved preset “${name}”`);
             return preset;
@@ -957,7 +957,7 @@ export function useControllerApp() {
 
     const onDeleteWLEDDevicePreset = useCallback(
         async (deviceID: string, presetID: string) => {
-            const updated = (await GreetService.DeleteWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.DeleteWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             setStatus("Preset deleted");
         },
@@ -966,7 +966,7 @@ export function useControllerApp() {
 
     const onApplyWLEDDevicePreset = useCallback(
         async (deviceID: string, presetID: string) => {
-            const updated = (await GreetService.ApplyWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.ApplyWLEDDevicePreset(deviceID, presetID)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             setStatus("Preset applied");
         },
@@ -975,7 +975,7 @@ export function useControllerApp() {
 
     const onCreateLightingScene = useCallback(
         async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
-            const scene = (await GreetService.CreateLightingScene(input as never)) as unknown as LightingScene;
+            const scene = (await GoldbusLightService.CreateLightingScene(input as never)) as unknown as LightingScene;
             await pullSnapshot();
             setStatus(`Scene “${scene.name}” created`);
             return scene;
@@ -985,7 +985,7 @@ export function useControllerApp() {
 
     const onUpdateLightingScene = useCallback(
         async (input: UpsertLightingSceneInput): Promise<LightingScene> => {
-            const scene = (await GreetService.UpdateLightingScene(input as never)) as unknown as LightingScene;
+            const scene = (await GoldbusLightService.UpdateLightingScene(input as never)) as unknown as LightingScene;
             await pullSnapshot();
             setStatus(`Scene “${scene.name}” saved`);
             return scene;
@@ -995,7 +995,7 @@ export function useControllerApp() {
 
     const onDeleteLightingScene = useCallback(
         async (id: string) => {
-            const updated = (await GreetService.DeleteLightingScene(id)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.DeleteLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             setStatus("Scene deleted");
         },
@@ -1004,7 +1004,7 @@ export function useControllerApp() {
 
     const onApplyLightingScene = useCallback(
         async (id: string) => {
-            const updated = (await GreetService.ApplyLightingScene(id)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.ApplyLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             try {
                 await pullDMXPartyState();
@@ -1018,7 +1018,7 @@ export function useControllerApp() {
 
     const onSetDefaultLightingScene = useCallback(
         async (id: string) => {
-            const updated = (await GreetService.SetDefaultLightingScene(id)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.SetDefaultLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             setStatus(id ? "Default startup scene set" : "Default startup scene cleared");
         },
@@ -1027,7 +1027,7 @@ export function useControllerApp() {
 
     const onSetPartyLightingScene = useCallback(
         async (id: string) => {
-            const updated = (await GreetService.SetPartyLightingScene(id)) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.SetPartyLightingScene(id)) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             setStatus(id ? "Party scene set" : "Party scene cleared");
         },
@@ -1036,7 +1036,7 @@ export function useControllerApp() {
 
     const onStartLightingSceneParty = useCallback(
         async () => {
-            const updated = (await GreetService.StartLightingSceneParty()) as unknown as ControllerSnapshot;
+            const updated = (await GoldbusLightService.StartLightingSceneParty()) as unknown as ControllerSnapshot;
             setSnapshot(updated);
             await pullDMXPartyState();
             setStatus("Party mode started from scene");
@@ -1047,7 +1047,7 @@ export function useControllerApp() {
     const onExportLightingScene = useCallback(
         async (id: string): Promise<string> => {
             try {
-                const path = await GreetService.ExportLightingScene(id);
+                const path = await GoldbusLightService.ExportLightingScene(id);
                 const msg = `Scene exported to ${path}`;
                 setStatus(msg);
                 setError("");
@@ -1064,7 +1064,7 @@ export function useControllerApp() {
 
     const onImportLightingScene = useCallback(async (): Promise<LightingScene | null> => {
         try {
-            const scene = (await GreetService.ImportLightingScene()) as unknown as LightingScene;
+            const scene = (await GoldbusLightService.ImportLightingScene()) as unknown as LightingScene;
             await pullSnapshot();
             try {
                 await pullDMXState();
@@ -1084,7 +1084,7 @@ export function useControllerApp() {
     const onExportDMXFixtureConfig = useCallback(
         async (suggestedFilename: string, contents: string): Promise<string> => {
             try {
-                const path = await GreetService.ExportDMXFixtureConfig(suggestedFilename, contents);
+                const path = await GoldbusLightService.ExportDMXFixtureConfig(suggestedFilename, contents);
                 const msg = `Fixture exported to ${path}`;
                 setStatus(msg);
                 setError("");
@@ -1101,7 +1101,7 @@ export function useControllerApp() {
 
     const onImportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
-            await GreetService.ImportConfigurationBackup();
+            await GoldbusLightService.ImportConfigurationBackup();
             await pullSnapshot();
             await pullDMXState();
             await pullDMXPartyState();
@@ -1118,7 +1118,7 @@ export function useControllerApp() {
     }, [pullSnapshot, pullDMXState, pullDMXPartyState, setStatus, setError]);
 
     const onCheckForUpdates = useCallback(async (): Promise<void> => {
-        await GreetService.CheckForUpdates();
+        await GoldbusLightService.CheckForUpdates();
     }, []);
 
     const onCreateDMXFixture = useCallback(
@@ -1127,7 +1127,7 @@ export function useControllerApp() {
                 return null;
             }
             try {
-                const created = (await GreetService.CreateDMXFixture(input as never)) as DMXFixture;
+                const created = (await GoldbusLightService.CreateDMXFixture(input as never)) as DMXFixture;
                 await pullDMXState();
                 setStatus(`Fixture "${created.name}" created`);
                 setError("");
@@ -1146,11 +1146,11 @@ export function useControllerApp() {
                 return null;
             }
             try {
-                const updated = (await GreetService.UpdateDMXFixture(input as never)) as DMXFixture;
+                const updated = (await GoldbusLightService.UpdateDMXFixture(input as never)) as DMXFixture;
                 if (dmxLiveStatus?.connected && dmxLiveStatus.fixtureId === updated.id) {
-                    await GreetService.StartDMXLive(updated.id);
+                    await GoldbusLightService.StartDMXLive(updated.id);
                     try {
-                        const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                        const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
                         setDmxLiveStatus(st);
                     } catch {
                         setDmxLiveStatus(null);
@@ -1197,15 +1197,15 @@ export function useControllerApp() {
                         continue;
                     }
                     const input = fixtureToUpsertInput(fixture, dmxAddress);
-                    await GreetService.UpdateDMXFixture(input as never);
+                    await GoldbusLightService.UpdateDMXFixture(input as never);
                     changed += 1;
                 }
 
                 if (changed > 0) {
                     if (dmxLiveStatus?.connected && dmxLiveStatus.fixtureId && normalized.has(dmxLiveStatus.fixtureId)) {
-                        await GreetService.StartDMXLive(dmxLiveStatus.fixtureId);
+                        await GoldbusLightService.StartDMXLive(dmxLiveStatus.fixtureId);
                         try {
-                            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                            const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
                             setDmxLiveStatus(st);
                         } catch {
                             setDmxLiveStatus(null);
@@ -1233,7 +1233,7 @@ export function useControllerApp() {
                 return false;
             }
             try {
-                await GreetService.DeleteDMXFixture(fixtureID);
+                await GoldbusLightService.DeleteDMXFixture(fixtureID);
                 await pullDMXState();
                 setRoute((r) => (r.kind === "dmxFixture" && r.id === fixtureID ? {kind: "dmxAddFixture"} : r));
                 setStatus("Fixture deleted");
@@ -1265,7 +1265,7 @@ export function useControllerApp() {
             return;
         }
         try {
-            const next = (await GreetService.SetDMXUniverseUSBDevice("universe-1", deviceID)) as DMXState;
+            const next = (await GoldbusLightService.SetDMXUniverseUSBDevice("universe-1", deviceID)) as DMXState;
             setDMXState(next);
             setSettings((prev) => {
                 if (!prev) {
@@ -1286,7 +1286,7 @@ export function useControllerApp() {
                 };
             });
             try {
-                const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+                const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
                 setDmxLiveStatus(st);
             } catch {
                 setDmxLiveStatus(null);
@@ -1311,7 +1311,7 @@ export function useControllerApp() {
             }
             lastPartyConfigSentAtMsRef.current = Date.now();
             try {
-                const next = await GreetService.SetDMXPartyConfig(new DMXPartyConfigModel(config as never));
+                const next = await GoldbusLightService.SetDMXPartyConfig(new DMXPartyConfigModel(config as never));
                 setDMXState((prev) => ({...prev, party: next as unknown as DMXPartyState}));
                 if (label) {
                     setStatus(label);
@@ -1369,8 +1369,8 @@ export function useControllerApp() {
         }
         try {
             await setDMXPartyConfig({}, {immediate: true});
-            await GreetService.StartDMXParty();
-            const state = await GreetService.GetDMXPartyState();
+            await GoldbusLightService.StartDMXParty();
+            const state = await GoldbusLightService.GetDMXPartyState();
             setDMXState((prev) => ({...prev, party: state as unknown as DMXPartyState}));
             setStatus("DMX party mode started");
             setError("");
@@ -1400,15 +1400,15 @@ export function useControllerApp() {
             },
         }));
         try {
-            await GreetService.StopDMXParty();
-            const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+            await GoldbusLightService.StopDMXParty();
+            const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
             setDMXState((prev) => ({...prev, party: state}));
             setStatus("Party mode stopped");
             setError("");
         } catch (err) {
             setError(String(err));
             try {
-                const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+                const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
                 setDMXState((prev) => ({...prev, party: state}));
             } catch {
                 /* ignore follow-up read failure */
@@ -1451,7 +1451,7 @@ export function useControllerApp() {
 
     const pullDMXLiveStatus = useCallback(async () => {
         try {
-            const st = (await GreetService.GetDMXLiveStatus()) as DMXLiveStatus;
+            const st = (await GoldbusLightService.GetDMXLiveStatus()) as DMXLiveStatus;
             setDmxLiveStatus(st);
         } catch {
             setDmxLiveStatus(null);
@@ -1477,9 +1477,9 @@ export function useControllerApp() {
             },
         }));
         try {
-            await GreetService.DMXEmergencyStop();
+            await GoldbusLightService.DMXEmergencyStop();
             await pullDMXState();
-            const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+            const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
             setDMXState((prev) => ({...prev, party: state}));
             await pullDMXLiveStatus();
             setStatus("Emergency stop: party off, DMX blackout");
@@ -1487,7 +1487,7 @@ export function useControllerApp() {
         } catch (err) {
             setError(String(err));
             try {
-                const state = (await GreetService.GetDMXPartyState()) as unknown as DMXPartyState;
+                const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
                 setDMXState((prev) => ({...prev, party: state}));
             } catch {
                 /* ignore follow-up read failure */
@@ -1512,7 +1512,7 @@ export function useControllerApp() {
             });
         });
         try {
-            await GreetService.ApplyDMXLivePatch(updates);
+            await GoldbusLightService.ApplyDMXLivePatch(updates);
             await pullDMXLiveStatus();
         } catch (err) {
             const errMsg = String(err);
@@ -1551,7 +1551,7 @@ export function useControllerApp() {
                 return false;
             }
             try {
-                await GreetService.StartDMXLive(fixtureID);
+                await GoldbusLightService.StartDMXLive(fixtureID);
                 setError("");
                 setStatus("DMX live output started");
                 await pullDMXLiveStatus();
@@ -1572,7 +1572,7 @@ export function useControllerApp() {
         }
         dmxLivePendingRef.current = new Map();
         try {
-            await GreetService.StopDMXLive();
+            await GoldbusLightService.StopDMXLive();
         } catch {
             /* ignore */
         }
@@ -1589,7 +1589,7 @@ export function useControllerApp() {
                 return null;
             }
             try {
-                const created = (await GreetService.AddWLEDDevice({address, port})) as { id: string };
+                const created = (await GoldbusLightService.AddWLEDDevice({address, port})) as { id: string };
                 await pullSnapshot();
                 setStatus("WLED device added");
                 return created.id;
@@ -1604,7 +1604,7 @@ export function useControllerApp() {
     const sendGlobalState = useCallback(
         async (patch: JSONMap, label: string, skipSnapshotReload: boolean) => {
             try {
-                const result = await GreetService.SetGlobalState(patch);
+                const result = await GoldbusLightService.SetGlobalState(patch);
                 if (!skipSnapshotReload) {
                     await pullSnapshot();
                     setStatus(`${label}: ${Object.keys(result).length} targets`);
@@ -1686,7 +1686,7 @@ export function useControllerApp() {
                     let lastErr: unknown = null;
                     for (let attempt = 1; attempt <= DEVICE_DETAIL_MAX_TRIES; attempt++) {
                         setDeviceDetailFetchAttempt(attempt);
-                        const p = GreetService.RefreshDevice(deviceID);
+                        const p = GoldbusLightService.RefreshDevice(deviceID);
                         try {
                             refreshed = (await awaitCancellableWithTimeout(p, DEVICE_DETAIL_TRY_MS)) as unknown as ControllerSnapshot;
                             lastErr = null;
@@ -1739,7 +1739,7 @@ export function useControllerApp() {
                 return;
             }
             runAsync(async () => {
-                const updated = (await GreetService.ProvisionDevice(deviceID)) as unknown as ControllerSnapshot;
+                const updated = (await GoldbusLightService.ProvisionDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setStatus(`Device provisioned`);
@@ -1757,7 +1757,7 @@ export function useControllerApp() {
                 return;
             }
             runAsync(async () => {
-                const updated = (await GreetService.RemoveDevice(deviceID)) as unknown as ControllerSnapshot;
+                const updated = (await GoldbusLightService.RemoveDevice(deviceID)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setStatus(`Device removed`);
@@ -1773,11 +1773,11 @@ export function useControllerApp() {
                 return;
             }
             runAsync(async () => {
-                const updated = (await GreetService.SetDeviceIgnored(deviceID, true)) as unknown as ControllerSnapshot;
+                const updated = (await GoldbusLightService.SetDeviceIgnored(deviceID, true)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 try {
-                    const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+                    const ign = (await GoldbusLightService.GetIgnoredDevices()) as WLEDDevice[];
                     setIgnoredDevices(ign);
                 } catch {
                     /* ignore */
@@ -1795,11 +1795,11 @@ export function useControllerApp() {
                 return;
             }
             runAsync(async () => {
-                const updated = (await GreetService.SetDeviceIgnored(deviceID, false)) as unknown as ControllerSnapshot;
+                const updated = (await GoldbusLightService.SetDeviceIgnored(deviceID, false)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 try {
-                    const ign = (await GreetService.GetIgnoredDevices()) as WLEDDevice[];
+                    const ign = (await GoldbusLightService.GetIgnoredDevices()) as WLEDDevice[];
                     setIgnoredDevices(ign);
                 } catch {
                     /* ignore */
@@ -1833,7 +1833,7 @@ export function useControllerApp() {
             });
             pendingUiPatchRef.current = {patch: state, atMs: Date.now()};
             void (async () => {
-                await GreetService.SetDeviceState(deviceID, state);
+                await GoldbusLightService.SetDeviceState(deviceID, state);
                 if (!skipFollowupDetailReload) {
                     await pullSnapshot();
                     if (route.kind === "device" && route.id === deviceID) {
@@ -1935,7 +1935,7 @@ export function useControllerApp() {
                 return;
             }
             runAsync(async () => {
-                const updated = (await GreetService.RenameDevice(deviceID, name)) as unknown as ControllerSnapshot;
+                const updated = (await GoldbusLightService.RenameDevice(deviceID, name)) as unknown as ControllerSnapshot;
                 setSnapshot(updated);
                 setSettings(updated.settings);
                 setEditingDeviceName(false);

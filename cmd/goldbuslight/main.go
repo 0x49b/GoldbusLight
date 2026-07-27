@@ -168,7 +168,7 @@ func main() {
 		Pattern:     "*.json",
 	}
 
-	greetService := service.NewGreetService(controller, service.ConsoleWindowCallbacks{
+	appService := service.NewGoldbusLightService(controller, service.ConsoleWindowCallbacks{
 		Open:       openDetachedConsoleWindow,
 		Close:      closeDetachedConsoleWindow,
 		IsDetached: isDetachedConsoleWindow,
@@ -198,7 +198,7 @@ func main() {
 	}, service.UpdateCallbacks{
 		CheckAndInstall: checkAndInstall,
 	})
-	app.RegisterService(application.NewService(greetService))
+	app.RegisterService(application.NewService(appService))
 
 	go func() {
 		for {
