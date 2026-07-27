@@ -108,7 +108,7 @@ export function ControllerSettingsView({
     onExportConfigurationBackup,
     onImportConfigurationBackup,
     onCheckForUpdates,
-}: ControllerSettingsViewProps) {
+}: Readonly<ControllerSettingsViewProps>) {
     const saveTimerRef = useRef<number | null>(null);
     const AUTOSAVE_IDLE_MS = 2000;
 
@@ -212,109 +212,113 @@ export function ControllerSettingsView({
     }
 
     return (
-        <div className="space-y-5 w-full max-w-none pb-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Controller settings</h2>
-            </div>
-
+        <div className="flex min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden">
             <Tabs
                 key={`${consoleDetached ? "console-detached" : "console-attached"}-${initialTab}`}
                 defaultValue={initialTab === "console" && consoleDetached ? "general" : initialTab}
+                className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
             >
-                <TabsList>
-                    <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="wled">WLED</TabsTrigger>
-                    <TabsTrigger value="dmx">DMX</TabsTrigger>
-                    {(wledEnabled || dmxEnabled) && <TabsTrigger value="party">Party</TabsTrigger>}
-                    {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
-                </TabsList>
+                <div className="shrink-0 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-lg font-semibold">Settings</h2>
+                    </div>
+                    <TabsList>
+                        <TabsTrigger value="general">General</TabsTrigger>
+                        <TabsTrigger value="wled">WLED</TabsTrigger>
+                        <TabsTrigger value="dmx">DMX</TabsTrigger>
+                        {(wledEnabled || dmxEnabled) && <TabsTrigger value="party">Party</TabsTrigger>}
+                        {!consoleDetached && <TabsTrigger value="console">Console</TabsTrigger>}
+                    </TabsList>
+                </div>
 
-                <TabsContent value="general">
-                    <GeneralSettingsTab
-                        applyResult={applyResult}
-                        busy={busy}
-                        currentVersion={currentVersion}
-                        updatesSupported={updatesSupported}
-                        onExportConfigurationBackup={onExportConfigurationBackup}
-                        onImportConfigurationBackup={onImportConfigurationBackup}
-                        onCheckForUpdates={onCheckForUpdates}
-                        setError={setError}
-                    />
-                </TabsContent>
-
-                <TabsContent value="wled">
-                    <WledSettingsTab
-                        settings={settings}
-                        updateSettings={updateSettings}
-                        flushAutosaveNow={flushAutosaveNow}
-                        updateStatePayloadText={updateStatePayloadText}
-                        updateConfigPatchText={updateConfigPatchText}
-                        disableAccessPointNow={disableAccessPointNow}
-                        busy={busy}
-                        onApplyNetwork={onApplyNetwork}
-                        onRefreshSnapshot={onRefreshSnapshot}
-                        statePayloadText={statePayloadText}
-                        configPatchText={configPatchText}
-                        ignoredDevices={ignoredDevices}
-                        onUnignoreDevice={onUnignoreDevice}
-                    />
-                </TabsContent>
-
-                <TabsContent value="dmx">
-                    <DmxSettingsTab
-                        settings={settings}
-                        updateSettings={updateSettings}
-                        updateUniverseArtNet={updateUniverseArtNet}
-                        flushAutosaveNow={flushAutosaveNow}
-                        busy={busy}
-                        dmxState={dmxState}
-                        dmxEnabled={dmxEnabled}
-                        dmxPartyRunning={dmxPartyRunning}
-                        usbSerialDevices={usbSerialDevices}
-                        onRefreshUSBSerialDevices={onRefreshUSBSerialDevices}
-                        onSelectUSBSerialDevice={onSelectUSBSerialDevice}
-                        startDMXLiveOutput={startDMXLiveOutput}
-                        setError={setError}
-                    />
-                </TabsContent>
-
-                {(wledEnabled || dmxEnabled) && (
-                    <TabsContent value="party">
-                        <PartySettingsTab
-                            fixtures={dmxState.fixtures}
-                            wledDevices={partyWledDevices}
-                            party={party}
+                <div className="touch-pan-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-px pt-0.5 pb-8">
+                    <TabsContent value="general">
+                        <GeneralSettingsTab
+                            applyResult={applyResult}
                             busy={busy}
-                            audioInputDevices={partyAudioInputDevices}
-                            onRefreshAudioDevices={onRefreshPartyAudioDevices}
-                            onUpdateConfig={onUpdatePartyConfig}
-                            onStart={onStartParty}
-                            onStop={onStopParty}
+                            currentVersion={currentVersion}
+                            updatesSupported={updatesSupported}
+                            onExportConfigurationBackup={onExportConfigurationBackup}
+                            onImportConfigurationBackup={onImportConfigurationBackup}
+                            onCheckForUpdates={onCheckForUpdates}
+                            setError={setError}
                         />
                     </TabsContent>
-                )}
 
-                {!consoleDetached && (
-                    <TabsContent value="console">
-                        <ConsoleSettingsTab
-                            entries={consoleEntries}
-                            onClear={onClearConsole}
-                            onToggleDetach={onToggleConsoleDetach}
+                    <TabsContent value="wled">
+                        <WledSettingsTab
+                            settings={settings}
+                            updateSettings={updateSettings}
+                            flushAutosaveNow={flushAutosaveNow}
+                            updateStatePayloadText={updateStatePayloadText}
+                            updateConfigPatchText={updateConfigPatchText}
+                            disableAccessPointNow={disableAccessPointNow}
+                            busy={busy}
+                            onApplyNetwork={onApplyNetwork}
+                            onRefreshSnapshot={onRefreshSnapshot}
+                            statePayloadText={statePayloadText}
+                            configPatchText={configPatchText}
+                            ignoredDevices={ignoredDevices}
+                            onUnignoreDevice={onUnignoreDevice}
                         />
                     </TabsContent>
-                )}
+
+                    <TabsContent value="dmx">
+                        <DmxSettingsTab
+                            settings={settings}
+                            updateSettings={updateSettings}
+                            updateUniverseArtNet={updateUniverseArtNet}
+                            flushAutosaveNow={flushAutosaveNow}
+                            busy={busy}
+                            dmxState={dmxState}
+                            dmxEnabled={dmxEnabled}
+                            dmxPartyRunning={dmxPartyRunning}
+                            usbSerialDevices={usbSerialDevices}
+                            onRefreshUSBSerialDevices={onRefreshUSBSerialDevices}
+                            onSelectUSBSerialDevice={onSelectUSBSerialDevice}
+                            startDMXLiveOutput={startDMXLiveOutput}
+                            setError={setError}
+                        />
+                    </TabsContent>
+
+                    {(wledEnabled || dmxEnabled) && (
+                        <TabsContent value="party">
+                            <PartySettingsTab
+                                fixtures={dmxState.fixtures}
+                                wledDevices={partyWledDevices}
+                                party={party}
+                                busy={busy}
+                                audioInputDevices={partyAudioInputDevices}
+                                onRefreshAudioDevices={onRefreshPartyAudioDevices}
+                                onUpdateConfig={onUpdatePartyConfig}
+                                onStart={onStartParty}
+                                onStop={onStopParty}
+                            />
+                        </TabsContent>
+                    )}
+
+                    {!consoleDetached && (
+                        <TabsContent value="console">
+                            <ConsoleSettingsTab
+                                entries={consoleEntries}
+                                onClear={onClearConsole}
+                                onToggleDetach={onToggleConsoleDetach}
+                            />
+                        </TabsContent>
+                    )}
+
+                    {snapshot && (
+                        <p className="text-xs opacity-60">
+                            Persistence: <code>{snapshot.persistencePath}</code> •
+                            backend: {snapshot.capabilities.networkBackendLabel}
+                            {" "}({snapshot.capabilities.networkBackendId}) • host
+                            CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
+                            {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
+                                className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
+                        </p>
+                    )}
+                </div>
             </Tabs>
-
-            {snapshot && (
-                <p className="text-xs opacity-60">
-                    Persistence: <code>{snapshot.persistencePath}</code> •
-                    backend: {snapshot.capabilities.networkBackendLabel}
-                    {" "}({snapshot.capabilities.networkBackendId}) • host
-                    CLI: <code>{snapshot.capabilities.networkCliName || "—"}</code>
-                    {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
-                        className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
-                </p>
-            )}
         </div>
     );
 }

@@ -343,11 +343,11 @@ export function AppShell({
 
             <SidebarInset className="h-screen min-h-0 min-w-0 overflow-hidden">
                 <main
-                    className="touch-pan-scroll flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto p-4 md:p-6">
+                    className="touch-pan-scroll flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-auto p-4 md:p-6">
                     {error && (
                         <Alert
                             variant="destructive"
-                            className="mb-4 flex items-center justify-between gap-3 py-2 text-sm"
+                            className="mb-4 flex shrink-0 items-center justify-between gap-3 py-2 text-sm"
                             role="alert"
                         >
                             <AlertDescription className="min-w-0 break-words">
