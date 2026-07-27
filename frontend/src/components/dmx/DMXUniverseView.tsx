@@ -12,7 +12,6 @@ import {
     fixturesForUniverse,
     normalizeUniverses,
     resolveUniverseId,
-    universeInterfaceSettings,
 } from "@/lib/dmxUniverses";
 import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlave";
 import { cn } from "@/lib/utils";
@@ -40,32 +39,6 @@ function padChannel(n: number): string {
     return String(Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, n))).padStart(3, "0");
 }
 
-function universeInterfaceLabel(
-    universeId: string,
-    settings: ControllerSettings | null,
-    universes: DMXUniverse[],
-    fixtures: DMXFixture[],
-    selectedUSBDeviceId: string,
-    usbSerialDevices: USBSerialDevice[],
-): string {
-    const iface = universeInterfaceSettings(settings, universeId, {
-        universes,
-        fixtures,
-        selectedUSBDeviceId,
-        party: {
-            config: {enabled: false, mode: "auto", intensity: 50, speed: 50, colorVariation: 50, audioSensitivity: 50},
-            status: {running: false, mode: "auto"},
-            audio: {level: 0, bass: 0, mid: 0, treble: 0, beat: 0, bpm: 0},
-        },
-    });
-    const usbDeviceId = iface.selectedUSBDeviceId;
-    const usbDevice = usbSerialDevices.find((d) => d.id === usbDeviceId);
-    const parts = [
-        usbDevice?.name ?? usbDevice?.description,
-        iface.artNet.enabled ? `Art-Net U${iface.artNet.universe}` : null,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(" · ") : "No interface";
-}
 
 /** Match the grabbed element's rendered size so the browser does not scale the drag ghost. */
 function attachUniverseFixtureDragImage(event: DragEvent<HTMLButtonElement>) {
@@ -278,14 +251,6 @@ export function DMXUniverseView({
         return a.id.localeCompare(b.id);
     });
     const liveConnected = dmxLiveStatus?.connected === true;
-    const interfaceLabel = universeInterfaceLabel(
-        activeUniverseId,
-        settings,
-        universes,
-        allFixtures,
-        selectedUSBDeviceId,
-        usbSerialDevices,
-    );
 
     useEffect(() => {
         void pullDMXLiveStatus();
@@ -362,7 +327,6 @@ export function DMXUniverseView({
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
             
             <div className="flex flex-wrap w-full items-start gap-2">
-
                 <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Button
                         type="button"

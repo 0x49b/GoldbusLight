@@ -148,11 +148,8 @@ export function ScenesView({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-semibold tracking-tight">Scenes</h1>
-                    <p className="text-sm text-muted-foreground">Tap a scene to switch to it.</p>
-                </div>
+            <div className="flex flex-wrap items-start justify-end gap-3">
+
                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => setManaging(true)}>
                         <PiGearSix className="size-4" aria-hidden />
@@ -229,7 +226,7 @@ export function ScenesView({
                                         {isCurrent ? (
                                             <span
                                                 className={cn(
-                                                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                                    "rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide",
                                                     isPartyScene
                                                         ? "bg-violet-600 text-white"
                                                         : "bg-primary text-primary-foreground",
@@ -239,12 +236,12 @@ export function ScenesView({
                                             </span>
                                         ) : null}
                                         {isPartyScene ? (
-                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                            <span className="rounded-full border border-violet-500/50 bg-violet-500/15 px-2 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
                                                 Party
                                             </span>
                                         ) : null}
                                         {isDefault ? (
-                                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            <span className="rounded-full border border-border px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                                                 Default
                                             </span>
                                         ) : null}

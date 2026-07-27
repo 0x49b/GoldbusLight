@@ -171,7 +171,6 @@ export function AppShell({
                                                     route.kind === "device" &&
                                                     route.id === dev.id &&
                                                     "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-sidebar-ring font-semibold",
-                                                    !dev.online && "opacity-60",
                                                 )}
                                                 aria-label={
                                                     dev.online
@@ -281,7 +280,7 @@ export function AppShell({
                                                 )}
 
                                                 <span
-                                                    className="min-w-0 flex-1 truncate">{fixture.name} - {fixture.type.toLocaleUpperCase()}</span>
+                                                    className="min-w-0 flex-1 truncate">{fixture.name}</span>
                                                 <span
                                                     className={cn(
                                                         "status status-sm shrink-0",

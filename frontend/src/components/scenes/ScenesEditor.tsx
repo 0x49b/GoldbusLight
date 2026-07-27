@@ -137,7 +137,7 @@ export function ScenesEditor({
     onSetPartyScene,
     onOpenSettings,
     onBack,
-}: ScenesEditorProps) {
+}: Readonly<ScenesEditorProps>) {
     const [draft, setDraft] = useState<SceneDraft>(emptyDraft);
     const [saving, setSaving] = useState(false);
     const [defaultReplaceOpen, setDefaultReplaceOpen] = useState(false);
@@ -300,10 +300,6 @@ export function ScenesEditor({
                         <PiArrowLeft className="size-4" aria-hidden />
                         Back to scenes
                     </Button>
-                    <h1 className="text-xl font-semibold tracking-tight">Manage scenes</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Create and edit looks across WLED presets and DMX scene cues.
-                    </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" size="sm" onClick={() => setDraft(emptyDraft())} disabled={busy || saving}>
@@ -375,7 +371,7 @@ export function ScenesEditor({
             <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Scenes</CardTitle>
+                        <CardTitle>Scenes</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 p-2">
                         {sortedScenes.length === 0 ? (
