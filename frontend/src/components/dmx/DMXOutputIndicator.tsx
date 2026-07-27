@@ -7,11 +7,12 @@ type DMXOutputIndicatorProps = {
 };
 
 /** Read-only indicator: whether the app is currently sending DMX to an attached interface. */
-export function DMXOutputIndicator({connected, className}: DMXOutputIndicatorProps) {
+export function DMXOutputIndicator({connected, className}: Readonly<DMXOutputIndicatorProps>) {
 
+    const baseClassNames = "pointer-events-none pt-1"
     let classNames = connected ?
-        cn("pointer-events-none bg-green-500/10 border-green-700 text-green-950", className) :
-        cn("pointer-events-none bg-rose-500/10 border-rose-700 text-rose-950", className)
+        cn(baseClassNames, "bg-green-500/10 border-green-700 text-green-950", className) :
+        cn(baseClassNames, "bg-rose-500/10 border-rose-700 text-rose-950", className)
 
     /*
     * variant={connected ? "destructive" : "secondary"}
