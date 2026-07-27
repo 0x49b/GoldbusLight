@@ -5,6 +5,7 @@ import {useState} from "react";
 import {PiDownloadSimple, PiUploadSimple} from "react-icons/pi";
 import {prettyJSON} from "../../../lib/json.ts";
 import type {NetworkApplyResult} from "@/types/controller.ts";
+import {AppearanceCard} from "../components/AppearanceCard.tsx";
 import {ApplicationVersionCard} from "../components/ApplicationVersionCard.tsx";
 import {WindowDisplayCard} from "../components/WindowDisplayCard.tsx";
 
@@ -47,6 +48,8 @@ export function GeneralSettingsTab({
             />
 
             <WindowDisplayCard disabled={busy}/>
+
+            <AppearanceCard/>
 
             <Card className="w-full max-w-none">
                 <CardHeader>

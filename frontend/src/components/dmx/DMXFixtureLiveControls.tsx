@@ -605,7 +605,7 @@ export function DMXFixtureLiveControls({
                             type="button"
                             size="sm"
                             variant="secondary"
-                            className="bg-orange-200"
+                            className="bg-orange-200 text-orange-950 hover:bg-orange-300 dark:bg-orange-500/20 dark:text-orange-200 dark:hover:bg-orange-500/30"
                             onClick={() => onOpenFixture(masterFixture.id)}
                         >
                             Open master

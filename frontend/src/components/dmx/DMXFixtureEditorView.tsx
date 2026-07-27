@@ -285,14 +285,15 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [editLayout, setEditLayout] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const importInputRef = useRef<HTMLInputElement | null>(null);
-    const isCurrentFixtureLive = props.fixture != null && props.dmxLiveStatus?.connected === true;
     const fixturePartyIncluded = props.fixture
         ? isFixtureActiveInParty(props.fixture, props.dmxState.fixtures, props.dmxState.party?.config)
         : false;
     const liveLayoutConfigurable = props.fixture != null
         && !isFixtureSlave(props.fixture)
         && liveTileIdsForFixture(props.fixture).length > 0;
-    const actionGroupDisabled = props.busy || isCurrentFixtureLive;
+    // Only gate on busy — DMX live output auto-starts when an interface is ready,
+    // so locking Save/Export/Clone/Delete on "connected" made them permanently unusable.
+    const actionGroupDisabled = props.busy;
     const showPanTiltInputs = PAN_TILT_FIXTURE_TYPES.has(fixtureType);
     const showPartyCuesTab = fixtureType !== "smoke" && fixtureType !== "colorChanger";
     const showSceneCuesTab = fixtureType !== "smoke";
