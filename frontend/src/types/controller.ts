@@ -434,6 +434,8 @@ export type USBSerialDevice = {
     path: string;
     name: string;
     description?: string;
+    /** Likely USB DMX framing: "enttec-pro", "open-dmx", or "auto". */
+    protocol?: string;
 };
 
 export type UpsertDMXFixtureInput = {

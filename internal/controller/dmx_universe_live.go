@@ -238,7 +238,13 @@ func (c *WLEDController) startDMXUSBHardwareForUniverse(universeID string, dev s
 		c.stopDMXUSBAdapterForUniverseAndWait(universeID)
 	}
 
-	mode := &goserial.Mode{BaudRate: 250000, DataBits: 8, Parity: goserial.NoParity, StopBits: goserial.TwoStopBits}
+	// Open at Enttec Pro baud when heuristics say Pro or need a probe; Open DMX uses 250000.
+	guessed := dmx.DetectUSBProtocol(dev.Description, dev.Name, path)
+	openProtocol := guessed
+	if dmx.USBProtocolNeedsProbe(openProtocol) {
+		openProtocol = dmx.USBProtocolEnttecPro
+	}
+	mode := dmx.SerialModeForUSBProtocol(openProtocol)
 	const openTimeout = 2 * time.Second
 	type openResult struct {
 		port goserial.Port
@@ -317,6 +323,22 @@ func (c *WLEDController) startDMXUSBHardwareForUniverse(universeID string, dev s
 	path = openedPath
 	_ = port.SetReadTimeout(50 * time.Millisecond)
 
+	protocol := dmx.ResolveUSBProtocol(dev.Description, dev.Name, path, port)
+	if protocol != openProtocol {
+		if err := port.SetMode(dmx.SerialModeForUSBProtocol(protocol)); err != nil {
+			_ = port.Close()
+			return fmt.Errorf("set serial mode for %s: %w", dmx.USBProtocolLabel(protocol), err)
+		}
+	}
+	if protocol == dmx.USBProtocolEnttecPro {
+		if err := dmx.ConfigureEnttecProWidget(port); err != nil {
+			c.logger.Printf("dmx live: enttec pro widget configure on %s: %v (continuing)", path, err)
+		}
+	} else {
+		// Open DMX USB typically enables the RS-485 driver via DTR.
+		_ = port.SetDTR(true)
+	}
+
 	c.dmxLiveMu.Lock()
 	if !c.dmxLiveRunning {
 		c.dmxLiveMu.Unlock()
@@ -331,21 +353,18 @@ func (c *WLEDController) startDMXUSBHardwareForUniverse(universeID string, dev s
 	rt.usbRecoverAt = time.Time{}
 	seed := rt.buf
 	c.dmxLiveUSBWG.Add(1)
-	useEnttecPro := dmx.UsesEnttecProProtocol(dev.Description, dev.Name, path)
-	go c.dmxLiveUSBWorkerForUniverse(universeID, frameCh, port, path, useEnttecPro)
+	go c.dmxLiveUSBWorkerForUniverse(universeID, frameCh, port, path, protocol)
 	queueLatestDMXFrame(frameCh, seed)
 	c.dmxLiveMu.Unlock()
 
+	hz := dmx.FrameHzForUSBProtocol(protocol)
 	if path != rawPath {
 		c.logger.Printf("dmx live: using %s for usb transmit universe=%s (configured path was %s)", path, universeID, rawPath)
 	}
-	c.logger.Printf("dmx live: usb adapter started universe=%s on %s", universeID, path)
+	c.logger.Printf("dmx live: usb adapter started universe=%s on %s protocol=%s hz=%d", universeID, path, protocol, hz)
 	if c.console != nil {
-		proto := "raw 513-byte"
-		if useEnttecPro {
-			proto = "Enttec Pro"
-		}
-		c.console.Info(console.TransportUSBDMX, path, fmt.Sprintf("USB DMX adapter started @ %dHz (%s, %s)", dmxLiveFrameHz, proto, universeID))
+		c.console.Info(console.TransportUSBDMX, path,
+			fmt.Sprintf("USB DMX adapter started @ %dHz (%s, %s)", hz, dmx.USBProtocolLabel(protocol), universeID))
 	}
 	return nil
 }
@@ -544,8 +563,8 @@ func (c *WLEDController) dmxLiveUSBSimulatorWorkerForUniverse(universeID string,
 }
 
 // dmxLiveUSBWorkerForUniverse wraps the USB hardware worker with universe context.
-func (c *WLEDController) dmxLiveUSBWorkerForUniverse(universeID string, frameCh <-chan [512]byte, port goserial.Port, path string, enttecPro bool) {
-	c.dmxLiveUSBWorker(frameCh, port, path, enttecPro)
+func (c *WLEDController) dmxLiveUSBWorkerForUniverse(universeID string, frameCh <-chan [512]byte, port goserial.Port, path string, protocol dmx.USBProtocol) {
+	c.dmxLiveUSBWorker(frameCh, port, path, protocol)
 }
 
 func (c *WLEDController) partyOwnedAddrLocked(universeID string, addr int) bool {

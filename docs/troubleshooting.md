@@ -36,7 +36,7 @@ Common issues and fixes for Goldbus Light Controller.
 
 1. Plug adapter in before or refresh after plugging in
 2. Linux: user in `dialout` group for `/dev/ttyUSB*` or `/dev/ttyACM*`
-3. Confirm adapter is Enttec Pro–compatible
+3. Confirm adapter is Enttec Pro–compatible (or Open DMX / Cable). Check Settings → Console for `Enttec Pro` vs `Open DMX` after start.
 
 ### Wrong channel moves wrong parameter
 

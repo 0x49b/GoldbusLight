@@ -100,6 +100,7 @@
     "enableUsbTransport": "Enable USB transport",
     "noDeviceSelected": "No device selected",
     "refreshUsbDevices": "Refresh USB devices",
+    "usbProtocolHint": "Detected framing is shown next to each device (Enttec Pro, Open DMX, or auto-probe). Enttec Pro / Eurolite PRO / DMXking use Pro packets; Open DMX / Cable adapters use BREAK + raw DMX.",
     "usbDeviceUnavailable": "Selected device is currently unavailable: <0>{{id}}</0>",
     "artNetTitle": "Art-Net DMX interface",
     "enableArtNet": "Enable Art-Net",
