@@ -213,9 +213,7 @@ export function PartyModeView({
         (fixture) => (config.smokeVolume ?? DEFAULT_SMOKE_VOLUME) > 0,
     );
 
-    const [activeTab, setActiveTab] = useState<PartyConfigTab>(() =>
-        wledDevices.length > 0 ? "wled" : "dmx",
-    );
+    const [activeTab, setActiveTab] = useState<PartyConfigTab>(() => "wled");
     const [audioSourcePreset, setAudioSourcePreset] = useState<DMXPartyAudioSourcePreset>(() =>
         inferAudioSourcePreset(config, audioInputDevices),
     );
@@ -334,7 +332,7 @@ export function PartyModeView({
         field: PartySliderField,
         label: string,
         value: number,
-        options?: {min?: number; max?: number; step?: number; format?: (v: number) => string},
+        options?: { min?: number; max?: number; step?: number; format?: (v: number) => string },
     ) => {
         const min = options?.min ?? 0;
         const max = options?.max ?? 100;
@@ -344,25 +342,26 @@ export function PartyModeView({
             ? normalizeAngleLimit(value)
             : normalizePercent(value);
         return (
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
-            <span className="font-medium">{label}: {display}</span>
-            <Slider
-                min={min}
-                max={max}
-                step={step}
-                value={[normalizedValue]}
-                disabled={busy}
-                onValueChange={([next]) =>
-                    setSliderDraft((prev) => ({
-                        ...prev,
-                        [field]: field === "movementAngleLimitDeg"
-                            ? normalizeAngleLimit(next ?? 0)
-                            : normalizePercent(next ?? 0),
-                    }))
-                }
-                onValueCommit={([next]) => setSlider(field, next ?? 0)}
-            />
-        </label>
+            <label
+                className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                <span className="font-medium">{label}: {display}</span>
+                <Slider
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={[normalizedValue]}
+                    disabled={busy}
+                    onValueChange={([next]) =>
+                        setSliderDraft((prev) => ({
+                            ...prev,
+                            [field]: field === "movementAngleLimitDeg"
+                                ? normalizeAngleLimit(next ?? 0)
+                                : normalizePercent(next ?? 0),
+                        }))
+                    }
+                    onValueCommit={([next]) => setSlider(field, next ?? 0)}
+                />
+            </label>
         );
     };
 
@@ -545,7 +544,8 @@ export function PartyModeView({
                     </p>
 
                     <div className="flex flex-wrap gap-3">
-                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                        <label
+                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">
                                 {t("wled.brightness")}: {wledDraft.brightness}
                             </span>
@@ -568,7 +568,8 @@ export function PartyModeView({
                                 }}
                             />
                         </label>
-                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                        <label
+                            className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                             <span className="font-medium">
                                 {t("wled.hueSpeed")}: {wledDraft.speed}
                             </span>
@@ -595,7 +596,8 @@ export function PartyModeView({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">{t("wled.targets")}</div>
+                        <div
+                            className="text-xs font-medium text-muted-foreground">{t("wled.targets")}</div>
                         <TransferList
                             availableLabel={t("targets.available")}
                             includedLabel={t("targets.included")}
@@ -665,7 +667,8 @@ export function PartyModeView({
                                     />
                                     <span>
                                         <span className="font-medium">{group.label}</span>
-                                        <span className="block text-muted-foreground">{group.description}</span>
+                                        <span
+                                            className="block text-muted-foreground">{group.description}</span>
                                     </span>
                                 </label>
                             ))}
@@ -673,7 +676,8 @@ export function PartyModeView({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">{t("dmx.targets")}</div>
+                        <div
+                            className="text-xs font-medium text-muted-foreground">{t("dmx.targets")}</div>
                         <TransferList
                             availableLabel={t("targets.available")}
                             includedLabel={t("targets.included")}
@@ -746,7 +750,8 @@ export function PartyModeView({
                     </div>
 
                     <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">{t("smoke.targets")}</div>
+                        <div
+                            className="text-xs font-medium text-muted-foreground">{t("smoke.targets")}</div>
                         <TransferList
                             availableLabel={t("targets.available")}
                             includedLabel={t("targets.included")}
