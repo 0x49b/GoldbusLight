@@ -21,6 +21,7 @@ export {
     DMXPartyMode,
     DMXPartyState,
     DMXPartyStatus,
+    DMXPartyWLEDDeviceSettings,
     DMXSettings,
     DMXState,
     DMXTestingSettings,

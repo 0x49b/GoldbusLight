@@ -19,6 +19,7 @@ import {
     pickUSBMicDevice
 } from "@/lib/dmxPartyAudio";
 import {PartyAudioEqualizer} from "@/components/party/PartyAudioEqualizer";
+import {PartyWLEDDeviceSettings} from "@/components/party/PartyWLEDDeviceSettings";
 import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave";
 import {
     PARTY_CHANNEL_GROUPS,
@@ -58,6 +59,8 @@ function parsePartyConfigTab(value: string): PartyConfigTab {
 
 const DEFAULT_MOVEMENT_RANGE = 70;
 const DEFAULT_MOVEMENT_ANGLE_LIMIT_DEG = 45;
+const DEFAULT_WLED_BRIGHTNESS = 200;
+const DEFAULT_WLED_SPEED = 128;
 
 type PartySmokeDraft = {
     burstOnSec: number;
@@ -74,6 +77,13 @@ function normalizePercent(v: number): number {
         return 0;
     }
     return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+function normalizeByte(v: number, fallback = 0): number {
+    if (!Number.isFinite(v)) {
+        return fallback;
+    }
+    return Math.max(0, Math.min(255, Math.round(v)));
 }
 
 function normalizeAngleLimit(v: number): number {
@@ -96,6 +106,20 @@ function smokeDraftFromConfig(config: DMXPartyConfig): PartySmokeDraft {
         burstOffSec: offMs / 1000,
         volume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
     };
+}
+
+function wledBrightnessFromConfig(config: DMXPartyConfig): number {
+    if (config.wledBrightness != null && Number.isFinite(config.wledBrightness)) {
+        return normalizeByte(config.wledBrightness, DEFAULT_WLED_BRIGHTNESS);
+    }
+    return normalizeByte(Math.round((normalizePercent(config.intensity) / 100) * 255), DEFAULT_WLED_BRIGHTNESS);
+}
+
+function wledSpeedFromConfig(config: DMXPartyConfig): number {
+    if (config.wledSpeed != null && Number.isFinite(config.wledSpeed)) {
+        return normalizeByte(config.wledSpeed, DEFAULT_WLED_SPEED);
+    }
+    return normalizeByte(Math.round((normalizePercent(config.speed) / 100) * 255), DEFAULT_WLED_SPEED);
 }
 
 function isAtmosphereFixture(fixture: DMXFixture): boolean {
@@ -204,6 +228,10 @@ export function PartyModeView({
         audioSensitivity: normalizePercent(config.audioSensitivity),
         smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
     });
+    const [wledDraft, setWledDraft] = useState({
+        brightness: wledBrightnessFromConfig(config),
+        speed: wledSpeedFromConfig(config),
+    });
     const [smokeDraft, setSmokeDraft] = useState<PartySmokeDraft>(() => smokeDraftFromConfig(config));
 
     useEffect(() => {
@@ -220,10 +248,16 @@ export function PartyModeView({
             audioSensitivity: normalizePercent(config.audioSensitivity),
             smokeVolume: normalizePercent(config.smokeVolume ?? DEFAULT_SMOKE_VOLUME),
         });
+        setWledDraft({
+            brightness: wledBrightnessFromConfig(config),
+            speed: wledSpeedFromConfig(config),
+        });
         setSmokeDraft(smokeDraftFromConfig(config));
     }, [
         config.intensity,
         config.speed,
+        config.wledBrightness,
+        config.wledSpeed,
         config.movementRange,
         config.movementAngleLimitDeg,
         config.colorVariation,
@@ -511,8 +545,52 @@ export function PartyModeView({
                     </p>
 
                     <div className="flex flex-wrap gap-3">
-                        {renderSlider("intensity", t("sliders.intensity"), sliderDraft.intensity)}
-                        {renderSlider("speed", t("sliders.speed"), sliderDraft.speed)}
+                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <span className="font-medium">
+                                {t("wled.brightness")}: {wledDraft.brightness}
+                            </span>
+                            <Slider
+                                min={0}
+                                max={255}
+                                step={1}
+                                value={[wledDraft.brightness]}
+                                disabled={busy}
+                                onValueChange={([next]) =>
+                                    setWledDraft((prev) => ({
+                                        ...prev,
+                                        brightness: normalizeByte(next ?? 0, DEFAULT_WLED_BRIGHTNESS),
+                                    }))
+                                }
+                                onValueCommit={([next]) => {
+                                    void onUpdateConfig({
+                                        wledBrightness: normalizeByte(next ?? 0, DEFAULT_WLED_BRIGHTNESS),
+                                    });
+                                }}
+                            />
+                        </label>
+                        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                            <span className="font-medium">
+                                {t("wled.hueSpeed")}: {wledDraft.speed}
+                            </span>
+                            <Slider
+                                min={0}
+                                max={255}
+                                step={1}
+                                value={[wledDraft.speed]}
+                                disabled={busy}
+                                onValueChange={([next]) =>
+                                    setWledDraft((prev) => ({
+                                        ...prev,
+                                        speed: normalizeByte(next ?? 0, DEFAULT_WLED_SPEED),
+                                    }))
+                                }
+                                onValueCommit={([next]) => {
+                                    void onUpdateConfig({
+                                        wledSpeed: normalizeByte(next ?? 0, DEFAULT_WLED_SPEED),
+                                    });
+                                }}
+                            />
+                        </label>
                         {renderSlider("colorVariation", t("sliders.colorVariation"), sliderDraft.colorVariation)}
                     </div>
 
@@ -529,6 +607,16 @@ export function PartyModeView({
                             }}
                         />
                     </div>
+
+                    <PartyWLEDDeviceSettings
+                        devices={wledDevices}
+                        includedIds={wledDeviceIds}
+                        settings={config.wledDeviceSettings}
+                        disabled={busy}
+                        onChange={(wledDeviceSettings) => {
+                            void onUpdateConfig({wledDeviceSettings});
+                        }}
+                    />
                 </TabsContent>
 
                 <TabsContent value="dmx" className="space-y-3">

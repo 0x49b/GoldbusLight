@@ -2313,6 +2313,36 @@ function mergePartyChannelGroups(
     return {...base, ...partial};
 }
 
+function mergePartyWLEDDeviceSettings(
+    base: DMXPartyConfig["wledDeviceSettings"] | undefined,
+    partial: DMXPartyConfig["wledDeviceSettings"] | undefined,
+    deviceIds: string[],
+): DMXPartyConfig["wledDeviceSettings"] | undefined {
+    if (!base && !partial) {
+        return undefined;
+    }
+    const merged = {...base, ...partial};
+    const allowed = new Set(deviceIds);
+    const out: NonNullable<DMXPartyConfig["wledDeviceSettings"]> = {};
+    for (const [id, settings] of Object.entries(merged)) {
+        if (!allowed.has(id) || !settings) {
+            continue;
+        }
+        out[id] = {
+            fx: Math.max(0, Math.round(Number.isFinite(settings.fx) ? settings.fx : 0)),
+            pal: Math.max(0, Math.round(Number.isFinite(settings.pal) ? settings.pal : 0)),
+            sx: clampByte(settings.sx ?? 128, 128),
+            ix: clampByte(settings.ix ?? 128, 128),
+        };
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function clampByte(v: number, fallback: number): number {
+    const n = Number.isFinite(v) ? Math.round(v) : fallback;
+    return Math.max(0, Math.min(255, n));
+}
+
 function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<DMXPartyConfig>): DMXPartyConfig {
     const modeRaw = partial.mode ?? base?.mode ?? "auto";
     const mode: DMXPartyMode = modeRaw === "audio" ? "audio" : "auto";
@@ -2330,13 +2360,30 @@ function mergeDMXPartyConfig(base: DMXPartyConfig | undefined, partial: Partial<
                 .filter((id) => id.length > 0),
         ),
     );
+    const intensity = clampPercent(partial.intensity ?? base?.intensity ?? 80, 80);
+    const speed = clampPercent(partial.speed ?? base?.speed ?? 55, 55);
+    const wledBrightness = clampByte(
+        partial.wledBrightness ?? base?.wledBrightness ?? Math.round((intensity / 100) * 255),
+        200,
+    );
+    const wledSpeed = clampByte(
+        partial.wledSpeed ?? base?.wledSpeed ?? Math.round((speed / 100) * 255),
+        128,
+    );
     return {
         enabled: partial.enabled ?? base?.enabled ?? false,
         mode,
         fixtureIds,
         wledDeviceIds,
-        intensity: clampPercent(partial.intensity ?? base?.intensity ?? 80, 80),
-        speed: clampPercent(partial.speed ?? base?.speed ?? 55, 55),
+        wledDeviceSettings: mergePartyWLEDDeviceSettings(
+            base?.wledDeviceSettings,
+            partial.wledDeviceSettings,
+            wledDeviceIds,
+        ),
+        wledBrightness,
+        wledSpeed,
+        intensity,
+        speed,
         movementRange: clampPercent(partial.movementRange ?? base?.movementRange ?? 70, 70),
         movementAngleLimitDeg: clampMovementAngleLimit(
             partial.movementAngleLimitDeg ?? base?.movementAngleLimitDeg ?? 45,

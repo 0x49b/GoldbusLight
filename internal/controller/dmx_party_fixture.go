@@ -144,6 +144,10 @@ const (
 	defaultPartySmokeVolume     = 55
 	defaultPartyMovementRange   = 70
 	defaultPartyMovementAngleLimitDeg = 45
+	defaultPartyWLEDBrightness  = 200
+	defaultPartyWLEDSpeed       = 128
+	defaultPartyWLEDEffectSX    = 128
+	defaultPartyWLEDEffectIX    = 128
 )
 
 // partySweepRange maps the configured MovementRange (0–100) to a 0..1 sweep amplitude.

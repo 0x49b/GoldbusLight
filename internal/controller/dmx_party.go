@@ -18,13 +18,29 @@ const (
 	DMXPartyModeAudio DMXPartyMode = "audio"
 )
 
+// DMXPartyWLEDDeviceSettings holds per-device WLED effect/palette used while party mode runs.
+type DMXPartyWLEDDeviceSettings struct {
+	Fx  int `json:"fx"`
+	Pal int `json:"pal"`
+	// Sx is WLED effect speed (0–255).
+	Sx int `json:"sx"`
+	// Ix is WLED effect intensity (0–255).
+	Ix int `json:"ix"`
+}
+
 type DMXPartyConfig struct {
 	Enabled       bool         `json:"enabled"`
 	Mode          DMXPartyMode `json:"mode"`
 	FixtureIDs    []string     `json:"fixtureIds,omitempty"`
 	WLEDDeviceIDs []string     `json:"wledDeviceIds,omitempty"`
-	Intensity     int          `json:"intensity"`
-	Speed         int          `json:"speed"`
+	// WLEDDeviceSettings maps device ID → effect/palette applied when party mode is on.
+	WLEDDeviceSettings map[string]DMXPartyWLEDDeviceSettings `json:"wledDeviceSettings,omitempty"`
+	// WLEDBrightness is party WLED brightness (0–255), matching the WLED device UI.
+	WLEDBrightness int `json:"wledBrightness,omitempty"`
+	// WLEDSpeed controls solid-mode hue sweep rate (0–255).
+	WLEDSpeed int `json:"wledSpeed,omitempty"`
+	Intensity int `json:"intensity"`
+	Speed     int `json:"speed"`
 	// MovementRange controls how wide pan/tilt sweeps are (0–100): 100 sweeps the full
 	// mechanical range, lower values sweep a tighter arc around the centre.
 	MovementRange int `json:"movementRange,omitempty"`
@@ -34,8 +50,8 @@ type DMXPartyConfig struct {
 	// Absent keys default to included.
 	ChannelGroups      map[string]bool `json:"channelGroups,omitempty"`
 	ColorVariation     int             `json:"colorVariation"`
-	AudioSensitivity   int    `json:"audioSensitivity"`
-	AudioInputDeviceID string `json:"audioInputDeviceId,omitempty"`
+	AudioSensitivity   int             `json:"audioSensitivity"`
+	AudioInputDeviceID string          `json:"audioInputDeviceId,omitempty"`
 	// SmokeBurstOnMS is how long each smoke/hazer burst stays on (milliseconds).
 	SmokeBurstOnMS int `json:"smokeBurstOnMs,omitempty"`
 	// SmokeBurstOffMS is the pause between smoke/hazer bursts (milliseconds).
@@ -80,6 +96,8 @@ func defaultDMXPartyConfig() DMXPartyConfig {
 		Mode:             DMXPartyModeAuto,
 		FixtureIDs:       []string{},
 		WLEDDeviceIDs:    []string{},
+		WLEDBrightness:   defaultPartyWLEDBrightness,
+		WLEDSpeed:        defaultPartyWLEDSpeed,
 		Intensity:        80,
 		Speed:            55,
 		MovementRange:         defaultPartyMovementRange,
@@ -127,6 +145,20 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 	out.Mode = normalizeDMXPartyMode(out.Mode)
 	out.Intensity = clampPercent(out.Intensity)
 	out.Speed = clampPercent(out.Speed)
+	// Migrate legacy configs that only had percent intensity/speed into WLED 0–255 fields.
+	if out.WLEDBrightness == 0 && out.WLEDSpeed == 0 {
+		out.WLEDBrightness = clampDMXByte(int(math.Round(float64(out.Intensity) / 100.0 * 255)))
+		out.WLEDSpeed = clampDMXByte(int(math.Round(float64(out.Speed) / 100.0 * 255)))
+		if out.WLEDBrightness == 0 {
+			out.WLEDBrightness = defaultPartyWLEDBrightness
+		}
+		if out.WLEDSpeed == 0 {
+			out.WLEDSpeed = defaultPartyWLEDSpeed
+		}
+	} else {
+		out.WLEDBrightness = clampDMXByte(out.WLEDBrightness)
+		out.WLEDSpeed = clampDMXByte(out.WLEDSpeed)
+	}
 	// 0 means "unset" (e.g. configs saved before this field existed); fall back to the
 	// default so moving heads still sweep rather than freezing at centre.
 	if out.MovementRange <= 0 {
@@ -191,7 +223,40 @@ func normalizeDMXPartyConfig(in DMXPartyConfig) DMXPartyConfig {
 		nextWLEDIDs = append(nextWLEDIDs, id)
 	}
 	out.WLEDDeviceIDs = nextWLEDIDs
+
+	if out.WLEDDeviceSettings != nil {
+		nextSettings := make(map[string]DMXPartyWLEDDeviceSettings, len(out.WLEDDeviceSettings))
+		for rawID, settings := range out.WLEDDeviceSettings {
+			id := strings.TrimSpace(rawID)
+			if id == "" {
+				continue
+			}
+			if len(seenWLED) > 0 {
+				if _, ok := seenWLED[id]; !ok {
+					continue
+				}
+			}
+			nextSettings[id] = DMXPartyWLEDDeviceSettings{
+				Fx:  clampNonNegative(settings.Fx),
+				Pal: clampNonNegative(settings.Pal),
+				Sx:  clampDMXByte(settings.Sx),
+				Ix:  clampDMXByte(settings.Ix),
+			}
+		}
+		if len(nextSettings) == 0 {
+			out.WLEDDeviceSettings = nil
+		} else {
+			out.WLEDDeviceSettings = nextSettings
+		}
+	}
 	return out
+}
+
+func clampNonNegative(v int) int {
+	if v < 0 {
+		return 0
+	}
+	return v
 }
 
 func normalizeDMXPartyAudioFeatures(in DMXPartyAudioFeatures) DMXPartyAudioFeatures {
@@ -471,6 +536,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 	var motionPhase float64
 	var colorPhase float64
+	var wledColorPhase float64
 	frameCount := 0
 	burstAnchor := time.Now()
 	for {
@@ -513,6 +579,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 				values := computePartyPhaseValues(state, now)
 				advancePartyPhases(values, &motionPhase, &colorPhase)
+				advancePartyWLEDColorPhase(state.Config, values, &wledColorPhase)
 
 				if len(dmxTargets) > 0 {
 					if !c.dmxLiveIsConnected() {
@@ -542,7 +609,7 @@ func (c *WLEDController) dmxPartyWorker(ctx context.Context) {
 
 				frameCount++
 				if frameCount%4 == 0 && len(wledTargets) > 0 {
-					c.applyPartyToWLEDDevices(ctx, state, motionPhase, colorPhase, values)
+					c.applyPartyToWLEDDevices(ctx, state, wledColorPhase, values)
 				}
 
 				c.dmxLiveMu.Lock()

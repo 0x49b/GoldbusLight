@@ -86,6 +86,58 @@ func TestNormalizeDMXPartyConfigClampsAndSanitizes(t *testing.T) {
 	}
 }
 
+func TestNormalizeDMXPartyConfigWLEDDeviceSettings(t *testing.T) {
+	in := DMXPartyConfig{
+		WLEDDeviceIDs: []string{"dev-1", "dev-2"},
+		WLEDDeviceSettings: map[string]DMXPartyWLEDDeviceSettings{
+			"  dev-1  ": {Fx: -3, Pal: 12, Sx: 300, Ix: -1},
+			"dev-orphan": {Fx: 5, Pal: 6},
+			"":           {Fx: 1, Pal: 1},
+		},
+	}
+	got := normalizeDMXPartyConfig(in)
+	if len(got.WLEDDeviceSettings) != 1 {
+		t.Fatalf("expected one kept setting, got %#v", got.WLEDDeviceSettings)
+	}
+	s, ok := got.WLEDDeviceSettings["dev-1"]
+	if !ok {
+		t.Fatalf("expected trimmed device id key, got %#v", got.WLEDDeviceSettings)
+	}
+	if s.Fx != 0 || s.Pal != 12 || s.Sx != 255 || s.Ix != 0 {
+		t.Fatalf("unexpected settings: %+v", s)
+	}
+}
+
+func TestPartyWLEDDeviceSettings(t *testing.T) {
+	cfg := DMXPartyConfig{
+		WLEDDeviceSettings: map[string]DMXPartyWLEDDeviceSettings{
+			"dev-1": {Fx: 42, Pal: 7, Sx: 200, Ix: 90},
+		},
+	}
+	s := partyWLEDDeviceSettings(cfg, "dev-1")
+	if s.Fx != 42 || s.Pal != 7 || s.Sx != 200 || s.Ix != 90 {
+		t.Fatalf("unexpected settings: %+v", s)
+	}
+	missing := partyWLEDDeviceSettings(cfg, "missing")
+	if missing.Fx != 0 || missing.Pal != 0 || missing.Sx != defaultPartyWLEDEffectSX || missing.Ix != defaultPartyWLEDEffectIX {
+		t.Fatalf("expected defaults for missing device, got %+v", missing)
+	}
+}
+
+func TestNormalizeDMXPartyConfigMigratesWLEDBrightnessSpeed(t *testing.T) {
+	in := DMXPartyConfig{
+		Intensity: 50,
+		Speed:     100,
+	}
+	got := normalizeDMXPartyConfig(in)
+	if got.WLEDBrightness != 128 {
+		t.Fatalf("expected migrated brightness 128, got %d", got.WLEDBrightness)
+	}
+	if got.WLEDSpeed != 255 {
+		t.Fatalf("expected migrated speed 255, got %d", got.WLEDSpeed)
+	}
+}
+
 func TestPartySmokeGateBursts(t *testing.T) {
 	cfg := defaultDMXPartyConfig()
 	cfg.SmokeBurstOnMS = 2000

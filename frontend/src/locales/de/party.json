@@ -41,8 +41,12 @@
     "smoke": "Nebel"
   },
   "wled": {
-    "description": "Nur LED-Streifen — Farbe, Helligkeit und Geschwindigkeit. Keine Pan-, Tilt- oder Bewegungseinstellungen.",
-    "targets": "WLED-Ziele"
+    "description": "LED-Streifen — Helligkeit und Farbton-Geschwindigkeit nutzen 0–255 wie auf dem WLED-Gerät. Bei Solid (Effekt 0) steuert die Farbvariation den Farbton-Sweep.",
+    "targets": "WLED-Ziele",
+    "brightness": "Helligkeit",
+    "hueSpeed": "Farbton-Geschwindigkeit",
+    "deviceSettings": "Effekt & Palette pro Gerät",
+    "deviceSettingsHint": "Solid (0) fährt den Farbton über Helligkeit, Geschwindigkeit und Farbvariation. Andere Effekte nutzen Speed (sx) und Intensität (ix) pro Gerät."
   },
   "dmx": {
     "targets": "DMX-Ziele",

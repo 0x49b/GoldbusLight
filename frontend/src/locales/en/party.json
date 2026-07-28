@@ -41,8 +41,12 @@
     "smoke": "Smoke"
   },
   "wled": {
-    "description": "LED strips only — color, brightness, and speed. No pan, tilt, or movement settings.",
-    "targets": "WLED targets"
+    "description": "LED strips — brightness and hue-sweep speed use 0–255 like the WLED device screen. For Solid (effect 0), color variation drives the hue sweep.",
+    "targets": "WLED targets",
+    "brightness": "Brightness",
+    "hueSpeed": "Hue sweep speed",
+    "deviceSettings": "Effect & palette per device",
+    "deviceSettingsHint": "Solid (0) sweeps hue from brightness, hue speed, and color variation. Other effects use per-device speed (sx) and intensity (ix)."
   },
   "dmx": {
     "targets": "DMX targets",

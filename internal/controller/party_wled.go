@@ -100,7 +100,16 @@ func advancePartyPhases(values partyPhaseValues, motionPhase, colorPhase *float6
 	*colorPhase += 0.05 * values.speedFactor * (1 + values.treble*0.5)
 }
 
-func (c *WLEDController) applyPartyToWLEDDevices(ctx context.Context, state DMXPartyState, motionPhase, colorPhase float64, values partyPhaseValues) {
+func advancePartyWLEDColorPhase(cfg DMXPartyConfig, values partyPhaseValues, wledColorPhase *float64) {
+	speed := float64(clampDMXByte(cfg.WLEDSpeed)) / 255.0
+	factor := 0.15 + speed*2.4
+	if values.beat > 0 {
+		factor += values.beat * 0.8
+	}
+	*wledColorPhase += 0.05 * factor * (1 + values.treble*0.5)
+}
+
+func (c *WLEDController) applyPartyToWLEDDevices(ctx context.Context, state DMXPartyState, wledColorPhase float64, values partyPhaseValues) {
 	if !c.wledEnabled() {
 		return
 	}
@@ -111,26 +120,29 @@ func (c *WLEDController) applyPartyToWLEDDevices(ctx context.Context, state DMXP
 		return
 	}
 
-	oscSlow := (math.Sin(motionPhase) + 1) * 0.5
-	hue := partyWLEDHue(state, colorPhase, values)
-	r, g, b := partyHueToRGB(hue)
-	bri := partyWLEDBrightness(values, oscSlow)
-
-	payload := map[string]any{
-		"on":  true,
-		"bri": bri,
-		"seg": []any{
-			map[string]any{
-				"id":  0,
-				"col": []any{[]any{r, g, b}},
-				"fx":  0,
-				"pal": 0,
-			},
-		},
-	}
+	bri := partyWLEDBrightness(state.Config, values)
 
 	for _, device := range devices {
 		device := device
+		settings := partyWLEDDeviceSettings(state.Config, device.ID)
+		seg := map[string]any{
+			"id":  0,
+			"fx":  settings.Fx,
+			"pal": settings.Pal,
+			"sx":  settings.Sx,
+			"ix":  settings.Ix,
+		}
+		// Solid (fx 0): sweep hue using color variation + WLED speed; intensity is brightness.
+		if settings.Fx == 0 {
+			hue := partyWLEDSolidHue(state, wledColorPhase, values)
+			r, g, b := partyHueToRGB(hue)
+			seg["col"] = []any{[]any{r, g, b}}
+		}
+		payload := map[string]any{
+			"on":  true,
+			"bri": bri,
+			"seg": []any{seg},
+		}
 		func() {
 			defer func() {
 				if recovered := recover(); recovered != nil {
@@ -157,23 +169,60 @@ func (c *WLEDController) applyPartyToWLEDDevices(ctx context.Context, state DMXP
 	}
 }
 
-func partyWLEDHue(state DMXPartyState, colorPhase float64, values partyPhaseValues) float64 {
-	if state.Config.Mode == DMXPartyModeAudio {
-		total := values.bass + values.mid + values.treble + 0.001
-		hue := (values.bass*0 + values.mid*120 + values.treble*240) / total
-		hue += math.Sin(colorPhase) * 60 * values.colorVar
-		return math.Mod(hue, 360)
+func partyWLEDDeviceSettings(cfg DMXPartyConfig, deviceID string) DMXPartyWLEDDeviceSettings {
+	out := DMXPartyWLEDDeviceSettings{
+		Fx:  0,
+		Pal: 0,
+		Sx:  defaultPartyWLEDEffectSX,
+		Ix:  defaultPartyWLEDEffectIX,
 	}
-	return math.Mod(colorPhase*180/math.Pi, 360)
+	if cfg.WLEDDeviceSettings == nil {
+		return out
+	}
+	settings, ok := cfg.WLEDDeviceSettings[deviceID]
+	if !ok {
+		return out
+	}
+	out.Fx = clampNonNegative(settings.Fx)
+	out.Pal = clampNonNegative(settings.Pal)
+	out.Sx = clampDMXByte(settings.Sx)
+	out.Ix = clampDMXByte(settings.Ix)
+	return out
 }
 
-func partyWLEDBrightness(values partyPhaseValues, oscSlow float64) int {
-	bri := 40 + int(215*values.intensity*oscSlow)
+func partyWLEDSolidHue(state DMXPartyState, wledColorPhase float64, values partyPhaseValues) float64 {
+	colorVar := values.colorVar
+	if colorVar < 0 {
+		colorVar = 0
+	}
+	if colorVar > 1 {
+		colorVar = 1
+	}
+	if state.Config.Mode == DMXPartyModeAudio {
+		total := values.bass + values.mid + values.treble + 0.001
+		base := (values.bass*0 + values.mid*120 + values.treble*240) / total
+		// colorVariation widens how far audio hue can swing.
+		base += math.Sin(wledColorPhase) * 180 * colorVar
+		return math.Mod(math.Mod(base, 360)+360, 360)
+	}
+	// Auto: continuous hue sweep; colorVariation scales how much of the wheel is used.
+	if colorVar <= 0.001 {
+		return 0
+	}
+	full := math.Mod(wledColorPhase*180/math.Pi, 360)
+	if full < 0 {
+		full += 360
+	}
+	return math.Mod(full*colorVar, 360)
+}
+
+func partyWLEDBrightness(cfg DMXPartyConfig, values partyPhaseValues) int {
+	bri := clampDMXByte(cfg.WLEDBrightness)
 	if values.level > 0 {
-		bri = int(float64(bri)*0.4 + float64(255)*values.level*0.6)
+		bri = int(float64(bri)*0.45 + float64(bri)*values.level*0.55)
 	}
 	if values.beat > 0.35 {
-		bri = int(math.Min(255, float64(bri)+values.beat*80))
+		bri = int(math.Min(255, float64(bri)+values.beat*40))
 	}
 	return clampDMXByte(bri)
 }

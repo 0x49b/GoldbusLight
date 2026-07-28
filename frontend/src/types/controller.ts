@@ -329,11 +329,27 @@ export type DMXPartyMode = "auto" | "audio";
 
 export type DMXPartyChannelGroup = "movement" | "color" | "gobo" | "beam" | "effects";
 
+/** Per-device WLED effect/palette applied while party mode is on. */
+export type DMXPartyWLEDDeviceSettings = {
+    fx: number;
+    pal: number;
+    /** Effect speed (sx), 0–255. */
+    sx: number;
+    /** Effect intensity (ix), 0–255. */
+    ix: number;
+};
+
 export type DMXPartyConfig = {
     enabled: boolean;
     mode: DMXPartyMode;
     fixtureIds?: string[];
     wledDeviceIds?: string[];
+    /** Per-device effect/palette for included WLED targets. */
+    wledDeviceSettings?: Record<string, DMXPartyWLEDDeviceSettings>;
+    /** WLED brightness (bri), 0–255. */
+    wledBrightness?: number;
+    /** Solid-mode hue sweep speed, 0–255. */
+    wledSpeed?: number;
     intensity: number;
     speed: number;
     /** How wide pan/tilt sweeps are (0–100); larger = bigger sweeps. */
