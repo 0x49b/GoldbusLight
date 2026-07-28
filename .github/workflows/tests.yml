@@ -43,6 +43,7 @@ jobs:
         run: |
           mkdir -p frontend/dist
           printf '%s\n' '<!DOCTYPE html><html><head><title>CI</title></head><body></body></html>' > frontend/dist/index.html
+          printf '%s\n' '<!DOCTYPE html><html><head><title>CI companion</title></head><body></body></html>' > frontend/dist/companion.html
 
       - name: Run Go tests
         run: |

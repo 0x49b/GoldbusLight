@@ -110,10 +110,19 @@ type DMXSettings struct {
 	UniverseInterfaces map[string]DMXUniverseInterfaceSettings `json:"universeInterfaces,omitempty"`
 }
 
+// CompanionSettings controls the local HTTP companion UI for phones on LAN/AP.
+type CompanionSettings struct {
+	// Enabled starts the companion HTTP listener when true.
+	Enabled bool `json:"enabled"`
+	// Port is the TCP port to bind (default 8765). Bound on 0.0.0.0.
+	Port int `json:"port"`
+}
+
 type ControllerSettings struct {
 	AccessPoint AccessPointSettings `json:"accessPoint"`
 	WLED        WLEDSettings        `json:"wled"`
 	DMX         DMXSettings         `json:"dmx"`
+	Companion   CompanionSettings   `json:"companion"`
 
 	// Legacy flattened settings kept for migration from persisted v2 state.
 	Discovery    legacyDiscoverySettings `json:"discovery,omitempty"`
@@ -2386,6 +2395,8 @@ func cloneDMXState(in DMXState) DMXState {
 	return out
 }
 
+const DefaultCompanionPort = 8765
+
 func DefaultControllerSettings() ControllerSettings {
 	return ControllerSettings{
 		AccessPoint: AccessPointSettings{
@@ -2428,6 +2439,10 @@ func DefaultControllerSettings() ControllerSettings {
 				SimulateUSBDMX: false,
 				SimulateArtNet: false,
 			},
+		},
+		Companion: CompanionSettings{
+			Enabled: false,
+			Port:    DefaultCompanionPort,
 		},
 	}
 }
@@ -2500,6 +2515,9 @@ func mergeWithDefaults(in ControllerSettings) ControllerSettings {
 	}
 	clampArtNetSettings(&out.DMX.ArtNet)
 	out.DMX.UniverseInterfaces = clampDMXUniverseInterfaces(out.DMX.UniverseInterfaces)
+	if out.Companion.Port <= 0 || out.Companion.Port > 65535 {
+		out.Companion.Port = defaults.Companion.Port
+	}
 	if !out.WLED.Enabled {
 		out.AccessPoint.Enabled = false
 	}

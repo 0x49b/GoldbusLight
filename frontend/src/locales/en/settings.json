@@ -45,6 +45,18 @@
     "maximize": "Maximize window",
     "restore": "Restore window"
   },
+  "companion": {
+    "title": "Phone companion",
+    "description": "Serve a small mobile website on this host so you can walk the stage and adjust DMX fixtures and WLED from your phone. The kiosk app keeps running.",
+    "enable": "Enable companion web UI",
+    "port": "Port",
+    "listening": "Companion is listening. Join this host’s Wi‑Fi or LAN and open a URL below on your phone.",
+    "starting": "Waiting for the companion server to start…",
+    "urlHint": "Typical AP address: http://10.42.0.1:{{port}}/",
+    "qrAlt": "QR code for companion URL",
+    "qrHint": "Scan with your phone camera to open the companion.",
+    "security": "Anyone on the same Wi‑Fi can control lights. Use a strong AP password."
+  },
   "backup": {
     "title": "Configuration backup",
     "description": "Export or import all persisted data: controller settings, WLED devices, DMX fixtures and party config, general tab state, and per-fixture live layouts. Use this to copy a complete setup from one host to another.",

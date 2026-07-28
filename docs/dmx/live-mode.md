@@ -80,6 +80,10 @@ With Live tab focused (party off):
 
 See [Cues & sequences](presets.md) for cue management.
 
+## Phone companion
+
+For outdoor fixtures while the kiosk stays indoors, enable the [phone companion](../companion/index.md) under **Settings → General**. The companion Live tab and cue save use the same live patch and cue sequence APIs as this desktop Live mode.
+
 ## Blackout
 
 Use **Blackout** on the Universe or fixture toolbar to stop party mode and set all DMX channels to 0% immediately. Output keeps streaming those zeros until you (or a scene / party) set new values.

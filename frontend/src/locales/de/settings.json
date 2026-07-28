@@ -45,6 +45,18 @@
     "maximize": "Fenster maximieren",
     "restore": "Fenster wiederherstellen"
   },
+  "companion": {
+    "title": "Telefon-Begleiter",
+    "description": "Stellt eine kleine mobile Website auf diesem Host bereit, damit Sie auf der Bühne DMX-Fixtures und WLED vom Smartphone aus einstellen können. Die Kiosk-App läuft weiter.",
+    "enable": "Begleiter-Web-UI aktivieren",
+    "port": "Port",
+    "listening": "Begleiter lauscht. Verbinden Sie sich mit dem WLAN/LAN dieses Hosts und öffnen Sie eine der URLs unten auf dem Telefon.",
+    "starting": "Warte auf den Start des Begleiter-Servers…",
+    "urlHint": "Typische AP-Adresse: http://10.42.0.1:{{port}}/",
+    "qrAlt": "QR-Code für Begleiter-URL",
+    "qrHint": "Mit der Telefonkamera scannen, um den Begleiter zu öffnen.",
+    "security": "Jeder im gleichen WLAN kann die Lichter steuern. Nutzen Sie ein starkes AP-Passwort."
+  },
   "backup": {
     "title": "Konfigurations-Backup",
     "description": "Exportieren oder importieren Sie alle persistierten Daten: Controller-Einstellungen, WLED-Geräte, DMX-Fixtures und Party-Konfiguration, Zustand des Allgemein-Tabs sowie Live-Layouts pro Fixture. Damit können Sie ein vollständiges Setup von einem Host auf einen anderen übertragen.",

@@ -5,17 +5,21 @@ import {useState} from "react";
 import {PiDownloadSimple, PiUploadSimple} from "react-icons/pi";
 import {useTranslation} from "react-i18next";
 import {prettyJSON} from "../../../lib/json.ts";
-import type {NetworkApplyResult} from "@/types/controller.ts";
+import type {ControllerSettings, NetworkApplyResult} from "@/types/controller.ts";
 import {AppearanceCard} from "../components/AppearanceCard.tsx";
 import {ApplicationVersionCard} from "../components/ApplicationVersionCard.tsx";
+import {CompanionSettingsCard} from "../components/CompanionSettingsCard.tsx";
 import {LanguageCard} from "../components/LanguageCard.tsx";
 import {WindowDisplayCard} from "../components/WindowDisplayCard.tsx";
+import type {SettingsUpdater} from "../settingsTypes";
 
 export type GeneralSettingsTabProps = {
     applyResult: NetworkApplyResult | null;
     busy: boolean;
     currentVersion: string;
     updatesSupported: boolean;
+    settings: ControllerSettings;
+    updateSettings: SettingsUpdater;
     onExportConfigurationBackup: () => Promise<string>;
     onImportConfigurationBackup: () => Promise<string>;
     onCheckForUpdates: () => Promise<void>;
@@ -27,6 +31,8 @@ export function GeneralSettingsTab({
     busy,
     currentVersion,
     updatesSupported,
+    settings,
+    updateSettings,
     onExportConfigurationBackup,
     onImportConfigurationBackup,
     onCheckForUpdates,
@@ -55,6 +61,12 @@ export function GeneralSettingsTab({
             <AppearanceCard/>
 
             <LanguageCard/>
+
+            <CompanionSettingsCard
+                settings={settings}
+                updateSettings={updateSettings}
+                busy={busy}
+            />
 
             <Card className="w-full max-w-none">
                 <CardHeader>

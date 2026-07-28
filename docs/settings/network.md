@@ -59,6 +59,7 @@ sudo dnf install -y NetworkManager
 - Use a strong AP password for production deployments
 - The access point exposes a Wi-Fi network; place controller hardware physically secure
 - Party and DMX features do not require AP — it is optional for WLED provisioning workflows
+- If you enable the [phone companion](../companion/index.md), phones on this AP can open `http://10.42.0.1:<port>/` and steer DMX/WLED — treat the AP password as access control for lighting
 
 ## Troubleshooting
 

@@ -62,6 +62,20 @@ export type ControllerSettings = {
     accessPoint: AccessPointSettings;
     wled: WLEDSettings;
     dmx: DMXSettings;
+    companion: CompanionSettings;
+};
+
+export type CompanionSettings = {
+    enabled: boolean;
+    port: number;
+};
+
+export type CompanionStatus = {
+    enabled: boolean;
+    listening: boolean;
+    port: number;
+    urls: string[];
+    qrDataUrl?: string;
 };
 
 export type WLEDDevicePreset = {
