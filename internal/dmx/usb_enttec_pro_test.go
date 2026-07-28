@@ -79,14 +79,14 @@ func TestUsesEnttecProProtocol(t *testing.T) {
 }
 
 func TestBuildEnttecProSetWidgetParams(t *testing.T) {
-	packet := BuildEnttecProSetWidgetParams(9, 1, 40)
+	packet := BuildEnttecProSetWidgetParams(17, 10, 40)
 	if len(packet) != 10 {
 		t.Fatalf("len=%d want 10", len(packet))
 	}
 	if packet[0] != 0x7E || packet[1] != 0x04 || packet[2] != 5 || packet[3] != 0 {
 		t.Fatalf("bad header %v", packet[:4])
 	}
-	if packet[4] != 0 || packet[5] != 0 || packet[6] != 9 || packet[7] != 1 || packet[8] != 40 || packet[9] != 0xE7 {
+	if packet[4] != 0 || packet[5] != 0 || packet[6] != 17 || packet[7] != 10 || packet[8] != 40 || packet[9] != 0xE7 {
 		t.Fatalf("bad payload/footer %v", packet)
 	}
 }

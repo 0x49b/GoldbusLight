@@ -252,12 +252,17 @@ func isTimeoutErr(err error) bool {
 }
 
 // ConfigureEnttecProWidget sets break/MAB/rate so the widget keeps regenerating DMX output.
+// Timing matches ENTTEC EMU defaults for DMX USB Pro (SKU 70304): break ≈181µs, MAB ≈106µs, 40 Hz.
+// Units are 10.67µs per the Pro API (Set Widget Parameters, label 4).
 func ConfigureEnttecProWidget(port goserial.Port) error {
 	if port == nil {
 		return fmt.Errorf("nil serial port")
 	}
-	// break=9 (~96µs), mab=1 (~11µs), rate=40 (API maximum discrete rate)
-	packet := BuildEnttecProSetWidgetParams(9, 1, byte(EnttecProMaxFrameHz))
+	const (
+		breakUnits = 17 // 17 * 10.67µs ≈ 181µs (EMU default)
+		mabUnits   = 10 // 10 * 10.67µs ≈ 107µs (EMU default ~106µs)
+	)
+	packet := BuildEnttecProSetWidgetParams(breakUnits, mabUnits, byte(EnttecProMaxFrameHz))
 	if err := WriteFull(port, packet); err != nil {
 		return err
 	}

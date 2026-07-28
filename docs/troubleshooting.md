@@ -38,6 +38,23 @@ Common issues and fixes for Goldbus Light Controller.
 2. Linux: user in `dialout` group for `/dev/ttyUSB*` or `/dev/ttyACM*`
 3. Confirm adapter is Enttec Pro–compatible (or Open DMX / Cable). Check Settings → Console for `Enttec Pro` vs `Open DMX` after start.
 
+### Enttec DMX USB Pro LED / exclusive access
+
+Official LED behaviour ([ENTTEC user manual](https://support.enttec.com/user-manuals/dmx-usb-pro)):
+
+| LED | Meaning |
+|-----|---------|
+| Blinks once on plug-in, then off | Power-on; idle until software sends DMX |
+| Blinks continuously | DMX is actively being sent or received — expected while **DMX Output - ON** |
+| Always off while output should be on | Host is not successfully driving the widget (wrong framing, port busy, or no stream) |
+| Solid on (no blink) | Error mode — restore/reflash with [ENTTEC EMU](https://www.enttec.com/), then re-select the device here |
+
+Also:
+
+1. Close **EMU** (or any other app using the Pro) before starting Goldbus — the virtual COM port is exclusive
+2. After an EMU DMX send test, quit EMU, then refresh/select the USB device in **Settings → DMX**
+3. Console should log `USB DMX adapter started @ 40Hz (Enttec Pro, …)` for a Pro widget
+
 ### Wrong channel moves wrong parameter
 
 Use **Settings → DMX → channel sweep** to step through channels and note mappings. Adjust fixture channel types/offsets in **Editor**.
