@@ -2060,13 +2060,13 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 }
 
 // applyDefaultOrRecallWLEDOnBoot applies the configured default scene after startup,
-// or falls back to recalling each WLED device's flash preset when none is set.
+// or falls back to restoring each WLED device's last session look (or flash preset).
 func (c *WLEDController) applyDefaultOrRecallWLEDOnBoot(ctx context.Context) {
 	c.mu.RLock()
 	defaultID := c.defaultSceneID
 	c.mu.RUnlock()
 	if defaultID == "" {
-		c.recallWLEDDevicePresetsOnBoot(ctx)
+		c.restoreWLEDDevicesOnBoot(ctx)
 		return
 	}
 
@@ -2083,9 +2083,11 @@ func (c *WLEDController) applyDefaultOrRecallWLEDOnBoot(ctx context.Context) {
 	}
 }
 
-// recallWLEDDevicePresetsOnBoot tells each known WLED unit to load a preset from its own
-// flash (HTTP JSON "ps") instead of replaying merged LastState from the desktop session.
-func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
+// restoreWLEDDevicesOnBoot restores each known WLED unit's last session look when available.
+// Prefer replaying LastState (solid colors / effects set in the app). Only fall back to recalling
+// a flash preset ("ps") when there is no usable segment look saved — otherwise a leftover or
+// default ps slot (often 1) would overwrite whites/solids with whatever is stored on the device.
+func (c *WLEDController) restoreWLEDDevicesOnBoot(ctx context.Context) {
 	if !c.wledEnabled() {
 		return
 	}
@@ -2109,10 +2111,12 @@ func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
 	defer cancel()
 
 	for _, device := range list {
-		ps := wledBootPresetSlot(device.LastState)
-		payload := map[string]any{"ps": ps}
+		payload := wledBootRestorePayload(device.LastState)
+		if len(payload) == 0 {
+			continue
+		}
 		if err := c.applyWLEDState(restoreCtx, device, payload); err != nil {
-			c.logger.Printf("wled boot preset recall for %s failed: %v", device.ID, err)
+			c.logger.Printf("wled boot restore for %s failed: %v", device.ID, err)
 			continue
 		}
 		c.mu.Lock()
@@ -2122,18 +2126,60 @@ func (c *WLEDController) recallWLEDDevicePresetsOnBoot(ctx context.Context) {
 		if latest.Info == nil {
 			latest.Info = map[string]any{}
 		}
+		if v, ok := payload["on"]; ok {
+			latest.Info["on"] = v
+		}
+		if v, ok := payload["bri"]; ok {
+			latest.Info["bri"] = v
+		}
 		latest.LastState = mergeStateIntoLastState(latest.LastState, payload)
 		c.devices[device.ID] = latest
 		c.updated = time.Now()
 		c.mu.Unlock()
 	}
 	if err := c.persist(); err != nil {
-		c.logger.Printf("persist after boot preset recall failed: %v", err)
+		c.logger.Printf("persist after boot restore failed: %v", err)
 	}
 }
 
-// wledBootPresetSlot picks the WLED preset index to recall on startup (1–250).
-// If LastState remembers a recent "ps" value, that wins; otherwise slot 1 is used.
+// wledBootRestorePayload builds the state to apply on startup.
+// When LastState has a segment look (colors/effects), replay it and omit "ps" so a flash
+// preset cannot override the session look. Otherwise recall a flash preset slot.
+func wledBootRestorePayload(lastState map[string]any) map[string]any {
+	if wledLastStateHasLook(lastState) {
+		state := cloneJSONMap(lastState)
+		if state == nil {
+			return nil
+		}
+		// Replaying "ps" would load flash preset colors on top of / instead of LastState.
+		delete(state, "ps")
+		return state
+	}
+	ps := wledBootPresetSlot(lastState)
+	return map[string]any{"ps": ps}
+}
+
+func wledLastStateHasLook(lastState map[string]any) bool {
+	if lastState == nil {
+		return false
+	}
+	seg, ok := lastState["seg"]
+	if !ok || seg == nil {
+		return false
+	}
+	switch v := seg.(type) {
+	case []any:
+		return len(v) > 0
+	case []map[string]any:
+		return len(v) > 0
+	default:
+		return true
+	}
+}
+
+// wledBootPresetSlot picks the WLED preset index to recall on startup (1–250) when no
+// session look is available. If LastState remembers a recent "ps" value, that wins;
+// otherwise slot 1 is used.
 func wledBootPresetSlot(lastState map[string]any) int {
 	const fallback = 1
 	if lastState != nil {
@@ -2260,6 +2306,13 @@ func cloneDMXState(in DMXState) DMXState {
 	}
 	out.Party.Config.FixtureIDs = append([]string(nil), out.Party.Config.FixtureIDs...)
 	out.Party.Config.WLEDDeviceIDs = append([]string(nil), out.Party.Config.WLEDDeviceIDs...)
+	if len(out.Party.Config.WLEDDeviceSettings) > 0 {
+		settings := make(map[string]DMXPartyWLEDDeviceSettings, len(out.Party.Config.WLEDDeviceSettings))
+		for id, s := range out.Party.Config.WLEDDeviceSettings {
+			settings[id] = s
+		}
+		out.Party.Config.WLEDDeviceSettings = settings
+	}
 	for _, fixture := range in.Fixtures {
 		cp := fixture
 		cp.Brand = strings.TrimSpace(cp.Brand)
