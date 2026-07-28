@@ -39,6 +39,8 @@ dev_mode:
   executes:
     # Install deps and start Vite before the Go build so the frontend is already
     # listening when `run` starts (Wails only waits ~5s for FRONTEND_DEVSERVER_URL).
+    # common:dev:frontend also generates bindings first — required by the Vite
+    # wails-typed-events plugin before the Go build step regenerates them.
     - cmd: wails3 task common:install:frontend:deps
       type: blocking
     - cmd: wails3 task common:dev:frontend

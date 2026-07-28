@@ -96,7 +96,10 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts ./cmd/... ./internal/...
+      # Avoid -clean=true: in `wails3 dev`, Vite starts before the Go build and the
+      # typed-events plugin requires eventcreate bindings to already exist. Cleaning
+      # would race with Vite startup and fail with "Event bindings module not found".
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=false -ts ./cmd/... ./internal/...
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).
@@ -115,6 +118,10 @@ tasks:
     dir: frontend
     deps:
       - task: install:frontend:deps
+      # Vite's wails-typed-events plugin requires bindings before buildStart.
+      - task: generate:bindings
+        vars:
+          BUILD_FLAGS: '-buildvcs=false -gcflags=all="-l"'
     cmds:
       - npm run dev -- --port {{.VITE_PORT}} --strictPort
 
