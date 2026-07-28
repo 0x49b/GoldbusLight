@@ -7,10 +7,10 @@
   resolved "https://registry.npmjs.org/@alloc/quick-lru/-/quick-lru-5.2.0.tgz"
   integrity sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==
 
-"@audio-ui/react@^0.0.7":
-  version "0.0.7"
-  resolved "https://registry.npmjs.org/@audio-ui/react/-/react-0.0.7.tgz"
-  integrity sha512-Kb/O2Z8Kmjy+GNMeaA3BuSNLBg5FAKKT1BMl6k7LDtmCtmsCFCmNV97iloeo4FpkulO1t6XxAqtRIC1xn+Td5Q==
+"@audio-ui/react@^0.1.0":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@audio-ui/react/-/react-0.1.2.tgz#393fc7cca1da817e792db3c0de124acc52c0645b"
+  integrity sha512-nhcGj7cU0krwn8ZDZllvPceo2DtyCzmK16IlzJY+2G8CT51oflO224fudzCbQ76jErWV9L1zYAvSPya7nUwcdA==
   dependencies:
     "@audio-ui/utils" latest
 

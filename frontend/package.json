@@ -11,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@audio-ui/react": "^0.0.7",
+    "@audio-ui/react": "^0.1.0",
     "@base-ui/react": "^1.4.1",
     "@fontsource-variable/oxanium": "^5.2.8",
     "@react-three/drei": "^9.122.0",
