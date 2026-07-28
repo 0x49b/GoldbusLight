@@ -15,7 +15,7 @@
     "@base-ui/react": "^1.4.1",
     "@fontsource-variable/oxanium": "^5.2.8",
     "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
+    "@react-three/fiber": "^9.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "@wailsio/runtime": "latest",
     "class-variance-authority": "^0.7.1",
