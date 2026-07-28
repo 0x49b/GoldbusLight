@@ -181,6 +181,18 @@ export function SettingsView({
         }, mode);
     }, [dmxState, updateSettings]);
 
+    const applyNetworkSettingsNow = useCallback(async () => {
+        onSettingsInteraction(3000);
+        if (saveTimerRef.current != null) {
+            window.clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        const saved = await onSaveSettings();
+        if (saved) {
+            onApplyNetwork();
+        }
+    }, [onApplyNetwork, onSaveSettings, onSettingsInteraction]);
+
     const disableAccessPointNow = useCallback(async () => {
         setSettings((previous) => {
             if (!previous) {
@@ -253,7 +265,7 @@ export function SettingsView({
                             updateConfigPatchText={updateConfigPatchText}
                             disableAccessPointNow={disableAccessPointNow}
                             busy={busy}
-                            onApplyNetwork={onApplyNetwork}
+                            onApplyNetwork={() => void applyNetworkSettingsNow()}
                             onRefreshSnapshot={onRefreshSnapshot}
                             statePayloadText={statePayloadText}
                             configPatchText={configPatchText}
