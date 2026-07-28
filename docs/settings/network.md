@@ -19,12 +19,16 @@ Requires **Enable WLED component** to be on.
 | **AP password** | WPA passphrase |
 | **Channel** | Wi-Fi channel number |
 
+## Persistence & startup
+
+Access point settings are saved with the rest of controller settings (`state.json`) whenever you change them. On app start, the controller loads those settings and — if the AP was left **enabled** — applies them to the host automatically (Linux / NetworkManager).
+
 ## Apply changes
 
 | Button | Action |
 |--------|--------|
-| **Apply network settings** | Runs network backend commands (NetworkManager `nmcli` on Linux) |
-| **Disable AP now (save + apply)** | Turns AP off, saves, and applies immediately |
+| **Apply network settings** | Saves current fields (if needed) and runs network backend commands (NetworkManager `nmcli` on Linux) |
+| **Disable AP now (save + apply)** | Turns AP off, saves, and applies immediately (brings the connection down on Linux) |
 
 Results appear under **Settings → General → Network apply result** with step-by-step command output.
 

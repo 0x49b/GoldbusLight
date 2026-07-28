@@ -43,12 +43,13 @@ func (n *linuxBackend) Apply(ctx context.Context, settings ControllerSettings) N
 	}
 
 	ap := settings.AccessPoint
+	connectionName := ap.Connection
+	if connectionName == "" {
+		connectionName = "wled-controller-ap"
+	}
+
 	if ap.Enabled {
 		apIface := n.resolveWiFiIface(ctx, defaultString(ap.InterfaceName, "wlan0"))
-		connectionName := ap.Connection
-		if connectionName == "" {
-			connectionName = "wled-controller-ap"
-		}
 		iface := apIface
 		ssid := defaultString(ap.SSID, "WLED-Controller-Net")
 		channel := ap.Channel
@@ -63,6 +64,7 @@ func (n *linuxBackend) Apply(ctx context.Context, settings ControllerSettings) N
 		// 802-11-wireless.band "bg" is 2.4 GHz (802.11b/g). WLED clients expect a 2.4 GHz AP; do not use "a" (5 GHz).
 		result.Steps = append(result.Steps,
 			runShellCommand(ctx, n.logger, "nmcli", "connection", "modify", connectionName,
+				"connection.autoconnect", "yes",
 				"802-11-wireless.mode", "ap",
 				"802-11-wireless.band", "bg",
 				"802-11-wireless.channel", fmt.Sprintf("%d", channel),
@@ -72,6 +74,12 @@ func (n *linuxBackend) Apply(ctx context.Context, settings ControllerSettings) N
 				"ipv4.method", "shared"),
 		)
 		result.Steps = append(result.Steps, runShellCommand(ctx, n.logger, "nmcli", "connection", "up", connectionName))
+	} else if n.connectionExists(ctx, connectionName) {
+		// Tear down a previously applied AP and stop NetworkManager from bringing it back.
+		result.Steps = append(result.Steps,
+			runShellCommand(ctx, n.logger, "nmcli", "connection", "modify", connectionName, "connection.autoconnect", "no"),
+			runShellCommand(ctx, n.logger, "nmcli", "connection", "down", connectionName),
+		)
 	}
 
 	for _, step := range result.Steps {

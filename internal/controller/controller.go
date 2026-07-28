@@ -910,6 +910,7 @@ func (c *WLEDController) Start(ctx context.Context) error {
 	go c.persistenceLoop(runCtx)
 	go c.healthLoop(runCtx)
 	go c.applyDefaultOrRecallWLEDOnBoot(runCtx)
+	go c.applyAccessPointOnBoot(runCtx)
 
 	if err := c.EnsureDMXLiveOutput(); err != nil {
 		c.logger.Printf("dmx live ensure on start: %v", err)
@@ -2057,6 +2058,45 @@ func (c *WLEDController) persistenceLoop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// applyAccessPointOnBoot applies persisted Wi-Fi access point settings to the host
+// when the AP was left enabled. Settings are already loaded into memory by Start;
+// this brings NetworkManager (or the platform backend) in line with that state.
+func (c *WLEDController) applyAccessPointOnBoot(ctx context.Context) {
+	c.mu.RLock()
+	enabled := c.settings.AccessPoint.Enabled
+	c.mu.RUnlock()
+	if !enabled {
+		return
+	}
+
+	// Brief delay so NetworkManager / desktop networking is ready after session start.
+	select {
+	case <-time.After(2 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+
+	applyCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	result := c.ApplyNetwork(applyCtx)
+	if result.DryRun {
+		c.logger.Printf("access point on boot: dry-run (network control unavailable)")
+		for _, w := range result.Warnings {
+			c.logger.Printf("access point on boot: %s", w)
+		}
+		return
+	}
+	for _, w := range result.Warnings {
+		c.logger.Printf("access point on boot warning: %s", w)
+	}
+	for _, step := range result.Steps {
+		if !step.Success {
+			c.logger.Printf("access point on boot step failed: %s (%s)", step.Command, step.Error)
+		}
+	}
+	c.logger.Printf("access point on boot: applied (%d steps)", len(result.Steps))
 }
 
 // applyDefaultOrRecallWLEDOnBoot applies the configured default scene after startup,

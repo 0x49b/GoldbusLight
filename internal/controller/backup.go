@@ -127,6 +127,18 @@ func (c *WLEDController) ImportConfigurationBackup(data []byte) error {
 		return err
 	}
 
+	c.mu.RLock()
+	apEnabled := c.settings.AccessPoint.Enabled
+	rootCtx := c.rootCtx
+	c.mu.RUnlock()
+	if apEnabled {
+		ctx := rootCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		go c.applyAccessPointOnBoot(ctx)
+	}
+
 	return nil
 }
 
