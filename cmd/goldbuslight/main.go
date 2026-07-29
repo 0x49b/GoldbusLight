@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,11 @@ func main() {
 		companionAssets = sub
 	}
 	companion := remotehttp.New(ctrl, companionAssets, log.Default())
+	// Hot-reload companion UI during `wails3 dev` / `task dev` (Vite via FRONTEND_DEVSERVER_URL).
+	// Override with GOLDBUS_COMPANION_VITE_URL if needed.
+	if vite := companionDevFrontendURL(); vite != "" {
+		companion.UseDevFrontend(vite)
+	}
 	companionCtx, companionCancel := context.WithCancel(context.Background())
 	defer companionCancel()
 	go companion.Run(companionCtx)
@@ -253,4 +259,12 @@ func confirmApplicationQuit(app *application.App) {
 	no := dialog.AddButton("No")
 	dialog.SetDefaultButton(no)
 	dialog.Show()
+}
+
+// companionDevFrontendURL returns the Vite base URL for companion UI hot-reload.
+func companionDevFrontendURL() string {
+	if v := strings.TrimSpace(os.Getenv("GOLDBUS_COMPANION_VITE_URL")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("FRONTEND_DEVSERVER_URL"))
 }

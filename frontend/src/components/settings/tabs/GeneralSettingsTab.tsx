@@ -4,7 +4,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx
 import {useState} from "react";
 import {PiDownloadSimple, PiUploadSimple} from "react-icons/pi";
 import {useTranslation} from "react-i18next";
-import {prettyJSON} from "../../../lib/json.ts";
+import {prettyJSON} from "@/lib/json.ts";
 import type {ControllerSettings, NetworkApplyResult} from "@/types/controller.ts";
 import {AppearanceCard} from "../components/AppearanceCard.tsx";
 import {ApplicationVersionCard} from "../components/ApplicationVersionCard.tsx";
@@ -37,15 +37,16 @@ export function GeneralSettingsTab({
     onImportConfigurationBackup,
     onCheckForUpdates,
     setError,
-}: GeneralSettingsTabProps) {
+}: Readonly<GeneralSettingsTabProps>) {
     const {t} = useTranslation("settings");
     const [backupBusy, setBackupBusy] = useState(false);
     const [backupMessage, setBackupMessage] = useState<string | null>(null);
-    const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
+    //const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
 
     return (
         <div className="space-y-5">
-            <ApplicationVersionCard
+
+            {/*<ApplicationVersionCard
                 currentVersion={currentVersion}
                 updatesSupported={updatesSupported}
                 busy={busy}
@@ -54,14 +55,8 @@ export function GeneralSettingsTab({
                 onUpdateCheckError={setError}
                 onUpdateCheckStart={() => setUpdateCheckBusy(true)}
                 onUpdateCheckEnd={() => setUpdateCheckBusy(false)}
-            />
-
-            <WindowDisplayCard disabled={busy}/>
-
-            <AppearanceCard/>
-
-            <LanguageCard/>
-
+            />*/}
+            <AppearanceCard disabled={busy}/>
             <CompanionSettingsCard
                 settings={settings}
                 updateSettings={updateSettings}

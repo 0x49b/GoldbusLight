@@ -4,6 +4,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx
 import {Input} from "@/components/ui/input.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Switch} from "@/components/ui/switch.tsx";
+import {GetCompanionStatus} from "../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import type {CompanionSettings, CompanionStatus, ControllerSettings} from "@/types/controller.ts";
 import type {SettingsUpdater} from "../settingsTypes";
 
@@ -34,18 +35,16 @@ export function CompanionSettingsCard({settings, updateSettings, busy}: Companio
         }
         const port = companion.port || DEFAULT_PORT;
         try {
-            const res = await fetch(`http://127.0.0.1:${port}/api/info`, {cache: "no-store"});
-            if (!res.ok) {
-                setStatus({
-                    enabled: true,
-                    listening: false,
-                    port,
-                    urls: [],
-                });
-                return;
-            }
-            const body = (await res.json()) as CompanionStatus;
-            setStatus(body);
+            // Use the Wails binding — fetch() to 127.0.0.1 fails in the desktop
+            // webview (CORS / private-network restrictions) even when the server is up.
+            const body = await GetCompanionStatus();
+            setStatus({
+                enabled: !!body.enabled,
+                listening: !!body.listening,
+                port: body.port > 0 ? body.port : port,
+                urls: body.urls ?? [],
+                qrDataUrl: body.qrDataUrl || undefined,
+            });
         } catch {
             setStatus({
                 enabled: true,
@@ -91,14 +90,14 @@ export function CompanionSettingsCard({settings, updateSettings, busy}: Companio
             <CardContent className="space-y-4">
                 <p className="text-sm opacity-70">{t("companion.description")}</p>
 
-                <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="companion-enabled">{t("companion.enable")}</Label>
+                <div className="flex items-center justify-left gap-3">
                     <Switch
                         id="companion-enabled"
                         checked={companion.enabled}
                         disabled={busy}
                         onCheckedChange={(checked) => updateCompanion({enabled: checked}, true)}
                     />
+                    <Label htmlFor="companion-enabled">{t("companion.enable")}</Label>
                 </div>
 
                 <div className="space-y-2">

@@ -1,4 +1,5 @@
 import type {CompanionApiState} from "./api";
+import {DMXOutputIndicator} from "@/components/dmx/DMXOutputIndicator.tsx";
 
 type HomeViewProps = {
     state: CompanionApiState;
@@ -87,6 +88,7 @@ export function HomeView({state, onOpenFixture, onOpenWled}: HomeViewProps) {
                 Output: {state.liveStatus?.connected ? "DMX ON" : "DMX OFF"}
                 {state.liveStatus?.error ? ` · ${state.liveStatus.error}` : ""}
             </p>
+            <DMXOutputIndicator connected={state.liveStatus?.connected}/>
         </div>
     );
 }

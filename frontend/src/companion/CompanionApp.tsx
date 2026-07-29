@@ -5,6 +5,7 @@ import {HomeView} from "./HomeView";
 import {FixtureFocusView} from "./FixtureFocusView";
 import {WledFocusView} from "./WledFocusView";
 
+
 type Route =
     | {kind: "home"}
     | {kind: "fixture"; id: string}
@@ -59,7 +60,6 @@ export function CompanionApp() {
                         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                             Goldbus
                         </p>
-                        <h1 className="truncate text-lg font-semibold leading-tight">Companion</h1>
                     </div>
                     {route.kind !== "home" ? (
                         <button

@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +25,10 @@ type Server struct {
 	ctrl   *controller.WLEDController
 	assets fs.FS
 	logger *log.Logger
+
+	// devFrontend, when set (typically FRONTEND_DEVSERVER_URL during `wails3 dev`),
+	// reverse-proxies non-API requests to Vite so companion UI changes hot-reload.
+	devFrontend *url.URL
 
 	mu       sync.Mutex
 	enabled  bool
@@ -43,6 +49,23 @@ func New(ctrl *controller.WLEDController, assets fs.FS, logger *log.Logger) *Ser
 		logger: logger,
 		port:   defaultPort,
 	}
+}
+
+// UseDevFrontend proxies the companion UI to a Vite (or other) dev server.
+// Empty or invalid URLs are ignored. Call before Run/Sync.
+// Prefer GOLDBUS_COMPANION_VITE_URL, else FRONTEND_DEVSERVER_URL (set by wails3 dev).
+func (s *Server) UseDevFrontend(raw string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		s.logger.Printf("companion: ignoring invalid dev frontend URL %q", raw)
+		return
+	}
+	s.devFrontend = u
+	s.logger.Printf("companion: UI hot-reload via %s (API still served locally)", u.String())
 }
 
 // Run syncs the listener with controller settings until ctx is cancelled.
@@ -190,6 +213,11 @@ func (s *Server) start(port int) error {
 }
 
 func (s *Server) registerStatic(mux *http.ServeMux) {
+	if s.devFrontend != nil {
+		mux.Handle("/", s.devFrontendProxy())
+		return
+	}
+
 	if s.assets == nil {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
@@ -229,4 +257,26 @@ func (s *Server) registerStatic(mux *http.ServeMux) {
 		}
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// devFrontendProxy reverse-proxies UI (and Vite HMR websockets) to the frontend
+// dev server. "/" is rewritten to companion.html so the phone URL stays the same.
+func (s *Server) devFrontendProxy() http.Handler {
+	target := s.devFrontend
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.FlushInterval = -1 // stream HMR websockets / SSE without buffering
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = target.Host
+		if req.URL.Path == "/" || req.URL.Path == "" {
+			req.URL.Path = "/companion.html"
+			req.URL.RawPath = "/companion.html"
+		}
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		s.logger.Printf("companion vite proxy %s: %v", r.URL.Path, err)
+		http.Error(w, "companion frontend dev server unavailable; is Vite running?", http.StatusBadGateway)
+	}
+	return proxy
 }

@@ -150,6 +150,8 @@ task dev
 # or: wails3 dev -config ./build/config.yml -port 9245
 ```
 
+In `task dev`, the phone companion UI hot-reloads through Vite when companion is enabled in Settings — see [Phone companion → Development](docs/companion/index.md#development-hot-reload).
+
 Regenerate TypeScript bindings after changing exported Go service methods:
 
 ```bash

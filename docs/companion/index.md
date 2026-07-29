@@ -53,3 +53,19 @@ Live edits are blocked while Party is running (same rule as desktop Live mode).
 ## Security
 
 The companion binds on **all interfaces** (`0.0.0.0`). Anyone on the Wi‑Fi/LAN can steer lights. Protect the access point with a strong password and keep the host physically secure. See also [Network & access point](../settings/network.md).
+
+## Development (hot reload)
+
+While developing with `task dev` / `wails3 dev`:
+
+1. Enable **Phone companion** in Settings (same as production).
+2. Open the companion URL (or QR) as usual — e.g. `http://127.0.0.1:8765/`.
+
+The companion HTTP server proxies the UI to Vite (`FRONTEND_DEVSERVER_URL`). Edit files under `frontend/src/companion/` and the phone/browser updates via HMR without rebuilding or restarting the app. API calls still hit the local Go listener.
+
+Optional overrides:
+
+| Env var | Purpose |
+|---------|---------|
+| `GOLDBUS_COMPANION_VITE_URL` | Force the Vite base URL for companion UI proxying |
+| `GOLDBUS_COMPANION_API` | Vite `/api` proxy target when opening `/companion.html` on the Vite port directly (default `http://127.0.0.1:8765`) |

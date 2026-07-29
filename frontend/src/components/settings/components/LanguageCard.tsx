@@ -1,4 +1,3 @@
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {
     Select,
     SelectContent,
@@ -11,9 +10,9 @@ import {useTranslation} from "react-i18next";
 import i18n from "@/i18n";
 import {
     getLocalePreference,
+    type LocalePreference,
     resolveLocale,
     setLocalePreference,
-    type LocalePreference,
 } from "@/i18n/localePreference";
 
 const LANGUAGE_OPTIONS = [
@@ -33,42 +32,34 @@ export function LanguageCard() {
     }, []);
 
     return (
-        <Card className="w-full max-w-none">
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold">{t("language.title")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <p className="text-sm opacity-70">{t("language.description")}</p>
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="language-preference" className="text-sm font-medium">
-                        {t("language.label")}
-                    </label>
-                    <Select
-                        value={mounted ? preference : undefined}
-                        onValueChange={(value) => {
-                            if (value !== "system" && value !== "en" && value !== "de") {
-                                return;
-                            }
-                            const next = value as LocalePreference;
-                            setPreference(next);
-                            setLocalePreference(next);
-                            void i18n.changeLanguage(resolveLocale(next));
-                        }}
-                        disabled={!mounted}
-                    >
-                        <SelectTrigger id="language-preference" className="w-56">
-                            <SelectValue placeholder={t("language.placeholder")}/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {LANGUAGE_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                    {t(option.labelKey)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardContent>
-        </Card>
+        <div className="flex flex-col gap-1.5">
+            <label htmlFor="language-preference" className="text-sm font-medium">
+                {t("language.label")}
+            </label>
+            <Select
+                value={mounted ? preference : undefined}
+                onValueChange={(value) => {
+                    if (value !== "system" && value !== "en" && value !== "de") {
+                        return;
+                    }
+                    const next = value as LocalePreference;
+                    setPreference(next);
+                    setLocalePreference(next);
+                    void i18n.changeLanguage(resolveLocale(next));
+                }}
+                disabled={!mounted}
+            >
+                <SelectTrigger id="language-preference" className="w-56">
+                    <SelectValue placeholder={t("language.placeholder")}/>
+                </SelectTrigger>
+                <SelectContent>
+                    {LANGUAGE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {t(option.labelKey)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
     );
 }

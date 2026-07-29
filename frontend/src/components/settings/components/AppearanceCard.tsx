@@ -9,6 +9,8 @@ import {
 import {useTheme} from "next-themes";
 import {useEffect, useState} from "react";
 import {useTranslation} from "react-i18next";
+import {LanguageCard} from "@/components/settings/components/LanguageCard.tsx";
+import {WindowDisplayCard} from "@/components/settings/components/WindowDisplayCard.tsx";
 
 const COLOR_MODES = [
     {value: "system", labelKey: "appearance.modes.system"},
@@ -16,7 +18,13 @@ const COLOR_MODES = [
     {value: "dark", labelKey: "appearance.modes.dark"},
 ] as const;
 
-export function AppearanceCard() {
+
+type AppearanceCardProps = {
+    disabled?: boolean;
+};
+
+
+export function AppearanceCard({disabled = false}: AppearanceCardProps) {
     const {t} = useTranslation("settings");
     const {theme, setTheme} = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -31,31 +39,36 @@ export function AppearanceCard() {
                 <CardTitle className="text-sm font-semibold">{t("appearance.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-                <p className="text-sm opacity-70">{t("appearance.description")}</p>
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="color-mode" className="text-sm font-medium">
-                        {t("appearance.colorMode")}
-                    </label>
-                    <Select
-                        value={mounted ? (theme ?? "system") : undefined}
-                        onValueChange={(value) => {
-                            if (value) {
-                                setTheme(value);
-                            }
-                        }}
-                        disabled={!mounted}
-                    >
-                        <SelectTrigger id="color-mode" className="w-56">
-                            <SelectValue placeholder={t("appearance.placeholder")}/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {COLOR_MODES.map((mode) => (
-                                <SelectItem key={mode.value} value={mode.value}>
-                                    {t(mode.labelKey)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="flex items-center justify-left gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <label htmlFor="color-mode" className="text-sm font-medium">
+                            {t("appearance.colorMode")}
+                        </label>
+                        <Select
+                            value={mounted ? (theme ?? "system") : undefined}
+                            onValueChange={(value) => {
+                                if (value) {
+                                    setTheme(value);
+                                }
+                            }}
+                            disabled={!mounted}
+                        >
+                            <SelectTrigger id="color-mode" className="w-56">
+                                <SelectValue placeholder={t("appearance.placeholder")}/>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {COLOR_MODES.map((mode) => (
+                                    <SelectItem key={mode.value} value={mode.value}>
+                                        {t(mode.labelKey)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <LanguageCard/>
+
+                    <WindowDisplayCard disabled={disabled}/>
                 </div>
             </CardContent>
         </Card>

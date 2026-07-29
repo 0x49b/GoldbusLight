@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -83,5 +84,82 @@ func TestServerAPIHealthAndInfo(t *testing.T) {
 	// May fail without live output configured; ensure we get JSON either way.
 	if patchResp.StatusCode != http.StatusOK && patchResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("live-patch status %d", patchResp.StatusCode)
+	}
+}
+
+func TestServerDevFrontendProxy(t *testing.T) {
+	vite := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/companion.html":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte("<html>companion-dev</html>"))
+		case "/src/companion/main.tsx":
+			w.Header().Set("Content-Type", "text/javascript")
+			_, _ = w.Write([]byte("export {}"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer vite.Close()
+
+	ctrl := controller.NewWLEDController(log.Default())
+	if err := ctrl.Start(t.Context()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer ctrl.Stop()
+
+	settings := ctrl.Snapshot().Settings
+	settings.Companion.Enabled = true
+	settings.Companion.Port = 18766
+	if err := ctrl.SaveSettings(settings); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+
+	srv := New(ctrl, nil, log.Default())
+	srv.UseDevFrontend(vite.URL)
+	srv.Sync()
+	defer srv.Stop()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if srv.Status().Listening {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("server did not start listening")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	rootResp, err := http.Get("http://127.0.0.1:18766/")
+	if err != nil {
+		t.Fatalf("root: %v", err)
+	}
+	defer rootResp.Body.Close()
+	rootBody, _ := io.ReadAll(rootResp.Body)
+	if rootResp.StatusCode != http.StatusOK {
+		t.Fatalf("root status %d", rootResp.StatusCode)
+	}
+	if !bytes.Contains(rootBody, []byte("companion-dev")) {
+		t.Fatalf("root body = %q, want companion-dev markup", rootBody)
+	}
+
+	assetResp, err := http.Get("http://127.0.0.1:18766/src/companion/main.tsx")
+	if err != nil {
+		t.Fatalf("asset: %v", err)
+	}
+	defer assetResp.Body.Close()
+	if assetResp.StatusCode != http.StatusOK {
+		t.Fatalf("asset status %d", assetResp.StatusCode)
+	}
+
+	// API must still be local, not proxied to Vite.
+	healthResp, err := http.Get("http://127.0.0.1:18766/api/health")
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	defer healthResp.Body.Close()
+	if healthResp.StatusCode != http.StatusOK {
+		t.Fatalf("health status %d", healthResp.StatusCode)
 	}
 }

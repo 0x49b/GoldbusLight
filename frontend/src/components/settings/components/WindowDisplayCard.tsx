@@ -1,5 +1,4 @@
 import {Button} from "@/components/ui/button.tsx";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {useWindowDisplayState} from "@/hooks/useWindowDisplayState.ts";
 import {PiArrowsOutSimple, PiCornersOut} from "react-icons/pi";
 import {useTranslation} from "react-i18next";
@@ -26,33 +25,30 @@ export function WindowDisplayCard({disabled = false}: WindowDisplayCardProps) {
     const controlsDisabled = disabled || busy;
 
     return (
-        <Card className="w-full max-w-none">
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold">{t("window.title")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <p className="text-sm opacity-70">{t("window.description")}</p>
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        size="sm"
-                        variant={fullscreen ? "default" : "outline"}
-                        disabled={controlsDisabled}
-                        onClick={() => void toggleFullscreen()}
-                    >
-                        <PiArrowsOutSimple/>
-                        {fullscreen ? t("window.exitFullscreen") : t("window.enterFullscreen")}
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant={maximised ? "default" : "outline"}
-                        disabled={controlsDisabled}
-                        onClick={() => void toggleMaximised()}
-                    >
-                        <PiCornersOut/>
-                        {maximised ? t("window.restore") : t("window.maximize")}
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+        <div className="flex flex-col gap-1.5">
+            <label htmlFor="language-preference" className="text-sm font-medium">
+                {t("window.title")}
+            </label>
+            <div className="flex flex-wrap gap-3">
+                <Button
+                    size="sm"
+                    variant={fullscreen ? "default" : "outline"}
+                    disabled={controlsDisabled}
+                    onClick={() => void toggleFullscreen()}
+                >
+                    <PiArrowsOutSimple/>
+                    {fullscreen ? t("window.exitFullscreen") : t("window.enterFullscreen")}
+                </Button>
+                <Button
+                    size="sm"
+                    variant={maximised ? "default" : "outline"}
+                    disabled={controlsDisabled}
+                    onClick={() => void toggleMaximised()}
+                >
+                    <PiCornersOut/>
+                    {maximised ? t("window.restore") : t("window.maximize")}
+                </Button>
+            </div>
+        </div>
     );
 }
