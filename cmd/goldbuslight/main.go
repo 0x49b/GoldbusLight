@@ -92,7 +92,7 @@ func main() {
 	}
 
 	// App Menu
-	menu := app.Menu.New()
+	/*menu := app.Menu.New()
 	app.Menu.SetApplicationMenu(menu)
 	appMenu := menu.AddSubmenu("App")
 	if checkAndInstall != nil {
@@ -106,7 +106,7 @@ func main() {
 	}
 	appMenu.Add("Quit").OnClick(func(*application.Context) {
 		confirmApplicationQuit(app)
-	})
+	})*/
 
 	startState := application.WindowStateNormal
 	if os.Getenv("GOLDBUS_FULLSCREEN") == "1" {
