@@ -567,6 +567,12 @@ func (g *GoldbusLightService) GetDMXLiveStatus() (dmx.DMXLiveStatus, error) {
 	})
 }
 
+func (g *GoldbusLightService) GetDMXUniverseFrame(universeID string) ([]int, error) {
+	return withControllerValue(g, func(c *ctrlpkg.WLEDController) []int {
+		return c.GetDMXUniverseFrame(universeID)
+	})
+}
+
 // ListConsoleEntries returns transport console entries with ID greater than
 // afterID, capped at limit. Used by the Settings → Console tab.
 func (g *GoldbusLightService) ListConsoleEntries(afterID int64, limit int) ([]console.Entry, error) {

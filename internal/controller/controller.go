@@ -2073,6 +2073,20 @@ func (c *WLEDController) GetDMXLiveStatus() dmx.DMXLiveStatus {
 	}
 }
 
+// GetDMXUniverseFrame returns the current 512-slot live buffer for a universe.
+// Index 0 is DMX address 1. Values remain readable while output is offline.
+func (c *WLEDController) GetDMXUniverseFrame(universeID string) []int {
+	universeID = resolveUniverseIDForUpdate(universeID)
+	c.dmxLiveMu.Lock()
+	defer c.dmxLiveMu.Unlock()
+	rt := c.dmxLiveRuntime(universeID)
+	out := make([]int, 512)
+	for i := 0; i < 512; i++ {
+		out[i] = int(rt.buf[i])
+	}
+	return out
+}
+
 func (c *WLEDController) persistenceLoop(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()

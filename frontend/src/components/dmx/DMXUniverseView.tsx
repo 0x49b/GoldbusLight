@@ -1,25 +1,28 @@
-import { Button } from "@/components/ui/button";
-import { DMXEmergencyButton } from "./DMXEmergencyButton";
-import { DMXOutputIndicator } from "./DMXOutputIndicator";
+import {Button} from "@/components/ui/button";
+import {DMXEmergencyButton} from "./DMXEmergencyButton";
+import {DMXOutputIndicator} from "./DMXOutputIndicator";
 import {
-    DMX_UNIVERSE_SLOTS,
     channelIndexToCell,
+    DMX_UNIVERSE_SLOTS,
     footprint,
     splitRangeIntoSegments,
     universeRange,
 } from "@/lib/dmxUniverseGrid";
-import {
-    fixturesForUniverse,
-    normalizeUniverses,
-    resolveUniverseId,
-} from "@/lib/dmxUniverses";
-import { isFixtureSlave, resolveFixtureMaster } from "@/lib/dmxFixtureMasterSlave";
-import { cn } from "@/lib/utils";
-import type { ControllerSettings, DMXFixture, DMXUniverse, DetailRoute, USBSerialDevice } from "@/types/controller";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { useTranslation } from "react-i18next";
-import { PiPlus, PiWarningCircle } from "react-icons/pi";
-import type { DMXLiveStatus } from "../../../bindings/goldbus/internal/dmx";
+import {fixturesForUniverse, normalizeUniverses, resolveUniverseId,} from "@/lib/dmxUniverses";
+import {isFixtureSlave, resolveFixtureMaster} from "@/lib/dmxFixtureMasterSlave";
+import {cn} from "@/lib/utils";
+import type {
+    ControllerSettings,
+    DetailRoute,
+    DMXFixture,
+    DMXUniverse,
+    USBSerialDevice
+} from "@/types/controller";
+import {type DragEvent, useEffect, useMemo, useRef, useState} from "react";
+import {useTranslation} from "react-i18next";
+import {PiPlus, PiWarningCircle} from "react-icons/pi";
+import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
+import * as GoldbusLightService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 
 export type DMXUniverseViewProps = {
     universes: DMXUniverse[];
@@ -30,7 +33,10 @@ export type DMXUniverseViewProps = {
     selectedUSBDeviceId: string;
     usbSerialDevices: USBSerialDevice[];
     setRoute: (route: DetailRoute) => void;
-    onReaddressFixtures: (updates: Array<{ id: string; dmxAddress: number }>, successLabel?: string) => Promise<boolean>;
+    onReaddressFixtures: (updates: Array<{
+        id: string;
+        dmxAddress: number
+    }>, successLabel?: string) => Promise<boolean>;
     dmxLiveStatus: DMXLiveStatus | null;
     pullDMXLiveStatus: () => Promise<void>;
     onEmergency: () => void | Promise<void>;
@@ -39,6 +45,17 @@ export type DMXUniverseViewProps = {
 function padChannel(n: number): string {
     return String(Math.max(1, Math.min(DMX_UNIVERSE_SLOTS, n))).padStart(3, "0");
 }
+
+function channelValue(frame: number[], ch: number): number {
+    const raw = frame[ch - 1];
+    if (!Number.isFinite(raw)) {
+        return 0;
+    }
+    return Math.max(0, Math.min(255, Math.round(raw)));
+}
+
+const EMPTY_FRAME: number[] = Array.from({length: DMX_UNIVERSE_SLOTS}, () => 0);
+const FRAME_POLL_MS = 100;
 
 
 /** Match the grabbed element's rendered size so the browser does not scale the drag ghost. */
@@ -212,7 +229,7 @@ export function DMXUniverseView({
                                     dmxLiveStatus,
                                     pullDMXLiveStatus,
                                     onEmergency,
-                                }: DMXUniverseViewProps) {
+                                }: Readonly<DMXUniverseViewProps>) {
     const {t} = useTranslation("dmx");
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
@@ -225,6 +242,30 @@ export function DMXUniverseView({
         () => fixturesForUniverse(allFixtures, activeUniverseId, universes),
         [allFixtures, activeUniverseId, universes],
     );
+
+    const [frame, setFrame] = useState<number[]>(EMPTY_FRAME);
+
+    useEffect(() => {
+        let cancelled = false;
+        const pullFrame = async () => {
+            try {
+                const next = await GoldbusLightService.GetDMXUniverseFrame(activeUniverseId);
+                if (!cancelled && Array.isArray(next) && next.length >= DMX_UNIVERSE_SLOTS) {
+                    setFrame(next);
+                }
+            } catch {
+                // Ignore transient poll errors; keep last frame.
+            }
+        };
+        void pullFrame();
+        const timer = window.setInterval(() => {
+            void pullFrame();
+        }, FRAME_POLL_MS);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [activeUniverseId]);
 
     const fixtureById = useMemo(() => new Map(fixtures.map((fixture) => [fixture.id, fixture])), [fixtures]);
     const occupancy = buildSlotOccupancy(fixtures);
@@ -291,14 +332,14 @@ export function DMXUniverseView({
         const successLabel =
             plan.shiftedCount > 0
                 ? t("universe.movedShifted", {
-                      count: plan.shiftedCount,
-                      name: draggedName,
-                      address: padChannel(movedTo),
-                  })
+                    count: plan.shiftedCount,
+                    name: draggedName,
+                    address: padChannel(movedTo),
+                })
                 : t("universe.movedNoShift", {
-                      name: draggedName,
-                      address: padChannel(movedTo),
-                  });
+                    name: draggedName,
+                    address: padChannel(movedTo),
+                });
 
         setDropBusy(true);
         try {
@@ -335,7 +376,7 @@ export function DMXUniverseView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-            
+
             <div className="flex flex-wrap w-full items-start gap-2">
                 <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Button
@@ -352,7 +393,7 @@ export function DMXUniverseView({
                     <DMXOutputIndicator connected={liveConnected}/>
                 </div>
             </div>
-            
+
             <div
                 ref={gridContainerRef}
                 className="touch-pan-scroll min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3">
@@ -372,7 +413,7 @@ export function DMXUniverseView({
                             <div
                                 key={`free-${ch}`}
                                 className={cn(
-                                    "flex items-center justify-center rounded-md border border-transparent bg-muted text-[10px] font-medium tabular-nums text-muted-foreground sm:text-xs",
+                                    "relative flex items-center justify-center rounded-md border border-transparent bg-muted text-[10px] font-medium tabular-nums text-muted-foreground sm:text-xs",
                                     draggingFixtureId && channelInDropTargetRange(ch, dropPreviewRange) && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
                                 )}
                                 style={{
@@ -395,7 +436,10 @@ export function DMXUniverseView({
                                     void handleDropOnChannel(ch);
                                 }}
                             >
-                                {padChannel(ch)}
+                                <span className="leading-none">{channelValue(frame, ch)}</span>
+                                <span className="absolute bottom-0 right-0 p-1 leading-none">
+                                    {padChannel(ch)}
+                                </span>
                             </div>
                         );
                     })}
@@ -412,20 +456,20 @@ export function DMXUniverseView({
                         return segments.map((seg, segIdx) => {
                             const segStartCh = seg.row * gridCols + seg.colStart + 1;
                             const showFixtureBase = segIdx === 0;
-                            const fixtureLive = liveConnected;
                             return (
                                 <button
                                     key={`${fx.id}-${seg.row}-${seg.colStart}-${seg.span}`}
                                     type="button"
                                     draggable={!dropBusy}
                                     className={cn(
-                                        "z-10 flex min-h-8 items-center justify-between gap-2 rounded-md border px-1.5 py-1 text-left shadow-sm transition-colors sm:min-h-9",
-                                        slaveFixture
-                                            ? "border-muted-foreground/30 bg-muted/30 hover:bg-muted/40"
-                                            : "bg-primary/10 border-primary/30 hover:bg-primary/15",
+                                        "relative z-10 overflow-hidden rounded-md border p-0 text-left shadow-sm transition-colors",
                                         "cursor-grab active:cursor-grabbing",
-                                        conflict && "border-destructive ring-1 ring-destructive/40",
-                                        fixtureLive && !slaveFixture && "border-emerald-500/70 bg-emerald-500/15",
+                                        slaveFixture
+                                            ? "border-muted-foreground/40 bg-muted/80 text-muted-foreground hover:bg-muted"
+                                            : liveConnected
+                                                ? "border-emerald-600 bg-emerald-500/50 text-emerald-950 hover:bg-emerald-500/60 dark:text-emerald-50"
+                                                : "border-red-600 bg-red-500/50 text-red-950 hover:bg-red-500/60 dark:text-red-50",
+                                        conflict && "ring-1 ring-destructive/50",
                                         draggingFixtureId === fx.id && "opacity-40",
                                         draggingFixtureId && segmentOverlapsDropTargetRange(segStartCh, seg.span, dropPreviewRange) && (dropPlan ? "ring-2 ring-primary/50" : "ring-2 ring-destructive/50"),
                                     )}
@@ -473,52 +517,54 @@ export function DMXUniverseView({
                                     title={
                                         slaveFixture
                                             ? t("universe.slaveOfMaster", {
-                                                  master: masterFixture?.name ?? t("universe.slaveOfFallback"),
-                                                  name: fx.name,
-                                              })
+                                                master: masterFixture?.name ?? t("universe.slaveOfFallback"),
+                                                name: fx.name,
+                                            })
                                             : t("universe.openFixture", {name: fx.name})
                                     }
                                 >
-                                    <span
-                                        className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-primary/90 sm:text-xs">
-                    <span className="font-semibold tabular-nums text-primary">
-                      {showFixtureBase ? padChannel(fx.dmxAddress) : padChannel(segStartCh)}
-                    </span>{" "}
-                                        {fx.name}
-                  </span>
+                                    <div
+                                        className="absolute inset-0 grid h-full w-full"
+                                        style={{gridTemplateColumns: `repeat(${seg.span}, minmax(0, 1fr))`}}
+                                        aria-hidden
+                                    >
+                                        {Array.from({length: seg.span}, (_, i) => {
+                                            const ch = segStartCh + i;
+                                            return (
+                                                <div
+                                                    key={ch}
+                                                    className={cn(
+                                                        "relative flex items-center justify-center text-[10px] font-medium tabular-nums sm:text-xs",
+                                                        showFixtureBase && "pt-3",
+                                                    )}
+                                                >
+                                                    <span className="leading-none">{channelValue(frame, ch)}</span>
+                                                    <span className="absolute bottom-0 right-0 p-1 text-[9px] leading-none opacity-80 sm:text-[10px]">
+                                                        {padChannel(ch)}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                     {showFixtureBase ? (
-                                        <span
-                                            className={cn(
-                                                "inline-flex shrink-0 items-center gap-1 text-[10px]",
-                                                slaveFixture
-                                                    ? "text-muted-foreground"
-                                                    : fixtureLive
-                                                    ? "text-emerald-600"
-                                                    : "text-muted-foreground",
-                                            )}
-                                        >
-                      <span
-                          className={cn(
-                              "size-2 rounded-full",
-                              slaveFixture
-                                  ? "bg-muted-foreground/50"
-                                  : fixtureLive
-                                  ? "bg-emerald-500"
-                                  : "bg-muted-foreground/50",
-                          )}
-                          aria-hidden
-                      />
-                                            {slaveFixture ? t("universe.slave") : fixtureLive ? t("universe.live") : t("universe.idle")}
-                                            {conflict && (
-                                                <PiWarningCircle className="size-3 shrink-0 text-destructive" aria-hidden/>
-                                            )}
-                    </span>
+                                        <span className="pointer-events-none absolute inset-x-1 top-0.5 z-10 flex min-w-0 items-center gap-1">
+                                            <span className="truncate text-[10px] font-semibold leading-tight sm:text-xs">
+                                                <span className="tabular-nums">{padChannel(fx.dmxAddress)}</span>
+                                                {" "}
+                                                {fx.name}
+                                            </span>
+                                            {conflict ? (
+                                                <PiWarningCircle
+                                                    className="size-3 shrink-0 text-destructive"
+                                                    aria-hidden
+                                                />
+                                            ) : null}
+                                        </span>
                                     ) : conflict ? (
-                                        <span
-                                            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-destructive">
-                      <PiWarningCircle className="size-3 shrink-0" aria-hidden/>
-                      <span className="sr-only">{t("universe.addressOverlap")}</span>
-                    </span>
+                                        <span className="pointer-events-none absolute left-0.5 top-0.5 z-10 inline-flex items-center">
+                                            <PiWarningCircle className="size-3 shrink-0 text-destructive" aria-hidden/>
+                                            <span className="sr-only">{t("universe.addressOverlap")}</span>
+                                        </span>
                                     ) : null}
                                 </button>
                             );
