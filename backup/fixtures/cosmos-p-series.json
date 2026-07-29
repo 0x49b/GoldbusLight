@@ -2,7 +2,7 @@
   "version": 2,
   "type": "colorChanger",
   "brand": "Cosmos",
-  "name": "P-Series [1]",
+  "name": "P-Series",
   "dmxAddress": 111,
   "movingHead": {
     "maxPan": 540,
@@ -12,7 +12,7 @@
     {
       "channel": 1,
       "type": "dimmer",
-      "defaultValue": 128,
+      "defaultValue": 255,
       "properties": {
         "max": 255,
         "min": 1
@@ -21,7 +21,7 @@
     {
       "channel": 2,
       "type": "custom",
-      "defaultValue": 255,
+      "defaultValue": 0,
       "properties": {
         "entries": [
           {
@@ -39,7 +39,7 @@
     {
       "channel": 3,
       "type": "custom",
-      "defaultValue": 255,
+      "defaultValue": 0,
       "properties": {
         "entries": [
           {
@@ -57,7 +57,7 @@
     {
       "channel": 4,
       "type": "custom",
-      "defaultValue": 255,
+      "defaultValue": 0,
       "properties": {
         "entries": [
           {
@@ -112,7 +112,7 @@
     {
       "channel": 7,
       "type": "custom",
-      "defaultValue": 102,
+      "defaultValue": 1,
       "properties": {
         "entries": [
           {
@@ -169,7 +169,7 @@
     {
       "channel": 8,
       "type": "custom",
-      "defaultValue": 30,
+      "defaultValue": 255,
       "properties": {
         "entries": [
           {
@@ -178,7 +178,7 @@
             "to": 255
           }
         ],
-        "label": "Macro Speed",
+        "label": "Speed",
         "liveSliderLabel": "percent",
         "liveWidget": "slider",
         "partyInclude": false

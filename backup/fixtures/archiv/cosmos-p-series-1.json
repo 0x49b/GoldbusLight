@@ -106,13 +106,13 @@
         "label": "Strobe",
         "liveSliderLabel": "percent",
         "liveWidget": "slider",
-        "partyInclude": true
+        "partyInclude": false
       }
     },
     {
       "channel": 7,
       "type": "custom",
-      "defaultValue": 0,
+      "defaultValue": 102,
       "properties": {
         "entries": [
           {
@@ -169,7 +169,7 @@
     {
       "channel": 8,
       "type": "custom",
-      "defaultValue": 255,
+      "defaultValue": 30,
       "properties": {
         "entries": [
           {
@@ -179,6 +179,7 @@
           }
         ],
         "label": "Macro Speed",
+        "liveSliderLabel": "percent",
         "liveWidget": "slider",
         "partyInclude": false
       }
