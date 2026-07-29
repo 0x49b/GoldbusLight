@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "type": "colorChanger",
   "brand": "Cosmos",
   "name": "P-Series",
@@ -147,7 +147,7 @@
           },
           {
             "from": 221,
-            "label": "sound Mode 2",
+            "label": "Sound Mode 2",
             "to": 230
           },
           {
@@ -189,5 +189,73 @@
     "strobeEnabled": false,
     "strobeOnMs": 120,
     "strobeOffMs": 500
+  },
+  "liveLayout": {
+    "version": 4,
+    "tiles": [
+      {
+        "id": "preview",
+        "col": 0,
+        "w": 2,
+        "y": 0,
+        "heightPx": 280
+      },
+      {
+        "id": "ch-1",
+        "col": 2,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-5",
+        "col": 3,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-2",
+        "col": 4,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-3",
+        "col": 5,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-4",
+        "col": 6,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-6",
+        "col": 7,
+        "w": 1,
+        "y": 0,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-8",
+        "col": 0,
+        "w": 1,
+        "y": 288,
+        "heightPx": 240
+      },
+      {
+        "id": "ch-7",
+        "col": 1,
+        "w": 3,
+        "y": 288,
+        "heightPx": 180
+      }
+    ]
   }
 }
