@@ -1,6 +1,5 @@
 {
   "title": "Party Mode",
-  "description": "Configure WLED and DMX party behaviour separately.",
   "online": "Online",
   "offline": "Offline",
   "running": "Running",

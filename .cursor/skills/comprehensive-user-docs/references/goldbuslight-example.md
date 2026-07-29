@@ -72,7 +72,7 @@ requirements-docs.txt
 | `frontend/src/components/layout/AppShell.tsx` | Sidebar tree, exact labels, status dots |
 | `frontend/src/types/controller.ts` | All settings fields, DMX types, party config |
 | `../../../../frontend/src/components/settings/SettingsView.tsx` | Every settings tab control |
-| `frontend/src/components/party/PartyModeView.tsx` | Party sliders, audio, smoke |
+| `../../../../frontend/src/components/settings/components/party/PartyModeView.tsx` | Party sliders, audio, smoke |
 | `frontend/src/components/dmx/DMXUniverseView.tsx` | Grid, drag readdress, emergency |
 | `frontend/src/components/dmx/DMXFixtureEditorView.tsx` | Editor/live/presets tabs |
 | `.github/workflows/release.yml` | Pages deploy + `stable/update.json` |

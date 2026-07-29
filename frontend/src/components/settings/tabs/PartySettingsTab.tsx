@@ -1,4 +1,4 @@
-import {PartyModeView} from "@/components/party/PartyModeView.tsx";
+import {PartyModeView} from "@/components/settings/components/party/PartyModeView.tsx";
 import type {
     DMXFixture,
     DMXPartyAudioInputDevice,
@@ -29,7 +29,7 @@ export function PartySettingsTab({
     onUpdateConfig,
     onStart,
     onStop,
-}: PartySettingsTabProps) {
+}: Readonly<PartySettingsTabProps>) {
     return (
         <div className="space-y-5">
             <PartyModeView

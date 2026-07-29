@@ -17,7 +17,7 @@ import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {TransferList} from "@/components/scenes/TransferList";
-import {PartyTargetsPicker} from "@/components/party/PartyTargetsPicker";
+import {PartyTargetsPicker} from "@/components/settings/components/party/PartyTargetsPicker";
 import type {
     DMXFixture,
     LightingScene,

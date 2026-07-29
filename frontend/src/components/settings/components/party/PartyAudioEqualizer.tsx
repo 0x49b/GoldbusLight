@@ -1,6 +1,6 @@
 import {useTranslation} from "react-i18next";
 import type {DMXPartyAudioFeatures} from "@/types/controller.ts";
-import {cn} from "@/lib/utils";
+import {cn} from "@/lib/utils.ts";
 
 type PartyAudioEqualizerProps = {
     audio: DMXPartyAudioFeatures;

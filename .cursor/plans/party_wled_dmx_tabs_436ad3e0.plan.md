@@ -21,7 +21,7 @@ isProject: false
 
 ## Approach
 
-Refactor [`frontend/src/components/party/PartyModeView.tsx`](frontend/src/components/party/PartyModeView.tsx) only (UI layout). No backend or config schema changes — Intensity / Speed / Color variation remain shared config fields but are shown in both tabs where they apply.
+Refactor [`../../frontend/src/components/settings/components/party/PartyModeView.tsx`](frontend/src/components/party/PartyModeView.tsx) only (UI layout). No backend or config schema changes — Intensity / Speed / Color variation remain shared config fields but are shown in both tabs where they apply.
 
 Use existing shadcn [`Tabs`](frontend/src/components/ui/tabs.tsx).
 

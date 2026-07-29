@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {useTranslation} from "react-i18next";
-import * as GoldbusLightService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
+import * as GoldbusLightService from "../../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import {Button} from "@/components/ui/button.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Slider} from "@/components/ui/slider.tsx";

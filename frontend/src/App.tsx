@@ -33,7 +33,7 @@ function App() {
 
     if (isDetachedConsoleWindow) {
         return (
-            <main className="min-h-screen p-4 bg-background">
+            <main className="flex h-dvh flex-col bg-background p-4">
                 <TransportConsolePanel
                     entries={app.consoleEntries}
                     onClear={app.onClearConsole}

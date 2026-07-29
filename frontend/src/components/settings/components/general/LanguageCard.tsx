@@ -13,7 +13,7 @@ import {
     type LocalePreference,
     resolveLocale,
     setLocalePreference,
-} from "@/i18n/localePreference";
+} from "@/i18n/localePreference.ts";
 
 const LANGUAGE_OPTIONS = [
     {value: "system", labelKey: "language.options.system"},

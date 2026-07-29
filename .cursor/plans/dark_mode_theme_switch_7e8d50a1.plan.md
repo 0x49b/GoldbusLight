@@ -47,7 +47,7 @@ flowchart LR
 
 ### 2. Settings → General UI
 
-- Add [`frontend/src/components/settings/components/AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx) mirroring [`WindowDisplayCard.tsx`](frontend/src/components/settings/components/WindowDisplayCard.tsx):
+- Add [`../../frontend/src/components/settings/components/general/AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx) mirroring [`WindowDisplayCard.tsx`](frontend/src/components/settings/components/WindowDisplayCard.tsx):
   - Card title: **Appearance**
   - Label: **Color mode**
   - shadcn `Select` with options: **System** (`system`), **Light** (`light`), **Dark** (`dark`)
@@ -77,7 +77,7 @@ Light `:root` tokens stay as they are.
 |------|--------|
 | [`frontend/src/main.tsx`](frontend/src/main.tsx) | Mount `ThemeProvider` |
 | [`frontend/index.html`](frontend/index.html) | FOUC script + `suppressHydrationWarning` |
-| [`frontend/src/components/settings/components/AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx) | New Select card |
+| [`../../frontend/src/components/settings/components/general/AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx) | New Select card |
 | [`frontend/src/components/settings/tabs/GeneralSettingsTab.tsx`](frontend/src/components/settings/tabs/GeneralSettingsTab.tsx) | Insert Appearance card |
 | [`frontend/src/index.css`](frontend/src/index.css) | Tune `.dark` surface tokens |
 

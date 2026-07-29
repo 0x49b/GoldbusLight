@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "exportedAt": "2026-07-29T08:16:31.669288Z",
+  "exportedAt": "2026-07-29T08:16:56.223609Z",
   "scene": {
-    "name": "Weisses Licht",
+    "name": "Gold",
     "wled": [
       {
         "deviceId": "ccdba7df183c",
         "deviceName": "WLED Test Strip",
         "address": "192.168.178.68",
-        "presetName": "Weiss",
+        "presetName": "Gold",
         "state": {
           "AudioReactive": {
             "on": false
@@ -38,9 +38,9 @@
               "cct": 127,
               "col": [
                 [
-                  220,
-                  230,
-                  255
+                  255,
+                  179,
+                  0
                 ],
                 [
                   0,
@@ -88,42 +88,6 @@
         }
       }
     ],
-    "dmx": [
-      {
-        "fixtureId": "fixture-1784205479219079000",
-        "fixtureBrand": "Cosmos",
-        "fixtureName": "[1] P-Series",
-        "cueLabel": "Weiss",
-        "values": {
-          "1": 255,
-          "2": 0,
-          "3": 0,
-          "4": 0,
-          "5": 255,
-          "6": 0,
-          "7": 5,
-          "8": 30
-        }
-      },
-      {
-        "fixtureId": "fixture-1779184904523861896",
-        "fixtureBrand": "Idealight",
-        "fixtureName": "[1] Spot 575",
-        "cueLabel": "White",
-        "values": {
-          "1": 128,
-          "10": 0,
-          "11": 16,
-          "13": 100,
-          "14": 5,
-          "2": 128,
-          "4": 232,
-          "5": 11,
-          "6": 8,
-          "7": 13,
-          "9": 5
-        }
-      }
-    ]
+    "dmx": null
   }
 }

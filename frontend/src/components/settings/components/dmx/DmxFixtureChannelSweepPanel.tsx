@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label.tsx";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
 import i18n from "@/i18n";
-import * as GoldbusLightService from "../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
-import { DMXOutputUpdate } from "../../../../bindings/goldbus/internal/dmx";
+import * as GoldbusLightService from "../../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
+import { DMXOutputUpdate } from "../../../../../bindings/goldbus/internal/dmx";
 import type { ControllerSettings, DMXChannel, DMXFixture, USBSerialDevice } from "@/types/controller.ts";
 
 function clampDmxByte(v: number): number {

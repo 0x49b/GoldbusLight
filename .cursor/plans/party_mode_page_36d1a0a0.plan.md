@@ -78,7 +78,7 @@ flowchart LR
 
 ## 2. New Party page UI
 
-**New file:** `frontend/src/components/party/PartyModeView.tsx`  
+**New file:** `../../frontend/src/components/settings/components/party/PartyModeView.tsx`  
 **Refactor from:** [`DMXPartyPanel.tsx`](frontend/src/components/dmx/DMXPartyPanel.tsx) (keep or delete old file after migration)
 
 Layout (top to bottom):

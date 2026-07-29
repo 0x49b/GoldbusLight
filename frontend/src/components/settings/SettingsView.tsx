@@ -242,103 +242,104 @@ export function SettingsView({
                     </TabsList>
                 </div>
 
-                <div className="touch-pan-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-px pt-0.5 pb-8">
-                    <TabsContent value="general">
-                        <GeneralSettingsTab
-                            applyResult={applyResult}
-                            busy={busy}
-                            currentVersion={currentVersion}
-                            updatesSupported={updatesSupported}
-                            settings={settings}
-                            updateSettings={updateSettings}
-                            onExportConfigurationBackup={onExportConfigurationBackup}
-                            onImportConfigurationBackup={onImportConfigurationBackup}
-                            onCheckForUpdates={onCheckForUpdates}
-                            setError={setError}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="wled">
-                        <WledSettingsTab
-                            settings={settings}
-                            updateSettings={updateSettings}
-                            flushAutosaveNow={flushAutosaveNow}
-                            updateStatePayloadText={updateStatePayloadText}
-                            updateConfigPatchText={updateConfigPatchText}
-                            disableAccessPointNow={disableAccessPointNow}
-                            busy={busy}
-                            onApplyNetwork={() => void applyNetworkSettingsNow()}
-                            onRefreshSnapshot={onRefreshSnapshot}
-                            statePayloadText={statePayloadText}
-                            configPatchText={configPatchText}
-                            ignoredDevices={ignoredDevices}
-                            onUnignoreDevice={onUnignoreDevice}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="dmx">
-                        <DmxSettingsTab
-                            settings={settings}
-                            updateSettings={updateSettings}
-                            updateUniverseArtNet={updateUniverseArtNet}
-                            flushAutosaveNow={flushAutosaveNow}
-                            busy={busy}
-                            dmxState={dmxState}
-                            dmxEnabled={dmxEnabled}
-                            dmxPartyRunning={dmxPartyRunning}
-                            usbSerialDevices={usbSerialDevices}
-                            onRefreshUSBSerialDevices={onRefreshUSBSerialDevices}
-                            onSelectUSBSerialDevice={onSelectUSBSerialDevice}
-                            startDMXLiveOutput={startDMXLiveOutput}
-                            setError={setError}
-                        />
-                    </TabsContent>
-
-                    {(wledEnabled || dmxEnabled) && (
-                        <TabsContent value="party">
-                            <PartySettingsTab
-                                fixtures={dmxState.fixtures}
-                                wledDevices={partyWledDevices}
-                                party={party}
+                <div className="relative min-h-0 flex-1 overflow-hidden">
+                    <div className="touch-pan-scroll absolute inset-0 space-y-5 overflow-y-auto px-px pt-0.5 pb-2">
+                        <TabsContent value="general">
+                            <GeneralSettingsTab
+                                applyResult={applyResult}
                                 busy={busy}
-                                audioInputDevices={partyAudioInputDevices}
-                                onRefreshAudioDevices={onRefreshPartyAudioDevices}
-                                onUpdateConfig={onUpdatePartyConfig}
-                                onStart={onStartParty}
-                                onStop={onStopParty}
+                                currentVersion={currentVersion}
+                                updatesSupported={updatesSupported}
+                                settings={settings}
+                                updateSettings={updateSettings}
+                                onExportConfigurationBackup={onExportConfigurationBackup}
+                                onImportConfigurationBackup={onImportConfigurationBackup}
+                                onCheckForUpdates={onCheckForUpdates}
+                                setError={setError}
                             />
                         </TabsContent>
-                    )}
 
-                    {!consoleDetached && (
-                        <TabsContent value="console">
-                            <ConsoleSettingsTab
-                                entries={consoleEntries}
-                                onClear={onClearConsole}
-                                onToggleDetach={onToggleConsoleDetach}
+                        <TabsContent value="wled">
+                            <WledSettingsTab
+                                settings={settings}
+                                updateSettings={updateSettings}
+                                flushAutosaveNow={flushAutosaveNow}
+                                updateStatePayloadText={updateStatePayloadText}
+                                updateConfigPatchText={updateConfigPatchText}
+                                disableAccessPointNow={disableAccessPointNow}
+                                busy={busy}
+                                onApplyNetwork={() => void applyNetworkSettingsNow()}
+                                onRefreshSnapshot={onRefreshSnapshot}
+                                statePayloadText={statePayloadText}
+                                configPatchText={configPatchText}
+                                ignoredDevices={ignoredDevices}
+                                onUnignoreDevice={onUnignoreDevice}
                             />
                         </TabsContent>
-                    )}
 
-                    {snapshot && (
-                        <p className="text-xs opacity-60">
-                            <Trans
-                                i18nKey="persistence.line"
-                                t={t}
-                                values={{
-                                    path: snapshot.persistencePath,
-                                    backendLabel: snapshot.capabilities.networkBackendLabel,
-                                    backendId: snapshot.capabilities.networkBackendId,
-                                    cliName: snapshot.capabilities.networkCliName || t("persistence.cliUnknown"),
-                                }}
-                                components={[<code key="path"/>, <code key="cli"/>]}
+                        <TabsContent value="dmx">
+                            <DmxSettingsTab
+                                settings={settings}
+                                updateSettings={updateSettings}
+                                updateUniverseArtNet={updateUniverseArtNet}
+                                flushAutosaveNow={flushAutosaveNow}
+                                busy={busy}
+                                dmxState={dmxState}
+                                dmxEnabled={dmxEnabled}
+                                dmxPartyRunning={dmxPartyRunning}
+                                usbSerialDevices={usbSerialDevices}
+                                onRefreshUSBSerialDevices={onRefreshUSBSerialDevices}
+                                onSelectUSBSerialDevice={onSelectUSBSerialDevice}
+                                startDMXLiveOutput={startDMXLiveOutput}
+                                setError={setError}
                             />
-                            {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
-                                className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
-                        </p>
-                    )}
+                        </TabsContent>
+
+                        {(wledEnabled || dmxEnabled) && (
+                            <TabsContent value="party">
+                                <PartySettingsTab
+                                    fixtures={dmxState.fixtures}
+                                    wledDevices={partyWledDevices}
+                                    party={party}
+                                    busy={busy}
+                                    audioInputDevices={partyAudioInputDevices}
+                                    onRefreshAudioDevices={onRefreshPartyAudioDevices}
+                                    onUpdateConfig={onUpdatePartyConfig}
+                                    onStart={onStartParty}
+                                    onStop={onStopParty}
+                                />
+                            </TabsContent>
+                        )}
+
+                        {!consoleDetached && (
+                            <TabsContent value="console" className="h-full min-h-0">
+                                <ConsoleSettingsTab
+                                    entries={consoleEntries}
+                                    onClear={onClearConsole}
+                                    onToggleDetach={onToggleConsoleDetach}
+                                />
+                            </TabsContent>
+                        )}
+                    </div>
                 </div>
             </Tabs>
+            {snapshot && (
+                <p className="shrink-0 pt-2 text-xs opacity-60">
+                    <Trans
+                        i18nKey="persistence.line"
+                        t={t}
+                        values={{
+                            path: snapshot.persistencePath,
+                            backendLabel: snapshot.capabilities.networkBackendLabel,
+                            backendId: snapshot.capabilities.networkBackendId,
+                            cliName: snapshot.capabilities.networkCliName || t("persistence.cliUnknown"),
+                        }}
+                        components={[<code key="path"/>, <code key="cli"/>]}
+                    />
+                    {snapshot.capabilities.networkControlAvailable ? "" : snapshot.capabilities.networkCliUnavailableReason && <> — <span
+                        className="opacity-90">{snapshot.capabilities.networkCliUnavailableReason}</span></>}
+                </p>
+            )}
         </div>
     );
 }

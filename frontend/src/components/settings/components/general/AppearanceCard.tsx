@@ -9,8 +9,8 @@ import {
 import {useTheme} from "next-themes";
 import {useEffect, useState} from "react";
 import {useTranslation} from "react-i18next";
-import {LanguageCard} from "@/components/settings/components/LanguageCard.tsx";
-import {WindowDisplayCard} from "@/components/settings/components/WindowDisplayCard.tsx";
+import {LanguageCard} from "@/components/settings/components/general/LanguageCard.tsx";
+import {WindowDisplayCard} from "@/components/settings/components/general/WindowDisplayCard.tsx";
 
 const COLOR_MODES = [
     {value: "system", labelKey: "appearance.modes.system"},

@@ -76,7 +76,7 @@ Optionally extend the existing FOUC script in [`frontend/index.html`](frontend/i
 
 ## 2. Settings UI
 
-Add [`frontend/src/components/settings/components/LanguageCard.tsx`](frontend/src/components/settings/components/LanguageCard.tsx) mirroring [`AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx):
+Add [`../../frontend/src/components/settings/components/general/LanguageCard.tsx`](frontend/src/components/settings/components/LanguageCard.tsx) mirroring [`AppearanceCard.tsx`](frontend/src/components/settings/components/AppearanceCard.tsx):
 
 - Title / help / label via `t(...)`
 - Select: **System** (`system`), **English** (`en`), **Deutsch** (`de`) — language names stay in their native form

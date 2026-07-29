@@ -4,9 +4,9 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx
 import {Input} from "@/components/ui/input.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Switch} from "@/components/ui/switch.tsx";
-import {GetCompanionStatus} from "../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
+import {GetCompanionStatus} from "../../../../../bindings/goldbus/internal/service/goldbuslightservice.ts";
 import type {CompanionSettings, CompanionStatus, ControllerSettings} from "@/types/controller.ts";
-import type {SettingsUpdater} from "../settingsTypes";
+import type {SettingsUpdater} from "../../settingsTypes.ts";
 
 type CompanionSettingsCardProps = {
     settings: ControllerSettings;
@@ -88,8 +88,6 @@ export function CompanionSettingsCard({settings, updateSettings, busy}: Companio
                 <CardTitle className="text-sm font-semibold">{t("companion.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <p className="text-sm opacity-70">{t("companion.description")}</p>
-
                 <div className="flex items-center justify-left gap-3">
                     <Switch
                         id="companion-enabled"
@@ -148,7 +146,6 @@ export function CompanionSettingsCard({settings, updateSettings, busy}: Companio
                                 <p className="text-xs text-muted-foreground">{t("companion.qrHint")}</p>
                             </div>
                         ) : null}
-                        <p className="text-xs text-muted-foreground">{t("companion.security")}</p>
                     </div>
                 ) : null}
             </CardContent>

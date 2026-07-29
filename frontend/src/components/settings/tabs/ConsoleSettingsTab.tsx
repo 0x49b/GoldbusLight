@@ -11,9 +11,9 @@ export function ConsoleSettingsTab({
     entries,
     onClear,
     onToggleDetach,
-}: ConsoleSettingsTabProps) {
+}: Readonly<ConsoleSettingsTabProps>) {
     return (
-        <div className="space-y-5">
+        <div className="flex h-full min-h-0 flex-col">
             <TransportConsolePanel
                 entries={entries}
                 onClear={onClear}

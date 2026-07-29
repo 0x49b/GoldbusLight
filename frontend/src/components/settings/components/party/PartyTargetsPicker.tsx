@@ -1,8 +1,8 @@
 import {useMemo} from "react";
 import {useTranslation} from "react-i18next";
-import {Button} from "@/components/ui/button";
-import type {DMXFixture, WLEDDevice} from "@/types/controller";
-import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave";
+import {Button} from "@/components/ui/button.tsx";
+import type {DMXFixture, WLEDDevice} from "@/types/controller.ts";
+import {partySelectableFixtures} from "@/lib/dmxFixtureMasterSlave.ts";
 
 type PartyTargetsPickerProps = {
     wledDevices: WLEDDevice[];
