@@ -13,6 +13,7 @@ export class USBSerialDevice {
     "path": string;
     "name": string;
     "description"?: string;
+
     /**
      * Protocol is a UI hint for the likely USB DMX framing ("enttec-pro", "open-dmx", or "auto").
      */

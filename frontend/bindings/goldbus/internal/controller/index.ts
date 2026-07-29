@@ -5,6 +5,7 @@ export {
     AccessPointSettings,
     AddWLEDDeviceInput,
     ArtNetSettings,
+    CompanionSettings,
     ControllerCapabilities,
     ControllerSettings,
     ControllerSnapshot,

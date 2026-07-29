@@ -5,3 +5,7 @@ import * as GoldbusLightService from "./goldbuslightservice.js";
 export {
     GoldbusLightService
 };
+
+export {
+    CompanionStatus
+} from "./models.js";
