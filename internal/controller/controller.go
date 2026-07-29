@@ -1068,6 +1068,7 @@ func (c *WLEDController) SetDeviceState(ctx context.Context, deviceID string, st
 	}
 	device.LastState = mergeStateIntoLastState(device.LastState, state)
 	c.devices[deviceID] = device
+	c.clearActiveSceneLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 
@@ -1114,6 +1115,7 @@ func (c *WLEDController) SetGlobalState(ctx context.Context, state map[string]an
 		latest.LastState = mergeStateIntoLastState(latest.LastState, state)
 		c.devices[id] = latest
 	}
+	c.clearActiveSceneLocked()
 	c.updated = time.Now()
 	c.mu.Unlock()
 
@@ -1987,6 +1989,16 @@ func (c *WLEDController) ApplyDMXLivePatch(updates []dmx.DMXOutputUpdate) error 
 	}
 	for universeID := range changedUniverses {
 		c.fanOutUniverseFrameLocked(universeID)
+	}
+	if changedCount > 0 {
+		c.mu.Lock()
+		cleared := c.clearActiveSceneLocked()
+		c.mu.Unlock()
+		if cleared {
+			if err := c.persist(); err != nil {
+				c.logger.Printf("persist after clearing active scene on live patch: %v", err)
+			}
+		}
 	}
 	if c.console != nil && changedCount > 0 {
 		now := time.Now()

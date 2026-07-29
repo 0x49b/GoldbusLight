@@ -100,7 +100,16 @@ export function ScenesView({
             if (partyRunning || startingParty) {
                 return;
             }
-        } else if (activeSceneId === scene.id || applyingId === scene.id) {
+            setPendingActivateId(scene.id);
+            return;
+        }
+        if (applyingId === scene.id || applyingId != null || startingParty) {
+            return;
+        }
+        // Re-apply the already-active scene immediately (no confirmation).
+        if (activeSceneId === scene.id) {
+            setApplyingId(scene.id);
+            void onApply(scene.id).finally(() => setApplyingId(null));
             return;
         }
         setPendingActivateId(scene.id);
@@ -202,7 +211,7 @@ export function ScenesView({
                         const isBusyActivating = isApplying || (isPartyScene && startingParty);
                         const isCurrent = isPartyScene ? isPartyActive : isActive;
                         const disabled =
-                            busy || isBusyActivating || isCurrent || applyingId != null || startingParty;
+                            busy || isBusyActivating || (isPartyScene && isCurrent) || applyingId != null || startingParty;
                         return (
                             <button
                                 key={scene.id}

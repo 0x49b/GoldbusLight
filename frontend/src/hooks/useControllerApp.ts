@@ -504,6 +504,16 @@ export function useControllerApp() {
         return () => window.clearInterval(timer);
     }, [pullSnapshot]);
 
+    // Refresh snapshot when opening Scenes so companion/manual clears of activeSceneId are visible.
+    useEffect(() => {
+        if (route.kind !== "scenes") {
+            return;
+        }
+        void pullSnapshot().catch(() => {
+            /* ignore — background poll will retry */
+        });
+    }, [route.kind, pullSnapshot]);
+
     useEffect(() => {
         void pullPartyAudioInputDevices().catch(() => {
             setPartyAudioInputDevices([]);
@@ -1514,6 +1524,7 @@ export function useControllerApp() {
         });
         try {
             await GoldbusLightService.ApplyDMXLivePatch(updates);
+            setSnapshot((prev) => clearActiveSceneInSnapshot(prev));
             await pullDMXLiveStatus();
         } catch (err) {
             const errMsg = String(err);
@@ -1522,7 +1533,7 @@ export function useControllerApp() {
             }
             await pullDMXLiveStatus();
         }
-    }, [pullDMXLiveStatus, setError]);
+    }, [pullDMXLiveStatus, setError, setSnapshot]);
 
     const queueDmxLivePatch = useCallback(
         (entries: Array<{ address: number; value: number; universeId?: string }>, universeId = "universe-1") => {
@@ -1835,6 +1846,7 @@ export function useControllerApp() {
             pendingUiPatchRef.current = {patch: state, atMs: Date.now()};
             void (async () => {
                 await GoldbusLightService.SetDeviceState(deviceID, state);
+                setSnapshot((prev) => clearActiveSceneInSnapshot(prev));
                 if (!skipFollowupDetailReload) {
                     await pullSnapshot();
                     if (route.kind === "device" && route.id === deviceID) {
@@ -1846,7 +1858,7 @@ export function useControllerApp() {
                 setError(String(err));
             });
         },
-        [ensureWLEDEnabled, loadDeviceDetail, pullSnapshot, route],
+        [ensureWLEDEnabled, loadDeviceDetail, pullSnapshot, route, setSnapshot],
     );
 
     useEffect(() => {
@@ -2201,6 +2213,7 @@ function applyGlobalPatchToSnapshot(
     }
     return {
         ...snapshot,
+        activeSceneId: "",
         devices: snapshot.devices.map((device) => {
             if (device.ignored) {
                 return device;
@@ -2212,6 +2225,13 @@ function applyGlobalPatchToSnapshot(
             };
         }),
     };
+}
+
+function clearActiveSceneInSnapshot(snapshot: ControllerSnapshot | null): ControllerSnapshot | null {
+    if (!snapshot || !snapshot.activeSceneId) {
+        return snapshot;
+    }
+    return {...snapshot, activeSceneId: ""};
 }
 
 function applyStatePatch(current: JSONMap, patch: JSONMap): JSONMap {

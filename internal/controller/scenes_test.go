@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"path/filepath"
 	"testing"
+
+	"goldbus/internal/dmx"
 )
 
 func TestLightingSceneExportImportRoundTrip(t *testing.T) {
@@ -162,5 +165,130 @@ func TestUpdateLightingSceneStoresPartyTargets(t *testing.T) {
 	}
 	if len(updated.PartyFixtureIDs) != 1 || updated.PartyFixtureIDs[0] != "fx-1" {
 		t.Fatalf("party fixtures = %+v", updated.PartyFixtureIDs)
+	}
+}
+
+func newSceneTestController(t *testing.T) *WLEDController {
+	t.Helper()
+	dir := t.TempDir()
+	c := NewWLEDController(log.New(io.Discard, "", 0))
+	c.persistence = &StatePersistenceManager{path: filepath.Join(dir, defaultStateFileName)}
+	c.generalTabPersistence = &GeneralTabStatePersistenceManager{path: filepath.Join(dir, generalTabStateFileName)}
+	c.dmxPersistence = &DMXPersistenceManager{path: filepath.Join(dir, dmxStateFileName)}
+	c.dmxLiveLayoutPersistence = &DMXFixtureLiveLayoutPersistenceManager{path: filepath.Join(dir, dmxFixtureLiveLayoutsFileName)}
+	return c
+}
+
+func TestSetDeviceStateClearsActiveScene(t *testing.T) {
+	c := newSceneTestController(t)
+	sim := newSimulatedWLEDDevice()
+	sim.Presets = []WLEDDevicePreset{{
+		ID:    "preset-1",
+		Name:  "Warm",
+		State: map[string]any{"on": true, "bri": 200},
+	}}
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.settings.WLED.Testing.SimulateWLED = true
+	c.devices = map[string]WLEDDevice{sim.ID: sim}
+	c.scenes = []LightingScene{{
+		ID:   "scene-1",
+		Name: "Look",
+		WLED: []SceneWLEDEntry{{DeviceID: sim.ID, PresetID: "preset-1"}},
+	}}
+	c.activeSceneID = "scene-1"
+	c.mu.Unlock()
+
+	if err := c.SetDeviceState(context.Background(), sim.ID, map[string]any{"bri": 50}); err != nil {
+		t.Fatalf("SetDeviceState: %v", err)
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.activeSceneID != "" {
+		t.Fatalf("activeSceneID = %q, want empty after manual WLED edit", c.activeSceneID)
+	}
+}
+
+func TestApplyDMXLivePatchClearsActiveScene(t *testing.T) {
+	c := newSceneTestController(t)
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.DMX.Enabled = true
+	c.dmxState = defaultDMXState()
+	c.activeSceneID = "scene-1"
+	c.mu.Unlock()
+
+	c.dmxLiveMu.Lock()
+	c.dmxLiveRunning = true
+	rt := c.dmxLiveRuntime(DefaultDMXUniverseID)
+	rt.usbFrames = make(chan [512]byte, 1)
+	rt.buf[0] = 10
+	c.dmxLiveMu.Unlock()
+
+	if err := c.ApplyDMXLivePatch([]dmx.DMXOutputUpdate{{
+		UniverseID: DefaultDMXUniverseID,
+		Address:    1,
+		Value:      200,
+	}}); err != nil {
+		t.Fatalf("ApplyDMXLivePatch: %v", err)
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.activeSceneID != "" {
+		t.Fatalf("activeSceneID = %q, want empty after live patch", c.activeSceneID)
+	}
+}
+
+func TestApplyLightingSceneSetsActiveSceneAfterMutations(t *testing.T) {
+	c := newSceneTestController(t)
+	sim := newSimulatedWLEDDevice()
+	sim.Presets = []WLEDDevicePreset{{
+		ID:    "preset-1",
+		Name:  "Warm",
+		State: map[string]any{"on": true, "bri": 200},
+	}}
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.settings.WLED.Testing.SimulateWLED = true
+	c.settings.DMX.Enabled = true
+	c.devices = map[string]WLEDDevice{sim.ID: sim}
+	c.dmxState = defaultDMXState()
+	c.dmxState.Fixtures = []DMXFixture{{
+		ID:         "fx-1",
+		Brand:      "Acme",
+		Name:       "Spot",
+		DMXAddress: 1,
+		Type:       DMXFixtureTypeMovingHead,
+		SceneCues:  []DMXFixtureCue{{ID: "cue-1", Label: "Home", Values: map[string]int{"1": 128}}},
+	}}
+	c.dmxPersistEnabled = true
+	c.scenes = []LightingScene{{
+		ID:   "scene-1",
+		Name: "Warm Stage",
+		WLED: []SceneWLEDEntry{{DeviceID: sim.ID, PresetID: "preset-1"}},
+		DMX:  []SceneDMXEntry{{FixtureID: "fx-1", CueID: "cue-1"}},
+	}}
+	c.activeSceneID = ""
+	c.mu.Unlock()
+
+	c.dmxLiveMu.Lock()
+	c.dmxLiveRunning = true
+	rt := c.dmxLiveRuntime(DefaultDMXUniverseID)
+	rt.usbFrames = make(chan [512]byte, 1)
+	c.dmxLiveMu.Unlock()
+
+	if err := c.ApplyLightingScene(context.Background(), "scene-1"); err != nil {
+		t.Fatalf("ApplyLightingScene: %v", err)
+	}
+
+	snap := c.Snapshot()
+	if snap.ActiveSceneID != "scene-1" {
+		t.Fatalf("ActiveSceneID = %q, want scene-1 after apply", snap.ActiveSceneID)
 	}
 }

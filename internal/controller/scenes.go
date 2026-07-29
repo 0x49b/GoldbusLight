@@ -361,6 +361,17 @@ func (c *WLEDController) ApplyLightingScene(ctx context.Context, id string) erro
 	return nil
 }
 
+// clearActiveSceneLocked clears activeSceneID if set. Caller must hold c.mu.
+// Returns true when the ID was non-empty and cleared.
+func (c *WLEDController) clearActiveSceneLocked() bool {
+	if c.activeSceneID == "" {
+		return false
+	}
+	c.activeSceneID = ""
+	c.updated = time.Now()
+	return true
+}
+
 // SetDefaultLightingScene marks a scene as the startup default. Pass an empty id to clear.
 func (c *WLEDController) SetDefaultLightingScene(id string) error {
 	id = strings.TrimSpace(id)
