@@ -1,0 +1,50 @@
+---
+description: When the user asks to tag the repo, create and push the next vX.Y.Z tag
+alwaysApply: true
+---
+
+# Version tagging
+
+When the user asks to **tag** the repository (e.g. "tag the repo", "create a tag", "cut a release tag"), do the following — do **not** invent a version or skip the push unless they say so.
+
+## Steps
+
+1. Fetch remote tags so local knowledge is current:
+   ```bash
+   git fetch origin --tags
+   ```
+2. Find the highest existing tag matching `vMAJOR.MINOR.PATCH` (e.g. `v0.0.55`).
+3. Compute the **next** tag by bumping the **patch** segment by 1 (default).  
+   Example: `v0.0.55` → `v0.0.56`.  
+   Only bump minor/major if the user explicitly requests it.
+4. Create an annotated tag on the current `HEAD`:
+   ```bash
+   git tag -a "vX.Y.Z" -m "vX.Y.Z"
+   ```
+5. Push the tag to origin:
+   ```bash
+   git push origin "vX.Y.Z"
+   ```
+6. Confirm the created tag name and that the push succeeded.
+
+## Rules
+
+- Tag format is always `v` + semver: `v0.0.0` (no bare numbers, no `V` prefix, no suffixes unless the user asks).
+- Never retag or move an existing tag; never force-push tags.
+- Do not create a tag if the working tree has uncommitted changes the user has not asked to include — tag whatever `HEAD` currently is after they confirm, or ask first if unclear.
+- Do not also create a GitHub Release unless the user asks for that separately.
+
+## Examples
+
+```
+// ❌ BAD
+git tag 0.0.56
+git tag v0.1.0   # when user did not ask for a minor bump and latest was v0.0.55
+git push --tags --force
+
+// ✅ GOOD
+git fetch origin --tags
+# latest is v0.0.55 → next is v0.0.56
+git tag -a v0.0.56 -m "v0.0.56"
+git push origin v0.0.56
+```
