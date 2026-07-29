@@ -1,4 +1,4 @@
-import {Trans, useTranslation} from "react-i18next";
+import {useTranslation} from "react-i18next";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Switch} from "@/components/ui/switch.tsx";
