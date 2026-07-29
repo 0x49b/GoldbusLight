@@ -63,8 +63,12 @@ import type {
 import {ButtonGroup} from "../ui/button-group";
 import {DMXEmergencyButton} from "./DMXEmergencyButton";
 import {DMXOutputIndicator} from "./DMXOutputIndicator";
-import {liveTileIdsForFixture} from "@/lib/dmxFixtureLiveLayout";
-import {copyFixtureLiveLayoutDocument} from "@/lib/dmxFixtureLiveLayoutStorage";
+import {liveTileIdsForFixture, type LiveLayoutDocument} from "@/lib/dmxFixtureLiveLayout";
+import {
+    copyFixtureLiveLayoutDocument,
+    loadFixtureLiveLayoutDocument,
+    saveFixtureLiveLayoutDocument,
+} from "@/lib/dmxFixtureLiveLayoutStorage";
 import {DMXFixtureLiveControls} from "./DMXFixtureLiveControls";
 import {DMXFixtureCueSequenceEditor} from "./DMXFixtureCueSequenceEditor";
 import {ColorSweepPanel} from "./ColorSweepPanel";
@@ -283,6 +287,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
     const [partyCueSequence, setPartyCueSequence] = useState<DMXFixtureCueSequence>({});
     const [colorSweep, setColorSweep] = useState<DMXColorSweep>({});
     const [saveHint, setSaveHint] = useState<string | null>(null);
+    const [pendingLiveLayout, setPendingLiveLayout] = useState<LiveLayoutDocument | null>(null);
     const [pageMode, setPageMode] = useState<FixturePageMode>(props.fixture ? "live" : "editor");
     const [editLayout, setEditLayout] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -339,6 +344,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeOffMs(Math.max(20, props.fixture.party?.strobeOffMs ?? 500));
             setPartyCueSequence(props.fixture.party?.cueSequence ? {...props.fixture.party.cueSequence} : {});
             setColorSweep(props.fixture.colorSweep ? {...props.fixture.colorSweep} : {});
+            setPendingLiveLayout(null);
             setSaveHint(null);
             return;
         }
@@ -357,6 +363,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         setPartyStrobeOffMs(500);
         setColorSweep({});
         setPartyCueSequence({});
+        setPendingLiveLayout(null);
     }, [props.fixture?.id, props.fixture?.updatedAt, props.defaultUniverseId]);
 
     useEffect(() => {
@@ -577,6 +584,10 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         const input = buildDraftInput(true);
         const saved = props.fixture ? await props.onUpdate(input) : await props.onCreate(input);
         if (saved) {
+            if (!props.fixture && pendingLiveLayout) {
+                await saveFixtureLiveLayoutDocument(saved.id, pendingLiveLayout);
+                setPendingLiveLayout(null);
+            }
             props.onOpenFixture(saved.id);
         }
     };
@@ -651,7 +662,8 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
         }
         setSaveHint(null);
         const input = buildDraftInput(false);
-        const payload = buildDMXFixtureConfigPayload(input);
+        const liveLayout = await loadFixtureLiveLayoutDocument(props.fixture.id);
+        const payload = buildDMXFixtureConfigPayload(input, liveLayout);
         const contents = `${JSON.stringify(payload, null, 2)}\n`;
         const filename = safeDMXFixtureConfigFilename(input.brand, input.name);
 
@@ -711,6 +723,7 @@ export function DMXFixtureEditorView(props: DMXFixtureEditorViewProps) {
             setPartyStrobeOffMs(Math.max(20, impParty?.strobeOffMs ?? 500));
             setPartyCueSequence(impParty?.cueSequence ? {...impParty.cueSequence} : {});
             setColorSweep(parsed.input.colorSweep ? {...parsed.input.colorSweep} : {});
+            setPendingLiveLayout(parsed.liveLayout ?? null);
             setPageMode("editor");
             setSaveHint(t("fixture.hints.importedOk"));
         } catch (e) {

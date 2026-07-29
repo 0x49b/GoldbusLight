@@ -102,9 +102,13 @@ Pan, tilt, dimmer, RGB components, color wheel, gobo wheel, shutter/strobe, focu
 3. Review channels and address in **Editor**
 4. Click **Save**
 
+If the file includes a `liveLayout` (fixture export version 3+), those Live-tab control tile positions are applied when you save the new fixture.
+
 ### Export
 
-**⋮ → Export** — saves fixture JSON via native file dialog.
+**⋮ → Export** — saves fixture JSON via native file dialog, including the current Live-tab layout when one is stored for that fixture.
+
+Full configuration backup also restores all live layouts via `dmx-fixture-live-layouts.json` — see [Backup & restore](../settings/backup-restore.md).
 
 ### Clone
 

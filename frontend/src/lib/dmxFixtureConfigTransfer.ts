@@ -7,8 +7,12 @@ import type {
     JSONMap,
     UpsertDMXFixtureInput,
 } from "@/types/controller";
+import {
+    type LiveLayoutDocument,
+    parseLiveLayoutDocument,
+} from "./dmxFixtureLiveLayout";
 
-const FIXTURE_CONFIG_VERSION = 2;
+const FIXTURE_CONFIG_VERSION = 3;
 
 const FIXTURE_TYPES = new Set<DMXFixtureType>([
     "colorChanger",
@@ -86,10 +90,11 @@ export type DMXFixtureConfigPayload = {
     channels: DMXChannel[];
     party?: DMXFixtureParty;
     colorSweep?: DMXColorSweep;
+    liveLayout?: LiveLayoutDocument;
 };
 
 export type ParseDMXFixtureConfigResult =
-    | { ok: true; input: UpsertDMXFixtureInput }
+    | { ok: true; input: UpsertDMXFixtureInput; liveLayout?: LiveLayoutDocument }
     | { ok: false; error: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -205,7 +210,10 @@ function parsePartyRecord(raw: Record<string, unknown>): DMXFixtureParty | undef
     return out;
 }
 
-export function buildDMXFixtureConfigPayload(input: UpsertDMXFixtureInput): DMXFixtureConfigPayload {
+export function buildDMXFixtureConfigPayload(
+    input: UpsertDMXFixtureInput,
+    liveLayout?: LiveLayoutDocument | null,
+): DMXFixtureConfigPayload {
     const payload: DMXFixtureConfigPayload = {
         version: FIXTURE_CONFIG_VERSION,
         type: input.type,
@@ -237,6 +245,18 @@ export function buildDMXFixtureConfigPayload(input: UpsertDMXFixtureInput): DMXF
             };
         }
     }
+    if (liveLayout && Array.isArray(liveLayout.tiles) && liveLayout.tiles.length > 0) {
+        payload.liveLayout = {
+            version: liveLayout.version,
+            tiles: liveLayout.tiles.map((t) => ({
+                id: t.id,
+                col: t.col,
+                w: t.w,
+                y: t.y,
+                heightPx: t.heightPx,
+            })),
+        };
+    }
     return payload;
 }
 
@@ -246,7 +266,7 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
     }
 
     const fileVersion = finiteNumber(value.version);
-    if (fileVersion !== 1 && fileVersion !== 2) {
+    if (fileVersion !== 1 && fileVersion !== 2 && fileVersion !== 3) {
         return { ok: false, error: "Fixture file version is not supported." };
     }
 
@@ -289,13 +309,14 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
     }
 
     let party: DMXFixtureParty | undefined;
-    if (fileVersion === 2 && "party" in value && isRecord(value.party)) {
+    if (fileVersion != null && fileVersion >= 2 && "party" in value && isRecord(value.party)) {
         party = parsePartyRecord(value.party);
     }
 
     let colorSweep: DMXColorSweep | undefined;
     if (
-        fileVersion === 2 &&
+        fileVersion != null &&
+        fileVersion >= 2 &&
         value.type === "colorChanger" &&
         "colorSweep" in value &&
         isRecord(value.colorSweep)
@@ -317,6 +338,14 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
         }
     }
 
+    let liveLayout: LiveLayoutDocument | undefined;
+    if (fileVersion != null && fileVersion >= 3 && "liveLayout" in value && value.liveLayout != null) {
+        const parsed = parseLiveLayoutDocument(JSON.stringify(value.liveLayout));
+        if (parsed && parsed.tiles.length > 0) {
+            liveLayout = parsed;
+        }
+    }
+
     return {
         ok: true,
         input: {
@@ -330,6 +359,7 @@ export function parseDMXFixtureConfigPayload(value: unknown): ParseDMXFixtureCon
             ...(party ? {party} : {}),
             ...(colorSweep ? {colorSweep} : {}),
         },
+        ...(liveLayout ? {liveLayout} : {}),
     };
 }
 
