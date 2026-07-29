@@ -10,9 +10,10 @@ This manual describes how to install, configure, and operate the application fro
 |------|----------------|
 | **WLED** | Add WLED devices by IP address, control individual segments, apply global color/effect presets, auto-provision new devices |
 | **DMX** | Configure fixtures, patch the universe, drive lights over USB (Enttec Pro) or Art-Net, live manual control, cue sequences |
-| **Party mode** | Automated or audio-reactive shows across selected WLED devices and DMX fixtures, including smoke/hazer bursts |
+| **Scenes** | One-tap recall of WLED presets and DMX scene cues, plus a designated party scene |
+| **Party mode** | Automated or audio-reactive shows across selected WLED devices and DMX fixtures, including smoke/hazer bursts (**Settings → Party**) |
 | **Phone companion** | Mobile web UI for pre-show DMX focus and WLED adjustments while walking the stage |
-| **Settings** | Wi-Fi access point, backup/restore, transport console, channel sweep test tool |
+| **Settings** | Appearance, Wi-Fi access point, backup/restore, transport console, channel sweep test tool |
 
 ## Supported platforms
 
@@ -32,7 +33,7 @@ Raspberry Pi releases are published as `GoldbusLight-linux-arm64` on [GitHub Rel
 3. Open **Settings** and enable the components you need (**WLED**, **DMX**, or both).
 4. For WLED: click **+** next to **Devices** and add each device by **IPv4 address**.
 5. For DMX: connect a USB-DMX interface or configure Art-Net in Settings, then create fixtures with the **+** button.
-6. Open **Party** to run an automated or audio-reactive show.
+6. Open **Settings → Party** to run an automated or audio-reactive show, or build looks under **Scenes**.
 
 ## Documentation map
 
@@ -49,7 +50,7 @@ Raspberry Pi releases are published as `GoldbusLight-linux-arm64` on [GitHub Rel
 
 ## Updates
 
-On **Raspberry Pi**, application updates are installed from the shell with the unified Pi script (not the in-app updater):
+On **Raspberry Pi**, application updates are installed from the shell with the unified Pi script (not an in-app updater):
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh update --latest
@@ -57,4 +58,4 @@ sudo ./scripts/goldbuslight-pi.sh update --latest
 
 See [Raspberry Pi installation](installation/raspberry-pi.md#updating-to-a-new-release) for install, boot autostart, and recovery commands.
 
-On **desktop** platforms, **Settings → General → Check for updates** opens the built-in updater when a newer release is available. The app also reads update metadata from GitHub Pages at `/stable/update.json`.
+On **desktop** platforms, download a newer release from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases). The site also publishes update metadata at `/stable/update.json` for tooling that reads it.

@@ -27,17 +27,17 @@ Both USB and Art-Net can be active simultaneously; live output fans out to all e
 | [Universe view](universe.md) | Sidebar → Universe | Address grid, conflicts, drag readdress, output indicator |
 | [Fixtures](fixtures.md) | Sidebar → DMX Devices | Create, import, channel editor |
 | [Live mode](live-mode.md) | Fixture → Live tab | Manual control, 3D preview, layout editor |
-| [Cues & sequences](presets.md) | Fixture → Cues tab | Saved poses, show generation, party cue chase |
+| [Cues & sequences](presets.md) | Fixture → **Party cues** / **Scene cues** | Saved poses, show generation, party cue chase |
 
 ## DMX output lifecycle
 
 1. Configure fixtures and addresses
-2. Enable DMX and select a USB and/or Art-Net interface — output starts automatically (**DMX Output - ON**)
+2. Enable DMX and select a USB and/or Art-Net interface — output starts automatically (the **DMX** badge turns green)
 3. Adjust channels on **Live** tabs, apply scenes, or start party automation
 4. Use **Blackout** for an instant all-channel zero (streaming continues with zeros)
 
 !!! tip "Output indicator"
-    **DMX Output - ON/OFF** on Universe, fixture pages, and Scenes is a status indicator only. It does not start or stop sending.
+    The **DMX** badge on Universe, fixture pages, and Scenes is a status indicator only (green = sending, rose = not). It does not start or stop sending.
 
 ## Party mode integration
 

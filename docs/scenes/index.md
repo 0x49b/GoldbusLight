@@ -2,7 +2,7 @@
 
 **Scenes** are named looks you can recall with one tap. A scene can apply WLED presets and DMX scene cues together, or act as a **party mode scene** that starts automated party lighting on selected targets.
 
-Open **Sidebar → Scenes** (visible when WLED and/or DMX is enabled).
+Open **Sidebar → Scenes** (visible when WLED and/or DMX is enabled). This is the default page when the app starts.
 
 ## Overview
 
@@ -11,21 +11,30 @@ Open **Sidebar → Scenes** (visible when WLED and/or DMX is enabled).
 | **Standard scene** | Applies stored WLED presets and DMX **scene cues** (static poses) |
 | **Party scene** | Starts **party mode** on the WLED and DMX targets you configure for that scene |
 
-Scenes and party mode are **mutually exclusive at runtime**: applying a standard scene stops party mode; starting party (from the Party page or a party scene) clears the active standard scene.
+Scenes and party mode are **mutually exclusive at runtime**: applying a standard scene stops party mode; starting party (from **Settings → Party** or a party scene) clears the active standard scene.
 
 ## Apply a scene
 
 1. Open **Sidebar → Scenes**.
-2. Tap a **standard** scene card to apply it.
+2. Tap a **standard** scene card.
+3. Confirm **Switch scene** if prompted (the dialog warns if party mode will stop).
 
-The card shows an **Active** badge while that scene is applied. Counts under the name show how many WLED devices and DMX fixtures are included.
+The card shows an **Active** badge while that scene is applied. Counts under the name show how many WLED devices and DMX fixtures are included. While applying, the card may show **· Applying…**.
+
+### Re-apply the active scene
+
+Tap the already-**Active** standard scene again to re-apply it immediately — no confirmation dialog. Use this after lights drifted or after someone adjusted a fixture by hand.
+
+### Active badge clears on manual edits
+
+When you change WLED or DMX output manually (for example on a device page or fixture **Live** tab), the controller clears the **Active** badge. There is no separate Clear button — the badge simply disappears until you apply a scene again.
 
 !!! tip "DMX output"
-    If a scene includes DMX fixtures, a USB or Art-Net interface must be configured under **Settings → DMX**. When an interface is ready, the app sends DMX automatically — the **DMX Output - ON/OFF** indicator on the Scenes header shows whether packets are being sent. Applying a scene uses that live output.
+    If a scene includes DMX fixtures, a USB or Art-Net interface must be configured under **Settings → DMX**. When an interface is ready, the app sends DMX automatically — the **DMX** badge on the Scenes header turns green while packets are being sent. Applying a scene uses that live output.
 
 ## Manage scenes
 
-Click **Manage** to create, edit, import, export, or delete scenes.
+Click **Manage** to create, edit, import, export, or delete scenes. Use **Back to scenes** to return to the grid.
 
 ### Name
 
@@ -50,7 +59,7 @@ Enable **Party mode scene** to designate this scene as the single party scene in
 When party mode is enabled for a scene:
 
 - The standard WLED preset and DMX scene-cue editors are hidden.
-- **Party targets** appear instead — the same style of checkbox lists used on the [Party mode](../party-mode/index.md) page.
+- **Party targets** appear instead — transfer lists matching the style used on [Party mode](../party-mode/index.md).
 
 #### Party targets
 
@@ -67,14 +76,14 @@ When **Party mode scene** is off:
 
 #### WLED devices
 
-Use the transfer list to include devices, then pick a **preset** per device (presets are created on each device’s page).
+Use the transfer list (**Available** / **Included**) to include devices, then pick a **preset** per device (presets are created on each device’s page with **Save current**).
 
 #### DMX fixtures
 
 Use the transfer list to include fixtures, then pick a **scene cue** per fixture.
 
 !!! note "Scene cues vs party cues"
-    Scenes use each fixture’s **Scene cues** tab (static poses). Party mode uses separate party tuning and cue sequences on the fixture editor — not scene cues.
+    Scenes use each fixture’s **Scene cues** tab (static poses). Party mode uses separate party tuning and cue sequences on the **Party cues** tab — not scene cues.
 
 ### Import and export
 
@@ -86,29 +95,26 @@ Click **Save scene** or **Create scene** to persist changes.
 
 ## Start party from a scene
 
-When a scene is the designated **party scene**, its card shows a **Party** badge and a **Start party** button.
+When a scene is the designated **party scene**, its card shows a **Party** badge.
 
 1. Open **Sidebar → Scenes**.
 2. Find the scene with the **Party** badge.
-3. Click **Start party**.
+3. Tap the card.
+4. Confirm **Start party** in the **Start party mode?** dialog.
 
-The controller copies that scene’s party targets into party mode configuration and starts the party engine. Sliders, mode (auto/audio), and other party settings come from the [Party mode](../party-mode/index.md) page — adjust them there before or between runs.
+The controller copies that scene’s party targets into party mode configuration and starts the party engine. Sliders, mode (auto/audio), and other party settings come from **Settings → Party** — adjust them there before or between runs.
 
-| Button state | Meaning |
-|--------------|---------|
-| **Start party** | Ready — at least one target should be selected on the scene |
-| **Starting…** | Party is launching |
-| **Party running** | Party is active (button disabled until you stop party) |
+While party is launching, the card may show **· Starting…**. While party is already running, the party scene card is disabled until you stop party.
 
-Stop party from **Sidebar → Party** with **Stop Party**, or use **Blackout** from the universe view.
+Stop party from **Settings → Party** with **Stop Party**, or use **Blackout** from Scenes, Universe, or a fixture toolbar.
 
 ## Scene card badges
 
 | Badge | Meaning |
 |-------|---------|
 | **Default** | Applied automatically on app startup |
-| **Party** | Designated party scene; use **Start party** |
-| **Active** | Standard scene currently applied |
+| **Party** | Designated party scene; tap the card to start party |
+| **Active** | Standard scene currently applied (or party scene while party is running) |
 
 ## Related topics
 

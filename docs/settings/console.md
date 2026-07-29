@@ -15,28 +15,33 @@ Each entry includes:
 | Field | Example |
 |-------|---------|
 | Timestamp | ISO time |
-| Transport | `wled`, `usb-dmx`, `artnet`, etc. |
-| Direction | `out`, `in`, `info`, `error` |
+| Transport | **WLED**, **USB DMX**, **Art-Net** |
+| Direction | **INFO**, **OUT**, **IN**, **WARNING**, **ERROR** |
 | Target | Device address or adapter |
 | Summary | Short description |
 | Detail | Expandable payload (JSON or hex) |
 
 ## Controls
 
-| Button | Action |
-|--------|--------|
+| Control | Action |
+|---------|--------|
 | **Clear** | Wipe the log buffer |
 | **Detach** | Open console in a separate window |
+| **INFO** / **OUT** / **IN** / **WARNING** / **ERROR** | Direction filter toggles — multi-select; with none selected, all directions show |
+| **Search in logs** | Case-insensitive filter over summary, detail, target, direction, and transport |
+| **Scroll to bottom** | Jump to the latest entry and re-enable smart autoscroll |
+
+Autoscroll pauses when you scroll up to read older entries. Empty states: **No transport activity yet.** or **No matching entries.**
 
 ## Detached window
 
-Detached mode opens **Goldbus Transport Console** in a second window (`/?view=console-window`).
+Detached mode opens the console in a second window (`/?view=console-window`).
 
 | Control | Action |
 |---------|--------|
 | **Attach back** | Close detached window; console returns to Settings tab |
 
-Only one detached console is supported.
+Only one detached console is supported. Direction filters and search work the same in the detached window.
 
 ## Buffer size
 
@@ -54,6 +59,7 @@ The console refreshes from the backend about every **750 ms** while visible.
 | DMX not outputting | USB write errors, Art-Net packet logs |
 | Party stutter | High error rate on audio or DMX transports |
 | After config change | Verify expected commands fire |
+| Noisy log | Narrow with direction toggles and **Search in logs** |
 
 ## Log file
 

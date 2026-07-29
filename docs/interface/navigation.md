@@ -16,12 +16,12 @@ WLED                           [if WLED enabled]
 DMX                            [if DMX enabled]
   Universe
   DMX Devices  [+]
-    <fixture name> - <TYPE>
-
-Party                          [if WLED or DMX enabled]
+    <fixture name>
 
 Settings
 ```
+
+Party mode is **not** a sidebar item. Open it from **Settings → Party**.
 
 ### Header
 
@@ -30,7 +30,7 @@ Settings
 
 ### Scenes section
 
-Visible when **WLED** or **DMX** is enabled. Opens the [Scenes](../scenes/index.md) page.
+Visible when **WLED** or **DMX** is enabled. Opens the [Scenes](../scenes/index.md) page. This is also the default landing page when the app starts.
 
 | Item | Route | Description |
 |------|-------|-------------|
@@ -43,7 +43,7 @@ Visible when **Enable WLED component** is on in Settings.
 | Item | Route | Description |
 |------|-------|-------------|
 | **General** | Global presets for all non-ignored WLED devices |
-| **Devices → *name*** | Per-device detail page (online devices only) |
+| **Devices → *name*** | Per-device detail page |
 | **+** (group action) | **Add WLED device** — enter IPv4 address and port |
 
 Offline devices appear grayed out in the sidebar. **Double-click** or **double-tap** an offline entry to refresh it, or use **Settings → WLED → Refresh**.
@@ -54,8 +54,8 @@ Visible when **Enable DMX component** is on in Settings.
 
 | Item | Route | Description |
 |------|-------|-------------|
-| **Universe** | 512-channel universe grid, drag-to-readdress, DMX output toggle |
-| **DMX Devices → *name* - TYPE*** | Fixture editor / live / cues |
+| **Universe** | 512-channel universe grid, drag-to-readdress, output indicator |
+| **DMX Devices → *name*** | Fixture editor / live / cues (type shown via icon) |
 | **+** (group action) | **Create new DMX device** |
 
 Fixture icons reflect type:
@@ -66,20 +66,14 @@ Fixture icons reflect type:
 
 Slave fixtures (mirroring a master) appear **indented** under their master in the sidebar.
 
-### Party section
-
-Visible when **WLED** or **DMX** is enabled. Opens the [Party mode](../party-mode/index.md) page.
-
-- **Status dot:** Green while party mode is running; neutral when stopped.
-
 ### Settings
 
-Always available at the bottom of the sidebar. Opens [Settings](../settings/index.md) with General, WLED, DMX, and Console tabs.
+Always available at the bottom of the sidebar. Opens [Settings](../settings/index.md) with tabs: **General**, **WLED**, **DMX**, **Party** (when WLED or DMX is on), and **Console**.
 
 ## Main content area
 
 - Scrollable panel with padding
-- **Error banner** at the top when something fails (red alert with **Dismiss**)
+- **Error banner** at the top when something fails (title **Error**, dismiss with **Dismiss error**; auto-dismisses after a few seconds)
 - Page-specific content below
 
 ## Visual indicators
@@ -89,25 +83,27 @@ Always available at the bottom of the sidebar. Opens [Settings](../settings/inde
 When party mode is active (software takes control):
 
 - Animated **violet border** around the entire window — reserved for party mode only
-- Party sidebar item shows a green status dot
 - Fixtures and WLED devices **included in the party** show green dots
 
 Normal automatic DMX output (party off) does **not** show the violet border.
 
 ### DMX live output
 
-When DMX is enabled and a USB or Art-Net interface is attached and ready, the app sends packets automatically. The **DMX Output - ON/OFF** indicator on Universe, fixture pages, and Scenes shows that state.
+When DMX is enabled and a USB or Art-Net interface is attached and ready, the app sends packets automatically. The **DMX** badge on Universe, fixture pages, Scenes, and the companion shows that state:
+
+- **Green** styling — packets are being sent
+- **Rose** styling — not sending
 
 - Fixture entries in the sidebar may show a green dot when live output is connected
 - Universe grid shows green **Live** markers on active fixture blocks; slaves show **Slave**
 
 ### Device loading
 
-Opening a device page may show a loading modal: *Loading device state …* or *Refreshing device …* with an attempt counter while the controller retries unreachable devices.
+Opening a device page may show a loading modal: *Loading…* or *Refreshing…* with an attempt counter while the controller retries unreachable devices.
 
 ## Detached transport console
 
-From **Settings → Console**, you can **Detach** the transport log into a separate window titled **Goldbus Transport Console**. The main Settings page hides the Console tab while detached. Use **Attach back** in the detached window to return the console to Settings.
+From **Settings → Console**, you can **Detach** the transport log into a separate window. The main Settings page hides the Console tab while detached. Use **Attach back** in the detached window to return the console to Settings.
 
 ## Disabled routes
 
@@ -121,4 +117,5 @@ Enable **WLED** or **DMX** under Settings to restore the page.
 
 - Default window size is approximately **1400×788** pixels
 - On Raspberry Pi with `GOLDBUS_FULLSCREEN=1`, the app starts fullscreen
+- From **Settings → General → Window display** you can **Enter fullscreen** / **Exit fullscreen** and **Maximize window** / **Restore window** (when the desktop shell supports it)
 - The controller snapshot refreshes in the background about every 30 seconds to detect devices coming back online

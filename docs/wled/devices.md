@@ -42,6 +42,18 @@ Controls are locked when the device is offline or powered off.
 
 Changes to effect, palette, speed, and intensity apply to the selected segment automatically (throttled to avoid flooding the device).
 
+## Presets
+
+Named presets on the device page are what [Scenes](../scenes/index.md) recall for WLED devices.
+
+| Control | Description |
+|---------|-------------|
+| **Save current** | Store the current look as a named preset (dialog: **Name**, placeholder *Warm lobby*) |
+| **Apply** | Send the selected preset to the device |
+| **Delete** | Remove the selected preset |
+
+If no presets exist yet, the empty hint explains that you can save the current look for use in Scenes.
+
 ## State & configuration (advanced)
 
 When **Settings → WLED → Debug Information → Show WLED debug information** is enabled, a collapsible **State & Config** section appears with raw JSON:
@@ -70,4 +82,4 @@ The name is stored in the controller and used in the sidebar and party targets.
 
 ## Party mode interaction
 
-While party mode runs and includes this device, the device is driven by the party engine. Stop party mode to resume manual control from this page or General presets.
+While party mode runs and includes this device, the device is driven by the party engine. Stop party mode (**Settings → Party → Stop Party**) to resume manual control from this page or General presets.

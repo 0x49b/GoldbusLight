@@ -12,15 +12,22 @@ Or import an existing profile on the new-fixture page.
 
 **Sidebar → DMX Devices → *fixture name***
 
-Existing fixtures open on the **Live** tab by default. Switch tabs: **Live**, **Cues**, **Editor**.
+Existing fixtures open on the **Live** tab by default. Switch tabs: **Live**, **Party cues**, **Scene cues**, **Editor**.
+
+| Tab | Purpose |
+|-----|---------|
+| **Live** | Manual control, layout editor, Color Sweep, 3D preview |
+| **Party cues** | Poses and chase sequences for party mode (hidden for smoke / color changer) |
+| **Scene cues** | Static poses recalled by [Scenes](../scenes/index.md) (hidden for smoke) |
+| **Editor** | Identity, channels, party tuning, Color Sweep |
 
 ## Fixture toolbar (existing fixtures)
 
 | Control | Description |
 |---------|-------------|
-| **Live / Cues / Editor** | View tabs |
+| **Live / Party cues / Scene cues / Editor** | View tabs |
 | **Blackout** | Stop party and set all DMX channels to 0% (output keeps streaming) |
-| **DMX Output - ON/OFF** | Read-only indicator — whether packets are being sent |
+| **DMX** badge | Read-only — green when packets are being sent, rose when not |
 | **Party active** | Shown when party controls this fixture; opens Settings → Party |
 | **Edit layout** | Live tab only — rearrange control tiles |
 | **Save** | Persist fixture (disabled while live output is connected on Editor) |
@@ -112,7 +119,10 @@ Full configuration backup also restores all live layouts via `dmx-fixture-live-l
 
 ### Clone
 
-**⋮ → Clone** — duplicates the fixture with a new ID; adjust name and address.
+**⋮ → Clone** — duplicates the fixture with a new ID and copies the Live-tab layout; adjust name and address.
+
+!!! note "What export does not include"
+    Fixture JSON export does **not** include party cues or scene cues. Those stay with the fixture database and travel in a full [configuration backup](../settings/backup-restore.md).
 
 ### Delete
 
@@ -138,5 +148,5 @@ Moving head gobo wheels can pick images from a built-in Rosco-style catalog (`/g
 ## Save behavior
 
 - Editor changes require **Save**
-- **Save** is disabled while live output is connected (**DMX Output - ON**) to prevent inconsistent patches
-- For major structural edits, disconnect or clear the USB/Art-Net interface in **Settings → DMX** so **DMX Output** shows **OFF**, then edit and **Save**
+- **Save** is disabled while live output is connected (**DMX** badge green) to prevent inconsistent patches
+- For major structural edits, disconnect or clear the USB/Art-Net interface in **Settings → DMX** so the **DMX** badge is not green, then edit and **Save**

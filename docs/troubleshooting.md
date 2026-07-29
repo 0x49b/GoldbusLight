@@ -29,7 +29,7 @@ Common issues and fixes for Goldbus Light Controller.
 1. **Settings → DMX → Enable DMX component**
 2. USB: enable **Enable USB transport**, select adapter under **DMX interface**, click **Refresh USB devices**
 3. Art-Net: enable **Enable Art-Net**, verify target IP and Art-Net universe
-4. Confirm the toolbar shows **DMX Output - ON** (automatic when an interface is ready). If it stays **OFF**, the interface is not attached, selected, or enabled
+4. Confirm the toolbar **DMX** badge is green (automatic when an interface is ready). If it stays rose, the interface is not attached, selected, or enabled
 5. Check **Transport console** for write errors
 
 ### USB device not listed
@@ -45,7 +45,7 @@ Official LED behaviour ([ENTTEC user manual](https://support.enttec.com/user-man
 | LED | Meaning |
 |-----|---------|
 | Blinks once on plug-in, then off | Power-on; idle until software sends DMX |
-| Blinks continuously | DMX is actively being sent or received — expected while **DMX Output - ON** |
+| Blinks continuously | DMX is actively being sent or received — expected while the **DMX** badge is green |
 | Always off while output should be on | Host is not successfully driving the widget (wrong framing, port busy, or no stream) |
 | Solid on (no blink) | Error mode — restore/reflash with [ENTTEC EMU](https://www.enttec.com/), then re-select the device here |
 
@@ -65,9 +65,11 @@ Use **Settings → DMX → channel sweep** to step through channels and note map
 
 ## Party mode
 
+Open party controls from **Settings → Party**.
+
 ### Start Party disabled
 
-Select at least one WLED or DMX target.
+Select at least one WLED, DMX, or smoke target on the **WLED**, **DMX**, or **Smoke** tabs.
 
 ### Manual live controls do nothing
 
@@ -75,7 +77,7 @@ Party mode blocks manual patches. **Stop Party** first.
 
 ### Audio mode — no signal
 
-1. **Refresh devices** on Party page
+1. **Refresh devices** on **Settings → Party**
 2. Reselect audio input (Linux uses PulseAudio source names)
 3. Install `pipewire-utils` and `pulseaudio-utils` on Linux
 4. Verify `pactl get-default-source` and `pw-record --version`
@@ -91,8 +93,19 @@ Party mode blocks manual patches. **Stop Party** first.
 ### Smoke bursts not running
 
 - Ensure smoke/hazer fixture type is configured
+- Open the **Smoke** tab under **Settings → Party**
 - **Burst volume** must be &gt; 0 for automatic atmosphere fixtures
 - Check fixture fog/channel mapping in Editor
+
+## Scenes
+
+### Active badge disappeared
+
+Manual WLED or DMX edits clear the active scene. Tap the scene card again to re-apply (no confirmation if it was already active).
+
+### Party scene card does nothing
+
+While party is already running, the party scene card is disabled. Stop party from **Settings → Party**, then tap the card again.
 
 ## Raspberry Pi
 
@@ -108,7 +121,7 @@ Set `GOLDBUS_FULLSCREEN=0` in `/etc/default/goldbuslight` to test windowed mode.
 
 ### Update failed
 
-If the app vanished after using **Check for updates** in the UI, the Wails updater may have left only `GoldbusLight.bak` in `/opt/goldbuslight/`. Recover with:
+If the app vanished after a failed in-app update attempt, the Wails updater may have left only `GoldbusLight.bak` in `/opt/goldbuslight/`. Recover with:
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh fix

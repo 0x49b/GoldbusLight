@@ -10,7 +10,7 @@ When you open the application, you see:
 - A **status line** under the title showing controller state (connectivity, last update, etc.)
 - A **main content area** on the right for the active page
 
-The default page depends on which components are enabled. If WLED is on, you land on **General** (global WLED presets). If only DMX is on, open **Universe** or a fixture from the sidebar.
+The default page is **Scenes** (when WLED and/or DMX is enabled). From there you can apply looks or open **Manage** to create scenes.
 
 ## Enable components
 
@@ -40,7 +40,7 @@ See [WLED overview](wled/index.md) for full detail.
 1. **Settings → DMX** — enable the component.
 2. Connect a USB-DMX adapter and configure it under **Settings → DMX**, or enable **Art-Net**.
 3. Click **+** next to **DMX Devices** to create a fixture (or import a JSON profile).
-4. Open **Universe** to verify addressing — when an interface is ready, **DMX Output - ON** appears automatically.
+4. Open **Universe** to verify addressing — when an interface is ready, the **DMX** badge turns green automatically.
 5. Open a fixture and use the **Live** tab for manual control.
 
 See [DMX overview](dmx/index.md) for full detail.
@@ -50,17 +50,18 @@ See [DMX overview](dmx/index.md) for full detail.
 1. Configure WLED devices and DMX fixtures as above.
 2. Optionally tune per-fixture party behavior in each fixture’s **Editor** tab.
 3. Either:
-   - Open **Party** from the sidebar, select targets, and click **Start Party**, or
-   - Open **Scenes → Manage**, create a **Party mode scene** with party targets, then use **Start party** on the Scenes grid.
-4. Choose **Auto show** or **Audio reactive** and adjust sliders on the Party page.
+   - Open **Settings → Party**, select targets on the **WLED** / **DMX** / **Smoke** tabs, and click **Start Party**, or
+   - Open **Scenes → Manage**, create a **Party mode scene** with party targets, then tap the party scene card on the Scenes grid and confirm **Start party**.
+4. Choose **Auto show** or **Audio reactive** and adjust sliders on **Settings → Party**.
 
 See [Party mode](party-mode/index.md) and [Scenes](scenes/index.md) for full detail.
 
 ### Recall a saved look (scenes)
 
 1. Open **Sidebar → Scenes**.
-2. Tap a scene card to apply WLED presets and DMX scene cues together.
-3. Use **Manage** to create scenes, set a startup default, or configure a party scene.
+2. Tap a scene card to apply WLED presets and DMX scene cues together (confirm if prompted).
+3. Tap the **Active** scene again to re-apply without confirmation.
+4. Use **Manage** to create scenes, set a startup default, or configure a party scene.
 
 See [Scenes](scenes/index.md) for party scenes, import/export, and troubleshooting.
 
@@ -73,7 +74,7 @@ See [Backup & restore](settings/backup-restore.md).
 
 ## Blackout (emergency stop)
 
-The red **Blackout** button appears on the DMX **Universe** view and on each fixture’s toolbar. Tooltip: *Stop party mode and blackout all DMX channels to 0% (output keeps streaming)*.
+The red **Blackout** button appears on **Scenes**, the DMX **Universe** view, and each fixture’s toolbar. Tooltip: *Stop party mode and blackout all DMX channels to 0% (output keeps streaming)*.
 
 1. Stops Party mode
 2. Sets all DMX channels to 0% immediately (if live output was active)
@@ -87,8 +88,8 @@ When a fixture’s **Live** tab is focused and party mode is off:
 
 | Key | Action |
 |-----|--------|
-| `1`–`9`, `0` | Recall preset poses 1–10 |
-| `Shift` + `↑` / `↓` | Step to previous / next preset |
+| `1`–`9`, `0` | Recall party cues 1–10 |
+| `Shift` + `↑` / `↓` | Step to previous / next cue |
 
 ## Where data is stored
 

@@ -6,10 +6,44 @@ Open **Sidebar → Settings**. Settings are grouped into tabs and save automatic
 
 | Tab | Contents |
 |-----|----------|
-| **General** | Version, phone companion, configuration backup, network apply results |
+| **General** | Appearance, language, window display, phone companion, configuration backup, network apply results |
 | **WLED** | Component toggle, refresh, access point, provisioning, ignored devices |
 | **DMX** | Component toggle, simulators, global USB transport, USB/Art-Net interface, channel sweep test |
-| **Console** | Transport log (hidden while console is detached) |
+| **Party** | Party mode controls (visible when WLED or DMX is enabled) — see [Party mode](../party-mode/index.md) |
+| **Console** | Transport log with filters and search (hidden while console is detached) |
+
+## General tab
+
+### Appearance
+
+| Setting | Options |
+|---------|---------|
+| **Color mode** | **System**, **Light**, **Dark** |
+
+### Language
+
+| Setting | Options |
+|---------|---------|
+| **Language** | **System**, **English**, **Deutsch** |
+
+### Window display
+
+Desktop shells that support it show:
+
+| Control | Action |
+|---------|--------|
+| **Enter fullscreen** / **Exit fullscreen** | Toggle fullscreen |
+| **Maximize window** / **Restore window** | Maximize or restore the window |
+
+On Raspberry Pi you can also start fullscreen with `GOLDBUS_FULLSCREEN=1` — see [Raspberry Pi installation](../installation/raspberry-pi.md).
+
+### Phone companion
+
+**Enable companion** and set **Port** (default `8765`). See [Phone companion](../companion/index.md).
+
+### Configuration backup
+
+**Export backup** / **Import backup** — see [Backup & restore](backup-restore.md).
 
 ## Footer metadata
 
@@ -24,6 +58,7 @@ At the bottom of Settings:
 - [Backup & restore](backup-restore.md)
 - [Network & access point](network.md)
 - [Transport console](console.md)
+- [Party mode](../party-mode/index.md)
 - [Phone companion](../companion/index.md)
 
 ## Component toggles
@@ -70,7 +105,7 @@ Test tool to identify which physical channel maps to which DMX address.
 
 **Workflow:**
 
-1. Stop party mode
+1. Stop party mode (**Settings → Party → Stop Party**)
 2. Select a fixture
 3. Set sweep speed (1–100%)
 4. Click **Start sweep** — universe blackouts, then each channel sweeps 0→255
@@ -79,14 +114,12 @@ Test tool to identify which physical channel maps to which DMX address.
 
 Shows summary of active USB/Art-Net transports.
 
-## Application version
-
-**General** tab shows the running version.
+## Application updates
 
 | Platform | Update method |
 |----------|---------------|
-| **Desktop** (Linux, macOS, Windows) | **Check for updates** — built-in updater downloads and installs newer releases |
 | **Raspberry Pi** (`/opt/goldbuslight` install) | Shell only — in-app updater is disabled |
+| **Desktop** (Linux, macOS, Windows) | Download a newer binary from [GitHub Releases](https://github.com/0x49b/GoldbusLight/releases), or follow release notes for your platform |
 
 ```bash
 sudo ./scripts/goldbuslight-pi.sh update --latest

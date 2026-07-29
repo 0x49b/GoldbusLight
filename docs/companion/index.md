@@ -7,9 +7,9 @@ The desktop/kiosk app keeps running. Companion does **not** replace Party mode, 
 ## Enable
 
 1. On the kiosk open **Settings → General → Phone companion**.
-2. Turn on **Enable companion web UI**.
+2. Turn on **Enable companion**.
 3. Leave the **Port** at `8765` unless it conflicts with another service.
-4. Wait until the panel shows that the companion is listening, then note the URL(s) or scan the QR code.
+4. Wait until the panel shows that the companion is listening, then note the URL(s) or scan the QR code (**Scan to open the companion app.**).
 
 Settings autosave; the HTTP listener starts within a couple of seconds.
 
@@ -19,14 +19,14 @@ Settings autosave; the HTTP listener starts within a couple of seconds.
    - the controller’s **Wi‑Fi access point** (Settings → WLED → Access point), or
    - the same LAN as the Pi/desktop host.
 2. Open a listed URL in the phone browser (for example `http://10.42.0.1:8765/` on the default NetworkManager shared AP), or scan the QR code.
-3. You should see **Goldbus Companion** with DMX fixtures and WLED devices.
+3. You should see **Goldbus** with DMX fixtures and WLED devices.
 
 !!! tip "AP gateway"
     With the built-in access point (`ipv4.method=shared`), phones usually reach the Pi at **`10.42.0.1`**. Prefer the URL that starts with that address when the AP is enabled.
 
 ## Focus a moving head (typical workflow)
 
-1. On the kiosk, ensure **DMX output is ON** and **Party mode is stopped**.
+1. On the kiosk, ensure the **DMX** badge is green (output sending) and **Party mode is stopped**.
 2. On the phone, open the fixture.
 3. On **Live**, raise dimmer / open shutter, then set **pan**, **tilt**, **focus**, zoom, color, etc.
 4. Enter a cue name and tap **Save cue**.

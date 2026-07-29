@@ -53,7 +53,7 @@ Installs the app under your home directory with a command in `~/.local/bin`:
 | Roll back last update | `sudo ./scripts/goldbuslight-pi.sh rollback` |
 
 !!! warning "Do not use the in-app updater on Pi"
-    On the default install (`/opt/goldbuslight`), **Settings → Check for updates** is disabled because the Wails updater can delete `GoldbusLight` and leave only `GoldbusLight.bak`. Always update with `goldbuslight-pi.sh update <tag>`.
+    On the default install (`/opt/goldbuslight`), do not rely on an in-app updater — it can delete `GoldbusLight` and leave only `GoldbusLight.bak`. Always update with `goldbuslight-pi.sh update <tag>`.
 
 ### First-time install example
 

@@ -1,6 +1,13 @@
 # DMX cues & sequences
 
-The **Cues** tab stores **poses** (snapshots of channel values) and optional **cue sequences** that step through poses during party mode or manual recall.
+Fixtures store two kinds of poses on separate tabs:
+
+| Tab | Used by |
+|-----|---------|
+| **Party cues** | Party mode chase sequences and Live keyboard recall |
+| **Scene cues** | [Scenes](../scenes/index.md) — static looks applied with a scene |
+
+Smoke fixtures hide both cue tabs. Color Changer fixtures hide **Party cues** only.
 
 ## Cue poses
 
@@ -8,25 +15,25 @@ A **cue** captures fixture-relative channel values (offset → 0–255).
 
 | Action | Description |
 |--------|-------------|
-| **Save as cue** | Capture current live values as a new pose |
+| **Create from live** | Capture current live values as a new pose |
 | **Rename** | Edit cue label |
 | **Update from live** | Overwrite cue with current live values |
 | **Reorder** | Change sequence order |
 | **Delete** | Remove cue |
 | **Apply** | Jump fixture to pose (requires live on, party off) |
 
-Per-pose timing overrides:
+Per-pose timing overrides (party cues):
 
 - **Hold (ms)** — dwell time before next pose (overrides sequence default)
 - **Fade (ms)** — crossfade into pose (overrides sequence default)
 
 ## Generate show (moving heads)
 
-**Generate show** adds ten canned moving-head poses (home, sweeps, crosses, etc.) as a starting point for programming.
+On **Party cues**, **Generate show** adds ten canned moving-head poses (home, sweeps, crosses, etc.) as a starting point for programming.
 
-## Cue sequences
+## Cue sequences (Party cues)
 
-Configure how cues play during **party mode** or for idle startup:
+Configure how party cues play during **party mode** or for idle startup:
 
 | Setting | Description |
 |---------|-------------|
@@ -47,18 +54,22 @@ For channels **not** pinned by a cue pose:
 
 Set per-channel behavior in the sequence editor.
 
+## Scene cues
+
+**Scene cues** are static poses only — no chase timing. Create them from live, apply them manually, or pick them when building a standard scene under **Sidebar → Scenes → Manage**.
+
 ## Manual recall
 
-With **DMX Output - ON** and party off:
+With the **DMX** badge green (output sending) and party off:
 
 - Click **Apply** on a cue row
-- Use keyboard `1`–`0` on the Live tab
+- Use keyboard `1`–`0` on the Live tab (party cues 1–10)
 
 ## Party integration
 
 When **Play these cues in party mode** is enabled for a fixture:
 
-- Party mode steps through the cue list using configured timing
+- Party mode steps through the party cue list using configured timing
 - Overrides generative pan/tilt/color algorithm for that fixture
 - Other fixtures can still use generative party unless they also use cue chase
 
