@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 // Service timeout constants for operations
@@ -32,6 +35,16 @@ type GoldbusLightService struct {
 	isConsoleWindowDetached    func() bool
 	backupCallbacks            ConfigurationBackupCallbacks
 	checkForUpdates            func(context.Context) error
+	companionStatus            func() CompanionStatus
+}
+
+// CompanionStatus mirrors remotehttp.CompanionStatus for the Wails UI.
+type CompanionStatus struct {
+	Enabled    bool     `json:"enabled"`
+	Listening  bool     `json:"listening"`
+	Port       int      `json:"port"`
+	URLs       []string `json:"urls"`
+	QRDataURL  string   `json:"qrDataUrl,omitempty"`
 }
 
 type ConsoleWindowCallbacks struct {
@@ -135,6 +148,40 @@ func (g *GoldbusLightService) SaveControllerSettings(settings ctrlpkg.Controller
 		return c.Snapshot(), nil
 	})
 }
+
+// SetCompanionStatusProvider wires the HTTP companion status reporter (called from main).
+func (g *GoldbusLightService) SetCompanionStatusProvider(fn func() CompanionStatus) {
+	g.companionStatus = fn
+}
+
+// GetCompanionStatus returns whether the phone companion is enabled/listening and its URLs.
+func (g *GoldbusLightService) GetCompanionStatus() (CompanionStatus, error) {
+	var st CompanionStatus
+	if g.companionStatus == nil {
+		port := ctrlpkg.DefaultCompanionPort
+		if g.controller != nil {
+			cfg := g.controller.Snapshot().Settings.Companion
+			if cfg.Port > 0 {
+				port = cfg.Port
+			}
+			st = CompanionStatus{
+				Enabled: cfg.Enabled,
+				Port:    port,
+			}
+		} else {
+			st = CompanionStatus{Port: port}
+		}
+	} else {
+		st = g.companionStatus()
+	}
+	if len(st.URLs) > 0 {
+		if png, err := qrcode.Encode(st.URLs[0], qrcode.Medium, 256); err == nil {
+			st.QRDataURL = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+		}
+	}
+	return st, nil
+}
+
 
 func (g *GoldbusLightService) ApplyNetworkSettings() (ctrlpkg.NetworkApplyResult, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.NetworkApplyResult {

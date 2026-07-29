@@ -187,10 +187,39 @@ export class ControllerCapabilities {
     }
 }
 
+export class CompanionSettings {
+    "enabled": boolean;
+    /**
+     * Port is the TCP port to bind (default 8765). Bound on 0.0.0.0.
+     */
+    "port": number;
+
+    /** Creates a new CompanionSettings instance. */
+    constructor($$source: Partial<CompanionSettings> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CompanionSettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CompanionSettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CompanionSettings($$parsedSource as Partial<CompanionSettings>);
+    }
+}
+
 export class ControllerSettings {
     "accessPoint": AccessPointSettings;
     "wled": WLEDSettings;
     "dmx": DMXSettings;
+    "companion": CompanionSettings;
 
     /**
      * Legacy flattened settings kept for migration from persisted v2 state.
@@ -210,6 +239,9 @@ export class ControllerSettings {
         if (!("dmx" in $$source)) {
             this["dmx"] = (new DMXSettings());
         }
+        if (!("companion" in $$source)) {
+            this["companion"] = (new CompanionSettings());
+        }
 
         Object.assign(this, $$source);
     }
@@ -224,6 +256,7 @@ export class ControllerSettings {
         const $$createField3_0 = $$createType3;
         const $$createField4_0 = $$createType4;
         const $$createField5_0 = $$createType5;
+        const $$createField6_0 = CompanionSettings.createFrom;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("accessPoint" in $$parsedSource) {
             $$parsedSource["accessPoint"] = $$createField0_0($$parsedSource["accessPoint"]);
@@ -233,6 +266,9 @@ export class ControllerSettings {
         }
         if ("dmx" in $$parsedSource) {
             $$parsedSource["dmx"] = $$createField2_0($$parsedSource["dmx"]);
+        }
+        if ("companion" in $$parsedSource) {
+            $$parsedSource["companion"] = $$createField6_0($$parsedSource["companion"]);
         }
         if ("discovery" in $$parsedSource) {
             $$parsedSource["discovery"] = $$createField3_0($$parsedSource["discovery"]);

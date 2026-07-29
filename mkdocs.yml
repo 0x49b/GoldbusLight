@@ -54,6 +54,7 @@ nav:
       - Cues & sequences: dmx/presets.md
   - Party mode: party-mode/index.md
   - Scenes: scenes/index.md
+  - Companion (phone): companion/index.md
   - Settings:
       - settings/index.md
       - Backup & restore: settings/backup-restore.md

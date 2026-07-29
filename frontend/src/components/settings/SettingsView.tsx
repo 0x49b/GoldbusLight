@@ -249,6 +249,8 @@ export function SettingsView({
                             busy={busy}
                             currentVersion={currentVersion}
                             updatesSupported={updatesSupported}
+                            settings={settings}
+                            updateSettings={updateSettings}
                             onExportConfigurationBackup={onExportConfigurationBackup}
                             onImportConfigurationBackup={onImportConfigurationBackup}
                             onCheckForUpdates={onCheckForUpdates}

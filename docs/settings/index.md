@@ -6,7 +6,7 @@ Open **Sidebar → Settings**. Settings are grouped into tabs and save automatic
 
 | Tab | Contents |
 |-----|----------|
-| **General** | Version, configuration backup, network apply results |
+| **General** | Version, phone companion, configuration backup, network apply results |
 | **WLED** | Component toggle, refresh, access point, provisioning, ignored devices |
 | **DMX** | Component toggle, simulators, global USB transport, USB/Art-Net interface, channel sweep test |
 | **Console** | Transport log (hidden while console is detached) |
@@ -24,6 +24,7 @@ At the bottom of Settings:
 - [Backup & restore](backup-restore.md)
 - [Network & access point](network.md)
 - [Transport console](console.md)
+- [Phone companion](../companion/index.md)
 
 ## Component toggles
 

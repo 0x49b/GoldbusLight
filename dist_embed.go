@@ -2,6 +2,7 @@ package goldbus
 
 import (
 	"embed"
+	"io/fs"
 	"strings"
 )
 
@@ -23,3 +24,8 @@ func EffectiveAppVersion() string {
 
 //go:embed all:frontend/dist
 var Dist embed.FS
+
+// FrontendDist returns the embedded Vite build root (index.html, companion.html, assets).
+func FrontendDist() (fs.FS, error) {
+	return fs.Sub(Dist, "frontend/dist")
+}

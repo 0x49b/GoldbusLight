@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
-	"goldbus/internal/controller"
+	"io/fs"
 	"log"
 	"os"
 	"sync"
 	"time"
 
 	"goldbus"
+	"goldbus/internal/controller"
 	"goldbus/internal/logging"
+	"goldbus/internal/remotehttp"
 	"goldbus/internal/service"
 	"goldbus/internal/updates"
 
@@ -33,11 +35,22 @@ var applicationQuitting bool
 func main() {
 	defer logging.InitFileLogger()()
 
-	controller := controller.NewWLEDController(log.Default())
-	if err := controller.Start(context.Background()); err != nil {
+	ctrl := controller.NewWLEDController(log.Default())
+	if err := ctrl.Start(context.Background()); err != nil {
 		log.Printf("controller startup failed: %v", err)
 	}
-	defer controller.Stop()
+	defer ctrl.Stop()
+
+	var companionAssets fs.FS
+	if sub, err := goldbus.FrontendDist(); err != nil {
+		log.Printf("companion assets: %v", err)
+	} else {
+		companionAssets = sub
+	}
+	companion := remotehttp.New(ctrl, companionAssets, log.Default())
+	companionCtx, companionCancel := context.WithCancel(context.Background())
+	defer companionCancel()
+	go companion.Run(companionCtx)
 
 	// 1400 x 1020
 	app := application.New(application.Options{
@@ -168,7 +181,7 @@ func main() {
 		Pattern:     "*.json",
 	}
 
-	appService := service.NewGoldbusLightService(controller, service.ConsoleWindowCallbacks{
+	appService := service.NewGoldbusLightService(ctrl, service.ConsoleWindowCallbacks{
 		Open:       openDetachedConsoleWindow,
 		Close:      closeDetachedConsoleWindow,
 		IsDetached: isDetachedConsoleWindow,
@@ -198,6 +211,15 @@ func main() {
 	}, service.UpdateCallbacks{
 		CheckAndInstall: checkAndInstall,
 	})
+	appService.SetCompanionStatusProvider(func() service.CompanionStatus {
+		st := companion.Status()
+		return service.CompanionStatus{
+			Enabled:   st.Enabled,
+			Listening: st.Listening,
+			Port:      st.Port,
+			URLs:      st.URLs,
+		}
+	})
 	app.RegisterService(application.NewService(appService))
 
 	go func() {
@@ -210,7 +232,7 @@ func main() {
 						log.Printf("controller snapshot panic: %v", recovered)
 					}
 				}()
-				app.Event.Emit("controller:snapshot", controller.Snapshot())
+				app.Event.Emit("controller:snapshot", ctrl.Snapshot())
 			}()
 			time.Sleep(time.Second)
 		}
