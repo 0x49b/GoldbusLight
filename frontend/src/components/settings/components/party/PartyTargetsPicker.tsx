@@ -83,6 +83,9 @@ export function PartyTargetsPicker({
                                 onChange={() => toggleWled(device.id)}
                             />
                             <span className="truncate">{device.name}</span>
+                            {!device.online ? (
+                                <span className="shrink-0 text-muted-foreground">({t("offline")})</span>
+                            ) : null}
                         </label>
                     ))}
                     {wledDevices.length === 0 ? (

@@ -162,7 +162,7 @@ export function ScenesEditor({
     );
 
     const partyWledDevices = useMemo(
-        () => devices.filter((device) => device.online && !device.ignored),
+        () => devices.filter((device) => !device.ignored),
         [devices],
     );
 
