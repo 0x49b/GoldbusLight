@@ -47,15 +47,13 @@
   },
   "companion": {
     "title": "Phone companion",
-    "description": "Serve a small mobile website on this host so you can walk the stage and adjust DMX fixtures and WLED from your phone. The kiosk app keeps running.",
-    "enable": "Enable companion web UI",
+    "enable": "Enable companion",
     "port": "Port",
     "listening": "Companion is listening. Join this host’s Wi‑Fi or LAN and open a URL below on your phone.",
     "starting": "Waiting for the companion server to start…",
     "urlHint": "Typical AP address: http://10.42.0.1:{{port}}/",
     "qrAlt": "QR code for companion URL",
-    "qrHint": "Scan with your phone camera to open the companion.",
-    "security": "Anyone on the same Wi‑Fi can control lights. Use a strong AP password."
+    "qrHint": "Scan to open the companion app."
   },
   "backup": {
     "title": "Configuration backup",
@@ -78,7 +76,6 @@
     "enableComponent": "Enable WLED component",
     "disabledHint": "WLED routes, menu entries, and device actions are disabled while this is off.",
     "refresh": "Refresh",
-    "refreshHint": "Refresh pulls the latest controller snapshot from the backend. Add WLED devices from the sidebar.",
     "accessPointTitle": "Access point",
     "applyNetworkSettings": "Apply network settings",
     "enableAccessPoint": "Enable local access point",
@@ -91,12 +88,10 @@
     "apChannel": "Channel",
     "provisioningTitle": "Provisioning",
     "simulateWled": "Simulate WLED device (testing)",
-    "simulateWledHint": "Adds an in-app fake device (<0>sim:wled</0>) with no network traffic.",
     "autoProvision": "Auto-provision newly added devices",
     "defaultStatePayload": "Default /json/state payload",
     "defaultConfigPatch": "Default /json/cfg patch",
     "ignoredDevicesTitle": "Ignored devices",
-    "ignoredDevicesDescription": "Ignored devices stay out of the sidebar and presets but remain in<0> state.json</0>.",
     "noIgnoredDevices": "No ignored devices.",
     "unignore": "Un-ignore",
     "debugInformationTitle": "Debug Information",
@@ -163,8 +158,17 @@
     "detach": "Detach",
     "attachBack": "Attach back",
     "clear": "Clear",
-    "description": "Live commands sent to USB-DMX, Art-Net and WLED transports appear here as they are dispatched.",
     "noActivity": "No transport activity yet.",
+    "noMatches": "No matching entries.",
+    "searchPlaceholder": "Search in logs",
+    "scrollToBottom": "Scroll to bottom",
+    "directions": {
+      "info": "INFO",
+      "out": "OUT",
+      "in": "IN",
+      "warning": "WARNING",
+      "error": "ERROR"
+    },
     "transports": {
       "wled": "WLED",
       "usbDmx": "USB DMX",

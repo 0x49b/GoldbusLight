@@ -46,16 +46,14 @@
     "restore": "Fenster wiederherstellen"
   },
   "companion": {
-    "title": "Telefon-Begleiter",
-    "description": "Stellt eine kleine mobile Website auf diesem Host bereit, damit Sie auf der Bühne DMX-Fixtures und WLED vom Smartphone aus einstellen können. Die Kiosk-App läuft weiter.",
-    "enable": "Begleiter-Web-UI aktivieren",
+    "title": "Mobile Steuerung",
+    "enable": "Mobile-Web-UI aktivieren",
     "port": "Port",
-    "listening": "Begleiter lauscht. Verbinden Sie sich mit dem WLAN/LAN dieses Hosts und öffnen Sie eine der URLs unten auf dem Telefon.",
-    "starting": "Warte auf den Start des Begleiter-Servers…",
+    "listening": "Companion online.",
+    "starting": "Warte auf den Start des Companion-Servers…",
     "urlHint": "Typische AP-Adresse: http://10.42.0.1:{{port}}/",
-    "qrAlt": "QR-Code für Begleiter-URL",
-    "qrHint": "Mit der Telefonkamera scannen, um den Begleiter zu öffnen.",
-    "security": "Jeder im gleichen WLAN kann die Lichter steuern. Nutzen Sie ein starkes AP-Passwort."
+    "qrAlt": "QR-Code für Companion-URL",
+    "qrHint": "Scannen um die Companion App zu öffnen"
   },
   "backup": {
     "title": "Konfigurations-Backup",
@@ -78,7 +76,6 @@
     "enableComponent": "WLED-Komponente aktivieren",
     "disabledHint": "WLED-Routen, Menüeinträge und Geräteaktionen sind deaktiviert, solange diese Option aus ist.",
     "refresh": "Aktualisieren",
-    "refreshHint": "„Aktualisieren“ lädt den neuesten Controller-Snapshot vom Backend. WLED-Geräte fügen Sie über die Seitenleiste hinzu.",
     "accessPointTitle": "Access Point",
     "applyNetworkSettings": "Netzwerkeinstellungen anwenden",
     "enableAccessPoint": "Lokalen Access Point aktivieren",
@@ -91,12 +88,10 @@
     "apChannel": "Kanal",
     "provisioningTitle": "Provisionierung",
     "simulateWled": "WLED-Gerät simulieren (Test)",
-    "simulateWledHint": "Fügt ein in-App simuliertes Gerät (<0>sim:wled</0>) ohne Netzwerkverkehr hinzu.",
     "autoProvision": "Neu hinzugefügte Geräte automatisch provisionieren",
     "defaultStatePayload": "Standard-/json/state-Payload",
     "defaultConfigPatch": "Standard-/json/cfg-Patch",
     "ignoredDevicesTitle": "Ignorierte Geräte",
-    "ignoredDevicesDescription": "Ignorierte Geräte erscheinen weder in der Seitenleiste noch in Presets, bleiben aber in<0> state.json</0> erhalten.",
     "noIgnoredDevices": "Keine ignorierten Geräte.",
     "unignore": "Nicht mehr ignorieren",
     "debugInformationTitle": "Debug-Informationen",
@@ -163,8 +158,17 @@
     "detach": "Abkoppeln",
     "attachBack": "Wieder ankoppeln",
     "clear": "Leeren",
-    "description": "Live-Befehle an USB-DMX-, Art-Net- und WLED-Transporte erscheinen hier, sobald sie gesendet werden.",
     "noActivity": "Noch keine Transport-Aktivität.",
+    "noMatches": "Keine passenden Einträge.",
+    "searchPlaceholder": "Logs durchsuchen",
+    "scrollToBottom": "Nach unten scrollen",
+    "directions": {
+      "info": "INFO",
+      "out": "OUT",
+      "in": "IN",
+      "warning": "WARNING",
+      "error": "ERROR"
+    },
     "transports": {
       "wled": "WLED",
       "usbDmx": "USB DMX",

@@ -11,10 +11,11 @@ import (
 
 const (
 	// Direction values describe the role of an entry.
-	DirectionOut   = "out"
-	DirectionIn    = "in"
-	DirectionInfo  = "info"
-	DirectionError = "error"
+	DirectionOut     = "out"
+	DirectionIn      = "in"
+	DirectionInfo    = "info"
+	DirectionWarning = "warning"
+	DirectionError   = "error"
 
 	// Transport identifiers used by the publishers across the controller.
 	TransportWLED   = "wled"
@@ -88,6 +89,11 @@ func (b *Bus) Info(transport, target, summary string) {
 // Error is a convenience for error entries.
 func (b *Bus) Error(transport, target, summary, detail string) {
 	b.Publish(transport, DirectionError, target, summary, detail)
+}
+
+// Warning is a convenience for non-fatal warning entries.
+func (b *Bus) Warning(transport, target, summary, detail string) {
+	b.Publish(transport, DirectionWarning, target, summary, detail)
 }
 
 // Out is a convenience for outgoing commands.
