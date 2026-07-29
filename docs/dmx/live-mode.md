@@ -87,3 +87,5 @@ Use **Blackout** on the Universe or fixture toolbar to stop party mode and set a
 ## USB device selection
 
 Select the USB adapter under **Settings → DMX**. Global **Enable USB transport** must be on. Click **Refresh USB devices** if you plug in hardware after starting the app. When a valid interface becomes available, **DMX Output** turns **ON** automatically.
+
+The dropdown shows the detected framing (**Enttec Pro**, **Open DMX**, or **auto (probe)**). For an [ENTTEC DMX USB Pro](https://support.enttec.com/user-manuals/dmx-usb-pro), the green LED should blink continuously while output is active; close ENTTEC EMU first if the port is busy.

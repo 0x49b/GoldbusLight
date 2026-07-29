@@ -100,6 +100,7 @@
     "enableUsbTransport": "USB-Transport aktivieren",
     "noDeviceSelected": "Kein Gerät ausgewählt",
     "refreshUsbDevices": "USB-Geräte aktualisieren",
+    "usbProtocolHint": "Die erkannte Übertragung wird neben jedem Gerät angezeigt (Enttec Pro, Open DMX oder Auto-Probe). Enttec Pro / Eurolite PRO / DMXking nutzen Pro-Pakete; Open DMX / Cable-Adapter nutzen BREAK + rohes DMX.",
     "usbDeviceUnavailable": "Ausgewähltes Gerät ist derzeit nicht verfügbar: <0>{{id}}</0>",
     "artNetTitle": "Art-Net-DMX-Schnittstelle",
     "enableArtNet": "Art-Net aktivieren",

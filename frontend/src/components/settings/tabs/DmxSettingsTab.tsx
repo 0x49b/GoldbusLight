@@ -142,7 +142,9 @@ export function DmxSettingsTab({
                             <NativeSelectOption value="">{t("dmxTab.noDeviceSelected")}</NativeSelectOption>
                             {usbSerialDevices.map((device) => (
                                 <NativeSelectOption key={device.id} value={device.id}>
-                                    {device.name} ({device.path})
+                                    {device.protocol
+                                        ? `${device.name} (${device.path}) · ${device.protocol}`
+                                        : `${device.name} (${device.path})`}
                                 </NativeSelectOption>
                             ))}
                         </NativeSelect>
@@ -156,6 +158,7 @@ export function DmxSettingsTab({
                             {t("dmxTab.refreshUsbDevices")}
                         </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">{t("dmxTab.usbProtocolHint")}</p>
                     <div className="space-y-2">
                         {usbDeviceId && !usbSerialDevices.some((device) => device.id === usbDeviceId) && (
                             <p className="text-xs text-destructive">

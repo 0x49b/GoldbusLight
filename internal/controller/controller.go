@@ -1308,11 +1308,15 @@ func simulatedUSBDMXDevice() serial2.USBSerialDevice {
 		Path:        simulatedUSBDMXPath,
 		Name:        simulatedUSBDMXName,
 		Description: "In-process USB DMX simulator",
+		Protocol:    dmx.USBProtocolLabel(dmx.USBProtocolEnttecPro),
 	}
 }
 
 func (c *WLEDController) listUSBSerialDevicesWithSimulators() []serial2.USBSerialDevice {
 	devices := serial2.ListUSBSerialDevices()
+	for i := range devices {
+		devices[i].Protocol = dmx.GuessUSBProtocolLabel(devices[i].Description, devices[i].Name, devices[i].Path)
+	}
 	c.mu.RLock()
 	simUSB := c.settings.DMX.Testing.SimulateUSBDMX
 	c.mu.RUnlock()
@@ -1625,7 +1629,7 @@ func (c *WLEDController) reconcileDMXLiveAdapters() error {
 	return c.reconcileDMXLiveAdaptersLocked()
 }
 
-func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string, enttecPro bool) {
+func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.Port, path string, protocol dmx.USBProtocol) {
 	defer c.dmxLiveUSBWG.Done()
 	defer func() { _ = port.Close() }()
 	defer func() {
@@ -1633,18 +1637,54 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 			c.console.Info(console.TransportUSBDMX, path, "USB DMX worker stopped")
 		}
 	}()
-	frameInterval := time.Second / dmxLiveFrameHz
+	hz := dmx.FrameHzForUSBProtocol(protocol)
+	if hz <= 0 {
+		hz = dmxLiveFrameHz
+	}
+	frameInterval := time.Second / time.Duration(hz)
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
 
 	// Throttle console publishes to one summary per second per worker;
-	// emitting at the 44Hz frame rate would drown the console.
+	// emitting at the frame rate would drown the console.
 	const consoleInterval = time.Second
 	var lastConsoleAt time.Time
-
-	rawFrame := make([]byte, 513)
-	rawFrame[0] = 0
 	var latest [512]byte
+	sendFrame := func() (stop bool) {
+		// Drop any widget→host traffic so the USB RX buffer cannot stall TX
+		// (Enttec Pro may emit Received DMX packets if the port flipped to input).
+		_ = port.ResetInputBuffer()
+
+		var err error
+		packetLabel := "513 bytes Open DMX"
+		switch protocol {
+		case dmx.USBProtocolEnttecPro:
+			err = dmx.WriteFull(port, dmx.BuildEnttecProSendDMXPacket(latest))
+			packetLabel = "518 bytes Enttec Pro"
+		default:
+			err = dmx.WriteOpenDMXFrame(port, latest)
+		}
+		if err != nil {
+			c.logger.Printf("dmx usb write (%s): %v", path, err)
+			c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
+			if c.console != nil {
+				c.console.Error(console.TransportUSBDMX, path, "USB write failed", err.Error())
+			}
+			return c.requestDMXUSBReconnect(path, err)
+		}
+		frameSummary := dmxFrameSummary(latest)
+		if c.console != nil {
+			now := time.Now()
+			if now.Sub(lastConsoleAt) >= consoleInterval {
+				lastConsoleAt = now
+				c.logger.Printf("dmx live: usb frame sent path=%s hz=%d protocol=%s %s", path, hz, protocol, frameSummary)
+				c.console.Out(console.TransportUSBDMX, path,
+					fmt.Sprintf("DMX frame sent (%dHz, %s)", hz, packetLabel),
+					frameSummary)
+			}
+		}
+		return false
+	}
 	for {
 		select {
 		case next, ok := <-frameCh:
@@ -1653,38 +1693,8 @@ func (c *WLEDController) dmxLiveUSBWorker(frameCh <-chan [512]byte, port serial.
 			}
 			latest = next
 		case <-ticker.C:
-			var out []byte
-			if enttecPro {
-				out = dmx.BuildEnttecProSendDMXPacket(latest)
-			} else {
-				copy(rawFrame[1:], latest[:])
-				out = rawFrame
-			}
-			if _, err := port.Write(out); err != nil {
-				c.logger.Printf("dmx usb write (%s): %v", path, err)
-				c.setDMXLiveError(fmt.Sprintf("usb write (%s): %v", path, err))
-				if c.console != nil {
-					c.console.Error(console.TransportUSBDMX, path, "USB write failed", err.Error())
-				}
-				if c.requestDMXUSBReconnect(path, err) {
-					return
-				}
-				continue
-			}
-			frameSummary := dmxFrameSummary(latest)
-			if c.console != nil {
-				now := time.Now()
-				if now.Sub(lastConsoleAt) >= consoleInterval {
-					lastConsoleAt = now
-					packetLabel := "513 bytes"
-					if enttecPro {
-						packetLabel = "518 bytes Enttec Pro"
-					}
-					c.logger.Printf("dmx live: usb frame sent path=%s hz=%d %s", path, dmxLiveFrameHz, frameSummary)
-					c.console.Out(console.TransportUSBDMX, path,
-						fmt.Sprintf("DMX frame sent (%dHz, %s)", dmxLiveFrameHz, packetLabel),
-						frameSummary)
-				}
+			if sendFrame() {
+				return
 			}
 		}
 	}

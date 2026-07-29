@@ -7,35 +7,35 @@ const enttecProLabelSendDMX = 0x06
 // BuildEnttecProSendDMXPacket wraps a 512-channel universe in the Enttec / Eurolite
 // USB-DMX512 Pro serial packet format (label 6).
 func BuildEnttecProSendDMXPacket(universe [512]byte) []byte {
-	packet := make([]byte, 518)
-	packet[0] = 0x7E
-	packet[1] = enttecProLabelSendDMX
-	packet[2] = 0x01 // LSB of payload length (start code + 512 slots = 513)
-	packet[3] = 0x02 // MSB
-	packet[4] = 0x00 // DMX start code
-	copy(packet[5:517], universe[:])
-	packet[517] = 0xE7
-	return packet
+	data := make([]byte, 513)
+	data[0] = 0x00 // DMX start code
+	copy(data[1:], universe[:])
+	return BuildEnttecProMessage(enttecProLabelSendDMX, data)
 }
 
 // UsesEnttecProProtocol reports whether a listed USB serial device expects Enttec Pro
-// framed packets instead of a raw 513-byte stream.
+// framed packets instead of a raw Open DMX stream.
+//
+// Prefer DetectUSBProtocol / ResolveUSBProtocol for new call sites; this helper remains
+// for compatibility and treats ambiguous FTDI ports as Pro (historical default).
 func UsesEnttecProProtocol(description, name, path string) bool {
-	hay := strings.ToLower(strings.TrimSpace(description) + " " + strings.TrimSpace(name) + " " + strings.TrimSpace(path))
-	if strings.Contains(hay, "enttec") {
+	p := DetectUSBProtocol(description, name, path)
+	if USBProtocolNeedsProbe(p) {
+		// Legacy behaviour: unknown FTDI → Pro framing (many Enttec Pros lack "enttec" in by-id).
 		return true
 	}
-	if strings.Contains(hay, "eurolite") && strings.Contains(hay, "dmx") {
-		return true
+	return p == USBProtocolEnttecPro
+}
+
+// GuessUSBProtocolLabel returns a UI/console hint without opening the port.
+func GuessUSBProtocolLabel(description, name, path string) string {
+	p := DetectUSBProtocol(description, name, path)
+	if USBProtocolNeedsProbe(p) {
+		hay := strings.ToLower(description + " " + name + " " + path)
+		if isAmbiguousFTDISerial(hay) {
+			return "auto (probe)"
+		}
+		return "auto"
 	}
-	if strings.Contains(hay, "dmx512") && strings.Contains(hay, "pro") {
-		return true
-	}
-	// CDC ACM Pro adapters often have no vendor string in the OS listing:
-	// Linux /dev/ttyACM* (by-id usually adds enttec/eurolite above, but not always),
-	// macOS /dev/cu.usbmodem* or /dev/tty.usbmodem*.
-	if strings.Contains(hay, "ttyacm") || strings.Contains(hay, "usbmodem") {
-		return true
-	}
-	return false
+	return USBProtocolLabel(p)
 }

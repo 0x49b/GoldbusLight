@@ -1,6 +1,6 @@
 # DMX overview
 
-The **DMX** component controls a **DMX universe** (512 channels) over **USB** (Enttec Pro–compatible adapters) and/or **Art-Net**. You define **fixtures** (logical devices) with channel layouts, then patch, live-control, and automate them.
+The **DMX** component controls a **DMX universe** (512 channels) over **USB** (Enttec Pro–compatible adapters, Open DMX / Cable) and/or **Art-Net**. You define **fixtures** (logical devices) with channel layouts, then patch, live-control, and automate them.
 
 ## Prerequisites
 
