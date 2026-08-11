@@ -111,6 +111,7 @@ Ignored devices remain in the persisted configuration until deleted.
 | Problem | Things to try |
 |---------|----------------|
 | Cannot add device | Ping the IP from the controller host; open the WLED web UI in a browser; confirm port (usually 80) |
+| Do not know the IP (LAN or AP) | Follow [Finding the IP address](#finding-the-ip-address) |
 | Device stays offline | Power-cycle WLED; double-tap the sidebar entry; **Settings → WLED → Refresh** |
 | Wrong IP after DHCP change | Delete the old entry and add the device again with the new IP |
 | Device offline in sidebar | Cannot open device page until online — use refresh actions above |
