@@ -1,5 +1,6 @@
+import {useState} from "react";
 import {useTranslation} from "react-i18next";
-import {PiWifiHigh} from "react-icons/pi";
+import {PiNetwork, PiWifiHigh} from "react-icons/pi";
 import {Button} from "@/components/ui/button.tsx";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Field, FieldLabel} from "@/components/ui/field.tsx";
@@ -9,6 +10,7 @@ import {Switch} from "@/components/ui/switch.tsx";
 import {readNumber} from "@/lib/json.ts";
 import type {ControllerSettings} from "@/types/controller.ts";
 import type {SettingsUpdater} from "../../settingsTypes.ts";
+import {IpNeighborsModal} from "./IpNeighborsModal.tsx";
 
 type WledAccessPointCardProps = {
     settings: ControllerSettings;
@@ -17,6 +19,7 @@ type WledAccessPointCardProps = {
     disableAccessPointNow: () => Promise<void>;
     busy: boolean;
     onApplyNetwork: () => void;
+    listIPNeighborsSupported: boolean;
 };
 
 export function WledAccessPointCard({
@@ -26,8 +29,10 @@ export function WledAccessPointCard({
     disableAccessPointNow,
     busy,
     onApplyNetwork,
+    listIPNeighborsSupported,
 }: WledAccessPointCardProps) {
     const {t} = useTranslation("settings");
+    const [ipNeighborsOpen, setIpNeighborsOpen] = useState(false);
     const wledControlsDisabled = busy || !settings.wled.enabled;
 
     return (
@@ -71,7 +76,25 @@ export function WledAccessPointCard({
                     >
                         {t("wledTab.disableApNow")}
                     </Button>
+                    {listIPNeighborsSupported && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIpNeighborsOpen(true)}
+                            disabled={busy}
+                        >
+                            <PiNetwork/>
+                            {t("wledTab.ipNeighborsOpen")}
+                        </Button>
+                    )}
                 </div>
+                {listIPNeighborsSupported && (
+                    <IpNeighborsModal
+                        open={ipNeighborsOpen}
+                        onClose={() => setIpNeighborsOpen(false)}
+                    />
+                )}
                 {!settings.wled.enabled && (
                     <p className="text-xs text-muted-foreground">{t("wledTab.apDisabledWhileOff")}</p>
                 )}

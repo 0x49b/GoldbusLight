@@ -274,6 +274,7 @@ export function SettingsView({
                                 configPatchText={configPatchText}
                                 ignoredDevices={ignoredDevices}
                                 onUnignoreDevice={onUnignoreDevice}
+                                listIPNeighborsSupported={Boolean(snapshot?.capabilities.listIPNeighborsSupported)}
                             />
                         </TabsContent>
 

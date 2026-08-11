@@ -20,6 +20,7 @@ export type WledSettingsTabProps = {
     configPatchText: string;
     ignoredDevices: WLEDDevice[];
     onUnignoreDevice: (deviceId: string) => void;
+    listIPNeighborsSupported: boolean;
 };
 
 export function WledSettingsTab({
@@ -36,6 +37,7 @@ export function WledSettingsTab({
                                     configPatchText,
                                     ignoredDevices,
                                     onUnignoreDevice,
+                                    listIPNeighborsSupported,
                                 }: Readonly<WledSettingsTabProps>) {
     return (
         <div className="space-y-5">
@@ -54,6 +56,7 @@ export function WledSettingsTab({
                     disableAccessPointNow={disableAccessPointNow}
                     busy={busy}
                     onApplyNetwork={onApplyNetwork}
+                    listIPNeighborsSupported={listIPNeighborsSupported}
                 />
 
                 <WledProvisioningCard
