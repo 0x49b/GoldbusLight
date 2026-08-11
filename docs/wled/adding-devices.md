@@ -15,8 +15,42 @@ If the add fails, the page shows: *Could not add device. Check the IP address an
 
 Click **Cancel** to return to **General**.
 
-!!! tip "Finding the IP address"
-    Use your router’s DHCP client list, the WLED mobile app, or the device’s own display if it shows network info. The controller does not scan the network for you.
+## Finding the IP address
+
+Goldbus Light does **not** scan the network or list DHCP clients. You must learn each device’s IPv4 address outside the app, then enter it when adding the device.
+
+### On a normal LAN (home/venue router)
+
+Use any of these:
+
+| Method | How |
+|--------|-----|
+| **Router DHCP client list** | Open your router’s admin UI and find the WLED device (hostname often contains `wled`) |
+| **WLED mobile app** | Connect the phone to the same Wi‑Fi; the app shows discovered controllers and their IPs |
+| **Device display / WLED UI** | Some controllers show the assigned IP on a display or in the WLED web UI under network info |
+
+### On the controller access point (Raspberry Pi hotspot)
+
+When you enable **Settings → WLED → Access point** on Linux with NetworkManager (`ipv4.method=shared`), the Pi is typically the gateway at **`10.42.0.1`**, and WLED clients receive addresses in **`10.42.0.0/24`** (for example `10.42.0.12`).
+
+After the WLED device joins the AP SSID, find its IP with one of these methods:
+
+| Method | How |
+|--------|-----|
+| **WLED mobile app or device display** | Join the phone (or check the controller display) on the same AP; read the assigned IPv4 from WLED’s network info |
+| **Browser on a phone on the AP** | Open `http://<candidate-ip>/` for addresses in `10.42.0.x`. A successful page load shows the WLED web UI |
+| **Neighbor table on the Pi** | On the Raspberry Pi (SSH or terminal), run `ip neigh` and look for a new `10.42.0.x` entry after the device connects |
+| **DHCP / NetworkManager leases** | On the Pi, inspect NetworkManager or dnsmasq lease information for the shared AP connection; note the IPv4 leased to the WLED MAC/hostname |
+| **Ping or try common addresses** | From the Pi, ping addresses in `10.42.0.0/24` (or try likely hosts such as `10.42.0.2` … `10.42.0.50`), then open `http://<ip>/` in a browser to confirm WLED |
+
+!!! note "WLED’s own AP vs the controller AP"
+    WLED’s factory access point often uses **`4.3.2.1`**. That address applies only while the device is still in **its own** AP mode. After WLED joins the Goldbus Light hotspot as a client, use the leased `10.42.0.x` address instead.
+
+See [Network & access point](../settings/network.md) for enabling and applying the AP.
+
+### After DHCP changes the address
+
+If the WLED IP changes later, delete the old device entry and [add it again](#add-a-device) with the new IPv4.
 
 ## Refresh device list
 

@@ -68,5 +68,6 @@ sudo dnf install -y NetworkManager
 | Apply fails | Settings footer for `nmcli` availability; run apply again and read **Network apply result** |
 | AP does not broadcast | Verify interface name; check `nmcli device status` on the host |
 | WLED devices not joining | Confirm WLED configured for your AP SSID/password separately |
+| Joined AP but unknown IP | On the shared NetworkManager AP the Pi is usually `10.42.0.1`; see [Finding the IP address](../wled/adding-devices.md#finding-the-ip-address) |
 
 See [Troubleshooting](../troubleshooting.md).
