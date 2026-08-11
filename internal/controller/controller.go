@@ -360,6 +360,8 @@ type ControllerCapabilities struct {
 	NetworkCliUnavailableReason string `json:"networkCliUnavailableReason,omitempty"`
 	// NmcliAvailable is true only when Linux nmcli (NetworkManager) is present and used.
 	NmcliAvailable bool `json:"nmcliAvailable"`
+	// ListIPNeighborsSupported is true on Linux builds that can run `ip neigh`.
+	ListIPNeighborsSupported bool `json:"listIPNeighborsSupported"`
 }
 
 type NetworkCommandResult struct {
@@ -580,12 +582,13 @@ func (n *NetworkManager) controllerCapabilities() ControllerCapabilities {
 		reason = b.UnavailableHint()
 	}
 	return ControllerCapabilities{
-		NetworkBackendID:            b.ID(),
-		NetworkBackendLabel:         b.Label(),
-		NetworkControlAvailable:     b.Available(),
-		NetworkCliName:              b.PrimaryCLI(),
-		NetworkCliUnavailableReason: reason,
-		NmcliAvailable:              nmcli,
+		NetworkBackendID:             b.ID(),
+		NetworkBackendLabel:          b.Label(),
+		NetworkControlAvailable:      b.Available(),
+		NetworkCliName:               b.PrimaryCLI(),
+		NetworkCliUnavailableReason:  reason,
+		NmcliAvailable:               nmcli,
+		ListIPNeighborsSupported:     network.ListIPNeighborsSupported(),
 	}
 }
 
@@ -613,6 +616,22 @@ func (n *NetworkManager) Apply(ctx context.Context, settings ControllerSettings)
 		DryRun:   raw.DryRun,
 		Warnings: slices.Clone(raw.Warnings),
 		Steps:    steps,
+	}
+}
+
+// ListIPNeighborsSupported reports whether this host build can run `ip neigh`.
+func (n *NetworkManager) ListIPNeighborsSupported() bool {
+	return network.ListIPNeighborsSupported()
+}
+
+// ListIPNeighbors runs `ip neigh` on Linux hosts.
+func (n *NetworkManager) ListIPNeighbors(ctx context.Context) NetworkCommandResult {
+	raw := network.ListIPNeighbors(ctx, n.logger)
+	return NetworkCommandResult{
+		Command: raw.Command,
+		Output:  raw.Output,
+		Success: raw.Success,
+		Error:   raw.Error,
 	}
 }
 
@@ -1018,6 +1037,18 @@ func (c *WLEDController) ApplyNetwork(ctx context.Context) NetworkApplyResult {
 	c.mu.RUnlock()
 
 	result := c.network.Apply(ctx, settings)
+	c.touch()
+	return result
+}
+
+// ListIPNeighborsSupported reports whether `ip neigh` is available on this host.
+func (c *WLEDController) ListIPNeighborsSupported() bool {
+	return c.network.ListIPNeighborsSupported()
+}
+
+// ListIPNeighbors returns the host neighbor table (`ip neigh`) for finding WLED IPs on the AP.
+func (c *WLEDController) ListIPNeighbors(ctx context.Context) NetworkCommandResult {
+	result := c.network.ListIPNeighbors(ctx)
 	c.touch()
 	return result
 }

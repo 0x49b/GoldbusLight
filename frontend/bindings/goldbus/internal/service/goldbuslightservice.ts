@@ -242,9 +242,26 @@ export function ListDMXPartyAudioInputDevices(): $CancellablePromise<controller$
     });
 }
 
+/**
+ * ListIPNeighbors runs `ip neigh` on Linux and returns the command output.
+ */
+export function ListIPNeighbors(): $CancellablePromise<controller$0.NetworkCommandResult> {
+    return $Call.ByID(3580345622).then(($result: any) => {
+        return $$createType18($result);
+    });
+}
+
+/**
+ * ListIPNeighborsSupported reports whether the host can list IP neighbors (`ip neigh`).
+ * This is Linux-only.
+ */
+export function ListIPNeighborsSupported(): $CancellablePromise<boolean> {
+    return $Call.ByID(2556937036);
+}
+
 export function ListUSBSerialDevices(): $CancellablePromise<controller$0.USBSerialDevice[]> {
     return $Call.ByID(147791315).then(($result: any) => {
-        return $$createType19($result);
+        return $$createType20($result);
     });
 }
 
@@ -331,7 +348,7 @@ export function SetDeviceState(deviceID: string, state: { [_ in string]?: any })
 
 export function SetGlobalState(state: { [_ in string]?: any }): $CancellablePromise<{ [_ in string]?: string }> {
     return $Call.ByID(918662134, state).then(($result: any) => {
-        return $$createType20($result);
+        return $$createType21($result);
     });
 }
 
@@ -419,6 +436,7 @@ const $$createType14 = console$0.Entry.createFrom;
 const $$createType15 = $Create.Array($$createType14);
 const $$createType16 = controller$0.DMXPartyAudioInputDevice.createFrom;
 const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = serial$0.USBSerialDevice.createFrom;
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = $Create.Map($Create.Any, $Create.Any);
+const $$createType18 = controller$0.NetworkCommandResult.createFrom;
+const $$createType19 = serial$0.USBSerialDevice.createFrom;
+const $$createType20 = $Create.Array($$createType19);
+const $$createType21 = $Create.Map($Create.Any, $Create.Any);

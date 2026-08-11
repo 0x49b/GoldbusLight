@@ -156,6 +156,7 @@ export type ControllerSnapshot = {
         networkCliName: string;
         networkCliUnavailableReason?: string;
         nmcliAvailable: boolean;
+        listIPNeighborsSupported: boolean;
     };
 };
 
