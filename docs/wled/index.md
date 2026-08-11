@@ -6,7 +6,7 @@ The **WLED** component controls [WLED](https://kno.wled.ge/) LED controllers on 
 
 1. **Settings → WLED** — enable **Enable WLED component**
 2. WLED devices reachable on the LAN from the controller host (HTTP on the configured port, usually 80)
-3. Know each device’s **IPv4 address** (or use the access point workflow in [Network & access point](../settings/network.md))
+3. Know each device’s **IPv4 address** — see [Finding the IP address](adding-devices.md#finding-the-ip-address) (including the Raspberry Pi access point / hotspot). For AP setup, see [Network & access point](../settings/network.md)
 
 ## Main areas
 
@@ -29,7 +29,7 @@ Each WLED device in the sidebar has a status:
 
 ## WLED and access point
 
-The **local access point** feature (Settings → WLED → Access point) is tied to the WLED component. Disabling WLED forces the access point off. See [Network & access point](../settings/network.md).
+The **local access point** feature (Settings → WLED → Access point) is tied to the WLED component. Disabling WLED forces the access point off. See [Network & access point](../settings/network.md). After a WLED device joins the AP, use [Finding the IP address](adding-devices.md#finding-the-ip-address) to learn the leased `10.42.0.x` address before adding the device.
 
 ## WLED in party mode
 
