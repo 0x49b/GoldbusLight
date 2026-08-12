@@ -107,20 +107,40 @@ export function IpNeighborsModal({open, onClose}: Readonly<IpNeighborsModalProps
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState<NetworkCommandResult | null>(null);
     const [error, setError] = useState("");
+    const [copiedIp, setCopiedIp] = useState("");
 
     useEffect(() => {
         if (!open) {
             setBusy(false);
             setResult(null);
             setError("");
+            setCopiedIp("");
         }
     }, [open]);
 
+    useEffect(() => {
+        if (!copiedIp) {
+            return;
+        }
+        const timer = window.setTimeout(() => setCopiedIp(""), 2000);
+        return () => window.clearTimeout(timer);
+    }, [copiedIp]);
+
     const parsed = result?.output ? parseNmapOutput(result.output) : null;
+
+    const copyHostIp = async (ip: string) => {
+        try {
+            await navigator.clipboard.writeText(ip);
+            setCopiedIp(ip);
+        } catch (err) {
+            setError(String(err));
+        }
+    };
 
     const runScan = async () => {
         setBusy(true);
         setError("");
+        setCopiedIp("");
         try {
             const next = (await GoldbusLightService.ListIPNeighbors()) as NetworkCommandResult;
             setResult(next);
@@ -187,33 +207,45 @@ export function IpNeighborsModal({open, onClose}: Readonly<IpNeighborsModalProps
                                                 </p>
                                             )}
                                             {parsed.hosts.length > 0 ? (
-                                                <div className="max-h-72 overflow-auto rounded border">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>{t("wledTab.ipNeighborsColName")}</TableHead>
-                                                                <TableHead>{t("wledTab.ipNeighborsColIp")}</TableHead>
-                                                                <TableHead>{t("wledTab.ipNeighborsColStatus")}</TableHead>
-                                                                <TableHead>{t("wledTab.ipNeighborsColLatency")}</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {parsed.hosts.map((host) => (
-                                                                <TableRow key={`${host.ip}-${host.name}`}>
-                                                                    <TableCell className="font-medium">
-                                                                        {host.name || "—"}
-                                                                    </TableCell>
-                                                                    <TableCell className="font-mono text-xs">
-                                                                        {host.ip}
-                                                                    </TableCell>
-                                                                    <TableCell>{host.status}</TableCell>
-                                                                    <TableCell className="font-mono text-xs">
-                                                                        {host.latency || "—"}
-                                                                    </TableCell>
+                                                <div className="space-y-1.5">
+                                                    <div className="max-h-72 overflow-auto rounded border">
+                                                        <Table>
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>{t("wledTab.ipNeighborsColName")}</TableHead>
+                                                                    <TableHead>{t("wledTab.ipNeighborsColIp")}</TableHead>
+                                                                    <TableHead>{t("wledTab.ipNeighborsColStatus")}</TableHead>
+                                                                    <TableHead>{t("wledTab.ipNeighborsColLatency")}</TableHead>
                                                                 </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {parsed.hosts.map((host) => (
+                                                                    <TableRow
+                                                                        key={`${host.ip}-${host.name}`}
+                                                                        className="cursor-pointer"
+                                                                        title={t("wledTab.ipNeighborsCopyHint")}
+                                                                        onClick={() => void copyHostIp(host.ip)}
+                                                                    >
+                                                                        <TableCell className="font-medium">
+                                                                            {host.name || "—"}
+                                                                        </TableCell>
+                                                                        <TableCell className="font-mono text-xs">
+                                                                            {host.ip}
+                                                                        </TableCell>
+                                                                        <TableCell>{host.status}</TableCell>
+                                                                        <TableCell className="font-mono text-xs">
+                                                                            {host.latency || "—"}
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {copiedIp
+                                                            ? t("wledTab.ipNeighborsCopied", {ip: copiedIp})
+                                                            : t("wledTab.ipNeighborsCopyHint")}
+                                                    </p>
                                                 </div>
                                             ) : (
                                                 <p className="text-sm text-muted-foreground">

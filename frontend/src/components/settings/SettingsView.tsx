@@ -181,7 +181,7 @@ export function SettingsView({
         }, mode);
     }, [dmxState, updateSettings]);
 
-    const applyNetworkSettingsNow = useCallback(async () => {
+    const applyNetworkSettingsNow = useCallback(async (): Promise<boolean> => {
         onSettingsInteraction(3000);
         if (saveTimerRef.current != null) {
             window.clearTimeout(saveTimerRef.current);
@@ -191,26 +191,8 @@ export function SettingsView({
         if (saved) {
             onApplyNetwork();
         }
+        return saved;
     }, [onApplyNetwork, onSaveSettings, onSettingsInteraction]);
-
-    const disableAccessPointNow = useCallback(async () => {
-        setSettings((previous) => {
-            if (!previous) {
-                return previous;
-            }
-            return {
-                ...previous,
-                accessPoint: {
-                    ...previous.accessPoint,
-                    enabled: false,
-                },
-            };
-        });
-        const saved = await onSaveSettings();
-        if (saved) {
-            onApplyNetwork();
-        }
-    }, [onApplyNetwork, onSaveSettings, setSettings]);
 
     useEffect(() => {
         return () => {
@@ -266,9 +248,8 @@ export function SettingsView({
                                 flushAutosaveNow={flushAutosaveNow}
                                 updateStatePayloadText={updateStatePayloadText}
                                 updateConfigPatchText={updateConfigPatchText}
-                                disableAccessPointNow={disableAccessPointNow}
                                 busy={busy}
-                                onApplyNetwork={() => void applyNetworkSettingsNow()}
+                                onApplyNetworkNow={applyNetworkSettingsNow}
                                 onRefreshSnapshot={onRefreshSnapshot}
                                 statePayloadText={statePayloadText}
                                 configPatchText={configPatchText}

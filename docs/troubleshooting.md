@@ -146,13 +146,13 @@ Verify tag exists on [GitHub Releases](https://github.com/0x49b/GoldbusLight/rel
 
 ## Network / access point
 
-### Apply network settings does nothing
+### Enabling or applying the access point does nothing
 
-Check **Settings → General → Network apply result** for dry-run message. Install NetworkManager (`nmcli`) on Linux.
+Confirm the dialog after toggling **Enable local access point** (or after editing fields while the AP is on). Check **Settings → General → Network apply result** for a dry-run message. Install NetworkManager (`nmcli`) on Linux.
 
 ### Access point not restored after reboot
 
-Confirm **Enable local access point** is on and settings were saved (autosave or Apply). On Linux the app reapplies the AP shortly after startup when it was left enabled. Check application logs for `access point on boot` messages and `nmcli device status` on the host.
+Confirm **Enable local access point** is on and settings were saved (autosave after confirm). On Linux the app reapplies the AP shortly after startup when it was left enabled. Check application logs for `access point on boot` messages and `nmcli device status` on the host.
 
 ## Application logs
 

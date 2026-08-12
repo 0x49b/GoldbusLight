@@ -23,12 +23,13 @@ Requires **Enable WLED component** to be on.
 
 Access point settings are saved with the rest of controller settings (`state.json`) whenever you change them. On app start, the controller loads those settings and — if the AP was left **enabled** — applies them to the host automatically (Linux / NetworkManager).
 
-## Apply changes
+## Enable, disable, and apply
 
-| Button | Action |
-|--------|--------|
-| **Apply network settings** | Saves current fields (if needed) and runs network backend commands (NetworkManager `nmcli` on Linux) |
-| **Disable AP now (save + apply)** | Turns AP off, saves, and applies immediately (brings the connection down on Linux) |
+| Action | What happens |
+|--------|----------------|
+| **Enable local access point** | Confirmation dialog, then save and apply (brings the AP up on Linux) |
+| **Disable local access point** | Confirmation dialog, then save and apply (brings the connection down on Linux) |
+| **Edit fields while AP is on** | Leaving a changed field asks for confirmation before saving and applying to the live network |
 
 Results appear under **Settings → General → Network apply result** with step-by-step command output.
 

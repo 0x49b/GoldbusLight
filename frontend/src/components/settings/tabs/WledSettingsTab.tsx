@@ -12,9 +12,8 @@ export type WledSettingsTabProps = {
     flushAutosaveNow: () => void;
     updateStatePayloadText: (text: string) => void;
     updateConfigPatchText: (text: string) => void;
-    disableAccessPointNow: () => Promise<void>;
     busy: boolean;
-    onApplyNetwork: () => void;
+    onApplyNetworkNow: () => Promise<boolean>;
     onRefreshSnapshot: () => void;
     statePayloadText: string;
     configPatchText: string;
@@ -29,9 +28,8 @@ export function WledSettingsTab({
                                     flushAutosaveNow,
                                     updateStatePayloadText,
                                     updateConfigPatchText,
-                                    disableAccessPointNow,
                                     busy,
-                                    onApplyNetwork,
+                                    onApplyNetworkNow,
                                     onRefreshSnapshot,
                                     statePayloadText,
                                     configPatchText,
@@ -53,9 +51,8 @@ export function WledSettingsTab({
                     settings={settings}
                     updateSettings={updateSettings}
                     flushAutosaveNow={flushAutosaveNow}
-                    disableAccessPointNow={disableAccessPointNow}
                     busy={busy}
-                    onApplyNetwork={onApplyNetwork}
+                    onApplyNetworkNow={onApplyNetworkNow}
                     listIPNeighborsSupported={listIPNeighborsSupported}
                 />
 
