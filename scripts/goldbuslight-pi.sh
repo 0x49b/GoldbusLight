@@ -153,7 +153,35 @@ install_runtime_packages() {
     libwebkit2gtk-4.1-0 \
     libayatana-appindicator3-1 \
     xdg-utils \
-    curl
+    curl \
+    nmap \
+    iproute2 \
+    gawk
+  ensure_network_scan_tools
+}
+
+# nmap host discovery needs nmap, ip (iproute2), and awk (gawk).
+ensure_network_scan_tools() {
+  local missing=()
+
+  command -v nmap >/dev/null 2>&1 || missing+=(nmap)
+  command -v ip >/dev/null 2>&1 || missing+=(iproute2)
+  command -v awk >/dev/null 2>&1 || missing+=(gawk)
+
+  if ((${#missing[@]} == 0)); then
+    return 0
+  fi
+
+  if [[ "$LOCAL_INSTALL" == true ]]; then
+    log "warning: missing network scan tools: ${missing[*]}"
+    echo "Install them with: sudo apt-get install -y ${missing[*]}"
+    return 0
+  fi
+
+  log "Installing network scan tools: ${missing[*]}"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y --no-install-recommends "${missing[@]}"
 }
 
 check_local_runtime_packages() {
@@ -166,8 +194,9 @@ check_local_runtime_packages() {
   done
   if ((${#missing[@]} > 0)); then
     log "warning: missing packages: ${missing[*]}"
-    echo "Install them with: sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 xdg-utils curl"
+    echo "Install them with: sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 xdg-utils curl nmap iproute2 gawk"
   fi
+  ensure_network_scan_tools
 }
 
 write_env_file() {
@@ -560,6 +589,7 @@ cmd_update() {
   [[ -d "$INSTALL_DIR" ]] || die "install dir not found: $INSTALL_DIR (run: $0 install ...)"
 
   app_paths
+  ensure_network_scan_tools
   local tmp_dir
   tmp_dir="$(mktemp -d -t goldbuslight-update.XXXXXX)"
   trap 'rm -rf "$tmp_dir"' EXIT
@@ -614,6 +644,7 @@ cmd_fix() {
   write_launcher
   write_desktop_entry
   write_service_unit
+  ensure_network_scan_tools
   enable_boot
 
   echo ""

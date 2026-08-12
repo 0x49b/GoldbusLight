@@ -191,7 +191,7 @@ func (g *GoldbusLightService) ApplyNetworkSettings() (ctrlpkg.NetworkApplyResult
 	})
 }
 
-// ListIPNeighborsSupported reports whether the host can list IP neighbors (`ip neigh`).
+// ListIPNeighborsSupported reports whether the host can list IP neighbors via nmap.
 // This is Linux-only.
 func (g *GoldbusLightService) ListIPNeighborsSupported() (bool, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) bool {
@@ -199,7 +199,7 @@ func (g *GoldbusLightService) ListIPNeighborsSupported() (bool, error) {
 	})
 }
 
-// ListIPNeighbors runs `ip neigh` on Linux and returns the command output.
+// ListIPNeighbors runs nmap host discovery on Linux and returns the command output.
 func (g *GoldbusLightService) ListIPNeighbors() (ctrlpkg.NetworkCommandResult, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.NetworkCommandResult {
 		ctx, cancel := context.WithTimeout(context.Background(), TimeoutNetworkApply)

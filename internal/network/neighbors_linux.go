@@ -4,23 +4,30 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os/exec"
 )
 
-// ListIPNeighborsSupported reports whether this build can run `ip neigh`.
+const listIPNeighborsCommand = `nmap -sn $(ip route | awk '/kernel/ {print $1}')`
+
+// ListIPNeighborsSupported reports whether this build can run a local nmap host discovery.
 func ListIPNeighborsSupported() bool {
 	return true
 }
 
-// ListIPNeighbors runs `ip neigh` and returns the combined command result.
+// ListIPNeighbors runs nmap host discovery on local kernel routes and returns the command result.
 func ListIPNeighbors(ctx context.Context, logger *log.Logger) NetworkCommandResult {
-	if _, err := exec.LookPath("ip"); err != nil {
-		return NetworkCommandResult{
-			Command: "ip neigh",
-			Success: false,
-			Error:   "`ip` (iproute2) was not found in PATH",
+	for _, bin := range []string{"nmap", "ip", "awk"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			return NetworkCommandResult{
+				Command: listIPNeighborsCommand,
+				Success: false,
+				Error:   fmt.Sprintf("`%s` was not found in PATH", bin),
+			}
 		}
 	}
-	return runShellCommand(ctx, logger, "ip", "neigh")
+	result := runShellCommand(ctx, logger, "sh", "-c", listIPNeighborsCommand)
+	result.Command = listIPNeighborsCommand
+	return result
 }

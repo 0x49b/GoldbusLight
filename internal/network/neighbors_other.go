@@ -7,7 +7,9 @@ import (
 	"log"
 )
 
-// ListIPNeighborsSupported reports whether this build can run `ip neigh`.
+const listIPNeighborsCommand = `nmap -sn $(ip route | awk '/kernel/ {print $1}')`
+
+// ListIPNeighborsSupported reports whether this build can run a local nmap host discovery.
 func ListIPNeighborsSupported() bool {
 	return false
 }
@@ -17,7 +19,7 @@ func ListIPNeighbors(ctx context.Context, logger *log.Logger) NetworkCommandResu
 	_ = ctx
 	_ = logger
 	return NetworkCommandResult{
-		Command: "ip neigh",
+		Command: listIPNeighborsCommand,
 		Success: false,
 		Error:   "listing IP neighbors is only available on Linux",
 	}

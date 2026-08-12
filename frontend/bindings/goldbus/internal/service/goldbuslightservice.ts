@@ -243,7 +243,7 @@ export function ListDMXPartyAudioInputDevices(): $CancellablePromise<controller$
 }
 
 /**
- * ListIPNeighbors runs `ip neigh` on Linux and returns the command output.
+ * ListIPNeighbors runs nmap host discovery on Linux and returns the command output.
  */
 export function ListIPNeighbors(): $CancellablePromise<controller$0.NetworkCommandResult> {
     return $Call.ByID(3580345622).then(($result: any) => {
@@ -252,7 +252,7 @@ export function ListIPNeighbors(): $CancellablePromise<controller$0.NetworkComma
 }
 
 /**
- * ListIPNeighborsSupported reports whether the host can list IP neighbors (`ip neigh`).
+ * ListIPNeighborsSupported reports whether the host can list IP neighbors via nmap.
  * This is Linux-only.
  */
 export function ListIPNeighborsSupported(): $CancellablePromise<boolean> {

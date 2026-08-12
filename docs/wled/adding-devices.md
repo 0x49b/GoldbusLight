@@ -39,7 +39,7 @@ After the WLED device joins the AP SSID, find its IP with one of these methods:
 |--------|-----|
 | **WLED mobile app or device display** | Join the phone (or check the controller display) on the same AP; read the assigned IPv4 from WLED’s network info |
 | **Browser on a phone on the AP** | Open `http://<candidate-ip>/` for addresses in `10.42.0.x`. A successful page load shows the WLED web UI |
-| **Neighbor table on the Pi** | On the Raspberry Pi (SSH or terminal), run `ip neigh` and look for a new `10.42.0.x` entry after the device connects. On Linux builds you can also open **Settings → WLED → Access point → IP neighbors** and run the same command from the app |
+| **Neighbor table on the Pi** | On the Raspberry Pi (SSH or terminal), run `nmap -sn $(ip route | awk '/kernel/ {print $1}')` and look for a new `10.42.0.x` entry after the device connects. On Linux builds you can also open **Settings → WLED → Access point → IP neighbors** and run the same scan from the app |
 | **DHCP / NetworkManager leases** | On the Pi, inspect NetworkManager or dnsmasq lease information for the shared AP connection; note the IPv4 leased to the WLED MAC/hostname |
 | **Ping or try common addresses** | From the Pi, ping addresses in `10.42.0.0/24` (or try likely hosts such as `10.42.0.2` … `10.42.0.50`), then open `http://<ip>/` in a browser to confirm WLED |
 
