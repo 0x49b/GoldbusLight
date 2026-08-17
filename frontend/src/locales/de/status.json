@@ -59,5 +59,6 @@
   "configExported": "Konfiguration exportiert nach {{path}}",
   "sceneExported": "Szene exportiert nach {{path}}",
   "fixtureExported": "Fixture exportiert nach {{path}}",
+  "patchListExported": "DMX-Patchliste exportiert nach {{path}}",
   "labelAll": "{{label}} (alle)"
 }

@@ -1110,6 +1110,25 @@ export function useControllerApp() {
         [setStatus, setError],
     );
 
+    const onExportDMXPatchList = useCallback(
+        async (universeId: string, locale: string): Promise<string> => {
+            try {
+                const path = await GoldbusLightService.ExportDMXPatchList(universeId, locale);
+                const msg = i18n.t("status:patchListExported", {path});
+                setStatus(msg);
+                setError("");
+                return msg;
+            } catch (err) {
+                if (String(err).includes("configuration backup cancelled")) {
+                    return i18n.t("status:exportCancelled");
+                }
+                setError(String(err));
+                throw err;
+            }
+        },
+        [setStatus, setError],
+    );
+
     const onImportConfigurationBackup = useCallback(async (): Promise<string> => {
         try {
             await GoldbusLightService.ImportConfigurationBackup();
@@ -2139,6 +2158,7 @@ export function useControllerApp() {
         closeDetachedConsoleWindow,
         onExportConfigurationBackup,
         onExportDMXFixtureConfig,
+        onExportDMXPatchList,
         onImportConfigurationBackup,
         onCheckForUpdates,
     };

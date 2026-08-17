@@ -24,6 +24,8 @@
   },
   "universe": {
     "addFixture": "Add fixture",
+    "exportPatchList": "Export DMX patch list",
+    "exportPatchListFailed": "Could not export the DMX patch list: {{error}}",
     "live": "Live",
     "idle": "Idle",
     "slave": "Slave",

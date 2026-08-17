@@ -40,11 +40,11 @@ type GoldbusLightService struct {
 
 // CompanionStatus mirrors remotehttp.CompanionStatus for the Wails UI.
 type CompanionStatus struct {
-	Enabled    bool     `json:"enabled"`
-	Listening  bool     `json:"listening"`
-	Port       int      `json:"port"`
-	URLs       []string `json:"urls"`
-	QRDataURL  string   `json:"qrDataUrl,omitempty"`
+	Enabled   bool     `json:"enabled"`
+	Listening bool     `json:"listening"`
+	Port      int      `json:"port"`
+	URLs      []string `json:"urls"`
+	QRDataURL string   `json:"qrDataUrl,omitempty"`
 }
 
 type ConsoleWindowCallbacks struct {
@@ -60,6 +60,9 @@ type ConfigurationBackupCallbacks struct {
 	// PromptSaveFixturePath asks for a destination when exporting a single DMX
 	// fixture config. Optional; falls back to PromptSavePath when nil.
 	PromptSaveFixturePath func(suggestedFilename string) (path string, err error)
+	// PromptSaveDMXPatchListPath asks for a destination when exporting a universe
+	// patch list Excel workbook. Optional; falls back to PromptSavePath when nil.
+	PromptSaveDMXPatchListPath func(suggestedFilename string) (path string, err error)
 }
 
 type UpdateCallbacks struct {
@@ -181,7 +184,6 @@ func (g *GoldbusLightService) GetCompanionStatus() (CompanionStatus, error) {
 	}
 	return st, nil
 }
-
 
 func (g *GoldbusLightService) ApplyNetworkSettings() (ctrlpkg.NetworkApplyResult, error) {
 	return withControllerValue(g, func(c *ctrlpkg.WLEDController) ctrlpkg.NetworkApplyResult {
@@ -664,6 +666,40 @@ func (g *GoldbusLightService) ExportConfigurationBackup() (string, error) {
 		}
 		if err := os.WriteFile(path, data, 0o600); err != nil {
 			return "", fmt.Errorf("write backup: %w", err)
+		}
+		return path, nil
+	})
+}
+
+// ExportDMXPatchList prompts for a destination and writes an Excel patch list
+// for the current DMX universe. Returns the chosen path, or
+// ErrConfigurationBackupCancelled when dismissed.
+func (g *GoldbusLightService) ExportDMXPatchList(universeID string, locale string) (string, error) {
+	return withControllerResult(g, func(c *ctrlpkg.WLEDController) (string, error) {
+		prompt := g.backupCallbacks.PromptSaveDMXPatchListPath
+		if prompt == nil {
+			prompt = g.backupCallbacks.PromptSavePath
+		}
+		if prompt == nil {
+			return "", errors.New("dmx patch list export is unavailable")
+		}
+		data, suggested, err := c.ExportDMXPatchList(universeID, locale)
+		if err != nil {
+			return "", err
+		}
+		path, err := prompt(suggested)
+		if err != nil {
+			return "", err
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return "", ctrlpkg.ErrConfigurationBackupCancelled
+		}
+		if !strings.HasSuffix(strings.ToLower(path), ".xlsx") {
+			path += ".xlsx"
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			return "", fmt.Errorf("write dmx patch list: %w", err)
 		}
 		return path, nil
 	})

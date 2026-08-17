@@ -20,7 +20,7 @@ import type {
 } from "@/types/controller";
 import {type DragEvent, useEffect, useMemo, useRef, useState} from "react";
 import {useTranslation} from "react-i18next";
-import {PiPlus, PiWarningCircle} from "react-icons/pi";
+import {PiDownloadSimple, PiPlus, PiWarningCircle} from "react-icons/pi";
 import type {DMXLiveStatus} from "../../../bindings/goldbus/internal/dmx";
 import * as GoldbusLightService from "../../../bindings/goldbus/internal/service/goldbuslightservice";
 
@@ -37,6 +37,7 @@ export type DMXUniverseViewProps = {
         id: string;
         dmxAddress: number
     }>, successLabel?: string) => Promise<boolean>;
+    onExportPatchList: (universeId: string, locale: string) => Promise<string>;
     dmxLiveStatus: DMXLiveStatus | null;
     pullDMXLiveStatus: () => Promise<void>;
     onEmergency: () => void | Promise<void>;
@@ -226,15 +227,17 @@ export function DMXUniverseView({
                                     busy,
                                     setRoute,
                                     onReaddressFixtures,
+                                    onExportPatchList,
                                     dmxLiveStatus,
                                     pullDMXLiveStatus,
                                     onEmergency,
                                 }: Readonly<DMXUniverseViewProps>) {
-    const {t} = useTranslation("dmx");
+    const {t, i18n} = useTranslation("dmx");
     const [draggingFixtureId, setDraggingFixtureId] = useState<string | null>(null);
     const [dropChannel, setDropChannel] = useState<number | null>(null);
     const [dropBusy, setDropBusy] = useState(false);
-    const viewBusy = busy || dropBusy;
+    const [exportBusy, setExportBusy] = useState(false);
+    const viewBusy = busy || dropBusy || exportBusy;
     const universes = useMemo(() => normalizeUniverses(universesProp), [universesProp]);
     const activeUniverseId = resolveUniverseId(selectedUniverseId, universes);
 
@@ -351,6 +354,20 @@ export function DMXUniverseView({
         }
     };
 
+    const handleExportPatchList = async () => {
+        if (exportBusy) {
+            return;
+        }
+        setExportBusy(true);
+        try {
+            await onExportPatchList(activeUniverseId, i18n.language);
+        } catch {
+            // Status/error are reported by the export handler.
+        } finally {
+            setExportBusy(false);
+        }
+    };
+
     const gridContainerRef = useRef<HTMLDivElement>(null);
     const [gridCols, setGridCols] = useState(26);
 
@@ -379,6 +396,16 @@ export function DMXUniverseView({
 
             <div className="flex flex-wrap w-full items-start gap-2">
                 <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleExportPatchList()}
+                        disabled={viewBusy}
+                    >
+                        <PiDownloadSimple className="mr-1 size-4"/>
+                        {t("universe.exportPatchList")}
+                    </Button>
                     <Button
                         type="button"
                         variant="outline"

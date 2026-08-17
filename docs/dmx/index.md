@@ -24,7 +24,7 @@ Both USB and Art-Net can be active simultaneously; live output fans out to all e
 
 | Area | Path | Purpose |
 |------|------|---------|
-| [Universe view](universe.md) | Sidebar → Universe | Address grid, conflicts, drag readdress, output indicator |
+| [Universe view](universe.md) | Sidebar → Universe | Address grid, conflicts, drag readdress, patch list export, output indicator |
 | [Fixtures](fixtures.md) | Sidebar → DMX Devices | Create, import, channel editor |
 | [Live mode](live-mode.md) | Fixture → Live tab | Manual control, 3D preview, layout editor |
 | [Cues & sequences](presets.md) | Fixture → **Party cues** / **Scene cues** | Saved poses, show generation, party cue chase |

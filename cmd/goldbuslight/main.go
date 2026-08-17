@@ -186,6 +186,10 @@ func main() {
 		DisplayName: "Goldbus configuration backup",
 		Pattern:     "*.json",
 	}
+	xlsxFilter := application.FileFilter{
+		DisplayName: "Excel workbook",
+		Pattern:     "*.xlsx",
+	}
 
 	appService := service.NewGoldbusLightService(ctrl, service.ConsoleWindowCallbacks{
 		Open:       openDetachedConsoleWindow,
@@ -211,6 +215,14 @@ func main() {
 				Title:    "Export DMX fixture",
 				Filename: suggestedFilename,
 				Filters:  []application.FileFilter{importBackupFilter},
+			})
+			return dialog.PromptForSingleSelection()
+		},
+		PromptSaveDMXPatchListPath: func(suggestedFilename string) (string, error) {
+			dialog := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+				Title:    "Export DMX patch list",
+				Filename: suggestedFilename,
+				Filters:  []application.FileFilter{xlsxFilter},
 			})
 			return dialog.PromptForSingleSelection()
 		},

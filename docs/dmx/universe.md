@@ -8,6 +8,7 @@ The header shows the active interface summary (USB device name, Art-Net, or **No
 
 | Control | Description |
 |---------|-------------|
+| **Export DMX patch list** | Download an Excel workbook of the current universe (start addresses, mode, and channel map) for programming fixtures before mounting |
 | **Add fixture** | Open the create-fixture page |
 | **Blackout** | Stop party mode and set all DMX channels to 0% (output keeps streaming) |
 | **DMX** badge | Read-only — green when packets are being sent, rose when not |

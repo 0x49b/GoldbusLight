@@ -140,6 +140,15 @@ export function ExportDMXFixtureConfig(suggestedFilename: string, contents: stri
 }
 
 /**
+ * ExportDMXPatchList prompts for a destination and writes an Excel patch list
+ * for the current DMX universe. Returns the chosen path, or
+ * ErrConfigurationBackupCancelled when dismissed.
+ */
+export function ExportDMXPatchList(universeID: string, locale: string): $CancellablePromise<string> {
+    return $Call.ByID(3769544953, universeID, locale);
+}
+
+/**
  * ExportLightingScene prompts for a destination and writes a portable scene JSON file.
  */
 export function ExportLightingScene(id: string): $CancellablePromise<string> {

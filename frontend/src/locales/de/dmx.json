@@ -24,6 +24,8 @@
   },
   "universe": {
     "addFixture": "Gerät hinzufügen",
+    "exportPatchList": "DMX-Patchliste exportieren",
+    "exportPatchListFailed": "DMX-Patchliste konnte nicht exportiert werden: {{error}}",
     "live": "Live",
     "idle": "Bereit",
     "slave": "Slave",

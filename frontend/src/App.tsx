@@ -164,6 +164,7 @@ function App() {
                 usbSerialDevices={app.usbSerialDevices}
                 setRoute={app.setRoute}
                 onReaddressFixtures={app.onReaddressDMXFixtures}
+                onExportPatchList={app.onExportDMXPatchList}
                 dmxLiveStatus={app.dmxLiveStatus}
                 pullDMXLiveStatus={app.pullDMXLiveStatus}
                 onEmergency={app.triggerDMXEmergency}
