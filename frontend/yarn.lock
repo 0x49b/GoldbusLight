@@ -278,9 +278,9 @@
     "@babel/helper-string-parser" "^7.29.7"
     "@babel/helper-validator-identifier" "^7.29.7"
 
-"@base-ui/react@^1.7.0":
+"@base-ui/react@^1.4.1":
   version "1.7.0"
-  resolved "https://registry.yarnpkg.com/@base-ui/react/-/react-1.7.0.tgz#e42eeb6dcfad26be1077d805d46fb812092b4cfc"
+  resolved "https://registry.npmjs.org/@base-ui/react/-/react-1.7.0.tgz"
   integrity sha512-j+8QjX44C32jrXD/qyEAGpFr70FRpGL2CY61mQd9nBPWN737CK0xxD1ceJ055rW4RtdvFDT1e7otzdlfxvsYug==
   dependencies:
     "@babel/runtime" "^7.29.2"
@@ -291,7 +291,7 @@
 
 "@base-ui/utils@0.3.2":
   version "0.3.2"
-  resolved "https://registry.yarnpkg.com/@base-ui/utils/-/utils-0.3.2.tgz#21983db937f78a378d1f2e0f50157a2bc107123d"
+  resolved "https://registry.npmjs.org/@base-ui/utils/-/utils-0.3.2.tgz"
   integrity sha512-oWy1aq/I2GmYjpl4PhEAhzflF8VPGKgZeq0xAWTbfD5KBWyxcN0ZP2+WHSUm/5Z6lVMBDLReLcoXwSYoRc/zNQ==
   dependencies:
     "@babel/runtime" "^7.29.2"
@@ -382,14 +382,14 @@
 
 "@floating-ui/core@^1.8.0":
   version "1.8.0"
-  resolved "https://registry.yarnpkg.com/@floating-ui/core/-/core-1.8.0.tgz#d01c0bbea02e4a57f6fd7d5de6fc2c5c7dca40e1"
+  resolved "https://registry.npmjs.org/@floating-ui/core/-/core-1.8.0.tgz"
   integrity sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==
   dependencies:
     "@floating-ui/utils" "^0.2.12"
 
 "@floating-ui/dom@^1.8.0":
   version "1.8.0"
-  resolved "https://registry.yarnpkg.com/@floating-ui/dom/-/dom-1.8.0.tgz#8a20e6facbe2456afdbeb6c8b968a72df689cf63"
+  resolved "https://registry.npmjs.org/@floating-ui/dom/-/dom-1.8.0.tgz"
   integrity sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==
   dependencies:
     "@floating-ui/core" "^1.8.0"
@@ -404,7 +404,7 @@
 
 "@floating-ui/utils@^0.2.12":
   version "0.2.12"
-  resolved "https://registry.yarnpkg.com/@floating-ui/utils/-/utils-0.2.12.tgz#afefe785949f16ac4cdd1e695935a321572dd56a"
+  resolved "https://registry.npmjs.org/@floating-ui/utils/-/utils-0.2.12.tgz"
   integrity sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==
 
 "@fontsource-variable/oxanium@^5.2.8":
@@ -1587,20 +1587,20 @@
   resolved "https://registry.npmjs.org/@types/offscreencanvas/-/offscreencanvas-2019.7.3.tgz"
   integrity sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==
 
-"@types/react-dom@19.2.3":
-  version "19.2.3"
-  resolved "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.3.tgz"
-  integrity sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==
+"@types/react-dom@19.2.5":
+  version "19.2.5"
+  resolved "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.5.tgz"
+  integrity sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==
 
 "@types/react-reconciler@^0.28.9":
   version "0.28.9"
   resolved "https://registry.npmjs.org/@types/react-reconciler/-/react-reconciler-0.28.9.tgz"
   integrity sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==
 
-"@types/react@19.2.17":
-  version "19.2.17"
-  resolved "https://registry.npmjs.org/@types/react/-/react-19.2.17.tgz"
-  integrity sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==
+"@types/react@19.2.18":
+  version "19.2.18"
+  resolved "https://registry.npmjs.org/@types/react/-/react-19.2.18.tgz"
+  integrity sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==
   dependencies:
     csstype "^3.2.2"
 
@@ -3703,15 +3703,10 @@ require-from-string@^2.0.2:
   resolved "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz"
   integrity sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==
 
-reselect@5.2.0, reselect@^5.1.0:
+reselect@5.2.0, reselect@^5.1.0, reselect@^5.2.0:
   version "5.2.0"
   resolved "https://registry.npmjs.org/reselect/-/reselect-5.2.0.tgz"
   integrity sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==
-
-reselect@^5.2.0:
-  version "5.3.0"
-  resolved "https://registry.yarnpkg.com/reselect/-/reselect-5.3.0.tgz#0a3e3ed4436bdf2ab7c5e0f392dab2c062595d61"
-  integrity sha512-XGoLeRAVzUTcJ1qkxPQhDJyIZ5d6zzZD9nT7AEZOaaU9UbWclhycElmhO+VD5bFeLuzhPBaOV2oXC8uG35ZSpg==
 
 resolve-from@^4.0.0:
   version "4.0.0"
