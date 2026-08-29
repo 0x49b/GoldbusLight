@@ -384,21 +384,28 @@ export function useControllerApp() {
             next.universes = [{id: "universe-1", name: i18n.t("status:universe1")}];
         }
         setDMXState((prev) => {
-            const nextParty = next.party;
+            const pendingConfig = partyConfigSendRef.current;
+            const nextParty = pendingConfig ? {...next.party, config: pendingConfig} : next.party;
             const prevParty = prev.party;
             const prevStopped = !prevParty.config.enabled && !prevParty.status.running;
             const nextRunning = !!(nextParty.config?.enabled && nextParty.status?.running);
             if (prevStopped && nextRunning) {
                 return {...next, party: prevParty};
             }
-            return next;
+            return {...next, party: nextParty};
         });
         return next;
     }, []);
 
     const pullDMXPartyState = useCallback(async () => {
         const state = (await GoldbusLightService.GetDMXPartyState()) as unknown as DMXPartyState;
-        setDMXState((prev) => ({...prev, party: state}));
+        setDMXState((prev) => {
+            const pendingConfig = partyConfigSendRef.current;
+            return {
+                ...prev,
+                party: pendingConfig ? {...state, config: pendingConfig} : state,
+            };
+        });
         return state;
     }, [setDMXState]);
 
@@ -1316,14 +1323,23 @@ export function useControllerApp() {
                 partyConfigTimerRef.current = undefined;
             }
             const config = partyConfigSendRef.current;
-            partyConfigSendRef.current = null;
             if (!config) {
                 return;
             }
             lastPartyConfigSentAtMsRef.current = Date.now();
             try {
                 const next = await GoldbusLightService.SetDMXPartyConfig(new DMXPartyConfigModel(config as never));
-                setDMXState((prev) => ({...prev, party: next as unknown as DMXPartyState}));
+                if (partyConfigSendRef.current === config) {
+                    partyConfigSendRef.current = null;
+                }
+                setDMXState((prev) => {
+                    const pending = partyConfigSendRef.current;
+                    const server = next as unknown as DMXPartyState;
+                    return {
+                        ...prev,
+                        party: pending ? {...server, config: pending} : server,
+                    };
+                });
                 if (label) {
                     setStatus(label);
                 }
@@ -1351,7 +1367,10 @@ export function useControllerApp() {
             }));
             partyConfigSendRef.current = merged;
 
-            if (options?.immediate) {
+            const targetIdsChanged =
+                Object.prototype.hasOwnProperty.call(partial, "wledDeviceIds") ||
+                Object.prototype.hasOwnProperty.call(partial, "fixtureIds");
+            if (options?.immediate || targetIdsChanged) {
                 await flushPartyConfigSend();
                 return true;
             }

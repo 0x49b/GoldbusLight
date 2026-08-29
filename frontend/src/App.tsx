@@ -128,7 +128,7 @@ function App() {
                 wledEnabled={app.wledEnabled}
                 dmxPartyRunning={app.dmxPartyState?.status?.running === true}
                 party={app.dmxPartyState}
-                partyWledDevices={app.devices.filter((device) => device.online && !device.ignored)}
+                partyWledDevices={app.devices.filter((device) => !device.ignored)}
                 partyAudioInputDevices={app.partyAudioInputDevices}
                 onRefreshPartyAudioDevices={async () => {
                     await app.pullPartyAudioInputDevices();

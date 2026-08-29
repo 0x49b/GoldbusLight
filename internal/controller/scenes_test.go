@@ -42,7 +42,7 @@ func TestLightingSceneExportImportRoundTrip(t *testing.T) {
 		Name:       "Spot",
 		DMXAddress: 1,
 		Type:       DMXFixtureTypeMovingHead,
-		SceneCues: []DMXFixtureCue{{ID: "cue-1", Label: "Home", Values: map[string]int{"1": 128}}},
+		SceneCues:  []DMXFixtureCue{{ID: "cue-1", Label: "Home", Values: map[string]int{"1": 128}}},
 	}}
 	c.dmxPersistEnabled = true
 	c.scenes = []LightingScene{{
@@ -165,6 +165,116 @@ func TestUpdateLightingSceneStoresPartyTargets(t *testing.T) {
 	}
 	if len(updated.PartyFixtureIDs) != 1 || updated.PartyFixtureIDs[0] != "fx-1" {
 		t.Fatalf("party fixtures = %+v", updated.PartyFixtureIDs)
+	}
+}
+
+func TestUpdateLightingSceneClearsPartyWLEDTargets(t *testing.T) {
+	c := newSceneTestController(t)
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.settings.DMX.Enabled = true
+	c.devices = map[string]WLEDDevice{
+		"dev-1": {ID: "dev-1", Name: "Strip A"},
+		"dev-2": {ID: "dev-2", Name: "Strip B"},
+	}
+	c.dmxState = defaultDMXState()
+	c.dmxPersistEnabled = true
+	c.scenes = []LightingScene{{
+		ID:                 "scene-1",
+		Name:               "Party Look",
+		PartyWLEDDeviceIDs: []string{"dev-1", "dev-2"},
+	}}
+	c.partySceneID = "scene-1"
+	c.dmxState.Party.Config.WLEDDeviceIDs = []string{"dev-1", "dev-2"}
+	c.mu.Unlock()
+
+	updated, err := c.UpdateLightingScene(UpsertLightingSceneInput{
+		ID:                 "scene-1",
+		Name:               "Party Look",
+		PartyWLEDDeviceIDs: []string{"dev-1"},
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(updated.PartyWLEDDeviceIDs) != 1 || updated.PartyWLEDDeviceIDs[0] != "dev-1" {
+		t.Fatalf("scene party wled = %+v", updated.PartyWLEDDeviceIDs)
+	}
+
+	st := c.GetDMXPartyState()
+	if len(st.Config.WLEDDeviceIDs) != 1 || st.Config.WLEDDeviceIDs[0] != "dev-1" {
+		t.Fatalf("party config wled = %+v", st.Config.WLEDDeviceIDs)
+	}
+}
+
+func TestSetDMXPartyConfigSyncsPartySceneTargets(t *testing.T) {
+	c := newSceneTestController(t)
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.settings.DMX.Enabled = true
+	c.devices = map[string]WLEDDevice{
+		"dev-1": {ID: "dev-1", Name: "Strip A"},
+		"dev-2": {ID: "dev-2", Name: "Strip B"},
+	}
+	c.dmxState = defaultDMXState()
+	c.dmxPersistEnabled = true
+	c.scenes = []LightingScene{{
+		ID:                 "scene-1",
+		Name:               "Party Look",
+		PartyWLEDDeviceIDs: []string{"dev-1", "dev-2"},
+		PartyFixtureIDs:    []string{"fx-1"},
+	}}
+	c.dmxState.Fixtures = []DMXFixture{{ID: "fx-1", Name: "Spot", DMXAddress: 1, Type: DMXFixtureTypeMovingHead}}
+	c.partySceneID = "scene-1"
+	c.mu.Unlock()
+
+	cfg := defaultDMXPartyConfig()
+	cfg.WLEDDeviceIDs = []string{"dev-1"}
+	cfg.FixtureIDs = []string{"fx-1"}
+	if _, err := c.SetDMXPartyConfig(cfg); err != nil {
+		t.Fatalf("SetDMXPartyConfig: %v", err)
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.scenes) != 1 {
+		t.Fatalf("scenes = %d", len(c.scenes))
+	}
+	got := c.scenes[0].PartyWLEDDeviceIDs
+	if len(got) != 1 || got[0] != "dev-1" {
+		t.Fatalf("party scene wled = %+v, want [dev-1]", got)
+	}
+	if len(c.scenes[0].PartyFixtureIDs) != 1 || c.scenes[0].PartyFixtureIDs[0] != "fx-1" {
+		t.Fatalf("party scene fixtures = %+v", c.scenes[0].PartyFixtureIDs)
+	}
+}
+
+func TestSetPartyLightingSceneCopiesTargetsToConfig(t *testing.T) {
+	c := newSceneTestController(t)
+
+	c.mu.Lock()
+	c.settings = DefaultControllerSettings()
+	c.settings.WLED.Enabled = true
+	c.devices = map[string]WLEDDevice{"dev-1": {ID: "dev-1", Name: "Strip"}}
+	c.dmxState = defaultDMXState()
+	c.dmxPersistEnabled = true
+	c.scenes = []LightingScene{{
+		ID:                 "scene-1",
+		Name:               "Party Look",
+		PartyWLEDDeviceIDs: []string{"dev-1"},
+	}}
+	c.dmxState.Party.Config.WLEDDeviceIDs = []string{"stale-dev"}
+	c.mu.Unlock()
+
+	if err := c.SetPartyLightingScene("scene-1"); err != nil {
+		t.Fatalf("SetPartyLightingScene: %v", err)
+	}
+	st := c.GetDMXPartyState()
+	if len(st.Config.WLEDDeviceIDs) != 1 || st.Config.WLEDDeviceIDs[0] != "dev-1" {
+		t.Fatalf("party config wled = %+v", st.Config.WLEDDeviceIDs)
 	}
 }
 

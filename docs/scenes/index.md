@@ -65,10 +65,12 @@ When party mode is enabled for a scene:
 
 | Panel | Lists |
 |-------|--------|
-| **WLED targets** | Online, non-ignored WLED devices |
+| **WLED targets** | Non-ignored WLED devices (online and offline) |
 | **DMX targets** | Party-eligible fixtures (slave fixtures are omitted; they follow their master) |
 
-Use **Select all** / **Clear selection** in each panel. Save the scene after choosing targets.
+Use **Select all** / **Clear selection** in each panel. Changes are saved when you click **Save scene**, switch to another scene, or leave the editor.
+
+Party targets are shared with **Settings → Party**. Removing a WLED device (or DMX fixture) in either place updates the other. Sliders, mode (auto/audio), and effect settings still live only on **Settings → Party**.
 
 ### Standard scene content
 
@@ -102,7 +104,7 @@ When a scene is the designated **party scene**, its card shows a **Party** badge
 3. Tap the card.
 4. Confirm **Start party** in the **Start party mode?** dialog.
 
-The controller copies that scene’s party targets into party mode configuration and starts the party engine. Sliders, mode (auto/audio), and other party settings come from **Settings → Party** — adjust them there before or between runs.
+The controller starts the party engine using that scene’s WLED and DMX targets. Those targets stay in sync with **Settings → Party** — changing membership in either place updates the other. Sliders, mode (auto/audio), and other party settings come from **Settings → Party** — adjust them there before or between runs.
 
 While party is launching, the card may show **· Starting…**. While party is already running, the party scene card is disabled until you stop party.
 

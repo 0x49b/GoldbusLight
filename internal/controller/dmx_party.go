@@ -92,21 +92,21 @@ type DMXPartyState struct {
 
 func defaultDMXPartyConfig() DMXPartyConfig {
 	return DMXPartyConfig{
-		Enabled:          false,
-		Mode:             DMXPartyModeAuto,
-		FixtureIDs:       []string{},
-		WLEDDeviceIDs:    []string{},
-		WLEDBrightness:   defaultPartyWLEDBrightness,
-		WLEDSpeed:        defaultPartyWLEDSpeed,
-		Intensity:        80,
-		Speed:            55,
+		Enabled:               false,
+		Mode:                  DMXPartyModeAuto,
+		FixtureIDs:            []string{},
+		WLEDDeviceIDs:         []string{},
+		WLEDBrightness:        defaultPartyWLEDBrightness,
+		WLEDSpeed:             defaultPartyWLEDSpeed,
+		Intensity:             80,
+		Speed:                 55,
 		MovementRange:         defaultPartyMovementRange,
 		MovementAngleLimitDeg: defaultPartyMovementAngleLimitDeg,
-		ColorVariation:   70,
-		AudioSensitivity: 60,
-		SmokeBurstOnMS:   defaultPartySmokeBurstOnMS,
-		SmokeBurstOffMS:  defaultPartySmokeBurstOffMS,
-		SmokeVolume:      defaultPartySmokeVolume,
+		ColorVariation:        70,
+		AudioSensitivity:      60,
+		SmokeBurstOnMS:        defaultPartySmokeBurstOnMS,
+		SmokeBurstOffMS:       defaultPartySmokeBurstOffMS,
+		SmokeVolume:           defaultPartySmokeVolume,
 	}
 }
 
@@ -335,11 +335,17 @@ func (c *WLEDController) SetDMXPartyConfig(config DMXPartyConfig) (DMXPartyState
 	current.Status.Mode = next.Mode
 	current.Status.AudioInputDeviceID = next.AudioInputDeviceID
 	c.dmxState.Party = current
+	syncPartyScene := c.applyPartySceneTargetsLocked(next.WLEDDeviceIDs, next.FixtureIDs)
 	c.updated = time.Now()
 	state := c.dmxState.Party
 	c.mu.Unlock()
 	if err := c.persistDMX(); err != nil {
 		return DMXPartyState{}, err
+	}
+	if syncPartyScene {
+		if err := c.persist(); err != nil {
+			return DMXPartyState{}, err
+		}
 	}
 	c.syncPartyAudioCapture()
 	return state, nil
