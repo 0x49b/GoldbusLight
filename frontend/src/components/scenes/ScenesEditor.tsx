@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {PiArrowLeft, PiPlus, PiTrash, PiWarning} from "react-icons/pi";
 import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
@@ -95,6 +95,10 @@ function draftToInput(draft: SceneDraft): UpsertLightingSceneInput {
         partyWledDeviceIds: draft.partyMode ? draft.partyWledDeviceIds : [],
         partyFixtureIds: draft.partyMode ? draft.partyFixtureIds : [],
     };
+}
+
+function sceneDraftsMatch(a: SceneDraft, b: SceneDraft): boolean {
+    return a.partyMode === b.partyMode && JSON.stringify(draftToInput(a)) === JSON.stringify(draftToInput(b));
 }
 
 export type ScenesEditorProps = {
@@ -215,6 +219,44 @@ export function ScenesEditor({
         void onSetDefault(id);
     };
 
+    const draftRef = useRef(draft);
+    draftRef.current = draft;
+
+    const persistExistingDraft = useCallback(
+        async (next: SceneDraft) => {
+            if (!next.id || !next.name.trim()) {
+                return;
+            }
+            const scene = scenes.find((s) => s.id === next.id);
+            if (!scene) {
+                return;
+            }
+            if (sceneDraftsMatch(next, draftFromScene(scene, partySceneId))) {
+                return;
+            }
+            const input = draftToInput(next);
+            // Drop party designation before saving a standard scene so empty
+            // party target lists do not wipe Settings → Party membership.
+            if (!next.partyMode && partySceneId === next.id) {
+                await onSetPartyScene("");
+            }
+            await onUpdate({...input, id: next.id});
+            if (next.partyMode && partySceneId !== next.id) {
+                await onSetPartyScene(next.id);
+            }
+        },
+        [scenes, partySceneId, onSetPartyScene, onUpdate],
+    );
+
+    const persistExistingDraftRef = useRef(persistExistingDraft);
+    persistExistingDraftRef.current = persistExistingDraft;
+
+    useEffect(() => {
+        return () => {
+            void persistExistingDraftRef.current(draftRef.current);
+        };
+    }, []);
+
     const applyPartyMode = (enabled: boolean) => {
         setDraft((prev) => ({...prev, partyMode: enabled}));
     };
@@ -254,6 +296,9 @@ export function ScenesEditor({
         setSaving(true);
         try {
             let sceneId = draft.id;
+            if (!draft.partyMode && draft.id && partySceneId === draft.id) {
+                await onSetPartyScene("");
+            }
             if (draft.id) {
                 const updated = await onUpdate({...input, id: draft.id});
                 sceneId = updated.id;
@@ -263,15 +308,34 @@ export function ScenesEditor({
                 sceneId = created.id;
                 setDraft(draftFromScene(created, draft.partyMode ? sceneId : partySceneId));
             }
-            if (draft.partyMode && sceneId) {
-                if (partySceneId !== sceneId) {
-                    await onSetPartyScene(sceneId);
-                }
-            } else if (!draft.partyMode && partySceneId === sceneId) {
-                await onSetPartyScene("");
+            if (draft.partyMode && sceneId && partySceneId !== sceneId) {
+                await onSetPartyScene(sceneId);
             }
         } finally {
             setSaving(false);
+        }
+    };
+
+    const leaveEditor = async () => {
+        setSaving(true);
+        try {
+            await persistExistingDraft(draft);
+        } finally {
+            setSaving(false);
+            onBack();
+        }
+    };
+
+    const selectScene = async (scene: LightingScene) => {
+        if (draft.id === scene.id) {
+            return;
+        }
+        setSaving(true);
+        try {
+            await persistExistingDraft(draft);
+        } finally {
+            setSaving(false);
+            setDraft(draftFromScene(scene, partySceneId));
         }
     };
 
@@ -297,14 +361,31 @@ export function ScenesEditor({
                         variant="ghost"
                         size="sm"
                         className="-ml-2 gap-1 px-2"
-                        onClick={onBack}
+                        onClick={() => {
+                            void leaveEditor();
+                        }}
                     >
                         <PiArrowLeft className="size-4" aria-hidden />
                         {t("editor.back")}
                     </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" onClick={() => setDraft(emptyDraft())} disabled={busy || saving}>
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                            void (async () => {
+                                setSaving(true);
+                                try {
+                                    await persistExistingDraft(draft);
+                                } finally {
+                                    setSaving(false);
+                                    setDraft(emptyDraft());
+                                }
+                            })();
+                        }}
+                        disabled={busy || saving}
+                    >
                         <PiPlus className="size-4" aria-hidden />
                         {t("editor.createScene")}
                     </Button>
@@ -314,11 +395,18 @@ export function ScenesEditor({
                         variant="secondary"
                         disabled={busy || saving}
                         onClick={() => {
-                            void onImport().then((scene) => {
-                                if (scene) {
-                                    setDraft(draftFromScene(scene));
+                            void (async () => {
+                                setSaving(true);
+                                try {
+                                    await persistExistingDraft(draft);
+                                    const scene = await onImport();
+                                    if (scene) {
+                                        setDraft(draftFromScene(scene));
+                                    }
+                                } finally {
+                                    setSaving(false);
                                 }
-                            });
+                            })();
                         }}
                     >
                         {t("editor.import")}
@@ -383,7 +471,9 @@ export function ScenesEditor({
                                         "w-full rounded-md px-2 py-1.5 text-left text-sm",
                                         draft.id === scene.id ? "bg-accent font-medium" : "hover:bg-muted/60",
                                     )}
-                                    onClick={() => setDraft(draftFromScene(scene, partySceneId))}
+                                    onClick={() => {
+                                        void selectScene(scene);
+                                    }}
                                 >
                                     {scene.name}
                                 </button>

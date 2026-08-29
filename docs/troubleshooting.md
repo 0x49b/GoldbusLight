@@ -107,6 +107,10 @@ Manual WLED or DMX edits clear the active scene. Tap the scene card again to re-
 
 While party is already running, the party scene card is disabled. Stop party from **Settings → Party**, then tap the card again.
 
+### WLED devices come back after removing them from party
+
+Party membership is shared between the party scene and **Settings → Party**. Uncheck the device in either place; leaving the scene editor (or switching scenes) now saves that change. Offline devices are listed too — they used to be hidden on the Settings party tab, which made them look impossible to remove.
+
 ## Raspberry Pi
 
 ### App does not start on boot

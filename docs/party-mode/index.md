@@ -15,7 +15,7 @@ While party mode runs:
 
 Stop with **Stop Party** or **Blackout**.
 
-You can also start party mode from a [party scene](../scenes/index.md) on the Scenes page — one scene can store WLED and DMX party targets and launch party when you tap the party scene card.
+You can also start party mode from a [party scene](../scenes/index.md) on the Scenes page — one scene stores WLED and DMX party targets and launches party when you tap the party scene card. Target membership stays in sync with the lists on this page.
 
 ## Start and stop
 
@@ -71,7 +71,7 @@ Party targets and per-area sliders live under three tabs: **WLED**, **DMX**, and
 | **Brightness** | 0–255 (same scale as the WLED device screen) |
 | **Hue sweep speed** | 0–255 — used with Solid (effect 0) and **Color variation** |
 | **Color variation** | How much colors vary over time |
-| **WLED targets** | Online, non-ignored devices |
+| **WLED targets** | Non-ignored devices (online and offline) |
 | **Effect & palette per device** | Per included device: effect, palette, speed (sx), intensity (ix) |
 
 For Solid (effect 0), hue sweeps from brightness, hue speed, and color variation. Other effects use the per-device sx/ix values.

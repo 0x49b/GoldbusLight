@@ -21,9 +21,9 @@ type PortableLightingSceneBundle struct {
 }
 
 type PortableLightingSceneData struct {
-	Name string                     `json:"name"`
-	WLED []PortableSceneWLEDEntry   `json:"wled"`
-	DMX  []PortableSceneDMXEntry    `json:"dmx"`
+	Name string                   `json:"name"`
+	WLED []PortableSceneWLEDEntry `json:"wled"`
+	DMX  []PortableSceneDMXEntry  `json:"dmx"`
 }
 
 type PortableSceneWLEDEntry struct {
@@ -36,11 +36,11 @@ type PortableSceneWLEDEntry struct {
 }
 
 type PortableSceneDMXEntry struct {
-	FixtureID    string             `json:"fixtureId,omitempty"`
-	FixtureBrand string             `json:"fixtureBrand"`
-	FixtureName  string             `json:"fixtureName"`
-	CueLabel     string             `json:"cueLabel"`
-	Values       map[string]int     `json:"values"`
+	FixtureID    string         `json:"fixtureId,omitempty"`
+	FixtureBrand string         `json:"fixtureBrand"`
+	FixtureName  string         `json:"fixtureName"`
+	CueLabel     string         `json:"cueLabel"`
+	Values       map[string]int `json:"values"`
 }
 
 func cloneLightingScenes(in []LightingScene) []LightingScene {
@@ -133,6 +133,67 @@ func normalizeScenePartyFixtureIDs(in []string) []string {
 	return normalizeScenePartyDeviceIDs(in)
 }
 
+func partyTargetIDsEqual(a, b []string) bool {
+	a = normalizeScenePartyDeviceIDs(a)
+	b = normalizeScenePartyDeviceIDs(b)
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func clonePartyTargetIDs(in []string) []string {
+	in = normalizeScenePartyDeviceIDs(in)
+	if len(in) == 0 {
+		return nil
+	}
+	return append([]string(nil), in...)
+}
+
+// applyPartyConfigTargetsLocked copies party-mode target IDs onto the live party
+// config. Caller must hold c.mu. Returns true when the in-memory config changed.
+func (c *WLEDController) applyPartyConfigTargetsLocked(wledIDs, fixtureIDs []string) bool {
+	wledIDs = clonePartyTargetIDs(wledIDs)
+	fixtureIDs = clonePartyTargetIDs(fixtureIDs)
+	cfg := c.dmxState.Party.Config
+	if partyTargetIDsEqual(cfg.WLEDDeviceIDs, wledIDs) && partyTargetIDsEqual(cfg.FixtureIDs, fixtureIDs) {
+		return false
+	}
+	cfg.WLEDDeviceIDs = wledIDs
+	cfg.FixtureIDs = fixtureIDs
+	c.dmxState.Party.Config = normalizeDMXPartyConfig(cfg)
+	return true
+}
+
+// applyPartySceneTargetsLocked copies party-mode target IDs onto the designated
+// party scene. Caller must hold c.mu. Returns true when the scene changed.
+func (c *WLEDController) applyPartySceneTargetsLocked(wledIDs, fixtureIDs []string) bool {
+	id := strings.TrimSpace(c.partySceneID)
+	if id == "" {
+		return false
+	}
+	idx, scene, ok := c.findSceneLocked(id)
+	if !ok {
+		return false
+	}
+	wledIDs = clonePartyTargetIDs(wledIDs)
+	fixtureIDs = clonePartyTargetIDs(fixtureIDs)
+	if partyTargetIDsEqual(scene.PartyWLEDDeviceIDs, wledIDs) && partyTargetIDsEqual(scene.PartyFixtureIDs, fixtureIDs) {
+		return false
+	}
+	scenes := cloneLightingScenes(c.scenes)
+	scenes[idx].PartyWLEDDeviceIDs = wledIDs
+	scenes[idx].PartyFixtureIDs = fixtureIDs
+	scenes[idx].UpdatedAt = time.Now().UTC()
+	c.scenes = scenes
+	return true
+}
+
 func normalizeUpsertLightingScene(input UpsertLightingSceneInput) (LightingScene, error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
@@ -207,11 +268,18 @@ func (c *WLEDController) UpdateLightingScene(input UpsertLightingSceneInput) (Li
 	scenes := cloneLightingScenes(c.scenes)
 	scenes[idx] = scene
 	c.scenes = scenes
+	syncPartyConfig := strings.TrimSpace(c.partySceneID) == scene.ID &&
+		c.applyPartyConfigTargetsLocked(scene.PartyWLEDDeviceIDs, scene.PartyFixtureIDs)
 	c.updated = time.Now()
 	c.mu.Unlock()
 
 	if err := c.persist(); err != nil {
 		return LightingScene{}, err
+	}
+	if syncPartyConfig {
+		if err := c.persistDMX(); err != nil {
+			return LightingScene{}, err
+		}
 	}
 	return scene, nil
 }
@@ -399,9 +467,21 @@ func (c *WLEDController) SetPartyLightingScene(id string) error {
 		}
 	}
 	c.partySceneID = id
+	syncPartyConfig := false
+	if id != "" {
+		if _, scene, ok := c.findSceneLocked(id); ok {
+			syncPartyConfig = c.applyPartyConfigTargetsLocked(scene.PartyWLEDDeviceIDs, scene.PartyFixtureIDs)
+		}
+	}
 	c.updated = time.Now()
 	c.mu.Unlock()
-	return c.persist()
+	if err := c.persist(); err != nil {
+		return err
+	}
+	if syncPartyConfig {
+		return c.persistDMX()
+	}
+	return nil
 }
 
 // StartLightingSceneParty applies the scene's party targets to party config and starts party mode.
