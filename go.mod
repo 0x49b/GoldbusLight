@@ -5,7 +5,7 @@ go 1.26.1
 require github.com/wailsapp/wails/v3 v3.0.0-beta.15 //49.0.20251220134012-30af00528de2
 
 require (
-	github.com/gen2brain/malgo v0.11.25
+	github.com/gen2brain/malgo v0.11.26
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	go.bug.st/serial v1.8.0
 )
